@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🤝 Community Discussion
+    url: https://github.com/panelmaker-ai/website/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 🔒 Private Security Report
+    url: https://github.com/panelmaker-ai/website/security/advisories/new
+    about: Report sensitive security vulnerabilities privately
+  - name: 📖 Documentation
+    url: https://panelmaker.ai/docs
+    about: Check our documentation for answers to common questions
