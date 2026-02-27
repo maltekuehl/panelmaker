@@ -1,11 +1,9 @@
-import { getBlogPosts } from "@/lib/blog"
-import { getAllMCPServers } from "@/lib/registry"
+import { prisma } from "@/lib/prisma"
 import { MetadataRoute } from "next"
 
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://panelmaker.ai"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Static routes
   const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
@@ -14,27 +12,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 1,
     },
     {
-      url: `${baseUrl}/registry`,
+      url: `${baseUrl}/browse`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/blog`,
+      url: `${baseUrl}/panel`,
       lastModified: new Date(),
-      changeFrequency: "daily",
+      changeFrequency: "weekly",
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/docs`,
+      url: `${baseUrl}/submit`,
       lastModified: new Date(),
-      changeFrequency: "weekly",
+      changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: `${baseUrl}/chat`,
       lastModified: new Date(),
-      changeFrequency: "weekly",
+      changeFrequency: "monthly",
       priority: 0.6,
     },
     {
@@ -52,35 +50,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   try {
-    // Dynamic registry server routes
-    const servers = await getAllMCPServers()
-    const serverRoutes: MetadataRoute.Sitemap = servers
-      .filter((server) => server.identifier) // Only include servers with identifiers
-      .map((server) => ({
-        url: `${baseUrl}/registry/${encodeURIComponent(server.identifier!)}`,
-        lastModified: new Date(), // Use current date since updatedAt is not available in the type
-        changeFrequency: "weekly" as const,
-        priority: 0.7,
-      }))
+    const [proteins, cellTypes] = await Promise.all([
+      prisma.protein.findMany({ select: { id: true } }),
+      prisma.cellType.findMany({ select: { id: true } }),
+    ])
 
-    // Dynamic blog post routes
-    const blogPosts = await getBlogPosts(
-      { published: true }, // filters
-      { page: 1, limit: 1000 }, // pagination - get all published posts
-    )
-
-    const blogRoutes: MetadataRoute.Sitemap = blogPosts.posts.map((post) => ({
-      url: `${baseUrl}/blog/${post.slug}`,
-      lastModified: post.updatedAt || post.publishedAt || new Date(),
-      changeFrequency: "monthly" as const,
-      priority: 0.6,
+    const proteinRoutes: MetadataRoute.Sitemap = proteins.map((p) => ({
+      url: `${baseUrl}/marker/${encodeURIComponent(p.id)}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
     }))
 
-    // Combine all routes
-    return [...staticRoutes, ...serverRoutes, ...blogRoutes]
+    const cellTypeRoutes: MetadataRoute.Sitemap = cellTypes.map((ct) => ({
+      url: `${baseUrl}/celltype/${encodeURIComponent(ct.id)}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }))
+
+    return [...staticRoutes, ...proteinRoutes, ...cellTypeRoutes]
   } catch (error) {
     console.error("Error generating sitemap:", error)
-    // Return static routes if dynamic generation fails
     return staticRoutes
   }
 }

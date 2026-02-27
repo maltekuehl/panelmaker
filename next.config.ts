@@ -98,6 +98,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "img.shields.io",
       },
+      {
+        protocol: "https",
+        hostname: "placehold.co",
+      },
     ],
   },
   productionBrowserSourceMaps: false,

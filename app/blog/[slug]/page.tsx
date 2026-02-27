@@ -51,7 +51,14 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
   return {
     title: post.metaTitle || post.title,
     description: post.metaDescription || post.excerpt || undefined,
-    keywords: post.keywords,
+    keywords: (() => {
+      try {
+        const parsed = JSON.parse(post.keywords)
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    })(),
     openGraph: {
       title: post.metaTitle || post.title,
       description: post.metaDescription || post.excerpt || undefined,
@@ -132,10 +139,18 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     notFound()
   }
 
-  // If post is not published and user is not admin, show not found
   if (!post.published && !isAdmin) {
     notFound()
   }
+
+  const parsedKeywords: string[] = (() => {
+    try {
+      const parsed = JSON.parse(post.keywords)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  })()
 
   const readingTime = Math.ceil(post.content.split(" ").length / 200)
 
@@ -218,7 +233,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         </Card>
 
         {/* Keywords Card */}
-        {post.keywords.length > 0 && (
+        {parsedKeywords.length > 0 && (
           <Card className="mb-8 shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -230,7 +245,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="flex flex-wrap gap-2">
-                {post.keywords.map((keyword) => (
+                {parsedKeywords.map((keyword) => (
                   <Badge key={keyword} variant="secondary" itemProp="keywords">
                     <Tag className="w-3 h-3 mr-1" />
                     {keyword}
@@ -241,8 +256,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           </Card>
         )}
 
-        {/* Related Posts */}
-        <RelatedPosts currentPostId={post.id} keywords={post.keywords} />
+        <RelatedPosts currentPostId={post.id} keywords={parsedKeywords} />
       </div>
     </div>
   )

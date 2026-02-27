@@ -48,7 +48,14 @@ export default async function EditBlogPage({ params }: EditBlogPageProps) {
         published: blogPost.published,
         metaTitle: blogPost.metaTitle || "",
         metaDescription: blogPost.metaDescription || "",
-        keywords: blogPost.keywords,
+        keywords: (() => {
+          try {
+            const parsed = JSON.parse(blogPost.keywords)
+            return Array.isArray(parsed) ? parsed : []
+          } catch {
+            return []
+          }
+        })(),
       }}
       isEditing={true}
     />

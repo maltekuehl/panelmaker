@@ -1,0 +1,243 @@
+export const metadata = {
+  title: "Public API | PanelMaker Documentation",
+  description:
+    "PanelMaker public REST API documentation. Programmatic access to proteins, antibodies, validation reports, cell types, and panels.",
+  keywords: [
+    "PanelMaker API",
+    "REST API",
+    "antibody API",
+    "spatial proteomics API",
+    "public API",
+    "programmatic access",
+  ],
+}
+
+# Public API
+
+PanelMaker provides a read-only public REST API for programmatic access to all community data. No API key is required for public endpoints.
+
+**Base URL:** `https://panelmaker.ai/api`
+
+All responses are JSON. Successful responses follow the shape:
+
+```json
+{
+  "data": [...],
+  "meta": {
+    "total": 100,
+    "nextCursor": "cursor_abc123"
+  }
+}
+```
+
+## Pagination
+
+All list endpoints use cursor-based pagination. Pass `cursor=<nextCursor>` from the previous response to fetch the next page. The default page size is 20; the maximum is 100.
+
+```
+GET /api/proteins?limit=50&cursor=cursor_abc123
+```
+
+When `nextCursor` is absent from `meta`, you have reached the last page.
+
+---
+
+## Proteins
+
+### List proteins
+
+```
+GET /api/proteins
+```
+
+**Query parameters:**
+
+| Parameter | Type    | Description                                     |
+| --------- | ------- | ----------------------------------------------- |
+| `q`       | string  | Text search across gene symbol and protein name |
+| `limit`   | integer | Results per page (default 20, max 100)          |
+| `cursor`  | string  | Pagination cursor from previous response        |
+
+**Example:**
+
+```bash
+curl "https://panelmaker.ai/api/proteins?q=CD3&limit=10"
+```
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "prot_01abc",
+      "label": "CD3 epsilon",
+      "geneSymbol": "CD3E",
+      "uniprotId": "P07766",
+      "subcellularLocation": "membrane",
+      "createdAt": "2026-01-15T10:00:00Z"
+    }
+  ],
+  "meta": { "total": 3, "nextCursor": null }
+}
+```
+
+### Get a single protein
+
+```
+GET /api/proteins/[id]
+```
+
+Returns the full protein record including linked antibodies and validation report counts.
+
+---
+
+## Antibodies
+
+### List antibodies
+
+```
+GET /api/antibodies
+```
+
+**Query parameters:**
+
+| Parameter | Type    | Description                                                 |
+| --------- | ------- | ----------------------------------------------------------- |
+| `q`       | string  | Text search across clone name, vendor, catalog number, RRID |
+| `limit`   | integer | Results per page (default 20, max 100)                      |
+| `cursor`  | string  | Pagination cursor                                           |
+
+**Example:**
+
+```bash
+curl "https://panelmaker.ai/api/antibodies?q=SP6"
+```
+
+### Get a single antibody
+
+```
+GET /api/antibodies/[id]
+```
+
+---
+
+## Validation Reports
+
+### List reports
+
+```
+GET /api/reports
+```
+
+**Query parameters:**
+
+| Parameter  | Type    | Description                                                          |
+| ---------- | ------- | -------------------------------------------------------------------- |
+| `q`        | string  | Text search across notes and antibody fields                         |
+| `species`  | string  | NCBI Taxonomy ID (e.g., `9606` for human)                            |
+| `method`   | string  | Imaging method slug: `codex`, `ibex`, `cycif`, `imc`, `mibi`, `mihc` |
+| `fixation` | string  | `ffpe`, `fresh_frozen`, `pfa`, `other`                               |
+| `limit`    | integer | Results per page (default 20, max 100)                               |
+| `cursor`   | string  | Pagination cursor                                                    |
+
+**Example:**
+
+```bash
+curl "https://panelmaker.ai/api/reports?species=9606&method=codex&fixation=ffpe"
+```
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "rep_01xyz",
+      "result": "pass",
+      "imagingMethod": "codex",
+      "speciesId": "9606",
+      "speciesLabel": "Homo sapiens",
+      "tissueId": "UBERON:0002106",
+      "tissueLabel": "spleen",
+      "fixation": "ffpe",
+      "workingConcentration": "1:200",
+      "antibodyId": "ab_01abc",
+      "createdAt": "2026-01-20T14:30:00Z"
+    }
+  ],
+  "meta": { "total": 42, "nextCursor": "cursor_next" }
+}
+```
+
+### Get a single report
+
+```
+GET /api/reports/[id]
+```
+
+---
+
+## Cell Types
+
+### List cell types
+
+```
+GET /api/cell-types
+```
+
+**Query parameters:**
+
+| Parameter | Type    | Description                            |
+| --------- | ------- | -------------------------------------- |
+| `q`       | string  | Text search by cell type name or CL ID |
+| `limit`   | integer | Results per page (default 20, max 100) |
+| `cursor`  | string  | Pagination cursor                      |
+
+### Get a single cell type
+
+```
+GET /api/cell-types/[id]
+```
+
+Returns the cell type record with associated known markers and validation report counts.
+
+---
+
+## Panels
+
+### List public panels
+
+```
+GET /api/panels
+```
+
+Returns panels that have been marked as public by their creators.
+
+**Query parameters:**
+
+| Parameter | Type    | Description                            |
+| --------- | ------- | -------------------------------------- |
+| `q`       | string  | Text search by panel name              |
+| `limit`   | integer | Results per page (default 20, max 100) |
+| `cursor`  | string  | Pagination cursor                      |
+
+---
+
+## Error responses
+
+| Status | Meaning                                          |
+| ------ | ------------------------------------------------ |
+| `400`  | Bad request — invalid query parameters           |
+| `404`  | Resource not found                               |
+| `429`  | Rate limit exceeded — check `Retry-After` header |
+| `500`  | Internal server error                            |
+
+Error responses follow the shape:
+
+```json
+{
+  "error": "Resource not found",
+  "details": null
+}
+```

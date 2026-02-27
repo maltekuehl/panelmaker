@@ -8,7 +8,7 @@ import { Suspense } from "react"
 
 export const metadata: Metadata = {
   title: "Report Management - Admin",
-  description: "Handle reported MCP servers.",
+  description: "Manage reported content and issues.",
 }
 
 export default async function AdminReportsPage() {
@@ -29,7 +29,7 @@ export default async function AdminReportsPage() {
     <div className="container mx-auto py-8 px-4">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Report Management</h1>
-        <p className="text-muted-foreground">Handle reported MCP servers.</p>
+        <p className="text-muted-foreground">Manage reported content and review submissions.</p>
       </div>
 
       <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">

@@ -15,23 +15,18 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import {
-  BookDashed,
-  BookText,
   Bot,
   ChevronLeft,
   ChevronRight,
   Code2,
-  Edit,
-  FileText,
+  FileUp,
   Home,
-  Landmark,
-  PlusCircle,
-  Server,
+  KeyRound,
+  Palette,
+  Search,
   ShieldUser,
-  Speech,
   TrainTrack,
   Users2,
-  Wrench,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -48,67 +43,47 @@ const sidebarItems = [
     ],
   },
   {
-    title: "PanelMaker Registry",
+    title: "Getting Started",
     items: [
       {
-        title: "Registry",
-        href: "/docs/registry",
-        icon: FileText,
+        title: "Browse Markers",
+        href: "/docs/getting-started/browse",
+        icon: Search,
       },
       {
-        title: "Using Tools",
-        href: "/docs/registry/using-tools",
-        icon: Wrench,
+        title: "Design Panels",
+        href: "/docs/getting-started/panels",
+        icon: Palette,
       },
       {
-        title: "Contributing",
-        href: "/docs/registry/contributing",
-        icon: PlusCircle,
+        title: "Submit Reports",
+        href: "/docs/getting-started/submit",
+        icon: FileUp,
       },
       {
-        title: "Server Template",
-        href: "/docs/registry/template",
-        icon: BookDashed,
-      },
-      {
-        title: "Public API",
-        href: "/docs/registry/api",
-        icon: Landmark,
-      },
-      {
-        title: "Developer Links",
-        href: "/docs/registry/developer-links",
-        icon: Code2,
-      },
-    ],
-  },
-  {
-    title: "Knowledgebase MCP",
-    items: [
-      {
-        title: "Knowledgebase MCP",
-        href: "/docs/knowledgebase",
-        icon: Server,
-      },
-      {
-        title: "Add to Chatbot",
-        href: "/docs/knowledgebase/chatbot",
+        title: "AI Assistant",
+        href: "/docs/getting-started/ai",
         icon: Bot,
       },
+    ],
+  },
+  {
+    title: "API",
+    items: [
       {
-        title: "Add to IDE",
-        href: "/docs/knowledgebase/ide",
-        icon: Edit,
+        title: "Public API",
+        href: "/docs/api",
+        icon: Code2,
       },
       {
-        title: "API Documentation",
-        href: "https://docs.kb.panelmaker.ai",
-        icon: BookText,
+        title: "Authentication",
+        href: "/docs/api/auth",
+        icon: KeyRound,
       },
     ],
   },
   {
-    title: "PanelMaker Community",
+    title: "Community",
     items: [
       {
         title: "Team",
@@ -116,25 +91,19 @@ const sidebarItems = [
         icon: Users2,
       },
       {
-        title: "Governance",
-        href: "/docs/community/governance",
-        icon: Speech,
+        title: "Roadmap",
+        href: "/docs/community/roadmap",
+        icon: TrainTrack,
       },
       {
         title: "Code of Conduct",
         href: "/docs/community/conduct",
         icon: ShieldUser,
       },
-      {
-        title: "Roadmap",
-        href: "/docs/community/roadmap",
-        icon: TrainTrack,
-      },
     ],
   },
 ]
 
-// Flatten sidebar items to get all pages in order
 const flattenSidebarItems = (items: typeof sidebarItems) => {
   const flattened: Array<{ title: string; href: string; icon: any }> = []
   items.forEach((group) => {
@@ -184,7 +153,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               ))}
             </SidebarContent>
           </Sidebar>
-          <SidebarInset className="w-full flex-1 min-w-0">
+          <SidebarInset className="w-full flex-1 min-w-0 !bg-zinc-50 dark:!bg-zinc-950">
             <div className="flex flex-col h-full w-full min-w-0">
               <header className="flex h-12 shrink-0 items-center gap-2 px-4 bg-muted/30 border-b w-full">
                 <SidebarTrigger className="-ml-1 lg:hidden" />

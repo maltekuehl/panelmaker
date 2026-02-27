@@ -39,12 +39,6 @@ This project adheres to the [Contributor Covenant Code of Conduct](/docs/communi
 - Use GitHub's private vulnerability reporting feature
 - See our [Security Policy](SECURITY.md) for detailed reporting instructions
 
-### Submitting MCP Servers to the Registry
-
-- Follow the [Registry Contributing Guide](/docs/registry/contributing)
-- Ensure your MCP server meets metadata and licensing requirements
-- MCP servers should be open source and free for academic use
-
 ### Contributing Code
 
 We welcome code contributions including:
@@ -62,7 +56,6 @@ We welcome code contributions including:
 
 - **Node.js**: Use the version specified in `.nvmrc` (use `nvm use` to switch)
 - **npm**: Comes with Node.js
-- **PostgreSQL**: A Postgres database for development
 - **Git**: For version control
 
 ### Setup Instructions
@@ -89,9 +82,9 @@ cp .env.local.example .env.local
 
 Edit `.env.local` and add your configuration:
 
-- Database connection (`DATABASE_URL`, `SHADOW_DATABASE_URL`)
 - Authentication providers (GitHub, LinkedIn OAuth credentials)
-- API keys (Gemini, GitHub token)
+- API keys (Gemini)
+- Cloudflare R2 credentials for image storage (optional for local development)
 - Other required secrets
 
 4. **Set up the database:**
@@ -100,7 +93,7 @@ Edit `.env.local` and add your configuration:
 npx prisma migrate dev
 ```
 
-**Note:** Prisma migrations should always be created with `--create-only` and cannot be applied directly in this project.
+**Note:** SQLite is used for local development. Migrations are created with `--create-only` for review before applying.
 
 5. **Start the development server:**
 

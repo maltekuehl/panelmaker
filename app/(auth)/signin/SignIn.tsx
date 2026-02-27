@@ -73,7 +73,7 @@ const SignIn = (props: { isTestMode: boolean }) => {
           </div>
           <CardTitle className="text-xl">Sign in to your account</CardTitle>
           <CardDescription className="text-center">
-            Sign in to access chat, create collections, and contribute to the biomedical MCP community. If you
+            Sign in to design antibody panels, submit validation data, and access personalized features. If you
             don&apos;t have an account, one will be created for you automatically.
           </CardDescription>
         </CardHeader>

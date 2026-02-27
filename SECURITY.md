@@ -63,13 +63,6 @@ PanelMaker implements several security measures:
 - **Data Encryption**: Encryption in transit and at rest for sensitive data
 - **Access Logging**: Comprehensive logging of data access and modifications
 
-### MCP Server Security
-
-- **Server Validation**: Validation of MCP server metadata and functionality
-- **Sandboxed Execution**: MCP servers run in controlled environments
-- **Connection Security**: Secure communication protocols for MCP connections
-- **Registry Verification**: Manual review process for new MCP servers
-
 ### Infrastructure Security
 
 - **Dependency Management**: Regular dependency updates and vulnerability scanning
@@ -136,12 +129,10 @@ This security policy covers:
 - API endpoints and backend services
 - Database security and data protection
 - Authentication and authorization systems
-- MCP server integration and registry
 - Third-party integrations and dependencies
 
 This policy does not cover:
 
-- Individual MCP servers (each has its own security policy)
 - User-generated content security (users are responsible for their own data)
 - Client-side browser security beyond our application's scope
 

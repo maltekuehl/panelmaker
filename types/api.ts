@@ -4,25 +4,8 @@ import { UIMessage } from "ai"
 
 export interface ChatRequest {
   messages: UIMessage[]
-  mcpServers: Array<{
-    name: string
-    url: string
-  }>
   apiKey?: string
   selectedModel?: string
-}
-
-export interface CollectionRequest {
-  name: string
-  description?: string
-  keywords?: string[]
-  isPublic?: boolean
-}
-
-export interface CollectionItemRequest {
-  mcpServerId: string
-  collectionIds: string[]
-  notes?: string
 }
 
 export interface BlockUserRequest {
@@ -35,24 +18,14 @@ export interface BlogResponse {
   }
 }
 
-export interface CollectionResponse {
-  collection: any
-}
-
-export interface CollectionsResponse {
-  collections: any[]
-}
-
 export interface ApiError {
   error: string
 }
 
-// Review system types
 export interface ReviewRequest {
   name: string
   reviewBody: string
-  isHelpful: boolean // true = thumbs up, false = thumbs down
-  mcpServerId: string
+  isHelpful: boolean
 }
 
 export interface ReviewApprovalRequest {
@@ -75,40 +48,7 @@ export interface ReviewsResponse {
   reviews: any[]
 }
 
-// Registry update types
-export interface RegistryUpdateResult {
-  identifier: string
-  name?: string
-  action: "created" | "updated" | "error"
-  id?: string
-  error?: string
-}
-
-export interface RegistryUpdateResponse {
-  message: string
-  processed: number
-  errors: number
-  total: number
-  results: RegistryUpdateResult[]
-  lastUpdated: string
-  blueskyPostsSuccessful?: number
-  blueskyPostsTotal?: number
-}
-
 // Admin stats types
-export interface ToolCallStats {
-  toolName: string
-  count: number
-}
-
-export interface McpServerStats {
-  id: string
-  name: string
-  identifier: string
-  totalCalls: number
-  toolCalls: ToolCallStats[]
-}
-
 export interface ModelUsageStats {
   modelName: string
   totalCalls: number
@@ -118,7 +58,6 @@ export interface ModelUsageStats {
 export interface PeriodStats {
   totalMessages: number
   totalUsers: number
-  mcpServers: McpServerStats[]
   modelUsage: ModelUsageStats[]
 }
 
@@ -130,29 +69,7 @@ export interface StatsResponse {
 
 // Type guard functions
 export function isChatRequest(obj: unknown): obj is ChatRequest {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    "messages" in obj &&
-    "mcpServers" in obj &&
-    Array.isArray((obj as any).messages) &&
-    Array.isArray((obj as any).mcpServers)
-  )
-}
-
-export function isCollectionRequest(obj: unknown): obj is CollectionRequest {
-  return typeof obj === "object" && obj !== null && "name" in obj && typeof (obj as any).name === "string"
-}
-
-export function isCollectionItemRequest(obj: unknown): obj is CollectionItemRequest {
-  return (
-    typeof obj === "object" &&
-    obj !== null &&
-    "mcpServerId" in obj &&
-    "collectionIds" in obj &&
-    typeof (obj as any).mcpServerId === "string" &&
-    Array.isArray((obj as any).collectionIds)
-  )
+  return typeof obj === "object" && obj !== null && "messages" in obj && Array.isArray((obj as any).messages)
 }
 
 export function isBlockUserRequest(obj: unknown): obj is BlockUserRequest {
@@ -172,11 +89,9 @@ export function isReviewRequest(obj: unknown): obj is ReviewRequest {
     "name" in obj &&
     "reviewBody" in obj &&
     "isHelpful" in obj &&
-    "mcpServerId" in obj &&
     typeof (obj as any).name === "string" &&
     typeof (obj as any).reviewBody === "string" &&
-    typeof (obj as any).isHelpful === "boolean" &&
-    typeof (obj as any).mcpServerId === "string"
+    typeof (obj as any).isHelpful === "boolean"
   )
 }
 
@@ -190,17 +105,8 @@ export function isReviewApprovalRequest(obj: unknown): obj is ReviewApprovalRequ
   )
 }
 
-// Utility function to safely parse API response
 export function hasErrorProperty(obj: unknown): obj is { error: string } {
   return typeof obj === "object" && obj !== null && "error" in obj && typeof (obj as any).error === "string"
-}
-
-export function hasCollectionProperty(obj: unknown): obj is { collection: any } {
-  return typeof obj === "object" && obj !== null && "collection" in obj
-}
-
-export function hasCollectionsProperty(obj: unknown): obj is { collections: any[] } {
-  return typeof obj === "object" && obj !== null && "collections" in obj && Array.isArray((obj as any).collections)
 }
 
 export function hasBlogPostProperty(obj: unknown): obj is BlogResponse {

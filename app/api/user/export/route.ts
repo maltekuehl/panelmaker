@@ -30,29 +30,14 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
           },
         },
         reviews: {
-          include: {
-            mcpServer: {
-              select: {
-                id: true,
-                name: true,
-                identifier: true,
-              },
-            },
-          },
-        },
-        collections: {
-          include: {
-            items: {
-              include: {
-                mcpServer: {
-                  select: {
-                    id: true,
-                    name: true,
-                    identifier: true,
-                  },
-                },
-              },
-            },
+          select: {
+            id: true,
+            name: true,
+            reviewBody: true,
+            isHelpful: true,
+            datePublished: true,
+            isPending: true,
+            isApproved: true,
           },
         },
         blogPosts: {
@@ -108,21 +93,18 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
       accounts: userData.accounts,
       sessions: userData.sessions,
       reviews: userData.reviews,
-      collections: userData.collections,
       blogPosts: userData.blogPosts,
       chatRateLimit: userData.chatRateLimit,
       rateLimits: rateLimits,
     }
 
-    const response = NextResponse.json(exportData, {
+    return NextResponse.json(exportData, {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         "Content-Disposition": `attachment; filename="user-data-export-${user.id}-${new Date().toISOString().split("T")[0]}.json"`,
       },
     })
-
-    return response
   } catch (error) {
     console.error("Error exporting user data:", error)
     return NextResponse.json({ error: "Failed to export user data" }, { status: 500 })

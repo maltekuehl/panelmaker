@@ -3,7 +3,6 @@
 import ChatAbout from "@/components/chat/chat-about"
 import ChatSettings from "@/components/chat/chat-settings"
 import { ChatSidebarDesktop, ChatSidebarMobile } from "@/components/chat/chat-sidebar"
-import McpServersDialog from "@/components/chat/mcp-servers-picker"
 import ModelPicker from "@/components/chat/model-picker"
 import Markdown from "@/components/markdown"
 import { Button } from "@/components/ui/button"
@@ -13,7 +12,7 @@ import { useChatStore } from "@/stores/chat"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, DynamicToolUIPart, TextUIPart, UIMessage } from "ai"
 import clsx from "clsx"
-import { ArrowUp, Check, Copy, Edit2, Loader2, MoreHorizontal, Settings, StopCircle, Trash2, X } from "lucide-react"
+import { ArrowUp, Check, Copy, Edit2, Loader2, MoreHorizontal, StopCircle, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { Fragment, ReactElement, useEffect, useRef, useState } from "react"
 import { JsonView, collapseAllNested, defaultStyles } from "react-json-view-lite"
@@ -594,13 +593,11 @@ export default function Chat({ name: name }: { name?: string }) {
   const form = useRef<HTMLFormElement>(null)
 
   // Use Zustand store for all chat state
-  const mcpServers = useChatStore(useShallow((state) => state.mcpServers))
   const selectedModel = useChatStore(useShallow((state) => state.selectedModel))
   const googleApiKey = useChatStore(useShallow((state) => state.googleApiKey))
   const openaiApiKey = useChatStore(useShallow((state) => state.openaiApiKey))
   const anthropicApiKey = useChatStore(useShallow((state) => state.anthropicApiKey))
   const groqApiKey = useChatStore(useShallow((state) => state.groqApiKey))
-  const setMcpServers = useChatStore(useShallow((state) => state.setMcpServers))
 
   // Get API key based on selected model
   const apiKey = (() => {
@@ -709,7 +706,6 @@ export default function Chat({ name: name }: { name?: string }) {
     addMessage(userMessage)
     sendMessage(userMessage, {
       body: {
-        mcpServers,
         apiKey,
         selectedModel,
       },
@@ -787,7 +783,6 @@ export default function Chat({ name: name }: { name?: string }) {
     // sendMessage will automatically add the message to the messages array
     sendMessage(updatedMessage, {
       body: {
-        mcpServers,
         apiKey,
         selectedModel,
       },
@@ -945,12 +940,6 @@ export default function Chat({ name: name }: { name?: string }) {
               <div className="flex items-center justify-between p-2 gap-2 border-b">
                 <ModelPicker setMessages={setAiMessages} />
                 <div className="flex items-center gap-1">
-                  <McpServersDialog onServersChange={setMcpServers} currentServers={mcpServers}>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Settings className="h-4 w-4" />
-                      <span className="sr-only">MCP Servers Settings</span>
-                    </Button>
-                  </McpServersDialog>
                   <ChatSettings setMessages={setAiMessages}>
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                       <MoreHorizontal className="h-4 w-4" />

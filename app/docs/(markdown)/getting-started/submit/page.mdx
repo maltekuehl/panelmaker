@@ -1,0 +1,78 @@
+export const metadata = {
+  title: "Submit Validation Reports | PanelMaker Documentation",
+  description:
+    "Learn how to submit antibody validation reports to PanelMaker and contribute experimental data to the spatial proteomics community.",
+  keywords: [
+    "submit report",
+    "validation report",
+    "antibody validation",
+    "experimental data",
+    "spatial proteomics",
+    "community contribution",
+  ],
+}
+
+# Submit Validation Reports
+
+Validation reports are the backbone of PanelMaker. They record how a specific antibody performed under defined experimental conditions, helping other researchers make informed reagent choices.
+
+To submit a report, navigate to [/submit](/submit). You must be signed in.
+
+## What counts as a validation report?
+
+A validation report documents a single antibody tested in a single experimental context. The key fields are:
+
+| Field                 | Description                                                   | Required    |
+| --------------------- | ------------------------------------------------------------- | ----------- |
+| Antibody              | The specific antibody (clone + vendor)                        | Yes         |
+| Result                | Pass, Fail, or Inconclusive                                   | Yes         |
+| Imaging method        | CODEX, IBEX, CyCIF, IMC, MIBI, mIHC, other                    | Yes         |
+| Species               | The organism the tissue came from                             | Yes         |
+| Tissue                | The tissue type imaged                                        | Yes         |
+| Fixation              | FFPE, fresh-frozen, PFA, or other                             | Yes         |
+| Working concentration | Dilution or µg/mL used                                        | Recommended |
+| Cell type             | Positive control cell type expected to stain                  | Recommended |
+| Notes                 | Free-text observations, staining artifacts, optimisation tips | Optional    |
+
+## Ontology-backed fields
+
+Species, tissue, and cell type fields use controlled vocabularies to ensure consistency across submissions:
+
+- **Species**: NCBI Taxonomy (e.g., _Homo sapiens_ = `9606`, _Mus musculus_ = `10090`)
+- **Tissue**: UBERON anatomical ontology (e.g., `UBERON:0002106` for spleen)
+- **Cell type**: Cell Ontology (e.g., `CL:0000236` for B cell)
+
+Start typing in any of these fields and the autocomplete will query the relevant ontology in real time. Select the term from the dropdown to store both the display name and the ontology ID. This allows downstream filtering and cross-experiment comparison.
+
+## Imaging methods supported
+
+| Method | Full name                                | Notes                                                |
+| ------ | ---------------------------------------- | ---------------------------------------------------- |
+| CODEX  | CO-Detection by indEXing                 | Oligonucleotide barcodes, DNA-conjugated antibodies  |
+| IBEX   | Iterative Bleaching Extends multiplexity | Iterative fluorescence, same section                 |
+| CyCIF  | Cyclic Immunofluorescence                | Iterative fluorescence with TSA or direct conjugates |
+| IMC    | Imaging Mass Cytometry                   | Metal isotope-tagged antibodies, laser ablation      |
+| MIBI   | Multiplexed Ion Beam Imaging             | Secondary ion mass spectrometry                      |
+| mIHC   | Multiplexed Immunohistochemistry         | Chromogenic or fluorescent, 4–8 targets              |
+| Other  | Anything not listed above                | Describe in the notes field                          |
+
+## Rate limiting
+
+To protect data quality, report submission is rate-limited to **10 reports per 24-hour period** per account. If you have a large dataset to submit, please contact the team.
+
+## After submission
+
+Submitted reports enter a community review queue. Reviewers check that:
+
+- The antibody exists in the database (or flag it for addition)
+- The ontology terms are correctly matched
+- The experimental context is plausible
+
+Once reviewed, the report becomes publicly visible on the relevant antibody and marker pages. You will receive a notification when your report is approved or if clarification is needed.
+
+## Tips for high-quality reports
+
+- Include both **positive** and **negative** results — failed validations are just as valuable to the community
+- Attach representative images where possible (upload via the image field)
+- If you optimised a protocol, describe the key changes in the notes field
+- Reference a publication or preprint if the data is from a published experiment

@@ -45,6 +45,17 @@ if (process.env.NEXT_PUBLIC_TEST_MODE === "true") {
       },
       authorize: async (credentials) => {
         if (credentials?.email === "test@example.com" && credentials?.password === "password") {
+          await prisma.user.upsert({
+            where: { id: "test-user-id" },
+            update: { role: "ADMIN" },
+            create: {
+              id: "test-user-id",
+              email: "test@example.com",
+              name: "Test User",
+              image: "https://avatars.githubusercontent.com/u/67470890?s=200&v=4",
+              role: "ADMIN",
+            },
+          })
           return {
             id: "test-user-id",
             email: "test@example.com",

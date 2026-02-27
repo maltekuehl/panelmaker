@@ -88,10 +88,11 @@ export class TestHelpers {
 export const TEST_DATA = {
   COMMON_PAGES: [
     { path: "/", name: "Home" },
-    { path: "/registry", name: "Registry" },
+    { path: "/browse", name: "Browse" },
     { path: "/blog", name: "Blog" },
     { path: "/chat", name: "Chat" },
     { path: "/docs", name: "Documentation" },
+    { path: "/submit", name: "Submit" },
   ],
 
   LEGAL_PAGES: [

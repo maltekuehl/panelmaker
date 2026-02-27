@@ -1,44 +1,27 @@
 import { createAuthHandler } from "@/lib/auth"
-import { ApiException, createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getRequestContext, logger } from "@/lib/monitoring"
-import { prisma } from "@/lib/prisma"
-import { NextRequest } from "next/server"
+import { updateReportStatus } from "@/models/experimental-report"
+import { NextRequest, NextResponse } from "next/server"
 
-// Dismiss a report (admin only)
 export const POST = createAuthHandler(
   async (request: NextRequest, user, { params }: { params: Promise<{ reportId: string }> }) => {
+    const { reportId } = await params
     const context = getRequestContext(request)
-    logger.apiRequest("POST", `/api/admin/reports/${(await params).reportId}/dismiss`, {
-      ...context,
-      userId: user.id,
-    })
+    logger.apiRequest("POST", `/api/admin/reports/${reportId}/dismiss`, { ...context, userId: user.id })
+
+    const id = parseInt(reportId, 10)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "Invalid report ID" }, { status: 400 })
+    }
 
     try {
-      const { reportId } = await params
-
-      // Check if report exists
-      const report = await prisma.mcpServerReport.findUnique({
-        where: { id: reportId },
-      })
-
-      if (!report) {
-        throw new ApiException(404, { message: "Report not found." })
-      }
-
-      // Delete the report (dismissing it)
-      await prisma.mcpServerReport.delete({
-        where: { id: reportId },
-      })
-
-      return createSuccessResponse({
-        message: "Report dismissed successfully",
-      })
+      await updateReportStatus(id, "REJECTED")
+      logger.info("Report rejected by admin", { reportId: id, adminId: user.id })
+      return createSuccessResponse({ message: "Report rejected successfully" })
     } catch (error) {
-      logger.error("Failed to dismiss report", error as Error, {
-        userId: user.id,
-        reportId: (await params).reportId,
-      })
-      return createErrorResponse(error)
+      logger.error("Failed to reject report", error as Error, { reportId: id, userId: user.id })
+      return createErrorResponse(error, "Failed to reject report")
     }
   },
   true,

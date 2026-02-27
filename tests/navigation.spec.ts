@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 
 test.describe("Navigation and Layout", () => {
   test("should have consistent navigation across pages", async ({ page }) => {
-    const pages = ["/", "/registry", "/blog", "/chat", "/docs"]
+    const pages = ["/", "/browse", "/blog", "/chat", "/docs"]
 
     for (const pagePath of pages) {
       await page.goto(pagePath)
@@ -50,7 +50,7 @@ test.describe("Navigation and Layout", () => {
   })
 
   test("should have working logo/home link", async ({ page }) => {
-    await page.goto("/registry")
+    await page.goto("/browse")
     await page.waitForLoadState("networkidle")
 
     const logoLink = page.locator('header a[href="/"], header a:has-text("PanelMaker")').first()

@@ -174,8 +174,7 @@ export async function getHealthStatus(): Promise<HealthStatus> {
     checks.database = false
   }
 
-  // External API checks could be added here
-  checks.github_api = !!process.env.GITHUB_TOKEN
+  // External API checks
   checks.gemini_api = !!process.env.GEMINI_API_KEY
 
   const allHealthy = Object.values(checks).every(Boolean)

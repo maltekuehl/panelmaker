@@ -1,42 +1,21 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
+import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { ColumnDef } from "@tanstack/react-table"
-import { ChevronRight } from "lucide-react"
 import Link from "next/link"
 
 export type MarkerEntry = {
   id: string
   marker: string
   cellType: string
-  cellTypeId?: string // Optional for now to avoid breaking existing usage immediately
-  species: "Homo sapiens" | "Mus musculus" | "Rattus norvegicus"
-  tissue: "FFPE" | "FF"
-  validatedMethods: ("IF" | "PathoPlex" | "CODEX" | "MIBI-Tof")[]
+  cellTypeId?: string
+  species: string
+  tissue: string
+  validatedMethods: string[]
   validationCategory: 0 | 1 | 2 | 3 | 4
 }
 
 export const columns: ColumnDef<MarkerEntry>[] = [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
   {
     accessorKey: "marker",
     header: "Marker",
@@ -90,6 +69,10 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   {
     accessorKey: "validationCategory",
     header: "Validation",
+    filterFn: (row, columnId, filterValue: string[]) => {
+      const value = String(row.getValue(columnId))
+      return filterValue.includes(value)
+    },
     cell: ({ row }) => {
       const category = row.getValue("validationCategory") as number
       const labels: Record<number, string> = {
@@ -118,12 +101,17 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   },
   {
     id: "actions",
+    header: "",
     cell: ({ row }) => {
       return (
         <div className="text-right">
-          <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-zinc-200">
-            <ChevronRight className="h-4 w-4 text-zinc-400" />
-          </Button>
+          <AddToPanelButton
+            proteinId={row.original.id}
+            label={row.original.marker}
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+          />
         </div>
       )
     },

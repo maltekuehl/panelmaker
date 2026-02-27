@@ -1,67 +1,92 @@
-import { AIAssistantFloating } from "@/components/ai-assistant-floating"
 import { columns } from "@/components/browse/columns"
 import { DataTable } from "@/components/browse/data-table"
-import { PanelWorkspace } from "@/components/panel/panel-workspace"
-import { Card, CardDescription, CardTitle } from "@/components/ui/card"
-import { mockMarkers } from "@/lib/mock-data"
+import { Card } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getAllReports, toMarkerEntry } from "@/models/experimental-report"
 import type { Metadata } from "next"
-import { cacheLife, cacheTag } from "next/cache"
+import { cacheLife } from "next/cache"
+import { Suspense } from "react"
 
 export const metadata: Metadata = {
-  title: "PanelMaker - Biomedical Model Context Protocol for Agentic AI",
+  title: "PanelMaker — Browse Markers, Antibodies & Cell Types",
   description:
-    "Connect agentic AI with biomedical resources using the Model Context Protocol. Discover, contribute, and use FAIR biomedical MCP servers for research and healthcare applications.",
+    "Browse validated cell type markers, antibodies, and experimental reports to design antibody panels for spatial proteomics experiments.",
   keywords: [
     "PanelMaker",
-    "MCP",
-    "Model Context Protocol",
-    "biomedical AI",
-    "agentic systems",
-    "healthcare AI",
-    "biomedical research",
-    "FAIR principles",
+    "spatial proteomics",
+    "antibody panel",
+    "markers",
+    "cell types",
+    "experimental reports",
+    "CODEX",
+    "CyCIF",
+    "IMC",
+    "MIBI",
+    "Visium",
     "bioinformatics",
     "computational biology",
-    "research software",
-    "AI tools",
-    "MCP servers",
-    "biomedical data integration",
   ],
   openGraph: {
-    title: "PanelMaker - Biomedical Model Context Protocol for Agentic AI",
+    title: "PanelMaker — Browse Markers, Antibodies & Cell Types",
     description:
-      "Connect agentic AI with biomedical resources using the Model Context Protocol. Discover and contribute FAIR biomedical MCP servers.",
+      "Browse validated cell type markers and antibodies to design panels for spatial proteomics experiments.",
     type: "website",
-    url: "https://panelmaker.ai",
+    url: "https://panelmaker.ai/browse",
     siteName: "PanelMaker",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PanelMaker - Biomedical Model Context Protocol for Agentic AI",
-    description: "Connect agentic AI with biomedical resources using the Model Context Protocol",
+    title: "PanelMaker — Browse Markers, Antibodies & Cell Types",
+    description: "Browse validated markers and antibodies for spatial proteomics panel design",
   },
 }
 
-export default async function HomePage() {
+interface BrowsePageProps {
+  searchParams: Promise<{ q?: string }>
+}
+
+async function MarkerTable({ q }: { q?: string }) {
   "use cache"
   cacheLife("hours")
-  cacheTag("registry:metrics")
+
+  const reports = await getAllReports({ limit: 100, q })
+  const markers = reports.map(toMarkerEntry)
 
   return (
-    <div className="mx-auto container px-4 py-4 sm:px-6 md:py-6 grid grid-cols-7 gap-6">
-      <div className="col-span-5 md:col-span-2 lg:col-span-5 gap-4">
-        <Card className="p-4 pb-1">
-          <div className="mb-4">
-            <CardTitle>Marker Database</CardTitle>
-            <CardDescription>Browse validated cell type markers to inform your panel design.</CardDescription>
-          </div>
-          <DataTable columns={columns} data={mockMarkers} />
-        </Card>
+    <Card className="p-4 pb-1">
+      <DataTable columns={columns} data={markers} />
+    </Card>
+  )
+}
+
+function MarkerTableSkeleton() {
+  return (
+    <Card className="p-4">
+      <Skeleton className="h-10 w-full mb-2" />
+      <Skeleton className="h-10 w-full mb-2" />
+      <Skeleton className="h-10 w-full mb-2" />
+      <Skeleton className="h-10 w-full mb-2" />
+      <Skeleton className="h-10 w-full" />
+    </Card>
+  )
+}
+
+export default async function BrowsePage({ searchParams }: BrowsePageProps) {
+  const { q } = await searchParams
+
+  return (
+    <div className="container mx-auto px-4 py-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Marker Database</h1>
+        <p className="text-muted-foreground mt-1">
+          {q
+            ? `Showing results for &quot;${q}&quot;`
+            : "Browse validated cell type markers to inform your panel design."}
+        </p>
       </div>
-      <div className="col-span-5 md:col-span-3 lg:col-span-2 flex flex-col gap-4">
-        <PanelWorkspace />
-        <AIAssistantFloating />
-      </div>
+      <Suspense fallback={<MarkerTableSkeleton />}>
+        <MarkerTable q={q} />
+      </Suspense>
     </div>
   )
 }

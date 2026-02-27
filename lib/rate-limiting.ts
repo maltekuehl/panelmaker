@@ -28,10 +28,10 @@ export const RATE_LIMITS = {
     maxRequests: 20,
     resourceType: "reviews",
   },
-  COLLECTIONS: {
+  PANELS: {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
     maxRequests: 50,
-    resourceType: "collections",
+    resourceType: "panels",
   },
   REPORTS_AUTHENTICATED: {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
@@ -42,6 +42,16 @@ export const RATE_LIMITS = {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
     maxRequests: 50,
     resourceType: "reports",
+  },
+  REPORTS_SUBMIT: {
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    maxRequests: 50,
+    resourceType: "reports_submit",
+  },
+  PANELS_CREATE: {
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    maxRequests: 50,
+    resourceType: "panels_create",
   },
 } as const
 

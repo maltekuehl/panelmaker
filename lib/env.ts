@@ -7,7 +7,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_BASE_URL: z.string().url("NEXT_PUBLIC_BASE_URL must be a valid URL"),
 
   // Database
-  DATABASE_URL: z.string().url("DATABASE_URL must be a valid URL"),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
   // Authentication
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
@@ -23,17 +23,14 @@ const envSchema = z.object({
   AUTH_LINKEDIN_SECRET: z.string().min(1, "LinkedIn OAuth secret is required"),
 
   // External APIs
-  GITHUB_TOKEN: z.string().min(1, "GitHub API token is required"),
   GEMINI_API_KEY: z.string().min(1, "Gemini API key is required"),
 
-  // Bluesky (optional)
-  BLUESKY_USERNAME: z.string().optional(),
-  BLUESKY_PASSWORD: z.string().optional(),
-
-  // Zulip (optional)
-  ZULIP_USERNAME: z.string().email("ZULIP_USERNAME must be a valid email").optional(),
-  ZULIP_API_KEY: z.string().optional(),
-  ZULIP_REALM: z.string().url("ZULIP_REALM must be a valid URL").optional(),
+  // Image storage (Cloudflare R2)
+  // R2_BUCKET: z.string().optional(),
+  // R2_ACCOUNT_ID: z.string().optional(),
+  // R2_ACCESS_KEY_ID: z.string().optional(),
+  // R2_SECRET_ACCESS_KEY: z.string().optional(),
+  // R2_PUBLIC_URL: z.string().url().optional(),
 
   // Cron Jobs
   CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters"),

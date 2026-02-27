@@ -3,19 +3,20 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "Documentation | PanelMaker",
   description:
-    "Learn how to use PanelMaker, contribute MCP servers, integrate biomedical tools, and build agentic AI systems for research and healthcare.",
+    "Learn how to use PanelMaker: browse validated markers, design antibody panels for spatial proteomics, submit experimental validation reports, and use the public API.",
   keywords: [
     "PanelMaker documentation",
-    "MCP tutorial",
-    "biomedical MCP",
-    "AI research tools",
-    "MCP server development",
-    "registry guide",
-    "knowledgebase MCP",
+    "antibody panel design",
+    "spatial proteomics",
+    "multiplexed imaging",
+    "CODEX",
+    "IBEX",
+    "CyCIF",
+    "marker database",
   ],
   openGraph: {
     title: "Documentation | PanelMaker",
-    description: "Complete guide to PanelMaker and biomedical MCP servers",
+    description: "Complete guide to PanelMaker for antibody panel design in spatial proteomics",
     type: "website",
   },
 }

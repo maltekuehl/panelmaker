@@ -16,6 +16,129 @@
 
 ---
 
+## PanelMaker Architecture Decisions
+
+These decisions are final. Do not reconsider without explicit user approval.
+
+### Data Layer: Model Folder Pattern
+
+All domain logic lives in `models/<entity>/` (not flat `lib/`). Current entities:
+
+```
+models/
+  protein/
+    queries.ts      -- import "server-only"; Prisma queries (getAll, getById, search, getForCellType)
+    transforms.ts   -- Prisma return types → API/UI shapes
+    schema.ts       -- Zod schemas for API input validation
+    index.ts        -- Re-exports: types + query functions
+  cell-type/        -- same structure
+  antibody/         -- same structure
+  experimental-report/  -- same structure
+  panel/
+    queries.ts
+    transforms.ts
+    schema.ts
+    intelligence.ts -- Fluorophore overlap, host species cross-reactivity checks
+    index.ts
+  structure/
+    queries.ts
+    index.ts
+```
+
+Rules:
+- `queries.ts` always starts with `import "server-only"` and imports `prisma` from `@/lib/prisma`
+- `index.ts` re-exports everything public (types and query functions)
+- Do not add domain logic to `lib/` — `lib/` is for cross-cutting infrastructure only
+
+### Database: SQLite via Prisma
+
+```prisma
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+```
+
+- No shadow database, no `pg` dependency
+- No `@db.VarChar()` or `@db.Text` annotations (not supported in SQLite)
+- No `String[]` array fields — use `String @default("[]")` (JSON) or join tables
+- Enums are Prisma-level only (SQLite has no native enums)
+- Migrations: always `npx prisma migrate dev --create-only --name <name>`, then review SQL before applying
+
+### Search: Prisma LIKE Queries
+
+Use Prisma `contains` mode for text search (maps to SQL `LIKE %term%`). Add `@@index` on searchable fields. Do not implement SQLite FTS5 unless LIKE queries prove too slow in production.
+
+```typescript
+await prisma.protein.findMany({
+  where: {
+    OR: [
+      { label: { contains: query, mode: "insensitive" } },
+      { geneSymbol: { contains: query, mode: "insensitive" } },
+    ],
+  },
+})
+```
+
+### Image Storage: Cloudflare R2
+
+- SDK: `@aws-sdk/client-s3` (S3-compatible)
+- Wrapper: `lib/storage.ts` — exports `uploadImage()`, `deleteImage()`, `getSignedUrl()`
+- Upload route: `app/api/uploads/route.ts` (authenticated, rate-limited)
+- Constraints: 10MB max per image, JPEG/PNG/TIFF only
+- Env vars: `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_URL`
+
+### Ontology Lookups
+
+- Cell Ontology (CL) and UBERON: OLS4 REST API at `https://www.ebi.ac.uk/ols4/api`
+- Species/taxonomy: NCBI E-utilities API
+- Client-side: debounced autocomplete (300ms) using React state or SWR
+- Wrapper: `lib/ontology.ts` — exports `searchCellTypes()`, `searchStructures()`, `searchSpecies()`
+- Store ontology ID alongside display name in all DB fields
+
+### External API Integrations
+
+All read-only enrichment in `lib/integrations/`:
+- `antibody-registry.ts` — RRID lookup, auto-fill vendor/host/clone
+- `uniprot.ts` — protein metadata by UniProt ID or gene name
+- `hpa.ts` — Human Protein Atlas tissue expression and subcellular location
+- `ensembl.ts` — Ensembl gene ID resolution
+
+### AI Chat: Vercel AI SDK v5 (Direct Tools)
+
+- No MCP dependency — tools call model query functions directly
+- System prompt: spatial proteomics panel design context
+- Tools defined in `lib/chat-tools.ts`: `searchMarkers`, `getMarkerDetails`, `suggestPanel`, `checkCompatibility`
+- Remove `@ai-sdk/mcp` and `@modelcontextprotocol/sdk` dependencies
+- Remove MCP server picker from chat UI and stores
+
+### Public API v1: app/api/(versions)/v1/
+
+All endpoints are read-only (GET), public, no auth required:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /v1/proteins` | List/search proteins |
+| `GET /v1/proteins/[id]` | Single protein |
+| `GET /v1/cell-types` | List/search cell types |
+| `GET /v1/cell-types/[id]` | Single cell type |
+| `GET /v1/antibodies` | List/search antibodies |
+| `GET /v1/antibodies/[id]` | Single antibody |
+| `GET /v1/reports` | Public validated reports |
+| `GET /v1/reports/[id]` | Single report |
+| `GET /v1/panels` | Public panels |
+
+Query params: `?q=` (text search), `?species=`, `?method=`, `?fixation=`, `?limit=` (max 100, default 20), `?cursor=` (cursor-based pagination).
+Response: use `createSuccessResponse()` from `lib/api-response.ts`; add `nextCursor` to meta when paginating.
+
+### Rate Limiting: New Resource Types
+
+Add to `RATE_LIMITS` in `lib/rate-limiting.ts`:
+- `REPORTS_SUBMIT`: 10 requests / 24 hours (authenticated, submitting experimental reports)
+- `PANELS_CREATE`: 50 requests / 24 hours (authenticated, creating/modifying panels)
+
+---
+
 ## Technical Standards
 
 ### TypeScript & Code Quality
@@ -192,36 +315,40 @@ export async function POST(request: NextRequest) {
 - Check rate limits before expensive operations
 - Return 429 with reset time when exceeded
 
-### Database (Prisma)
+### Database (Prisma + SQLite)
 
-#### Database Environments
+#### SQLite Configuration
 
-- **Development**: `panelmaker_dev` - Use `npx prisma migrate dev`
-- **Staging**: `panelmaker_staging` - Use `npx prisma migrate deploy`
-- **Production**: `panelmaker-ai-prod` - Use `npx prisma migrate deploy`
+```prisma
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+```
 
-##### Workflow
+- No shadow database (`shadowDatabaseUrl` is PostgreSQL-only — do not add it)
+- No `@db.VarChar()` or `@db.Text` column annotations (SQLite does not support them)
+- No native array fields — use `String @default("[]")` for JSON arrays or join tables
+- Enums must be defined at the Prisma level (not as database-native enums)
 
-1. **Local development**: Make schema changes, run `npx prisma migrate dev --create-only --name description`
-2. **Deploy to staging**: Push code, ask the user to run `npx prisma migrate deploy` with staging DATABASE_URL
-3. **Deploy to production**: After staging verification, ask the user to run `npx prisma migrate deploy` with production DATABASE_URL
-
-#### Example
+#### Migration Workflow
 
 ```bash
-# Always create migrations with --create-only
+# 1. Create migration SQL (review before applying)
 npx prisma migrate dev --create-only --name descriptive_migration_name
 
-# Never run these without user approval:
-# npx prisma migrate dev (applies migration)
-# npx prisma migrate reset (destructive)
+# 2. Apply migration locally
+npx prisma migrate dev
+
+# 3. Deploy to production (never use migrate dev on prod)
+npx prisma migrate deploy
 ```
 
 ##### Important
-- AWLAYS use `--create-only`
-- NEVER use `migrate dev` on staging or production
-- ALWAYS use `migrate deploy` for staging and production
-- Shadow database is only used in development
+- ALWAYS use `--create-only` first to review the generated SQL
+- NEVER use `migrate dev` on production
+- NEVER run `migrate reset` without explicit user approval (destructive)
+- No shadow database needed for SQLite
 
 #### Schema Patterns
 - All models have `id`, `createdAt`, `updatedAt`
@@ -256,13 +383,15 @@ await prisma.$transaction([
 - **Type-safe access**: Import `env` from `@/lib/env`
 - **Required vars**:
   - `NEXT_PUBLIC_BASE_URL`: Public URL
-  - `DATABASE_URL`: Postgres connection
+  - `DATABASE_URL`: SQLite path (`file:./dev.db`)
   - `AUTH_SECRET`: Auth.js secret (32+ chars)
   - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`: OAuth
   - `AUTH_LINKEDIN_ID`, `AUTH_LINKEDIN_SECRET`: OAuth
-  - `GITHUB_TOKEN`: API access
   - `GEMINI_API_KEY`: AI features
   - `CRON_SECRET`: Cron job auth
+- **Image storage vars** (add when implementing uploads):
+  - `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_URL`
+- **Removed vars** (no longer needed): `GITHUB_TOKEN` (no GitHub API calls), `SHADOW_DATABASE_URL` (SQLite)
 - **Never hardcode secrets** in code or commit to git
 
 ### Security Headers
@@ -347,9 +476,10 @@ npm run start        # Start production server
 - **Form state**: `react-hook-form` with `@hookform/resolvers` and Zod
 
 ### AI & Chat
-- **Vercel AI SDK**: For streaming chat responses
-- **MCP (Model Context Protocol)**: Integration for biomedical context
-- **Providers**: Anthropic, Google (Gemini), OpenAI via `@ai-sdk/*`
+- **Vercel AI SDK v5**: For streaming chat responses
+- **No MCP**: Tools call internal model query functions directly (no `@ai-sdk/mcp` or `@modelcontextprotocol/sdk`)
+- **Providers**: Anthropic (Claude), Google (Gemini), OpenAI via `@ai-sdk/*`
+- **Tools**: defined in `lib/chat-tools.ts`, call `models/*/queries.ts` functions directly
 
 ### MDX & Documentation
 - **MDX support**: `@next/mdx` with remark/rehype plugins

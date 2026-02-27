@@ -51,9 +51,9 @@ export default function DataExportSection() {
       <CardContent>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            This export includes your profile information, reviews, collections, blog posts, and all associated data
-            stored in our system. Please note that chat messages are stored locally in your browser and are not included
-            in this export.
+            This export includes your profile information, reviews, panels, blog posts, and all associated data stored
+            in our system. Please note that chat messages are stored locally in your browser and are not included in
+            this export.
           </p>
           <Button onClick={handleExport} disabled={isExporting} className="w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />

@@ -11,15 +11,15 @@ import Link from "next/link"
 export const metadata: Metadata = {
   title: "Team | PanelMaker",
   description:
-    "Meet the PanelMaker team: maintainers, contributors, and advisory committee members driving the development of biomedical MCP servers and research tools.",
+    "Meet the PanelMaker team: maintainers, contributors, and advisory committee members driving the development of spatial proteomics research tools.",
   keywords: [
     "PanelMaker team",
     "maintainers",
     "contributors",
     "advisory committee",
     "open source community",
-    "biomedical research",
-    "MCP development",
+    "spatial proteomics",
+    "antibody panels",
   ],
   openGraph: {
     title: "Team | PanelMaker",
@@ -30,10 +30,20 @@ export const metadata: Metadata = {
 
 const members = [
   {
+    avatar: "https://www.github.com/vpuelles.png",
+    name: "Victor Puelles",
+    title: "Principal Investigator",
+    bio: "Project lead and principal investigator. Head of the Complex Tissue Lab at the University of Aachen.",
+    links: [
+      { icon: "github", link: "https://github.com/vpuelles" },
+      { icon: "website", link: "https://complextissue.com" },
+    ],
+  },
+  {
     avatar: "https://www.github.com/maltekuehl.png",
     name: "Malte Kuehl",
     title: "Maintainer",
-    bio: "MCP server development and project management.",
+    bio: "Platform development and project management.",
     links: [
       { icon: "github", link: "https://github.com/maltekuehl" },
       { icon: "bluesky", link: "https://bsky.app/profile/panelmaker.ai" },
@@ -43,15 +53,8 @@ const members = [
     avatar: "https://www.github.com/dschaub95.png",
     name: "Darius P. Schaub",
     title: "Maintainer",
-    bio: "Registry development and maintenance.",
+    bio: "Data models and API development.",
     links: [{ icon: "github", link: "https://github.com/dschaub95" }],
-  },
-  {
-    avatar: "https://www.github.com/fcarli.png",
-    name: "Francesco Carli",
-    title: "Maintainer",
-    bio: "BioChatter integration and MCP server development.",
-    links: [{ icon: "github", link: "https://github.com/fcarli" }],
   },
   {
     avatar: "https://www.github.com/camifz.png",
@@ -64,29 +67,8 @@ const members = [
     avatar: "https://www.github.com/nnnkaiser.png",
     name: "Nico Kaiser",
     title: "Maintainer",
-    bio: "Registry maintenance.",
+    bio: "Platform maintenance and infrastructure.",
     links: [{ icon: "github", link: "https://github.com/nnnkaiser" }],
-  },
-  {
-    avatar: "https://www.github.com/harryhaller001.png",
-    name: "Malte Hellmig",
-    title: "Maintainer",
-    bio: "Template development & maintenance.",
-    links: [{ icon: "github", link: "https://github.com/harryhaller001" }],
-  },
-  {
-    avatar: "https://www.github.com/slobentanzer.png",
-    name: "Sebastian Lobentanzer",
-    title: "Advisory Committee",
-    bio: "Open source processes and ecosystem integration.",
-    links: [{ icon: "github", link: "https://github.com/slobentanzer" }],
-  },
-  {
-    avatar: "https://www.github.com/Zethson.png",
-    name: "Lukas Heumos",
-    title: "Advisory Committee",
-    bio: "Community management and project advisory.",
-    links: [{ icon: "github", link: "https://github.com/Zethson" }],
   },
   {
     avatar: "https://www.github.com/saezrodriguez.png",
@@ -94,13 +76,6 @@ const members = [
     title: "Advisory Committee",
     bio: "Technical advisory and project guidance.",
     links: [{ icon: "github", link: "https://github.com/saezrodriguez" }],
-  },
-  {
-    avatar: "https://www.github.com/vpuelles.png",
-    name: "Victor Puelles",
-    title: "Advisory Committee",
-    bio: "Project supervision and strategic direction.",
-    links: [{ icon: "github", link: "https://github.com/vpuelles" }],
   },
 ]
 
@@ -110,6 +85,8 @@ function getIconComponent(iconType: string) {
       return <GitHub className="w-4 h-4" />
     case "bluesky":
       return <Bluesky className="w-4 h-4" />
+    case "website":
+      return <ExternalLink className="h-4 w-4" />
     default:
       return <ExternalLink className="h-4 w-4" />
   }
@@ -198,7 +175,7 @@ export default function TeamPage() {
             <Link href="/docs/community/governance">Start Contributing</Link>
           </Button>
           <Button variant="outline" size="lg" asChild>
-            <Link href="/registry">Explore Registry</Link>
+            <Link href="/browse">Browse Antibodies</Link>
           </Button>
         </div>
       </div>

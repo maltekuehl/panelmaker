@@ -1,0 +1,204 @@
+Table cell_types {
+  id String [pk]
+  label String [not null]
+  parentIds String[] [not null]
+  structures cell_type_structures [not null]
+  markers cell_type_markers [not null]
+  reports experimental_reports [not null]
+}
+
+Table anatomical_structures {
+  id String [pk]
+  label String [not null]
+  partOfIds String[] [not null]
+  cellTypes cell_type_structures [not null]
+  reports experimental_reports [not null]
+}
+
+Table cell_type_structures {
+  structureId String [not null]
+  cellTypeId String [not null]
+  cellType cell_types [not null]
+  structure anatomical_structures [not null]
+  source String
+
+  indexes {
+    (cellTypeId, structureId) [pk]
+  }
+
+  Note: 'CellType <-> Structure (from ASCT+B)'
+}
+
+Table proteins {
+  id String [pk]
+  label String [not null]
+  geneSymbol String
+  ensemblGeneId String
+  markers cell_type_markers [not null]
+  antibodies antibody [not null]
+}
+
+Table cell_type_markers {
+  cellTypeId String [not null]
+  proteinId String [not null]
+  cellType cell_types [not null]
+  protein proteins [not null]
+  isCanonical Boolean [not null, default: false]
+  source String
+
+  indexes {
+    (cellTypeId, proteinId) [pk]
+  }
+
+  Note: 'CellType <-> Protein marker relationship'
+}
+
+Table antibody {
+  id Int [pk, increment]
+  rrid String [unique]
+  name String
+  catalogNumber String
+  cloneId String
+  clonality Clonality
+  sourceOrganism SourceOrganisms
+  targetSpecies Species[] [not null]
+  targetProteinId String
+  targetProtein proteins
+  targetName String
+  applications String[] [not null]
+  conjugate String
+  vendorName String
+  vendorUrl String
+  citationCount Int [not null, default: 0]
+  reports experimental_reports [not null]
+}
+
+Table experimental_reports {
+  id Int [pk, increment]
+  antibodyId Int [not null]
+  antibody antibody [not null]
+  cellTypeId String
+  cellType cell_types
+  structureId String
+  structure anatomical_structures
+  species Species [not null]
+  tissueType String
+  fixation Fixation
+  method MultiplexMethod
+  fluorophore String
+  metalTag String
+  cycleNumber Int
+  dilution String
+  antigenRetrieval String
+  status ValidationStatus [not null, default: 'PENDING']
+  works Boolean
+  signalQuality SignalQuality
+  specificity Specificity
+  notes String
+  imageUrls String[] [not null]
+  submitterId Int
+  submitter users
+  isPublic Boolean [not null, default: true]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table users {
+  id Int [pk, increment]
+  email String [unique, not null]
+  name String
+  orcid String [unique]
+  institution String
+  isAdmin Boolean [not null, default: false]
+  reports experimental_reports [not null]
+  createdAt DateTime [default: `now()`, not null]
+}
+
+Enum Clonality {
+  MONOCLONAL
+  POLYCLONAL
+  RECOMBINANT_MONOCLONAL
+  RECOMBINANT_POLYCLONAL
+  OLIGOCLONAL
+  OTHER
+}
+
+Enum SourceOrganisms {
+  RABBIT
+  HAMSTER
+  MOUSE
+  RAT
+  HORSE
+  DONKEY
+  LAMA
+  OTHER
+}
+
+Enum Species {
+  HOMO_SAPIENS
+  MUS_MUSCULUS
+  RATUS_NORVEGICUS
+  OTHER
+}
+
+Enum Fixation {
+  FFPE
+  FRESH_FROZEN
+  PFA
+  OTHER
+}
+
+Enum MultiplexMethod {
+  CODEX_PHENOCYCLER
+  IMC
+  MIBI
+  SABER
+  T_CYCIF
+  PATHOPLEX
+  ORION
+  IBEX
+  IF_CONVENTIONAL
+  IHC
+  MACSIMA
+  FLOW_CYTOMETRY
+  OTHER
+}
+
+Enum ValidationStatus {
+  PENDING
+  VALIDATED
+  FAILED
+  NEEDS_OPTIMIZATION
+}
+
+Enum SignalQuality {
+  EXCELLENT
+  GOOD
+  WEAK
+  NONE
+}
+
+Enum Specificity {
+  SPECIFIC
+  SOME_CROSS_REACTIVITY
+  NON_SPECIFIC
+  UNKNOWN
+}
+
+Ref: cell_type_structures.cellTypeId > cell_types.id [delete: Cascade]
+
+Ref: cell_type_structures.structureId > anatomical_structures.id [delete: Cascade]
+
+Ref: cell_type_markers.cellTypeId > cell_types.id [delete: Cascade]
+
+Ref: cell_type_markers.proteinId > proteins.id [delete: Cascade]
+
+Ref: antibody.targetProteinId > proteins.id
+
+Ref: experimental_reports.antibodyId > antibody.id
+
+Ref: experimental_reports.cellTypeId > cell_types.id
+
+Ref: experimental_reports.structureId > anatomical_structures.id
+
+Ref: experimental_reports.submitterId > users.id

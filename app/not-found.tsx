@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Database, Home, Search } from "lucide-react"
+import { Home, Search } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
 
@@ -32,9 +32,9 @@ export default function NotFound() {
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/registry">
-                  <Database className="w-4 h-4 mr-2" />
-                  Browse Registry
+                <Link href="/browse">
+                  <Search className="w-4 h-4 mr-2" />
+                  Browse Markers
                 </Link>
               </Button>
             </div>

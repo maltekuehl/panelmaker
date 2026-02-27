@@ -1,7 +1,9 @@
 import { auth } from "@/auth"
+import { AIAssistantFloating } from "@/components/ai-assistant-floating"
 import { CookieNotice } from "@/components/cookie/cookie-notice"
 import Footer from "@/components/footer"
 import Header from "@/components/header"
+import { PanelDrawer } from "@/components/panel/panel-drawer"
 import Providers from "@/components/providers"
 import { ThemeProvider } from "@/components/theme-provider"
 import { env } from "@/lib/env"
@@ -29,23 +31,21 @@ const inter = localFont({
 
 export const metadata: Metadata = {
   title: "PanelMaker",
-  description: "Biomedical context via the Model Context Protocol for agentic systems",
+  description:
+    "A community-driven database of validated antibodies and cell type markers for spatial proteomics, including IF, MIBI-ToF, CODEX, PathoPlex, and IMC.",
   keywords: [
-    "MCP",
-    "Model Context Protocol",
-    "biomedical",
-    "healthcare",
-    "AI",
-    "research",
-    "registry",
-    "servers",
-    "agentic systems",
-    "bioinformatics",
-    "machine learning",
-    "artificial intelligence",
-    "LLM",
-    "large language models",
-    "data integration",
+    "PanelMaker",
+    "spatial proteomics",
+    "antibody panel",
+    "cell type markers",
+    "immunofluorescence",
+    "MIBI-ToF",
+    "CODEX",
+    "IMC",
+    "multiplex imaging",
+    "antibody validation",
+    "panel design",
+    "spatial biology",
   ],
   robots: {
     index: true,
@@ -53,7 +53,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "PanelMaker",
-    description: "Biomedical context via the Model Context Protocol for agentic systems",
+    description:
+      "Community-driven database of validated antibodies and cell type markers for spatial proteomics panel design.",
     type: "website",
     url: "https://panelmaker.ai",
     siteName: "PanelMaker",
@@ -62,7 +63,7 @@ export const metadata: Metadata = {
         url: "https://panelmaker.ai/ms-icon-310x310.png",
         width: 310,
         height: 310,
-        alt: "PanelMaker - Biomedical context via the Model Context Protocol for agentic systems",
+        alt: "PanelMaker - Validated Spatial Proteomics Marker Database",
       },
     ],
   },
@@ -135,6 +136,8 @@ async function SessionProvider({ children }: React.PropsWithChildren) {
       <div className="flex h-full min-h-screen w-full flex-col justify-between bg-zinc-50">
         <Header className="sticky top-0 z-50" />
         <main className="w-full flex-auto">{children}</main>
+        <PanelDrawer />
+        <AIAssistantFloating />
         <Footer />
         <CookieNotice />
       </div>

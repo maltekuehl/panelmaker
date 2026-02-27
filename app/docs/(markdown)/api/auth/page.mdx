@@ -1,0 +1,66 @@
+export const metadata = {
+  title: "Authentication | PanelMaker API Documentation",
+  description:
+    "Learn about authentication for PanelMaker authenticated API endpoints, OAuth sign-in, and rate limits for panel and report operations.",
+  keywords: ["PanelMaker authentication", "OAuth", "GitHub login", "LinkedIn login", "API auth", "rate limiting"],
+}
+
+# Authentication
+
+Most PanelMaker API endpoints are public and require no authentication. A subset of endpoints — those that create or modify user data — require you to be signed in.
+
+## Signing in
+
+PanelMaker supports OAuth sign-in via:
+
+- **GitHub** — click _Sign in with GitHub_ on the sign-in page
+- **LinkedIn** — click _Sign in with LinkedIn_ on the sign-in page
+
+No password or API key is needed. After signing in, your session is stored in an HTTP-only cookie.
+
+## Authenticated endpoints
+
+The following operations require an active session:
+
+| Operation                  | Endpoint           | Method   |
+| -------------------------- | ------------------ | -------- |
+| Create a panel             | `/api/panels`      | `POST`   |
+| Update a panel             | `/api/panels/[id]` | `PATCH`  |
+| Delete a panel             | `/api/panels/[id]` | `DELETE` |
+| Submit a validation report | `/api/reports`     | `POST`   |
+
+Calling these endpoints without a valid session returns `401 Unauthorized`:
+
+```json
+{ "error": "Authentication required" }
+```
+
+## Rate limiting
+
+Authenticated write operations are rate-limited to prevent abuse:
+
+| Operation                      | Limit                    |
+| ------------------------------ | ------------------------ |
+| Report submission              | 10 requests per 24 hours |
+| Panel create / update / delete | 50 requests per 24 hours |
+
+When a rate limit is exceeded, the API returns `429 Too Many Requests` with a `Retry-After` header indicating how many seconds until the limit resets:
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 3600
+```
+
+```json
+{ "error": "Rate limit exceeded", "retryAfter": 3600 }
+```
+
+## Using the API from scripts
+
+The PanelMaker API does not currently issue API keys. If you need programmatic write access (e.g., for bulk report import), please contact the team to discuss options. Read-only access via `GET` endpoints is always available without authentication or API keys.
+
+## Session security
+
+- Sessions expire after 30 days of inactivity
+- Signing out immediately invalidates the session cookie
+- All authenticated requests must be made over HTTPS

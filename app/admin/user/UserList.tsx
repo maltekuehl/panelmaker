@@ -31,7 +31,8 @@ interface User {
   updatedAt: string
   _count: {
     reviews: number
-    collections: number
+    panels: number
+    experimentalReports: number
     blogPosts: number
   }
 }
@@ -249,8 +250,12 @@ export default function UserList() {
                   <p className="text-muted-foreground">{user._count.reviews}</p>
                 </div>
                 <div>
-                  <p className="font-medium">Collections</p>
-                  <p className="text-muted-foreground">{user._count.collections}</p>
+                  <p className="font-medium">Panels</p>
+                  <p className="text-muted-foreground">{user._count.panels}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Reports</p>
+                  <p className="text-muted-foreground">{user._count.experimentalReports}</p>
                 </div>
                 <div>
                   <p className="font-medium">Blog Posts</p>
@@ -326,7 +331,7 @@ export default function UserList() {
                       <AlertDialogTitle>Delete User</AlertDialogTitle>
                       <AlertDialogDescription>
                         Are you sure you want to permanently delete {user.name || user.email}? This action cannot be
-                        undone and will remove all their data including reviews, collections, and blog posts.
+                        undone and will remove all their data including reviews, panels, reports, and blog posts.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

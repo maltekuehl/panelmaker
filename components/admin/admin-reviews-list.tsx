@@ -23,11 +23,6 @@ interface ReviewWithDetails {
     email: string
     image: string | null
   }
-  mcpServer: {
-    id: string
-    name: string
-    identifier: string
-  }
 }
 
 interface AdminReviewsListProps {
@@ -61,7 +56,6 @@ export default function AdminReviewsList({ showOnlyPending = true }: AdminReview
 
       let reviewsList = data.reviews || []
 
-      // Filter to only pending reviews if requested
       if (showOnlyPending) {
         reviewsList = reviewsList.filter((review: ReviewWithDetails) => review.isPending)
       }
@@ -105,7 +99,6 @@ export default function AdminReviewsList({ showOnlyPending = true }: AdminReview
         description: result.message,
       })
 
-      // Refresh the reviews list
       await fetchReviews()
       router.refresh()
     } catch (error) {
@@ -172,9 +165,6 @@ export default function AdminReviewsList({ showOnlyPending = true }: AdminReview
                       </div>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    For: <span className="font-medium">{review.mcpServer.name}</span>
-                  </p>
                   <p className="text-xs text-muted-foreground">{formatDate(review.datePublished)}</p>
                 </div>
               </div>

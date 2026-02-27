@@ -3,35 +3,39 @@
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { Panel } from "./types"
+import { FIXATION_LABELS, SPECIES_LABELS } from "./types"
 
 const panelFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  description: z.string().min(1, "Description is required"),
-  species: z.string().min(1, "Species is required"),
-  type: z.string().min(1, "Type is required"),
-  condition: z.string().min(1, "Condition is required"),
+  description: z.string().optional(),
+  species: z.string().optional(),
+  fixation: z.string().optional(),
+  condition: z.string().optional(),
 })
 
 type PanelFormValues = z.infer<typeof panelFormSchema>
 
+export type CreatePanelFormData = PanelFormValues
+
 interface PanelFormProps {
-  onSubmit: (data: Omit<Panel, "id" | "cycles">) => void
+  onSubmit: (data: CreatePanelFormData) => void
   onCancel?: () => void
+  isSubmitting?: boolean
 }
 
-export function PanelForm({ onSubmit, onCancel }: PanelFormProps) {
+export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) {
   const form = useForm<PanelFormValues>({
     resolver: zodResolver(panelFormSchema),
     defaultValues: {
       name: "",
       description: "",
-      species: "",
-      type: "",
+      species: undefined,
+      fixation: undefined,
       condition: "",
     },
   })
@@ -77,22 +81,44 @@ export function PanelForm({ onSubmit, onCancel }: PanelFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Species</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g. Homo sapiens" {...field} />
-                </FormControl>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select species" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(Object.keys(SPECIES_LABELS) as Array<keyof typeof SPECIES_LABELS>).map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {SPECIES_LABELS[key]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
           <FormField
             control={form.control}
-            name="type"
+            name="fixation"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Type</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g. FFPE" {...field} />
-                </FormControl>
+                <FormLabel>Fixation</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select fixation" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {(Object.keys(FIXATION_LABELS) as Array<keyof typeof FIXATION_LABELS>).map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {FIXATION_LABELS[key]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -113,11 +139,13 @@ export function PanelForm({ onSubmit, onCancel }: PanelFormProps) {
         />
         <div className="flex justify-end gap-2">
           {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
               Cancel
             </Button>
           )}
-          <Button type="submit">Create Panel</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Creating..." : "Create Panel"}
+          </Button>
         </div>
       </form>
     </Form>

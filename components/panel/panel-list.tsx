@@ -2,88 +2,87 @@
 
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import { useState } from "react"
+import { toast } from "sonner"
 import { CycleSection } from "./cycle-section"
+import type { Species } from "./types"
 import { PanelCycle } from "./types"
 
-// Dummy data for initial state
-export const initialData: PanelCycle[] = [
-  {
-    id: "c1",
-    name: "Cycle 1",
-    markers: [
-      {
-        id: "m1",
-        gene: "NPHS1",
-        antibody: "Sigma HPA003266",
-        cellType: "Podocyte",
-        fluorophore: "AF488",
-        host: "Rabbit",
-        color: "bg-green-500",
-      },
-      {
-        id: "m2",
-        gene: "WT1",
-        antibody: "Abcam ab89901",
-        cellType: "Podocyte",
-        fluorophore: "AF555",
-        host: "Mouse",
-        color: "bg-yellow-500",
-      },
-    ],
-  },
-  {
-    id: "c2",
-    name: "Cycle 2",
-    markers: [
-      {
-        id: "m3",
-        gene: "CD31",
-        antibody: "Dako M0823",
-        cellType: "Endothelial",
-        fluorophore: "AF488",
-        host: "Goat",
-        color: "bg-green-500",
-      },
-    ],
-  },
-]
-
 interface PanelListProps {
+  panelId: number
   cycles: PanelCycle[]
-  onUpdate: (cycles: PanelCycle[]) => void
+  species?: Species | null
+  onCyclesChange: (cycles: PanelCycle[]) => void
 }
 
-export function PanelList({ cycles, onUpdate }: PanelListProps) {
-  const handleRemoveMarker = (cycleId: string, markerId: string) => {
-    onUpdate(
+export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelListProps) {
+  const [isAddingCycle, setIsAddingCycle] = useState(false)
+
+  const handleRemoveMarker = async (cycleId: number, markerId: number) => {
+    const res = await fetch(`/api/panels/${panelId}/markers`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markerId }),
+    })
+
+    if (!res.ok) {
+      toast.error("Failed to remove marker")
+      return
+    }
+
+    onCyclesChange(
       cycles.map((cycle) => {
         if (cycle.id === cycleId) {
-          return {
-            ...cycle,
-            markers: cycle.markers.filter((m) => m.id !== markerId),
-          }
+          return { ...cycle, markers: cycle.markers.filter((m) => m.id !== markerId) }
         }
         return cycle
       }),
     )
   }
 
-  const handleAddMarker = (cycleId: string) => {
-    // Placeholder for adding logic
-    console.log("Add marker to cycle", cycleId)
-  }
+  const handleAddCycle = async () => {
+    setIsAddingCycle(true)
+    const nextSortOrder = cycles.length
 
-  const handleAddCycle = () => {
-    const newCycle: PanelCycle = {
-      id: `c${cycles.length + 1}`,
-      name: `Cycle ${cycles.length + 1}`,
-      markers: [],
+    const res = await fetch(`/api/panels/${panelId}/cycles`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `Cycle ${cycles.length + 1}`, sortOrder: nextSortOrder }),
+    })
+
+    setIsAddingCycle(false)
+
+    if (!res.ok) {
+      toast.error("Failed to add cycle")
+      return
     }
-    onUpdate([...cycles, newCycle])
+
+    const json = await res.json()
+    onCyclesChange([...cycles, json.data?.cycle ?? json.cycle])
   }
 
-  const handleRemoveCycle = (cycleId: string) => {
-    onUpdate(cycles.filter((cycle) => cycle.id !== cycleId))
+  const handleRemoveCycle = async (cycleId: number) => {
+    const res = await fetch(`/api/panels/${panelId}/cycles/${cycleId}`, {
+      method: "DELETE",
+    })
+
+    if (!res.ok) {
+      toast.error("Failed to remove cycle")
+      return
+    }
+
+    onCyclesChange(cycles.filter((cycle) => cycle.id !== cycleId))
+  }
+
+  const handleMarkerAdded = async () => {
+    const res = await fetch(`/api/panels/${panelId}`)
+    if (res.ok) {
+      const json = await res.json()
+      const updatedPanel = json.data?.panel ?? json.panel
+      if (updatedPanel?.cycles) {
+        onCyclesChange(updatedPanel.cycles)
+      }
+    }
   }
 
   return (
@@ -92,16 +91,24 @@ export function PanelList({ cycles, onUpdate }: PanelListProps) {
         <CycleSection
           key={cycle.id}
           cycle={cycle}
+          panelId={panelId}
+          species={species}
           onRemoveMarker={handleRemoveMarker}
-          onAddMarker={handleAddMarker}
           onRemoveCycle={handleRemoveCycle}
+          onMarkerAdded={handleMarkerAdded}
+          onCycleUpdated={handleMarkerAdded}
         />
       ))}
 
       <div className="relative pl-4 border-l-2 border-transparent">
-        <Button variant="secondary" className="w-full justify-start text-xs font-medium" onClick={handleAddCycle}>
+        <Button
+          variant="secondary"
+          className="w-full justify-start text-xs font-medium"
+          onClick={handleAddCycle}
+          disabled={isAddingCycle}
+        >
           <Plus className="mr-2 h-3 w-3" />
-          Add New Cycle
+          {isAddingCycle ? "Adding..." : "Add New Cycle"}
         </Button>
       </div>
     </div>

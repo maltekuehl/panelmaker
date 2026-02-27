@@ -1,0 +1,56 @@
+export const metadata = {
+  title: "Roadmap | PanelMaker Documentation",
+  description:
+    "PanelMaker product roadmap: upcoming features for panel intelligence, export, image uploads, and public API expansion.",
+  keywords: ["PanelMaker roadmap", "upcoming features", "panel design", "spatial proteomics platform"],
+}
+
+# Roadmap
+
+PanelMaker is under active development. This page outlines upcoming features in rough priority order. The roadmap is community-driven — open an issue or start a discussion on GitHub to influence priorities.
+
+## Near term
+
+### Panel intelligence
+
+- **Fluorophore overlap detection**: automatic spectral overlap checking between channels in the same cycle, using the fluorophore emission and excitation spectra database
+- **Host species cross-reactivity checks**: flag antibody combinations that risk cross-reactivity when using secondary antibody detection
+- **Cycle balance score**: heuristic scoring of marker distribution across cycles to help balance staining intensity
+
+### Panel export
+
+- **CSV export**: download any panel as a spreadsheet formatted for ordering and bench use
+- **JSON export**: machine-readable panel definition compatible with downstream analysis tools
+- **Community panel gallery**: public listing of panels shared by users, filterable by tissue, imaging method, and species
+
+## Medium term
+
+### Image uploads
+
+- Attach representative staining images to validation reports (JPEG, PNG, TIFF up to 10 MB)
+- Images stored on Cloudflare R2, served via CDN
+- Thumbnail previews on antibody and marker pages
+
+### Public API v1 expansion
+
+- Stable versioned endpoints at `/api/v1/`
+- Cursor-based pagination for all list endpoints
+- OpenAPI schema document at `/api/v1/openapi.yaml`
+- Additional filter parameters: `?cellType=`, `?tissue=`, `?uniprotId=`
+
+### Marker curation tools
+
+- Admin interface for reviewing and merging duplicate antibody entries
+- Bulk import from CSV for groups submitting large datasets
+- Linked preprint and publication references on validation reports
+
+## Longer term
+
+- **Panel simulation**: predicted image quality based on antibody validation scores and fluorophore performance
+- **Protocol generator**: auto-generate a step-by-step staining protocol from a finalized panel
+- **Cross-platform compatibility**: export panels to formats expected by vendor software (e.g., Akoya PhenoImager, Fluidigm Hyperion)
+- **Institutional accounts**: shared panel libraries within a lab or consortium
+
+## Contributing
+
+All development is open source. See the [Code of Conduct](/docs/community/conduct) for community guidelines, and the [Team](/docs/community/team) page to get in touch with maintainers.

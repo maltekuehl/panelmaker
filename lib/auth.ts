@@ -24,7 +24,6 @@ export async function requireAuth(request: NextRequest): Promise<AuthenticatedUs
   const session = await auth()
 
   if (!session?.user?.id) {
-    // Log authentication failure
     await logSecurityEventFromRequest(request, SecurityEventType.AUTH_FAILURE, {
       action: "access",
       success: false,
@@ -32,12 +31,52 @@ export async function requireAuth(request: NextRequest): Promise<AuthenticatedUs
     throw new Error("Authentication required")
   }
 
+  await ensureUserExists(session.user)
+
   return {
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
     image: session.user.image,
   }
+}
+
+async function ensureUserExists(user: {
+  id: string
+  name?: string | null
+  email?: string | null
+  image?: string | null
+}) {
+  const byId = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true },
+  })
+  if (byId) return
+
+  if (user.email) {
+    const byEmail = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true },
+    })
+    if (byEmail) {
+      if (byEmail.id !== user.id) {
+        await prisma.user.update({
+          where: { email: user.email },
+          data: { id: user.id },
+        })
+      }
+      return
+    }
+  }
+
+  await prisma.user.create({
+    data: {
+      id: user.id,
+      name: user.name ?? null,
+      email: user.email ?? `${user.id}@placeholder.local`,
+      image: user.image ?? null,
+    },
+  })
 }
 
 export async function requireAdmin(request: NextRequest): Promise<AuthenticatedUser> {
@@ -158,13 +197,11 @@ export async function getAllUsers(page: number = 1, pageSize: number = 10, searc
           {
             name: {
               contains: search,
-              mode: "insensitive" as const,
             },
           },
           {
             email: {
               contains: search,
-              mode: "insensitive" as const,
             },
           },
         ],
@@ -186,7 +223,7 @@ export async function getAllUsers(page: number = 1, pageSize: number = 10, searc
         _count: {
           select: {
             reviews: true,
-            collections: true,
+            experimentalReports: true,
             blogPosts: true,
           },
         },

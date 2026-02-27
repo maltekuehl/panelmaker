@@ -1,9 +1,13 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { prisma } from "@/lib/prisma"
 import { Bot, Database, Layers, Microscope, Search, ShieldCheck, Users } from "lucide-react"
 import type { Metadata } from "next"
+import { cacheLife } from "next/cache"
 import Link from "next/link"
+import { Suspense } from "react"
 
 export const metadata: Metadata = {
   title: "PanelMaker - Validated Spatial Proteomics Marker Database",
@@ -25,7 +29,54 @@ export const metadata: Metadata = {
   ],
 }
 
-export default function HomePage() {
+function formatCount(count: number): string {
+  if (count === 0) return "Growing"
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}k+`
+  return `${count}+`
+}
+
+async function HomeStats() {
+  "use cache"
+  cacheLife("days")
+
+  const [proteinCount, antibodyCount, reportCount] = await Promise.all([
+    prisma.protein.count(),
+    prisma.antibody.count(),
+    prisma.experimentalReport.count({ where: { isPublic: true } }),
+  ])
+
+  return (
+    <div className="grid grid-cols-3 gap-8 md:gap-16 pt-12">
+      <div className="text-center">
+        <div className="text-3xl font-bold text-primary">{formatCount(proteinCount)}</div>
+        <div className="text-sm text-muted-foreground">Proteins</div>
+      </div>
+      <div className="text-center">
+        <div className="text-3xl font-bold text-primary">{formatCount(antibodyCount)}</div>
+        <div className="text-sm text-muted-foreground">Antibodies</div>
+      </div>
+      <div className="text-center">
+        <div className="text-3xl font-bold text-primary">{formatCount(reportCount)}</div>
+        <div className="text-sm text-muted-foreground">Validated Reports</div>
+      </div>
+    </div>
+  )
+}
+
+function HomeStatsSkeleton() {
+  return (
+    <div className="grid grid-cols-3 gap-8 md:gap-16 pt-12">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="text-center flex flex-col items-center gap-2">
+          <Skeleton className="h-9 w-16" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export default async function HomePage() {
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)]">
       {/* Hero Section */}
@@ -58,20 +109,9 @@ export default function HomePage() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-8 md:gap-16 pt-12">
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary">1,200+</div>
-            <div className="text-sm text-muted-foreground">Validated Markers</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary">45</div>
-            <div className="text-sm text-muted-foreground">Tissue Types</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl font-bold text-primary">850+</div>
-            <div className="text-sm text-muted-foreground">Cell Types</div>
-          </div>
-        </div>
+        <Suspense fallback={<HomeStatsSkeleton />}>
+          <HomeStats />
+        </Suspense>
       </section>
 
       {/* Features Grid */}
@@ -133,7 +173,7 @@ export default function HomePage() {
               <Link href="/submit">Submit a Marker</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="rounded-full px-8">
-              <Link href="/about">Learn More</Link>
+              <Link href="/browse">Browse Database</Link>
             </Button>
           </div>
         </div>

@@ -1,12 +1,11 @@
 "use client"
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
-import { McpServerStats, ModelUsageStats, PeriodStats, StatsResponse } from "@/types/api"
-import { BarChart3, Brain, MessageSquare, Server, Users } from "lucide-react"
+import { ModelUsageStats, PeriodStats, StatsResponse } from "@/types/api"
+import { Brain, MessageSquare, Users } from "lucide-react"
 import { useEffect, useState } from "react"
 
 function StatCard({
@@ -77,73 +76,10 @@ function ModelUsageCard({ models }: { models: ModelUsageStats[] }) {
   )
 }
 
-function McpServerAccordion({ servers }: { servers: McpServerStats[] }) {
-  if (servers.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">No tool calls recorded in this period</p>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>MCP Servers & Tool Calls</CardTitle>
-        <CardDescription>Click on each server to see detailed tool usage</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Accordion type="single" collapsible className="w-full">
-          {servers.map((server, index) => (
-            <AccordionItem key={server.id} value={`server-${index}`}>
-              <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center justify-between w-full pr-4">
-                  <div className="flex items-center space-x-2">
-                    <Server className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{server.name}</span>
-                    <span className="text-xs text-muted-foreground">({server.identifier})</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-semibold">{server.totalCalls.toLocaleString()}</span>
-                    <span className="text-xs text-muted-foreground">calls</span>
-                  </div>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-2 pt-2">
-                  {server.toolCalls.length === 0 ? (
-                    <p className="text-sm text-muted-foreground pl-6">No tool calls recorded</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {server.toolCalls.map((tool, toolIndex) => (
-                        <div
-                          key={toolIndex}
-                          className="flex items-center justify-between px-6 py-2 rounded-md hover:bg-muted/50"
-                        >
-                          <span className="text-sm font-mono">{tool.toolName}</span>
-                          <span className="text-sm font-medium">{tool.count.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </CardContent>
-    </Card>
-  )
-}
-
 function PeriodStatsView({ stats }: { stats: PeriodStats }) {
-  const totalToolCalls = stats.mcpServers.reduce((sum, server) => sum + server.totalCalls, 0)
-
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <StatCard
           title="Total Messages"
           value={stats.totalMessages}
@@ -151,18 +87,9 @@ function PeriodStatsView({ stats }: { stats: PeriodStats }) {
           icon={MessageSquare}
         />
         <StatCard title="Unique Users" value={stats.totalUsers} description="Users who sent messages" icon={Users} />
-        <StatCard title="Total Tool Calls" value={totalToolCalls} description="Tools executed" icon={BarChart3} />
-        <StatCard
-          title="Active MCP Servers"
-          value={stats.mcpServers.length}
-          description="Servers with tool calls"
-          icon={Server}
-        />
       </div>
 
       <ModelUsageCard models={stats.modelUsage} />
-
-      <McpServerAccordion servers={stats.mcpServers} />
     </div>
   )
 }
@@ -170,8 +97,8 @@ function PeriodStatsView({ stats }: { stats: PeriodStats }) {
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid gap-4 md:grid-cols-2">
+        {[1, 2].map((i) => (
           <Card key={i}>
             <CardHeader className="space-y-0 pb-2">
               <Skeleton className="h-4 w-24" />

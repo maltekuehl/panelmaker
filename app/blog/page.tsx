@@ -171,24 +171,33 @@ async function BlogPostsList({ page, search }: { page: number; search?: string }
                   <span>{Math.ceil(post.content.split(" ").length / 200)} min read</span>
                 </div>
               </div>
-              {post.keywords.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {post.keywords.slice(0, 5).map((keyword) => (
-                    <Badge
-                      key={keyword}
-                      variant="outline"
-                      className="text-xs bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 transition-colors"
-                    >
-                      {keyword}
-                    </Badge>
-                  ))}
-                  {post.keywords.length > 5 && (
-                    <Badge variant="outline" className="text-xs bg-accent/50">
-                      +{post.keywords.length - 5} more
-                    </Badge>
-                  )}
-                </div>
-              )}
+              {(() => {
+                const keywords: string[] = (() => {
+                  try {
+                    return JSON.parse(post.keywords)
+                  } catch {
+                    return []
+                  }
+                })()
+                return keywords.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {keywords.slice(0, 5).map((keyword) => (
+                      <Badge
+                        key={keyword}
+                        variant="outline"
+                        className="text-xs bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        {keyword}
+                      </Badge>
+                    ))}
+                    {keywords.length > 5 && (
+                      <Badge variant="outline" className="text-xs bg-accent/50">
+                        +{keywords.length - 5} more
+                      </Badge>
+                    )}
+                  </div>
+                ) : null
+              })()}
             </CardContent>
           </Card>
         ))}

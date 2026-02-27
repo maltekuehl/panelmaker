@@ -71,12 +71,7 @@ export async function getBlogPosts(
   }
 
   if (search) {
-    where.OR = [
-      { title: { contains: search, mode: "insensitive" } },
-      { excerpt: { contains: search, mode: "insensitive" } },
-      { content: { contains: search, mode: "insensitive" } },
-      { keywords: { has: search } },
-    ]
+    where.OR = [{ title: { contains: search } }, { excerpt: { contains: search } }, { content: { contains: search } }]
   }
 
   // Get total count for pagination
@@ -178,7 +173,7 @@ export async function createBlogPost(data: CreateBlogPostData): Promise<BlogPost
       publishedAt,
       metaTitle: data.metaTitle,
       metaDescription: data.metaDescription,
-      keywords: data.keywords ?? [],
+      keywords: JSON.stringify(data.keywords ?? []),
       authorId: data.authorId,
     },
   })
@@ -295,13 +290,15 @@ export async function getRelatedBlogPosts(
     return []
   }
 
+  const keywordConditions = keywords.map((kw) => ({
+    keywords: { contains: kw },
+  }))
+
   return await prisma.blogPost.findMany({
     where: {
       id: { not: currentPostId },
       published: true,
-      keywords: {
-        hasSome: keywords,
-      },
+      OR: keywordConditions,
     },
     include: {
       author: {

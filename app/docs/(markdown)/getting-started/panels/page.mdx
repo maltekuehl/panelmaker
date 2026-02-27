@@ -1,0 +1,80 @@
+export const metadata = {
+  title: "Design Panels | PanelMaker Documentation",
+  description:
+    "Learn how to use the PanelMaker panel designer to build multi-cycle antibody panels for spatial proteomics experiments.",
+  keywords: [
+    "panel design",
+    "antibody panel",
+    "fluorophore assignment",
+    "metal tag",
+    "CODEX panel",
+    "IBEX panel",
+    "multiplexed imaging",
+  ],
+}
+
+# Design Panels
+
+The panel designer at [/panel](/panel) lets you build and save multi-cycle antibody panels for spatial proteomics experiments. You must be signed in to create and save panels.
+
+## Creating a panel
+
+1. Navigate to [/panel](/panel)
+2. Click **New Panel** to start with a blank panel
+3. Give your panel a name and optionally a description
+4. Add cycles using the **Add Cycle** button
+
+Each panel is private by default. You can make a panel public once you are satisfied with it, which will list it in the community panel browser.
+
+## Panel structure
+
+A panel consists of one or more **cycles**. Each cycle represents a single round of staining and imaging:
+
+| Term    | Description                                          |
+| ------- | ---------------------------------------------------- |
+| Panel   | The complete experiment design — all cycles combined |
+| Cycle   | One round of antibody staining and image acquisition |
+| Channel | A single fluorophore or metal isotope within a cycle |
+| Marker  | The protein target assigned to a channel             |
+
+For iterative protocols like IBEX, each cycle uses a different set of fluorophores on the same tissue section. For CODEX and IMC, you assign metal isotopes or oligonucleotide barcodes.
+
+## Adding markers to a cycle
+
+Within each cycle, click **Add Marker** to search for a protein or antibody:
+
+1. Type a gene symbol, protein name, or clone name in the search box
+2. Select the antibody from the dropdown — the antibody&apos;s clone and vendor are shown alongside its validation status
+3. Assign a **fluorophore** or **metal tag** to the channel
+4. Optionally set a working concentration
+
+Markers that have community validation reports for your selected imaging method are shown with a checkmark. Markers with no reports are shown with a warning.
+
+## Panel validation warnings
+
+The designer checks your panel for common problems and highlights them inline:
+
+| Warning               | Cause                                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Fluorophore overlap   | Two channels in the same cycle have overlapping emission spectra                                                   |
+| Host species conflict | Primary antibodies share the same host species in the same cycle, risking cross-reactivity of secondary antibodies |
+| Duplicate target      | The same protein is assigned to more than one channel across the panel                                             |
+| No validation data    | An antibody has no community reports for the selected imaging method                                               |
+
+Warnings do not block saving — they are advisory. Resolving them before finalizing your panel is strongly recommended.
+
+## Saving and exporting
+
+Panels are saved automatically as you work. From the panel menu you can:
+
+- **Duplicate**: create a copy to try alternative configurations
+- **Export CSV**: download the panel as a spreadsheet (marker, clone, vendor, fluorophore, cycle)
+- **Export JSON**: download the full panel definition for programmatic use
+- **Share**: generate a public link (requires setting the panel to public)
+
+## Tips for good panel design
+
+- Place **nuclear markers** (e.g., DAPI, Ki-67, PCNA) in early cycles to aid tissue registration between cycles
+- Place **rare-cell markers** and **low-abundance targets** in channels with the highest sensitivity or the longest integration time
+- Avoid pairing antibodies from the same host species in the same cycle unless using directly conjugated primaries
+- Check the community validation reports for your specific tissue type and fixation method before finalizing

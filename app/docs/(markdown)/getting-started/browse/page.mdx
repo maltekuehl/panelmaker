@@ -1,0 +1,71 @@
+export const metadata = {
+  title: "Browse Markers | PanelMaker Documentation",
+  description:
+    "Learn how to browse and search the PanelMaker marker database to find validated antibodies for spatial proteomics experiments.",
+  keywords: [
+    "browse markers",
+    "antibody search",
+    "spatial proteomics",
+    "protein database",
+    "UniProt",
+    "Human Protein Atlas",
+  ],
+}
+
+# Browse Markers
+
+The marker database is the core of PanelMaker. It contains proteins, antibodies, and community-submitted validation reports that help you select the right reagents for your spatial proteomics experiment.
+
+## Searching for markers
+
+Navigate to [/browse](/browse) to open the marker browser. Use the search bar to find markers by:
+
+- **Gene symbol** (e.g., `CD3E`, `FOXP3`, `PCNA`)
+- **Protein name** (e.g., `pan-cytokeratin`, `vimentin`)
+- **Clone name** (e.g., `SP6`, `MIB-1`)
+- **RRID** (e.g., `AB_2315677`)
+
+Search results update as you type. Click any result row to open the full marker detail page.
+
+## Filtering results
+
+Use the filter panel to narrow results by:
+
+| Filter               | Options                                         |
+| -------------------- | ----------------------------------------------- |
+| Species              | Human, Mouse, Rat, and more (NCBI taxonomy)     |
+| Imaging method       | CODEX, IBEX, CyCIF, IMC, MIBI, mIHC, and others |
+| Fixation             | FFPE, fresh-frozen, PFA                         |
+| Subcellular location | Membrane, cytoplasm, nucleus                    |
+
+Filters can be combined. The result count updates in real time.
+
+## Marker detail page
+
+Each marker has a dedicated page at `/marker/[id]` that shows:
+
+- **Protein information**: gene symbol, UniProt ID, subcellular location, molecular function
+- **Validated antibodies**: a table of antibodies with clone, vendor, catalog number, and RRID
+- **Validation reports**: community-submitted results organized by species, tissue, fixation, and imaging method
+- **External links**: direct links to UniProt, Human Protein Atlas, and Ensembl for the target protein
+
+## Antibody detail pages
+
+Each antibody has its own page at `/antibody/[id]` showing:
+
+- Clone, host species, isotype, vendor, catalog number, RRID
+- All validation reports filed for that antibody
+- Working concentrations and dilutions reported by the community
+
+## Cell type pages
+
+Cell type pages at `/celltype/[id]` list known markers for that cell type, sourced from community reports and curated references. Cell types are identified using Cell Ontology (CL) IDs.
+
+## External integrations
+
+PanelMaker links out to the following resources for additional context:
+
+- **UniProt** (`uniprot.org`): Protein sequence, function, and disease associations
+- **Human Protein Atlas** (`proteinatlas.org`): Tissue and cell expression maps, subcellular localization
+- **Ensembl** (`ensembl.org`): Gene structure, transcripts, and cross-species orthologs
+- **Antibody Registry** (`antibodyregistry.org`): RRID lookup and antibody metadata

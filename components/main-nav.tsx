@@ -1,11 +1,12 @@
 "use client"
 
-import { Menu, Microscope, Plus } from "lucide-react"
+import { Menu, Microscope, Plus, Search } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
-import React from "react"
+import React, { useState } from "react"
 import CustomLink from "./custom-link"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
@@ -20,11 +21,23 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui
 
 export function MainNav({ children }: { children?: React.ReactNode }) {
   const isMobile = useIsMobile()
+  const router = useRouter()
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = searchQuery.trim()
+    if (trimmed) {
+      router.push(`/browse?q=${encodeURIComponent(trimmed)}`)
+      setSearchQuery("")
+    }
+  }
 
   const navigationItems = [
     { href: "/browse", title: "Browse" },
-    { href: "/docs", title: "Documentation" },
     { href: "/panel", title: "Panels" },
+    { href: "/docs", title: "Documentation" },
+    { href: "/leaderboard", title: "Community" },
     { href: "/blog", title: "Blog" },
   ]
 
@@ -110,11 +123,19 @@ export function MainNav({ children }: { children?: React.ReactNode }) {
             Submit
           </Link>
         </Button>
-        <Input
-          type="search"
-          placeholder="Search cell types, proteins..."
-          className={cn("max-w-md h-9", "hidden md:inline-flex flex-1")}
-        />
+        <form onSubmit={handleSearch} className="hidden md:flex items-center gap-1">
+          <Input
+            type="search"
+            placeholder="Search cell types, proteins..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={cn("max-w-md h-9 flex-1")}
+          />
+          <Button type="submit" variant="ghost" size="icon" className="h-9 w-9">
+            <Search className="h-4 w-4" />
+            <span className="sr-only">Search</span>
+          </Button>
+        </form>
         {children}
       </div>
     </>

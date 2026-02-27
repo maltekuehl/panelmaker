@@ -1,0 +1,63 @@
+export const metadata = {
+  title: "AI Assistant | PanelMaker Documentation",
+  description:
+    "Learn how to use the PanelMaker AI assistant to get recommendations for antibody panel design, marker compatibility, and spatial proteomics workflows.",
+  keywords: [
+    "AI assistant",
+    "panel design assistant",
+    "marker recommendations",
+    "panel compatibility",
+    "spatial proteomics AI",
+  ],
+}
+
+# AI Assistant
+
+The PanelMaker AI assistant is available via the chat icon in the bottom-right corner of any page. It is powered by a large language model with direct access to the PanelMaker database, so it can give answers grounded in real community data rather than generic training knowledge.
+
+## What the assistant can do
+
+The assistant has access to a set of built-in tools that query the PanelMaker database in real time:
+
+| Tool                 | What it does                                                                |
+| -------------------- | --------------------------------------------------------------------------- |
+| `searchMarkers`      | Search the protein and antibody database by name, gene symbol, or RRID      |
+| `getMarkerDetails`   | Retrieve full details for a specific marker including validation reports    |
+| `searchCellTypes`    | Look up cell types and their known marker sets using the Cell Ontology      |
+| `suggestPanel`       | Recommend a starter panel for a given tissue and imaging method             |
+| `checkCompatibility` | Check a set of antibodies for fluorophore overlap or host species conflicts |
+
+The assistant decides which tools to call based on your question. You do not need to invoke tools explicitly.
+
+## Example prompts
+
+**Finding markers for a cell type:**
+
+> "What are good markers for regulatory T cells in human FFPE tissue?"
+
+**Checking antibody compatibility:**
+
+> "I want to use anti-CD3 (SP6 clone) and anti-CD8 (C8/144B clone) in the same cycle. Are there any compatibility issues?"
+
+**Getting panel suggestions:**
+
+> "Suggest a 10-marker CODEX panel for human tonsil covering major immune cell types."
+
+**Looking up validation data:**
+
+> "Has the Abcam anti-FOXP3 antibody (ab20034) been validated for IMC on mouse spleen?"
+
+**Understanding a protocol:**
+
+> "What is the difference between IBEX and CyCIF, and which is better for archival FFPE tissue?"
+
+## Limitations
+
+- The assistant can only retrieve data that is in the PanelMaker database. For antibodies or markers not yet submitted to the community, it will say so and suggest alternatives.
+- Panel suggestions are starting points based on community data. Always review suggestions against your own experimental constraints before ordering reagents.
+- The assistant cannot place orders, access external lab systems, or retrieve paywalled publications.
+- Chat history is not saved between sessions. Copy important recommendations before closing the chat.
+
+## Rate limiting
+
+The AI assistant is rate-limited to ensure fair access for all users. The free tier allows a limited number of messages per hour. If you reach the limit, the assistant will notify you and tell you when the limit resets.

@@ -3,7 +3,17 @@ import { TEST_DATA, TestHelpers } from "./test-helpers"
 
 test.describe("Comprehensive Page Rendering Tests", () => {
   test.describe("All Main Pages", () => {
-    TEST_DATA.COMMON_PAGES.forEach(({ path, name }) => {
+    // Update to use current PanelMaker routes (remove /registry, add /browse, /submit)
+    const panelmakerPages = [
+      { path: "/", name: "Home" },
+      { path: "/browse", name: "Browse" },
+      { path: "/blog", name: "Blog" },
+      { path: "/chat", name: "Chat" },
+      { path: "/docs", name: "Documentation" },
+      { path: "/submit", name: "Submit" },
+    ]
+
+    panelmakerPages.forEach(({ path, name }) => {
       test(`should render ${name} page correctly`, async ({ page }) => {
         await page.goto(path)
         await TestHelpers.waitForPageLoad(page)
@@ -45,17 +55,17 @@ test.describe("Comprehensive Page Rendering Tests", () => {
   })
 
   test.describe("Dynamic Routes", () => {
-    test("should handle registry item pages", async ({ page }) => {
-      // First go to registry to see if there are any items
-      await page.goto("/registry")
+    test("should handle cell type detail pages", async ({ page }) => {
+      // First go to browse to find cell type links
+      await page.goto("/browse")
       await TestHelpers.waitForPageLoad(page)
 
-      // Look for registry item links
-      const itemLinks = page.locator('a[href^="/registry/"]')
+      // Look for cell type detail links
+      const itemLinks = page.locator('a[href*="/celltype/"]')
       const linkCount = await itemLinks.count()
 
       if (linkCount > 0) {
-        // Test first registry item link
+        // Test first cell type detail link
         const firstLink = itemLinks.first()
         const href = await firstLink.getAttribute("href")
 
