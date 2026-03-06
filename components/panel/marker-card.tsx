@@ -5,7 +5,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Check, ChevronsUpDown, FlaskConical, Info, Loader2, X } from "lucide-react"
+import { Check, ChevronsUpDown, FlaskConical, GripVertical, Info, Loader2, X } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -34,9 +34,10 @@ interface MarkerCardProps {
   species?: Species | null
   onRemove?: (id: number) => void
   onMarkerUpdated?: () => void
+  isDragging?: boolean
 }
 
-export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated }: MarkerCardProps) {
+export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated, isDragging }: MarkerCardProps) {
   const geneName = marker.protein?.geneSymbol ?? marker.protein?.label ?? "Unknown"
   const antibodyName = marker.antibody?.name ?? null
   const fluorophore = marker.fluorophore ?? marker.metalTag ?? null
@@ -127,6 +128,7 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
     <div className="group relative rounded-lg border bg-zinc-50 p-3 hover:border-zinc-300 transition-colors">
       <div className="flex justify-between items-start">
         <div className="flex items-start gap-3">
+          <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-zinc-300 cursor-grab active:cursor-grabbing touch-none" />
           <div className="mt-1 h-3 w-3 rounded-full shadow-sm shrink-0 bg-primary/40" />
           <div className="space-y-1">
             <div className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+import { parseJsonArray } from "@/lib/transforms"
 import type { StructureCellTypeRow, StructureRow } from "./queries"
 
 export type StructureResponse = Omit<StructureRow, "partOfIds"> & {
@@ -6,15 +7,6 @@ export type StructureResponse = Omit<StructureRow, "partOfIds"> & {
 
 export type StructureCellTypeResponse = Omit<StructureCellTypeRow, "parentIds"> & {
   parentIds: string[]
-}
-
-function parseJsonArray(raw: string): string[] {
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
 }
 
 export function toStructureResponse(structure: StructureRow): StructureResponse {

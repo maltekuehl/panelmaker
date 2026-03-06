@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { METHOD_LABELS } from "@/lib/constants"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -37,7 +38,7 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({ method: false })
   const [searchColumn, setSearchColumn] = React.useState("marker")
 
   const table = useReactTable({
@@ -97,6 +98,13 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
               ]}
             />
           )}
+          {table.getColumn("method") && (
+            <DataTableFacetedFilter
+              column={table.getColumn("method")}
+              title="Method"
+              options={Object.entries(METHOD_LABELS).map(([value, label]) => ({ label, value }))}
+            />
+          )}
           {table.getColumn("tissue") && (
             <DataTableFacetedFilter
               column={table.getColumn("tissue")}
@@ -104,19 +112,6 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
               options={[
                 { label: "FFPE", value: "FFPE" },
                 { label: "FF", value: "FF" },
-              ]}
-            />
-          )}
-          {table.getColumn("validationCategory") && (
-            <DataTableFacetedFilter
-              column={table.getColumn("validationCategory")}
-              title="Validation"
-              options={[
-                { label: "Text Mining", value: "0" },
-                { label: "Submitted", value: "1" },
-                { label: "Community", value: "2" },
-                { label: "Systematic", value: "3" },
-                { label: "Expert Confirmed", value: "4" },
               ]}
             />
           )}

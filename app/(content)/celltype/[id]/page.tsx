@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getCellTypeById } from "@/models/cell-type"
-import { getReportsForCellType, toMarkerEntry } from "@/models/experimental-report"
+import { aggregateMarkerEntries, getReportsForCellType } from "@/models/experimental-report"
 import { ExternalLink } from "lucide-react"
 import type { Metadata } from "next"
 import { cacheLife } from "next/cache"
@@ -41,16 +41,7 @@ async function CellTypeContent({ id }: { id: string }) {
   }
 
   const reports = await getReportsForCellType(id)
-  const markers = reports.map(toMarkerEntry)
-
-  const uniqueMarkers = Array.from(
-    markers
-      .reduce((map, m) => {
-        if (!map.has(m.id)) map.set(m.id, m)
-        return map
-      }, new Map<string, (typeof markers)[0]>())
-      .values(),
-  )
+  const markers = aggregateMarkerEntries(reports)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -59,9 +50,9 @@ async function CellTypeContent({ id }: { id: string }) {
           <h1 className="text-3xl font-bold tracking-tight mb-2">{cellType.label}</h1>
           <div className="flex items-center gap-2 text-muted-foreground mb-4">
             <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{cellType.id}</span>
-            {uniqueMarkers.length > 0 && (
+            {markers.length > 0 && (
               <Badge variant="secondary" className="text-xs">
-                {uniqueMarkers.length} marker{uniqueMarkers.length !== 1 ? "s" : ""}
+                {markers.length} marker{markers.length !== 1 ? "s" : ""}
               </Badge>
             )}
           </div>
@@ -101,7 +92,7 @@ async function CellTypeContent({ id }: { id: string }) {
           <ImageCarouselDialog images={[]} title={cellType.label} />
         </div>
 
-        {uniqueMarkers.length > 0 && (
+        {markers.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Add Markers to Panel</CardTitle>
@@ -110,7 +101,7 @@ async function CellTypeContent({ id }: { id: string }) {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {uniqueMarkers.map((m) => (
+              {markers.map((m) => (
                 <div key={m.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
                   <span className="text-sm font-medium">{m.marker}</span>
                   <AddToPanelButton

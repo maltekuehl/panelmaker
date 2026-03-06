@@ -61,24 +61,18 @@ enum Fixation {
 }
 
 enum MultiplexMethod {
+  PATHOPLEX
   CODEX
   CYCIF
   IMC
   MIBI
   IBEX
-  ORION
-  MICSSS
-  PATHOPLEX
-  VISIUM
-  MERFISH
-  IF
-  IHC
   OTHER
 }
 
 enum ValidationStatus {
   PENDING
-  VALIDATED
+  PUBLISHED
   REJECTED
 }
 
@@ -105,17 +99,18 @@ model User {
   email         String          @unique
   emailVerified DateTime?
   image         String?
+  password      String?
   role          UserRole        @default(USER)
   status        UserStatus      @default(ACTIVE)
-  orcid         String?         @unique
-  institution   String?
+  orcid              String?  @unique
+  institution        String?
+  institutionId      String?
   accounts      Account[]
   sessions      Session[]
   Authenticator Authenticator[]
   reviews         Review[]
   approvedReviews Review[]        @relation("ReviewApprovals")
   blogPosts       BlogPost[]
-  chatRateLimit   ChatRateLimit?
   experimentalReports ExperimentalReport[]
   panels              Panel[]
 
@@ -178,22 +173,6 @@ model Authenticator {
 }
 
 // ─── Rate Limiting ────────────────────────────────────────────────────
-
-model ChatRateLimit {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  requestCount    Int      @default(0)
-  windowStartTime DateTime @default(now())
-  lastRequestTime DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([windowStartTime])
-}
 
 model RateLimit {
   id              String   @id @default(cuid())
@@ -308,6 +287,16 @@ model AnatomicalStructure {
   experimentalReports ExperimentalReport[]
 }
 
+model DiseaseCondition {
+  id    String @id
+  label String
+
+  experimentalReports ExperimentalReport[]
+  panels              Panel[]
+
+  @@index([label])
+}
+
 model CellTypeStructure {
   cellTypeId  String
   structureId String
@@ -400,9 +389,12 @@ model ExperimentalReport {
   submitterId      String?
   isPublic         Boolean  @default(true)
 
+  conditionId  String?
+
   antibody  Antibody?            @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
   cellType  CellType?            @relation(fields: [cellTypeId], references: [id], onDelete: SetNull)
   structure AnatomicalStructure? @relation(fields: [structureId], references: [id], onDelete: SetNull)
+  condition DiseaseCondition?    @relation(fields: [conditionId], references: [id], onDelete: SetNull)
   submitter User?                @relation(fields: [submitterId], references: [id], onDelete: SetNull)
   reviews   Review[]
 
@@ -412,6 +404,7 @@ model ExperimentalReport {
   @@index([antibodyId])
   @@index([cellTypeId])
   @@index([structureId])
+  @@index([conditionId])
   @@index([submitterId])
   @@index([method])
   @@index([status])
@@ -425,18 +418,20 @@ model Panel {
   description String?
   species     Species?
   fixation    Fixation?
-  condition   String?
+  conditionId String?
   ownerId     String?
   isPublic    Boolean  @default(false)
 
-  owner  User?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  cycles PanelCycle[]
+  condition DiseaseCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  owner     User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  cycles    PanelCycle[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
   @@index([isPublic])
+  @@index([conditionId])
 }
 
 model PanelCycle {

@@ -1,17 +1,6 @@
-export type Species = "HUMAN" | "MOUSE" | "RAT" | "NON_HUMAN_PRIMATE" | "PIG" | "RABBIT" | "ZEBRAFISH" | "OTHER"
-
-export type Fixation = "FFPE" | "FRESH_FROZEN" | "PFA" | "ACETONE" | "METHANOL" | "OTHER"
-
-export const SPECIES_LABELS: Record<Species, string> = {
-  HUMAN: "Homo sapiens",
-  MOUSE: "Mus musculus",
-  RAT: "Rattus norvegicus",
-  NON_HUMAN_PRIMATE: "Non-human primate",
-  PIG: "Sus scrofa",
-  RABBIT: "Oryctolagus cuniculus",
-  ZEBRAFISH: "Danio rerio",
-  OTHER: "Other",
-}
+import type { Fixation, Species } from "@prisma/client"
+export { FIXATION_LABELS, SPECIES_LABELS } from "@/lib/constants"
+export type { Fixation, Species } from "@prisma/client"
 
 export const SPECIES_ORGANISM_IDS: Record<Species, number | null> = {
   HUMAN: 9606,
@@ -22,15 +11,6 @@ export const SPECIES_ORGANISM_IDS: Record<Species, number | null> = {
   RABBIT: 9986,
   ZEBRAFISH: 7955,
   OTHER: null,
-}
-
-export const FIXATION_LABELS: Record<Fixation, string> = {
-  FFPE: "FFPE",
-  FRESH_FROZEN: "Fresh Frozen",
-  PFA: "PFA",
-  ACETONE: "Acetone",
-  METHANOL: "Methanol",
-  OTHER: "Other",
 }
 
 export interface PanelMarker {
@@ -73,7 +53,7 @@ export interface Panel {
   description: string | null
   species: Species | null
   fixation: Fixation | null
-  condition: string | null
+  condition: { id: string; label: string } | null
   ownerId: string
   isPublic: boolean
   createdAt: string

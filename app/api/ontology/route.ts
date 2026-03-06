@@ -3,6 +3,7 @@ import {
   searchCellOntology,
   searchDiseaseOntology,
   searchGoCellularComponent,
+  searchRor,
   searchSpecies,
   searchUberon,
   type OntologyType,
@@ -12,7 +13,7 @@ import { z } from "zod"
 
 const querySchema = z
   .object({
-    type: z.enum(["cl", "uberon", "ncbi_taxonomy", "go_cc", "doid"]),
+    type: z.enum(["cl", "uberon", "ncbi_taxonomy", "go_cc", "doid", "ror"]),
     q: z.string().min(1).max(200),
   })
   .strict()
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
       ncbi_taxonomy: searchSpecies,
       go_cc: searchGoCellularComponent,
       doid: searchDiseaseOntology,
+      ror: searchRor,
     }
 
     const results = await searchFn[validated.type](validated.q)

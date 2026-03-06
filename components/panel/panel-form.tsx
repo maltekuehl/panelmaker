@@ -1,26 +1,39 @@
 "use client"
 
+import { OntologyCombobox } from "@/components/ontology-combobox"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
 import { FIXATION_LABELS, SPECIES_LABELS } from "./types"
+
+const ontologyValueSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+})
 
 const panelFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   species: z.string().optional(),
   fixation: z.string().optional(),
-  condition: z.string().optional(),
+  condition: ontologyValueSchema.nullable().optional(),
 })
 
 type PanelFormValues = z.infer<typeof panelFormSchema>
 
-export type CreatePanelFormData = PanelFormValues
+export interface CreatePanelFormData {
+  name: string
+  description?: string
+  species?: string
+  fixation?: string
+  conditionId?: string
+  conditionLabel?: string
+}
 
 interface PanelFormProps {
   onSubmit: (data: CreatePanelFormData) => void
@@ -36,12 +49,19 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
       description: "",
       species: undefined,
       fixation: undefined,
-      condition: "",
+      condition: null,
     },
   })
 
   const handleSubmit = (data: PanelFormValues) => {
-    onSubmit(data)
+    onSubmit({
+      name: data.name,
+      description: data.description,
+      species: data.species,
+      fixation: data.fixation,
+      conditionId: data.condition?.id,
+      conditionLabel: data.condition?.label,
+    })
     form.reset()
   }
 
@@ -124,19 +144,21 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
             )}
           />
         </div>
-        <FormField
-          control={form.control}
-          name="condition"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Condition</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. Healthy Kidney" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <FormItem>
+          <FormLabel>Condition</FormLabel>
+          <Controller
+            control={form.control}
+            name="condition"
+            render={({ field }) => (
+              <OntologyCombobox
+                ontologyType="doid"
+                value={field.value}
+                onChange={field.onChange}
+                placeholder="Search disease conditions..."
+              />
+            )}
+          />
+        </FormItem>
         <div className="flex justify-end gap-2">
           {onCancel && (
             <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>

@@ -1,9 +1,11 @@
+import Orcid from "@/components/icons/orcid"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { SPECIES_LABELS } from "@/lib/constants"
 import {
   getContributionTier,
   getLeaderboard,
@@ -44,19 +46,8 @@ function getInitials(name: string | null): string {
     .slice(0, 2)
 }
 
-const SPECIES_LABELS: Record<string, string> = {
-  HUMAN: "Homo sapiens",
-  MOUSE: "Mus musculus",
-  RAT: "Rattus norvegicus",
-  NON_HUMAN_PRIMATE: "Non-human primate",
-  PIG: "Sus scrofa",
-  RABBIT: "Oryctolagus cuniculus",
-  ZEBRAFISH: "Danio rerio",
-  OTHER: "Other",
-}
-
 const STATUS_STYLES: Record<string, string> = {
-  VALIDATED: "bg-green-100 text-green-700",
+  PUBLISHED: "bg-green-100 text-green-700",
   PENDING: "bg-amber-100 text-amber-700",
   REJECTED: "bg-red-100 text-red-700",
 }
@@ -80,17 +71,24 @@ async function ProfileContent({ id }: { id: string }) {
   const summaries = recentReports.map(toRecentReportSummary)
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" itemScope itemType="https://schema.org/ProfilePage">
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          <div
+            className="flex flex-col sm:flex-row items-start sm:items-center gap-6"
+            itemScope
+            itemType="https://schema.org/Person"
+            itemProp="mainEntity"
+          >
             <Avatar className="h-20 w-20 text-2xl">
-              <AvatarImage src={user.image ?? undefined} alt={user.name ?? "User"} />
+              <AvatarImage src={user.image ?? undefined} alt={user.name ?? "User"} itemProp="image" />
               <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold">{user.name ?? "Unnamed User"}</h1>
+                <h1 className="text-2xl font-bold" itemProp="name">
+                  {user.name ?? "Unnamed User"}
+                </h1>
                 <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${tier.color}`}>{tier.label}</span>
                 {displayRank && (
                   <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700">
@@ -100,10 +98,45 @@ async function ProfileContent({ id }: { id: string }) {
               </div>
               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                 {user.institution && (
-                  <span className="flex items-center gap-1.5">
+                  <span
+                    className="flex items-center gap-1.5"
+                    itemProp="affiliation"
+                    itemScope
+                    itemType="https://schema.org/Organization"
+                  >
                     <Building2 className="h-3.5 w-3.5" />
-                    {user.institution}
+                    {user.institutionId ? (
+                      <a
+                        href={`https://ror.org/${user.institutionId.replace(/^ror:/, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline hover:text-foreground"
+                        itemProp="url"
+                      >
+                        <span itemProp="name">{user.institution}</span>
+                      </a>
+                    ) : (
+                      <span itemProp="name">{user.institution}</span>
+                    )}
+                    {user.institutionId && (
+                      <meta
+                        itemProp="identifier"
+                        content={`https://ror.org/${user.institutionId.replace(/^ror:/, "")}`}
+                      />
+                    )}
                   </span>
+                )}
+                {user.orcid && (
+                  <a
+                    href={`https://orcid.org/${user.orcid}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 hover:underline hover:text-foreground"
+                    itemProp="identifier"
+                  >
+                    <Orcid className="h-3.5 w-3.5 text-[#a6ce39]" />
+                    {user.orcid}
+                  </a>
                 )}
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5" />
@@ -111,16 +144,6 @@ async function ProfileContent({ id }: { id: string }) {
                   {new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </span>
               </div>
-              {user.orcid && (
-                <a
-                  href={`https://orcid.org/${user.orcid}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline font-mono"
-                >
-                  ORCID: {user.orcid}
-                </a>
-              )}
             </div>
           </div>
         </CardContent>
@@ -135,8 +158,8 @@ async function ProfileContent({ id }: { id: string }) {
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-green-600">{stats.validatedReports}</div>
-            <div className="text-sm text-muted-foreground mt-1">Validated</div>
+            <div className="text-3xl font-bold text-green-600">{stats.publishedReports}</div>
+            <div className="text-sm text-muted-foreground mt-1">Published</div>
           </CardContent>
         </Card>
         <Card>

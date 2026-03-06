@@ -3,9 +3,10 @@
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useDebouncedSearch } from "@/hooks/use-debounced-search"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 
 export interface AntibodyRegistryValue {
   name: string
@@ -37,45 +38,16 @@ export function AntibodyRegistryCombobox({
 }: AntibodyRegistryComboboxProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<AntibodyRegistryValue[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    if (!open) return
+  const fetcher = useCallback((q: string) => fetch(`/api/antibody-registry?q=${encodeURIComponent(q)}`), [])
+  const extractResults = useCallback((data: any) => data.results ?? [], [])
 
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-
-    if (query.trim().length < 2) {
-      setResults([])
-      return
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      setIsLoading(true)
-      try {
-        const res = await fetch(`/api/antibody-registry?q=${encodeURIComponent(query.trim())}`)
-        if (!res.ok) {
-          setResults([])
-          return
-        }
-        const data = await res.json()
-        setResults(data.results ?? [])
-      } catch {
-        setResults([])
-      } finally {
-        setIsLoading(false)
-      }
-    }, 300)
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
-    }
-  }, [query, open])
+  const { results, isLoading } = useDebouncedSearch<AntibodyRegistryValue>({
+    query,
+    enabled: open,
+    fetcher,
+    extractResults,
+  })
 
   function handleSelect(result: AntibodyRegistryValue) {
     onChange(result)

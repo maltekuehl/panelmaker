@@ -1,3 +1,4 @@
+import { parseJsonArray } from "@/lib/transforms"
 import type { CellTypeRow, CellTypeWithRelations } from "./queries"
 
 export type CellTypeResponse = Omit<CellTypeRow, "parentIds"> & {
@@ -6,15 +7,6 @@ export type CellTypeResponse = Omit<CellTypeRow, "parentIds"> & {
 
 export type CellTypeDetailResponse = Omit<CellTypeWithRelations, "parentIds"> & {
   parentIds: string[]
-}
-
-function parseJsonArray(raw: string): string[] {
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
 }
 
 export function toCellTypeResponse(cellType: CellTypeRow): CellTypeResponse {

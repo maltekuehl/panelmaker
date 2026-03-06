@@ -20,7 +20,7 @@ export interface RateLimitResult {
 export const RATE_LIMITS = {
   CHAT_FREE: {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    maxRequests: 50,
+    maxRequests: 30,
     resourceType: "chat",
   },
   REVIEWS: {

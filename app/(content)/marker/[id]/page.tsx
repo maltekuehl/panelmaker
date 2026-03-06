@@ -49,7 +49,6 @@ async function MarkerContent({ id }: { id: string }) {
   const images = usages.flatMap((u) => u.images)
   const methods = [...new Set(reports.map((r) => r.method).filter(Boolean))]
   const species = [...new Set(reports.map((r) => r.species).filter(Boolean))]
-  const validationCategory = reports.some((r) => r.status === "VALIDATED") ? 3 : reports.length > 0 ? 1 : 0
 
   const cellTypesForTable = relatedCellTypes.map((ct) => ({
     id: ct.id,
@@ -166,15 +165,12 @@ async function MarkerContent({ id }: { id: string }) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Validation Status</CardTitle>
+            <CardTitle className="text-base">Community Reports</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2">
-              <div className={`h-3 w-3 rounded-full ${validationCategory === 3 ? "bg-yellow-500" : "bg-zinc-300"}`} />
-              <span className="font-medium">Level {validationCategory}</span>
-            </div>
+            <div className="text-3xl font-bold">{reports.length}</div>
             <p className="text-xs text-muted-foreground mt-2">
-              {validationCategory === 3 ? "Systematic Review" : "Community Submitted"}
+              {reports.length === 1 ? "1 published report" : `${reports.length} published reports`}
             </p>
           </CardContent>
         </Card>

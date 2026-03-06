@@ -7,7 +7,8 @@ export const createPanelSchema = z
     description: z.string().max(2000).optional(),
     species: z.nativeEnum(Species).optional(),
     fixation: z.nativeEnum(Fixation).optional(),
-    condition: z.string().max(255).optional(),
+    conditionId: z.string().max(255).optional(),
+    conditionLabel: z.string().max(255).optional(),
     isPublic: z.boolean().default(false),
   })
   .strict()
@@ -20,7 +21,8 @@ export const updatePanelSchema = z
     description: z.string().max(2000).optional(),
     species: z.nativeEnum(Species).optional(),
     fixation: z.nativeEnum(Fixation).optional(),
-    condition: z.string().max(255).optional(),
+    conditionId: z.string().max(255).optional(),
+    conditionLabel: z.string().max(255).optional(),
     isPublic: z.boolean().optional(),
   })
   .strict()
@@ -68,3 +70,19 @@ export const panelQueryParamsSchema = z
   .strict()
 
 export type PanelQueryParams = z.infer<typeof panelQueryParamsSchema>
+
+export const reorderMarkersSchema = z
+  .object({
+    items: z
+      .array(
+        z.object({
+          markerId: z.number().int().positive(),
+          cycleId: z.number().int().positive(),
+          sortOrder: z.number().int().min(0),
+        }),
+      )
+      .min(1),
+  })
+  .strict()
+
+export type ReorderMarkersData = z.infer<typeof reorderMarkersSchema>

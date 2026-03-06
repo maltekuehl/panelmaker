@@ -1,4 +1,5 @@
 import { createAuthHandler, getAllUsers } from "@/lib/auth"
+import { logger } from "@/lib/monitoring"
 import { connection, NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -48,7 +49,7 @@ export const GET = createAuthHandler(
       )
       return NextResponse.json(result)
     } catch (error) {
-      console.error("Error fetching users:", error)
+      logger.error("Error fetching users", error instanceof Error ? error : new Error(String(error)))
       return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
     }
   },

@@ -2,11 +2,13 @@
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ChevronDown, ChevronRight, MessageSquare, Trash2 } from "lucide-react"
-import { useRef, useState } from "react"
+import { CollisionPriority } from "@dnd-kit/abstract"
+import { useDroppable } from "@dnd-kit/react"
+import { Check, ChevronDown, ChevronRight, MessageSquare, Pencil, Trash2, X } from "lucide-react"
+import { useState } from "react"
 import { toast } from "sonner"
-import { MarkerCard } from "./marker-card"
 import { MarkerSearchDialog } from "./marker-search-dialog"
+import { SortableMarkerCard } from "./sortable-marker-card"
 import type { Species } from "./types"
 import { PanelCycle } from "./types"
 
@@ -29,38 +31,52 @@ export function CycleSection({
   onMarkerAdded,
   onCycleUpdated,
 }: CycleSectionProps) {
+  const { ref: droppableRef } = useDroppable({
+    id: `cycle-${cycle.id}`,
+    type: "column",
+    accept: "item",
+    collisionPriority: CollisionPriority.Low,
+  })
+
   const [showAddForm, setShowAddForm] = useState(false)
   const [showNotes, setShowNotes] = useState(!!cycle.notes)
-  const [notes, setNotes] = useState(cycle.notes ?? "")
-  const [isSavingNotes, setIsSavingNotes] = useState(false)
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [savedNotes, setSavedNotes] = useState(cycle.notes ?? "")
+  const [draftNotes, setDraftNotes] = useState(cycle.notes ?? "")
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
-  const saveNotes = (value: string) => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(async () => {
-      setIsSavingNotes(true)
-      try {
-        const res = await fetch(`/api/panels/${panelId}/cycles/${cycle.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ notes: value || null }),
-        })
-        if (!res.ok) {
-          toast.error("Failed to save notes")
-        } else {
-          onCycleUpdated?.()
-        }
-      } catch {
-        toast.error("Failed to save notes")
-      } finally {
-        setIsSavingNotes(false)
-      }
-    }, 500)
+  const enterEditMode = () => {
+    setDraftNotes(savedNotes)
+    setIsEditing(true)
+    setShowNotes(true)
   }
 
-  const handleNotesChange = (value: string) => {
-    setNotes(value)
-    saveNotes(value)
+  const cancelEdit = () => {
+    setDraftNotes(savedNotes)
+    setIsEditing(false)
+  }
+
+  const saveNotes = async () => {
+    setIsSaving(true)
+    try {
+      const res = await fetch(`/api/panels/${panelId}/cycles/${cycle.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: draftNotes.trim() || null }),
+      })
+      if (!res.ok) {
+        toast.error("Failed to save notes")
+        return
+      }
+      setSavedNotes(draftNotes.trim())
+      setIsEditing(false)
+      if (!draftNotes.trim()) setShowNotes(false)
+      onCycleUpdated?.()
+    } catch {
+      toast.error("Failed to save notes")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -73,7 +89,13 @@ export function CycleSection({
             variant="ghost"
             size="icon"
             className="h-6 w-6 text-zinc-400 hover:text-zinc-600"
-            onClick={() => setShowNotes(!showNotes)}
+            onClick={() => {
+              if (!showNotes && !savedNotes) {
+                enterEditMode()
+              } else {
+                setShowNotes(!showNotes)
+              }
+            }}
             title="Cycle notes"
           >
             <MessageSquare className="h-3 w-3" />
@@ -100,14 +122,56 @@ export function CycleSection({
       </div>
 
       {showNotes && (
-        <div className="mb-3">
-          <Input
-            placeholder="Add notes for this cycle..."
-            value={notes}
-            onChange={(e) => handleNotesChange(e.target.value)}
-            className="h-7 text-xs"
-          />
-          {isSavingNotes && <span className="text-[10px] text-muted-foreground">Saving...</span>}
+        <div className="mb-3 rounded-lg bg-zinc-100 px-3 py-2">
+          {isEditing ? (
+            <div className="flex items-center gap-1.5">
+              <Input
+                autoFocus
+                placeholder="Add notes for this cycle..."
+                value={draftNotes}
+                onChange={(e) => setDraftNotes(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveNotes()
+                  if (e.key === "Escape") cancelEdit()
+                }}
+                className="h-8 text-sm bg-white"
+                disabled={isSaving}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-zinc-500 hover:text-green-600"
+                onClick={saveNotes}
+                disabled={isSaving}
+                title="Save notes"
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-zinc-400 hover:text-zinc-600"
+                onClick={cancelEdit}
+                disabled={isSaving}
+                title="Cancel"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : savedNotes ? (
+            <div className="flex items-center gap-1.5 group">
+              <span className="text-sm text-zinc-600 flex-1">{savedNotes}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-zinc-300 hover:text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={enterEditMode}
+                title="Edit notes"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -125,22 +189,23 @@ export function CycleSection({
         </div>
       )}
 
-      <div className="space-y-3">
-        {cycle.markers.map((marker) => (
-          <MarkerCard
+      <div ref={droppableRef} className="space-y-3 min-h-[40px]">
+        {cycle.markers.map((marker, index) => (
+          <SortableMarkerCard
             key={marker.id}
             marker={marker}
+            index={index}
+            column={`cycle-${cycle.id}`}
             panelId={panelId}
             species={species}
             onRemove={(markerId) => onRemoveMarker?.(cycle.id, markerId)}
             onMarkerUpdated={onMarkerAdded}
           />
         ))}
+        {cycle.markers.length === 0 && !showAddForm && (
+          <p className="text-xs text-muted-foreground italic mt-2">No markers added yet.</p>
+        )}
       </div>
-
-      {cycle.markers.length === 0 && !showAddForm && (
-        <p className="text-xs text-muted-foreground italic mt-2">No markers added yet.</p>
-      )}
     </div>
   )
 }

@@ -5,10 +5,12 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "emailVerified" DATETIME,
     "image" TEXT,
+    "password" TEXT,
     "role" TEXT NOT NULL DEFAULT 'USER',
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "orcid" TEXT,
     "institution" TEXT,
+    "institutionId" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
 );
@@ -65,18 +67,6 @@ CREATE TABLE "Authenticator" (
 
     PRIMARY KEY ("userId", "credentialID"),
     CONSTRAINT "Authenticator_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-
--- CreateTable
-CREATE TABLE "ChatRateLimit" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "userId" TEXT NOT NULL,
-    "requestCount" INTEGER NOT NULL DEFAULT 0,
-    "windowStartTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "lastRequestTime" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "ChatRateLimit_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -156,6 +146,12 @@ CREATE TABLE "AnatomicalStructure" (
 );
 
 -- CreateTable
+CREATE TABLE "DiseaseCondition" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "label" TEXT NOT NULL
+);
+
+-- CreateTable
 CREATE TABLE "CellTypeStructure" (
     "cellTypeId" TEXT NOT NULL,
     "structureId" TEXT NOT NULL,
@@ -229,11 +225,13 @@ CREATE TABLE "ExperimentalReport" (
     "imageUrls" TEXT NOT NULL DEFAULT '[]',
     "submitterId" TEXT,
     "isPublic" BOOLEAN NOT NULL DEFAULT true,
+    "conditionId" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
     CONSTRAINT "ExperimentalReport_antibodyId_fkey" FOREIGN KEY ("antibodyId") REFERENCES "Antibody" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "ExperimentalReport_cellTypeId_fkey" FOREIGN KEY ("cellTypeId") REFERENCES "CellType" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "ExperimentalReport_structureId_fkey" FOREIGN KEY ("structureId") REFERENCES "AnatomicalStructure" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "ExperimentalReport_conditionId_fkey" FOREIGN KEY ("conditionId") REFERENCES "DiseaseCondition" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "ExperimentalReport_submitterId_fkey" FOREIGN KEY ("submitterId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -244,11 +242,12 @@ CREATE TABLE "Panel" (
     "description" TEXT,
     "species" TEXT,
     "fixation" TEXT,
-    "condition" TEXT,
+    "conditionId" TEXT,
     "ownerId" TEXT,
     "isPublic" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Panel_conditionId_fkey" FOREIGN KEY ("conditionId") REFERENCES "DiseaseCondition" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
     CONSTRAINT "Panel_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
@@ -257,6 +256,7 @@ CREATE TABLE "PanelCycle" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "panelId" INTEGER NOT NULL,
     "name" TEXT NOT NULL,
+    "notes" TEXT,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT "PanelCycle_panelId_fkey" FOREIGN KEY ("panelId") REFERENCES "Panel" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
@@ -286,15 +286,6 @@ CREATE UNIQUE INDEX "Session_sessionToken_key" ON "Session"("sessionToken");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Authenticator_credentialID_key" ON "Authenticator"("credentialID");
-
--- CreateIndex
-CREATE UNIQUE INDEX "ChatRateLimit_userId_key" ON "ChatRateLimit"("userId");
-
--- CreateIndex
-CREATE INDEX "ChatRateLimit_userId_idx" ON "ChatRateLimit"("userId");
-
--- CreateIndex
-CREATE INDEX "ChatRateLimit_windowStartTime_idx" ON "ChatRateLimit"("windowStartTime");
 
 -- CreateIndex
 CREATE INDEX "RateLimit_userId_resourceType_idx" ON "RateLimit"("userId", "resourceType");
@@ -348,7 +339,28 @@ CREATE INDEX "Review_isApproved_idx" ON "Review"("isApproved");
 CREATE UNIQUE INDEX "Review_authorId_experimentalReportId_key" ON "Review"("authorId", "experimentalReportId");
 
 -- CreateIndex
+CREATE INDEX "CellType_label_idx" ON "CellType"("label");
+
+-- CreateIndex
+CREATE INDEX "DiseaseCondition_label_idx" ON "DiseaseCondition"("label");
+
+-- CreateIndex
+CREATE INDEX "Protein_label_idx" ON "Protein"("label");
+
+-- CreateIndex
+CREATE INDEX "Protein_geneSymbol_idx" ON "Protein"("geneSymbol");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Antibody_rrid_key" ON "Antibody"("rrid");
+
+-- CreateIndex
+CREATE INDEX "Antibody_name_idx" ON "Antibody"("name");
+
+-- CreateIndex
+CREATE INDEX "Antibody_targetProteinId_idx" ON "Antibody"("targetProteinId");
+
+-- CreateIndex
+CREATE INDEX "Antibody_targetName_idx" ON "Antibody"("targetName");
 
 -- CreateIndex
 CREATE INDEX "ExperimentalReport_antibodyId_idx" ON "ExperimentalReport"("antibodyId");
@@ -358,6 +370,9 @@ CREATE INDEX "ExperimentalReport_cellTypeId_idx" ON "ExperimentalReport"("cellTy
 
 -- CreateIndex
 CREATE INDEX "ExperimentalReport_structureId_idx" ON "ExperimentalReport"("structureId");
+
+-- CreateIndex
+CREATE INDEX "ExperimentalReport_conditionId_idx" ON "ExperimentalReport"("conditionId");
 
 -- CreateIndex
 CREATE INDEX "ExperimentalReport_submitterId_idx" ON "ExperimentalReport"("submitterId");
@@ -373,6 +388,9 @@ CREATE INDEX "Panel_ownerId_idx" ON "Panel"("ownerId");
 
 -- CreateIndex
 CREATE INDEX "Panel_isPublic_idx" ON "Panel"("isPublic");
+
+-- CreateIndex
+CREATE INDEX "Panel_conditionId_idx" ON "Panel"("conditionId");
 
 -- CreateIndex
 CREATE INDEX "PanelCycle_panelId_idx" ON "PanelCycle"("panelId");

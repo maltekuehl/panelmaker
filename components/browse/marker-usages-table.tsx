@@ -165,6 +165,15 @@ export function MarkerUsagesTable({ data }: MarkerUsagesTableProps) {
                           <span className="text-[10px] text-muted-foreground">
                             {usage.tissueType} &middot; {usage.fixation}
                           </span>
+                          {usage.conditionId && (
+                            <Link
+                              href={`/condition/${usage.conditionId}`}
+                              className="text-[10px] text-primary hover:underline w-fit"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {usage.conditionLabel}
+                            </Link>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="py-1.5">{usage.dilution}</TableCell>
@@ -276,6 +285,19 @@ export function MarkerUsagesTable({ data }: MarkerUsagesTableProps) {
                           <div>
                             <span className="text-muted-foreground block">Structure</span>
                             <span className="font-medium">{usage.structureLabel ?? "N/A"}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground block">Condition</span>
+                            {usage.conditionId ? (
+                              <Link
+                                href={`/condition/${usage.conditionId}`}
+                                className="text-primary hover:underline font-medium"
+                              >
+                                {usage.conditionLabel}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">N/A</span>
+                            )}
                           </div>
                         </div>
 

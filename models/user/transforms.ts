@@ -1,6 +1,7 @@
-import type { InstitutionEntry, LeaderboardEntry, RecentReportRow, UserProfileRow, UserStats } from "./queries"
+import { SPECIES_LABELS } from "@/lib/constants"
+import type { LeaderboardEntry, RecentReportRow, UserProfileRow, UserStats } from "./queries"
 
-export type { InstitutionEntry, LeaderboardEntry, UserProfileRow, UserStats }
+export type { LeaderboardEntry, UserProfileRow, UserStats }
 
 export type RecentReportSummary = {
   id: number
@@ -12,17 +13,6 @@ export type RecentReportSummary = {
   species: string | null
   status: string
   createdAt: Date
-}
-
-const SPECIES_LABELS: Record<string, string> = {
-  HUMAN: "Homo sapiens",
-  MOUSE: "Mus musculus",
-  RAT: "Rattus norvegicus",
-  NON_HUMAN_PRIMATE: "Non-human primate",
-  PIG: "Sus scrofa",
-  RABBIT: "Oryctolagus cuniculus",
-  ZEBRAFISH: "Danio rerio",
-  OTHER: "Other",
 }
 
 export function toRecentReportSummary(report: RecentReportRow): RecentReportSummary {

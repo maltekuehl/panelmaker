@@ -2,9 +2,9 @@ import { columns } from "@/components/browse/columns"
 import { DataTable } from "@/components/browse/data-table"
 import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getAllReports, toMarkerEntry } from "@/models/experimental-report"
+import { aggregateMarkerEntries, getAllReports } from "@/models/experimental-report"
 import type { Metadata } from "next"
-import { cacheLife } from "next/cache"
+import { cacheLife, cacheTag } from "next/cache"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
@@ -48,9 +48,10 @@ interface BrowsePageProps {
 async function MarkerTable({ q }: { q?: string }) {
   "use cache"
   cacheLife("hours")
+  cacheTag("browse-markers")
 
   const reports = await getAllReports({ limit: 100, q })
-  const markers = reports.map(toMarkerEntry)
+  const markers = aggregateMarkerEntries(reports)
 
   return (
     <Card className="p-4 pb-1">

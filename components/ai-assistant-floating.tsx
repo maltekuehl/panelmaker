@@ -8,13 +8,12 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
-import { Bot, ChevronDown, ChevronUp, GripHorizontal, Loader2, Send, Sparkles, User, X } from "lucide-react"
+import { Bot, ChevronDown, ChevronUp, GripHorizontal, Loader2, RotateCcw, Send, Sparkles, User, X } from "lucide-react"
 import { useSession } from "next-auth/react"
-import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 
-const DEFAULT_WIDTH = 380
-const DEFAULT_HEIGHT = 520
+const DEFAULT_WIDTH = 440
+const DEFAULT_HEIGHT = 640
 const MIN_WIDTH = 300
 const MAX_WIDTH = 600
 const MIN_HEIGHT = 350
@@ -66,14 +65,13 @@ export function AIAssistantFloating() {
 
   const { data: session } = useSession()
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, setMessages } = useChat({
     id: "floating-assistant",
     transport: new DefaultChatTransport({ api: "/api/chat" }),
     experimental_throttle: 50,
   })
 
   const isLoading = status === "submitted" || status === "streaming"
-  const isAuthenticated = !!session?.user
 
   useEffect(() => {
     if (position === null && typeof window !== "undefined") {
@@ -217,9 +215,13 @@ export function AIAssistantFloating() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!input.trim() || isLoading || !isAuthenticated) return
+    if (!input.trim() || isLoading) return
     sendMessage({ text: input })
     setInput("")
+  }
+
+  if (!session?.user) {
+    return null
   }
 
   if (!isOpen) {
@@ -277,10 +279,7 @@ export function AIAssistantFloating() {
           <Sparkles className="h-4 w-4 text-purple-600" />
           AI Assistant
           <div className="text-xs text-muted-foreground font-normal" style={{ marginLeft: 4 }}>
-            powered by{" "}
-            <Link href="https://biocontext.ai" target="_blank" rel="noopener noreferrer" className="font-semibold">
-              BioContextAI
-            </Link>
+            powered by <strong className="font-semibold">BioContextAI</strong>
           </div>
         </h3>
         <div className="flex items-center gap-1">
@@ -389,24 +388,30 @@ export function AIAssistantFloating() {
             <div ref={messagesEndRef} />
           </div>
 
+          {messages.length > 0 && (
+            <div className="flex justify-center border-t py-1.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 gap-1.5"
+                onClick={() => setMessages([])}
+              >
+                <RotateCcw className="h-3 w-3" />
+                Clear conversation
+              </Button>
+            </div>
+          )}
+
           <div className="p-3 border-t bg-background">
-            {!isAuthenticated && (
-              <p className="text-xs text-muted-foreground mb-2 text-center">Sign in to use the AI assistant</p>
-            )}
             <form className="flex w-full items-center space-x-2" onSubmit={handleSubmit}>
               <Input
                 className="flex-1 h-9 text-sm"
                 placeholder="Ask PanelMaker AI..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                disabled={!isAuthenticated || isLoading}
+                disabled={isLoading}
               />
-              <Button
-                type="submit"
-                size="icon"
-                className="h-9 w-9"
-                disabled={!isAuthenticated || isLoading || !input.trim()}
-              >
+              <Button type="submit" size="icon" className="h-9 w-9" disabled={isLoading || !input.trim()}>
                 <Send className="h-4 w-4" />
                 <span className="sr-only">Send</span>
               </Button>

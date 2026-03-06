@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { MultiplexMethod } from "@prisma/client"
 import { Check, ChevronsUpDown, CloudUpload, Loader2, Save } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useEffect, useRef, useState } from "react"
@@ -38,7 +39,8 @@ const submissionSchema = z.object({
   species: ontologyValueSchema.refine((v) => !!v?.id, { message: "Species is required" }),
   tissue: ontologyValueSchema.refine((v) => !!v?.id, { message: "Tissue is required" }),
   fixation: z.string().min(1, "Fixation is required"),
-  method: z.string().min(1, "Method is required"),
+  method: z.nativeEnum(MultiplexMethod, { message: "Method is required" }),
+  condition: ontologyValueSchema.nullable().optional(),
 
   // Step 2: Target Selection
   markerProtein: proteinValueSchema.nullable().optional(),
@@ -69,7 +71,7 @@ const submissionSchema = z.object({
   catalogNumber: z.string().optional(),
   cloneId: z.string().optional(),
   rrid: z.string().optional(),
-  hostSpecies: z.string().optional(),
+  hostSpecies: ontologyValueSchema.nullable().optional(),
 
   // Step 4: Protocol Details
   dilution: z.string().min(1, "Dilution is required"),
@@ -85,31 +87,27 @@ const submissionSchema = z.object({
   specificity: z.string().optional(),
   subcellularLocation: ontologyValueSchema.nullable().optional(),
   locationNotDiscernible: z.boolean().optional(),
-  condition: ontologyValueSchema.nullable().optional(),
   notes: z.string().optional(),
 })
 
 type SubmissionValues = z.infer<typeof submissionSchema>
 
-const FLUOROPHORE_METHODS = new Set(["IF", "CODEX", "CyCIF", "IBEX", "ORION", "MICSSS", "PATHOPLEX"])
-const METAL_TAG_METHODS = new Set(["IMC", "MIBI"])
-const CYCLE_NUMBER_METHODS = new Set(["CODEX", "CyCIF", "IBEX", "PATHOPLEX"])
-
-const METHOD_MAP: Record<string, string> = {
-  IF: "IF",
-  CODEX: "CODEX",
-  CyCIF: "OTHER",
-  IMC: "IMC",
-  MIBI: "MIBI",
-  IBEX: "OTHER",
-  IHC: "IHC",
-  MICSSS: "OTHER",
-  ORION: "OTHER",
-  PATHOPLEX: "OTHER",
-}
+const FLUOROPHORE_METHODS = new Set<MultiplexMethod>([
+  MultiplexMethod.PATHOPLEX,
+  MultiplexMethod.CODEX,
+  MultiplexMethod.CYCIF,
+  MultiplexMethod.IBEX,
+])
+const METAL_TAG_METHODS = new Set<MultiplexMethod>([MultiplexMethod.IMC, MultiplexMethod.MIBI])
+const CYCLE_NUMBER_METHODS = new Set<MultiplexMethod>([
+  MultiplexMethod.PATHOPLEX,
+  MultiplexMethod.CODEX,
+  MultiplexMethod.CYCIF,
+  MultiplexMethod.IBEX,
+])
 
 const { Stepper } = defineStepper(
-  { id: "context", title: "Experiment Context", description: "Species, tissue, fixation, method" },
+  { id: "context", title: "Experiment Context", description: "Species, tissue, disease condition, fixation, method" },
   { id: "antibody", title: "Antibody & Target", description: "Antibody, protein target, cell types" },
   { id: "protocol", title: "Protocol Details", description: "Dilution, AR, detection" },
   { id: "results", title: "Results & Evidence", description: "Signal, specificity, images" },
@@ -157,8 +155,7 @@ function buildNotes(data: SubmissionValues): string {
   if (rrid) parts.push(`RRID: ${rrid}`)
   if (ab?.clonality) parts.push(`Clonality: ${ab.clonality}`)
   if (ab?.target) parts.push(`Target: ${ab.target}`)
-  const hostSpecies = ab?.sourceOrganism || data.hostSpecies
-  if (hostSpecies) parts.push(`Host species: ${hostSpecies}`)
+  if (data.hostSpecies) parts.push(`Host species: ${data.hostSpecies.label} [${data.hostSpecies.id}]`)
   if (data.incubation) parts.push(`Incubation: ${data.incubation}`)
   if (data.locationNotDiscernible) {
     parts.push("Subcellular location: Not discernible")
@@ -300,11 +297,22 @@ export function SubmissionForm() {
     defaultValues: {
       species: undefined,
       tissue: undefined,
-      fixation: "",
-      method: "",
+      fixation: "FFPE",
+      method: undefined as unknown as MultiplexMethod,
+      markerName: "",
       cellTypes: [],
-      hostSpecies: "",
+      antibodyVendor: "",
+      catalogNumber: "",
+      cloneId: "",
+      rrid: "",
+      hostSpecies: null,
+      dilution: "",
       antigenRetrieval: "Citrate pH 6.0",
+      fluorophore: "",
+      metalTag: "",
+      cycleNumber: "",
+      incubation: "",
+      notes: "",
       locationNotDiscernible: false,
     },
   })
@@ -322,7 +330,7 @@ export function SubmissionForm() {
         species: mapSpeciesToEnum(data.species.label),
         tissueType: data.tissue.label,
         fixation: data.fixation,
-        method: METHOD_MAP[data.method] ?? "OTHER",
+        method: data.method,
         dilution: data.dilution,
         antigenRetrieval: data.antigenRetrieval,
         works: data.works === "Yes" ? true : data.works === "No" ? false : undefined,
@@ -333,6 +341,17 @@ export function SubmissionForm() {
         cycleNumber: data.cycleNumber ? Number(data.cycleNumber) : undefined,
         notes: buildNotes(data),
         isPublic: true,
+        antibodyData: data.antibodyRegistry || undefined,
+        proteinData: data.markerProtein || undefined,
+        cellTypes: data.cellTypes,
+        subcellularLocation: data.subcellularLocation || undefined,
+        condition: data.condition || undefined,
+        markerName: data.markerName,
+        rrid: data.rrid || data.antibodyRegistry?.citation || undefined,
+        hostSpecies: data.hostSpecies?.label || undefined,
+        antibodyVendor: data.antibodyVendor || undefined,
+        catalogNumber: data.catalogNumber || undefined,
+        cloneId: data.cloneId || undefined,
       }
 
       Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k])
@@ -479,7 +498,10 @@ function ContextStep({ form }: { form: ReturnType<typeof useForm<SubmissionValue
     <Card>
       <CardHeader>
         <CardTitle>Experiment Context</CardTitle>
-        <CardDescription>Define the biological and experimental context for this protocol.</CardDescription>
+        <CardDescription>
+          Define the biological and experimental context, including species, tissue, disease condition, fixation, and
+          imaging method.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -582,12 +604,13 @@ function ContextStep({ form }: { form: ReturnType<typeof useForm<SubmissionValue
                   onValueChange={(val) => {
                     const prev = field.value
                     field.onChange(val)
+                    const next = val as MultiplexMethod
                     const prevNeedsFluorophore = FLUOROPHORE_METHODS.has(prev)
                     const prevNeedsMetal = METAL_TAG_METHODS.has(prev)
                     const prevNeedsCycle = CYCLE_NUMBER_METHODS.has(prev)
-                    const nextNeedsFluorophore = FLUOROPHORE_METHODS.has(val)
-                    const nextNeedsMetal = METAL_TAG_METHODS.has(val)
-                    const nextNeedsCycle = CYCLE_NUMBER_METHODS.has(val)
+                    const nextNeedsFluorophore = FLUOROPHORE_METHODS.has(next)
+                    const nextNeedsMetal = METAL_TAG_METHODS.has(next)
+                    const nextNeedsCycle = CYCLE_NUMBER_METHODS.has(next)
 
                     if (prevNeedsFluorophore && !nextNeedsFluorophore) form.setValue("fluorophore", "")
                     if (prevNeedsMetal && !nextNeedsMetal) form.setValue("metalTag", "")
@@ -601,16 +624,12 @@ function ContextStep({ form }: { form: ReturnType<typeof useForm<SubmissionValue
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="CODEX">CODEX / PhenoCycler</SelectItem>
-                    <SelectItem value="CyCIF">CyCIF</SelectItem>
-                    <SelectItem value="IMC">Imaging Mass Cytometry (IMC)</SelectItem>
-                    <SelectItem value="MIBI">MIBI-Tof</SelectItem>
-                    <SelectItem value="IBEX">IBEX</SelectItem>
-                    <SelectItem value="IF">Standard IF</SelectItem>
-                    <SelectItem value="IHC">IHC (Chromogenic)</SelectItem>
-                    <SelectItem value="MICSSS">MICSSS</SelectItem>
-                    <SelectItem value="ORION">ORION</SelectItem>
-                    <SelectItem value="PATHOPLEX">PathoPlex</SelectItem>
+                    <SelectItem value={MultiplexMethod.PATHOPLEX}>PathoPlex</SelectItem>
+                    <SelectItem value={MultiplexMethod.CODEX}>CODEX / PhenoCycler</SelectItem>
+                    <SelectItem value={MultiplexMethod.CYCIF}>CyCIF</SelectItem>
+                    <SelectItem value={MultiplexMethod.IMC}>Imaging Mass Cytometry (IMC)</SelectItem>
+                    <SelectItem value={MultiplexMethod.MIBI}>MIBI-ToF</SelectItem>
+                    <SelectItem value={MultiplexMethod.IBEX}>IBEX</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -618,6 +637,23 @@ function ContextStep({ form }: { form: ReturnType<typeof useForm<SubmissionValue
             )}
           />
         </div>
+
+        <FormItem>
+          <FormLabel>Condition (Optional)</FormLabel>
+          <Controller
+            control={form.control}
+            name="condition"
+            render={({ field }) => (
+              <OntologyCombobox
+                ontologyType="doid"
+                value={field.value ?? null}
+                onChange={field.onChange}
+                placeholder="Search disease ontology (e.g. carcinoma, nephropathy)..."
+              />
+            )}
+          />
+          <FormDescription>Search the Disease Ontology for the condition being studied.</FormDescription>
+        </FormItem>
       </CardContent>
     </Card>
   )
@@ -628,7 +664,7 @@ function AntibodyTargetStep({ form }: { form: ReturnType<typeof useForm<Submissi
   const species = form.watch("species")
   const organismId = species?.id ? extractOrganismId(species.id) : undefined
 
-  function handleRegistryChange(value: AntibodyRegistryValue | null) {
+  async function handleRegistryChange(value: AntibodyRegistryValue | null) {
     form.setValue("antibodyRegistry", value)
     if (value) {
       if (value.vendor) form.setValue("antibodyVendor", value.vendor)
@@ -645,11 +681,28 @@ function AntibodyTargetStep({ form }: { form: ReturnType<typeof useForm<Submissi
           geneSymbol: value.target || null,
         })
       }
+      if (value.sourceOrganism) {
+        try {
+          const res = await fetch(
+            `/api/ontology?type=ncbi_taxonomy&q=${encodeURIComponent(value.sourceOrganism)}&limit=1`,
+          )
+          if (res.ok) {
+            const data = await res.json()
+            const match = data.results?.[0]
+            if (match) {
+              form.setValue("hostSpecies", { id: match.id, label: match.label })
+            }
+          }
+        } catch {
+          // Silently fail — user can still select manually
+        }
+      }
     } else {
       form.setValue("antibodyVendor", "")
       form.setValue("catalogNumber", "")
       form.setValue("cloneId", "")
       form.setValue("rrid", "")
+      form.setValue("hostSpecies", null)
     }
   }
 
@@ -746,35 +799,32 @@ function AntibodyTargetStep({ form }: { form: ReturnType<typeof useForm<Submissi
           </FormItem>
         </div>
 
-        {!registryValue && (
-          <div className="space-y-4 pt-2 border-t">
-            <p className="text-sm text-muted-foreground">Can&apos;t find your antibody? Enter details manually:</p>
-            <FormField
+        <div className="space-y-4 pt-2 border-t">
+          <FormItem>
+            <FormLabel>Host Species</FormLabel>
+            <Controller
               control={form.control}
               name="hostSpecies"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Host Species</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select host" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Rabbit">Rabbit</SelectItem>
-                      <SelectItem value="Mouse">Mouse</SelectItem>
-                      <SelectItem value="Rat">Rat</SelectItem>
-                      <SelectItem value="Goat">Goat</SelectItem>
-                      <SelectItem value="Sheep">Sheep</SelectItem>
-                      <SelectItem value="Guinea Pig">Guinea Pig</SelectItem>
-                      <SelectItem value="Hamster">Hamster</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
+                <OntologyCombobox
+                  ontologyType="ncbi_taxonomy"
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Search host species..."
+                />
               )}
             />
+            <FormDescription>
+              {registryValue?.sourceOrganism
+                ? "Auto-filled from antibody. Override if needed."
+                : "Species in which the antibody was raised."}
+            </FormDescription>
+          </FormItem>
+        </div>
+
+        {!registryValue && (
+          <div className="space-y-4 pt-2 border-t">
+            <p className="text-sm text-muted-foreground">Can&apos;t find your antibody? Enter details manually:</p>
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -965,6 +1015,7 @@ function ProtocolStep({ form }: { form: ReturnType<typeof useForm<SubmissionValu
 
 function ResultsStep({ form }: { form: ReturnType<typeof useForm<SubmissionValues>> }) {
   const notDiscernible = form.watch("locationNotDiscernible")
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   return (
     <Card>
@@ -1088,23 +1139,6 @@ function ResultsStep({ form }: { form: ReturnType<typeof useForm<SubmissionValue
           </FormDescription>
         </div>
 
-        <FormItem>
-          <FormLabel>Condition (Optional)</FormLabel>
-          <Controller
-            control={form.control}
-            name="condition"
-            render={({ field }) => (
-              <OntologyCombobox
-                ontologyType="doid"
-                value={field.value ?? null}
-                onChange={field.onChange}
-                placeholder="Search disease ontology (e.g. carcinoma, nephropathy)..."
-              />
-            )}
-          />
-          <FormDescription>Search the Disease Ontology for the condition being studied.</FormDescription>
-        </FormItem>
-
         <FormField
           control={form.control}
           name="notes"
@@ -1125,13 +1159,41 @@ function ResultsStep({ form }: { form: ReturnType<typeof useForm<SubmissionValue
 
         <div className="space-y-2">
           <FormLabel>Upload Images</FormLabel>
-          <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-muted/50 transition-colors cursor-pointer">
+          <div
+            className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-muted/50 transition-colors cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              if (e.dataTransfer.files.length > 0) {
+                const dt = new DataTransfer()
+                const existing = fileInputRef.current?.files
+                if (existing) {
+                  for (const f of existing) dt.items.add(f)
+                }
+                for (const f of e.dataTransfer.files) dt.items.add(f)
+                if (fileInputRef.current) fileInputRef.current.files = dt.files
+              }
+            }}
+          >
             <div className="flex flex-col items-center gap-2">
               <CloudUpload className="h-8 w-8 text-muted-foreground" />
               <div className="text-sm font-medium">Drag &amp; drop images here, or click to select</div>
               <div className="text-xs text-muted-foreground">Supports JPG, PNG, TIFF (max 10MB)</div>
             </div>
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/tiff"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                toast.success(`${e.target.files.length} image(s) selected`)
+              }
+            }}
+          />
         </div>
       </CardContent>
     </Card>

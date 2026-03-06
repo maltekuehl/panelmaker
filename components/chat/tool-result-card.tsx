@@ -44,6 +44,7 @@ interface SearchMarkersOutput {
 
 interface SuggestPanelOutput {
   suggestions?: Array<{
+    antibodyId: number | null
     antibodyName: string
     antibodyRrid: string | null
     targetName: string | null
@@ -67,8 +68,8 @@ interface GetMarkerDetailsOutput {
     geneSymbol: string | null
     ensemblGeneId: string | null
   }
-  validatedReports?: Array<{
-    id: string
+  publishedReports?: Array<{
+    id: number
     method: string | null
     species: string | null
     tissueType: string | null
@@ -77,6 +78,7 @@ interface GetMarkerDetailsOutput {
     works: boolean
     signalQuality: string | null
     specificity: string | null
+    antibodyId: number | undefined
     antibodyName: string | undefined
     antibodyRrid: string | undefined
     cellTypeLabel: string | undefined
@@ -238,7 +240,16 @@ function SuggestPanelCard({ output, isStreaming }: { output: SuggestPanelOutput;
           <div key={i} className="flex items-start justify-between gap-2 rounded-md border bg-white p-2.5">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <p className="text-xs font-semibold leading-tight truncate">{s.antibodyName}</p>
+                {s.antibodyId ? (
+                  <Link
+                    href={`/antibody/${s.antibodyId}`}
+                    className="text-xs font-semibold leading-tight truncate hover:text-primary transition-colors"
+                  >
+                    {s.antibodyName}
+                  </Link>
+                ) : (
+                  <p className="text-xs font-semibold leading-tight truncate">{s.antibodyName}</p>
+                )}
                 <Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">
                   {s.validatedReportCount} {s.validatedReportCount === 1 ? "report" : "reports"}
                 </Badge>
@@ -280,8 +291,8 @@ function GetMarkerDetailsCard({ output, isStreaming }: { output: GetMarkerDetail
     )
   }
 
-  const { protein, validatedReports = [], associatedCellTypes = [] } = output
-  const workedReports = validatedReports.filter((r) => r.works)
+  const { protein, publishedReports = [], associatedCellTypes = [] } = output
+  const workedReports = publishedReports.filter((r) => r.works)
 
   return (
     <div className="space-y-2">
@@ -319,6 +330,35 @@ function GetMarkerDetailsCard({ output, isStreaming }: { output: GetMarkerDetail
           </span>
         </div>
 
+        {workedReports.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[10px] text-muted-foreground font-medium">Reports</p>
+            {workedReports.slice(0, 5).map((r) => (
+              <div key={r.id} className="flex items-center gap-1.5 text-[10px]">
+                <Link href={`/report/${r.id}`} className="text-primary hover:underline font-medium shrink-0">
+                  #{r.id}
+                </Link>
+                {r.antibodyId && (
+                  <Link href={`/antibody/${r.antibodyId}`} className="text-primary hover:underline truncate">
+                    {r.antibodyName}
+                  </Link>
+                )}
+                {!r.antibodyId && r.antibodyName && (
+                  <span className="text-muted-foreground truncate">{r.antibodyName}</span>
+                )}
+                {r.method && (
+                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1 font-normal shrink-0">
+                    {r.method}
+                  </Badge>
+                )}
+              </div>
+            ))}
+            {workedReports.length > 5 && (
+              <p className="text-[10px] text-muted-foreground">+{workedReports.length - 5} more reports</p>
+            )}
+          </div>
+        )}
+
         {associatedCellTypes.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {associatedCellTypes.slice(0, 5).map((ct) => (
@@ -332,6 +372,48 @@ function GetMarkerDetailsCard({ output, isStreaming }: { output: GetMarkerDetail
               </Badge>
             )}
           </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+interface SearchCellTypesOutput {
+  cellTypes?: Array<{ id: string; label: string; parentIds: string[] }>
+  total?: number
+}
+
+function SearchCellTypesCard({ output }: { output: SearchCellTypesOutput }) {
+  const cellTypes = output.cellTypes ?? []
+
+  if (cellTypes.length === 0) {
+    return (
+      <div className="rounded-md bg-zinc-50 border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+        <Search className="h-3 w-3 shrink-0" />
+        No cell types found.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <Search className="h-3 w-3 text-muted-foreground" />
+        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Cell types</span>
+        <Badge variant="secondary" className="text-[10px] h-4 px-1">
+          {cellTypes.length}
+        </Badge>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {cellTypes.slice(0, 10).map((ct) => (
+          <Badge key={ct.id} variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
+            {ct.label}
+          </Badge>
+        ))}
+        {cellTypes.length > 10 && (
+          <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal text-muted-foreground">
+            +{cellTypes.length - 10} more
+          </Badge>
         )}
       </div>
     </div>
@@ -387,11 +469,7 @@ export function ToolResultCard({ part }: { part: ToolPart }) {
       {toolName === "getMarkerDetails" && (
         <GetMarkerDetailsCard output={output as GetMarkerDetailsOutput} isStreaming={isStreaming} />
       )}
-      {toolName === "searchCellTypes" && (
-        <div className="text-xs text-muted-foreground py-0.5">
-          {(output as { total?: number }).total ?? 0} cell types found
-        </div>
-      )}
+      {toolName === "searchCellTypes" && <SearchCellTypesCard output={output as SearchCellTypesOutput} />}
     </Card>
   )
 }

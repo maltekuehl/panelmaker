@@ -31,67 +31,78 @@ const USERS = [
     id: "seed_user_nolan_garry",
     name: "Garry Nolan",
     email: "gnolan@stanford.edu",
-    institution: "Stanford Nolan Lab",
+    institution: "Stanford University",
+    institutionId: "ror:00f54p054",
   },
   {
     id: "seed_user_angelo_mike",
     name: "Michael Angelo",
     email: "mangelo@stanford.edu",
     institution: "Stanford University",
+    institutionId: "ror:00f54p054",
   },
   {
     id: "seed_user_lin_jia",
     name: "Jia-Ren Lin",
     email: "jrlin@hms.harvard.edu",
-    institution: "Harvard Tissue Atlas (Sorger Lab)",
+    institution: "Harvard Medical School",
+    institutionId: "ror:03vek6s52",
   },
   {
     id: "seed_user_goltsev_yury",
     name: "Yury Goltsev",
     email: "ygoltsev@stanford.edu",
-    institution: "Stanford Nolan Lab",
+    institution: "Stanford University",
+    institutionId: "ror:00f54p054",
   },
   {
     id: "seed_user_krummel_matt",
     name: "Matthew Krummel",
     email: "mkrummel@ucsf.edu",
-    institution: "UCSF Krummel Lab",
+    institution: "University of California, San Francisco",
+    institutionId: "ror:043mz5j54",
   },
   {
     id: "seed_user_broad_user1",
     name: "Asaf Rotem",
     email: "arotem@broadinstitute.org",
     institution: "Broad Institute",
+    institutionId: "ror:05a0ya142",
   },
   {
     id: "seed_user_hta_user1",
     name: "Sandro Santagata",
     email: "ssantagata@hms.harvard.edu",
-    institution: "Harvard Tissue Atlas",
+    institution: "Harvard Medical School",
+    institutionId: "ror:03vek6s52",
   },
   {
     id: "seed_user_weill_user1",
     name: "Diane Mathis",
     email: "dmathis@hms.harvard.edu",
-    institution: "Weill Institute / HMS",
+    institution: "Harvard Medical School",
+    institutionId: "ror:03vek6s52",
   },
   {
     id: "seed_user_yale_user1",
     name: "David Hafler",
     email: "david.hafler@yale.edu",
-    institution: "Yale School of Medicine",
+    institution: "Yale University",
+    institutionId: "ror:047mzgq16",
   },
   {
     id: "seed_user_msk_user1",
     name: "Dana Pe'er",
     email: "peerdana@mskcc.org",
-    institution: "Memorial Sloan Kettering",
+    institution: "Memorial Sloan Kettering Cancer Center",
+    institutionId: "ror:02yrq0923",
   },
   {
     id: "seed_user_puelles_victor",
     name: "Victor Puelles",
     email: "vpuelles@ukaachen.de",
-    institution: "Complex Tissue Lab, RWTH Aachen",
+    institution: "RWTH Aachen University",
+    institutionId: "ror:04xfq0f34",
   },
 ]
 
@@ -549,17 +560,253 @@ const ANTIBODIES: AntibodyDef[] = [
   },
 ]
 
+const BLOG_POSTS = [
+  {
+    title: "Designing Your First Spatial Proteomics Panel: A Practical Guide",
+    slug: "designing-first-spatial-proteomics-panel",
+    excerpt:
+      "A step-by-step walkthrough for researchers new to multiplexed tissue imaging, covering marker selection, fluorophore assignment, and common pitfalls to avoid.",
+    content: `Spatial proteomics has transformed how we study tissue architecture, but designing your first antibody panel can feel overwhelming. Whether you are working with CODEX, CyCIF, or IMC, the principles of good panel design remain the same.
+
+## Start with your biological question
+
+Before selecting a single antibody, clearly define which cell types and tissue compartments matter for your study. A panel built around a focused hypothesis will always outperform a panel that tries to measure everything at once.
+
+## Choose canonical markers first
+
+Begin with well-validated lineage markers: CD3 for T cells, CD20 for B cells, CD68 for macrophages, PanCK for epithelial cells, and CD31 for endothelium. These anchors let you confidently identify major populations before layering on functional or activation markers.
+
+## Mind the spectral overlap
+
+For fluorescence-based methods, spectral overlap between fluorophores is the single biggest source of artifacts. Assign your brightest fluorophores (e.g., AF488, PE) to low-abundance targets, and use dimmer channels for highly expressed markers. Tools like PanelMaker can flag problematic overlap automatically.
+
+## Validate each antibody independently
+
+Never skip single-plex validation on your target tissue and fixation. An antibody that works beautifully on tonsil FFPE may fail completely on fresh-frozen kidney. Record signal quality, specificity, and optimal dilution for every combination.
+
+## Iterate and share
+
+Panel design is iterative. Share your validated conditions with the community so others can build on your work rather than starting from scratch each time.`,
+    published: true,
+    publishedAt: new Date("2026-01-15T10:00:00Z"),
+    metaTitle: "Designing Your First Spatial Proteomics Panel | PanelMaker",
+    metaDescription:
+      "A practical guide to designing multiplexed tissue imaging panels, covering marker selection, fluorophore assignment, and antibody validation.",
+    keywords: JSON.stringify(["spatial proteomics", "panel design", "CODEX", "CyCIF", "antibody validation"]),
+    authorId: "seed_user_lin_jia",
+  },
+  {
+    title: "FFPE vs Fresh-Frozen: How Fixation Shapes Your Panel",
+    slug: "ffpe-vs-fresh-frozen-fixation",
+    excerpt:
+      "Fixation method is one of the most consequential decisions in spatial proteomics. We compare FFPE and fresh-frozen workflows and their impact on antibody performance.",
+    content: `The choice between FFPE (formalin-fixed, paraffin-embedded) and fresh-frozen tissue preparation fundamentally affects which antibodies will work in your panel, how much antigen retrieval you need, and ultimately the quality of your data.
+
+## FFPE: the archival workhorse
+
+FFPE tissue is the standard in clinical pathology. Blocks can be stored for decades at room temperature, making retrospective studies possible. However, formalin cross-links proteins extensively, masking epitopes that many antibodies recognize. Antigen retrieval (heat-induced or enzymatic) is almost always required, and not every epitope can be recovered.
+
+### Advantages
+- Long-term storage at room temperature
+- Excellent morphology preservation
+- Compatibility with clinical archives
+
+### Challenges
+- Epitope masking requiring antigen retrieval optimization
+- Some targets (e.g., certain phospho-proteins) are unreliable
+- Autofluorescence from formalin fixation
+
+## Fresh-frozen: maximum antigen preservation
+
+Snap-freezing tissue in OCT preserves native protein conformation. More antibodies work out-of-the-box on frozen sections, and phospho-epitopes are far better preserved. The trade-off is poorer morphology and the need for continuous cold-chain storage.
+
+### Advantages
+- Better epitope preservation, especially for phospho-targets
+- Lower autofluorescence
+- More antibodies validated for frozen tissue
+
+### Challenges
+- Requires -80C storage
+- Inferior morphological preservation
+- Sections are more fragile and prone to freeze-thaw artifacts
+
+## Practical recommendations
+
+If you have access to both tissue types, run a pilot with your critical markers on each fixation. Record results in a structured format (PanelMaker experimental reports work well for this) so your team can reference them later. For clinical cohorts where only FFPE is available, invest extra time in antigen retrieval optimization before concluding that an antibody does not work.`,
+    published: true,
+    publishedAt: new Date("2026-02-03T14:30:00Z"),
+    metaTitle: "FFPE vs Fresh-Frozen Tissue for Spatial Proteomics | PanelMaker",
+    metaDescription:
+      "Compare FFPE and fresh-frozen fixation methods for multiplexed imaging and learn how fixation choice affects antibody panel performance.",
+    keywords: JSON.stringify(["FFPE", "fresh-frozen", "fixation", "antigen retrieval", "tissue preparation"]),
+    authorId: "seed_user_hta_user1",
+  },
+  {
+    title: "Cross-Reactivity Pitfalls in Multi-Species Panel Design",
+    slug: "cross-reactivity-multi-species-panels",
+    excerpt:
+      "Using antibodies from multiple host species introduces cross-reactivity risks. Learn how to identify and avoid host-species conflicts in your multiplex panels.",
+    content: `One of the most common mistakes in multiplex panel design is ignoring host-species cross-reactivity. When you combine primary antibodies raised in different species with secondary detection systems, unintended binding can produce misleading signals.
+
+## The problem
+
+Suppose your panel includes a rabbit anti-CD3 and a goat anti-CD20, detected with anti-rabbit AF488 and anti-goat AF647 secondaries. If the anti-goat secondary has any cross-reactivity to rabbit IgG, you will see false CD20 signal wherever CD3 is expressed. In a T cell zone, this could look like dual-positive cells that do not actually exist.
+
+## How to avoid it
+
+### Use directly conjugated antibodies when possible
+
+Directly conjugated primaries eliminate the secondary antibody problem entirely. Most major vendors now offer a wide range of conjugated clones for spatial proteomics workflows.
+
+### Check host species before adding to your panel
+
+Before finalizing your panel, list every antibody with its host species and isotype. Flag any pair where a secondary could cross-react. PanelMaker highlights these conflicts automatically in the compatibility checker.
+
+### Use pre-adsorbed secondaries
+
+If you must use secondaries, choose cross-adsorbed versions that have been depleted against IgG from the other host species in your panel. Verify adsorption claims with single-plex controls.
+
+### Sequential staining with stripping
+
+Methods like CyCIF and IBEX use iterative staining and stripping cycles. By separating potentially cross-reactive antibodies into different cycles, you eliminate the possibility of secondary cross-talk.
+
+## Documenting your results
+
+When you validate a multi-species panel, record the host species, isotype, and clone for every antibody alongside your imaging results. This metadata is essential for troubleshooting and for other researchers who want to reproduce your work.`,
+    published: true,
+    publishedAt: new Date("2026-02-18T09:00:00Z"),
+    metaTitle: "Avoiding Cross-Reactivity in Multiplex Antibody Panels | PanelMaker",
+    metaDescription:
+      "How to identify and prevent host-species cross-reactivity when designing multiplexed spatial proteomics panels.",
+    keywords: JSON.stringify([
+      "cross-reactivity",
+      "host species",
+      "secondary antibodies",
+      "multiplex",
+      "panel compatibility",
+    ]),
+    authorId: "seed_user_nolan_garry",
+  },
+  {
+    title: "IMC vs CODEX vs CyCIF: Choosing a Multiplexing Platform",
+    slug: "imc-vs-codex-vs-cycif-comparison",
+    excerpt:
+      "An honest comparison of three major spatial proteomics platforms, their strengths, limitations, and the types of studies each is best suited for.",
+    content: `Choosing a multiplexing platform is one of the first decisions in any spatial proteomics project. Each technology has genuine strengths, and the best choice depends on your specific biological question, throughput needs, and available infrastructure.
+
+## Imaging Mass Cytometry (IMC)
+
+IMC uses metal-tagged antibodies and laser ablation to achieve up to 40+ markers simultaneously in a single staining round. There is no spectral overlap because each metal isotope occupies a distinct mass channel.
+
+### Best for
+- Maximum marker count per section
+- Studies where tissue is scarce (one section, one stain)
+- Discovery panels where you want broad coverage
+
+### Limitations
+- Slow acquisition (a 1 mm2 region can take over an hour)
+- Destructive (tissue is ablated)
+- Spatial resolution limited to approximately 1 micrometer
+
+## CODEX
+
+CODEX uses DNA-barcoded antibodies with iterative hybridization and imaging cycles. It achieves high-plex (40-60 markers) with standard fluorescence microscopy.
+
+### Best for
+- High-throughput tissue microarray studies
+- Labs with existing fluorescence microscope infrastructure
+- Large cohort studies requiring consistent automation
+
+### Limitations
+- Barcode-antibody conjugation can affect antibody performance
+- Cycle-to-cycle tissue loss accumulates
+- Requires specialized barcoded reagents
+
+## CyCIF (Cyclic Immunofluorescence)
+
+CyCIF uses conventional fluorophore-conjugated antibodies with chemical inactivation between cycles. It is the most accessible method for labs already performing immunofluorescence.
+
+### Best for
+- Labs transitioning from standard IF to multiplex
+- FFPE tissue from clinical archives
+- Flexibility in antibody choice (standard conjugates)
+
+### Limitations
+- Fluorophore inactivation is not always complete
+- Tissue degradation over many cycles
+- Typically 4-6 markers per cycle, 20-30 total
+
+## Making the decision
+
+Consider your marker count requirement, tissue availability, throughput needs, and existing equipment. For most new spatial proteomics labs, starting with CyCIF or CODEX and expanding to IMC for high-plex discovery is a pragmatic path.`,
+    published: true,
+    publishedAt: new Date("2026-02-27T11:00:00Z"),
+    metaTitle: "IMC vs CODEX vs CyCIF: Multiplexing Platform Comparison | PanelMaker",
+    metaDescription:
+      "Compare Imaging Mass Cytometry, CODEX, and CyCIF for spatial proteomics to choose the best platform for your research.",
+    keywords: JSON.stringify(["IMC", "CODEX", "CyCIF", "multiplexing", "spatial proteomics", "platform comparison"]),
+    authorId: "seed_user_goltsev_yury",
+  },
+  {
+    title: "Building a Tumor Microenvironment Panel: Marker Selection Strategy",
+    slug: "tumor-microenvironment-panel-strategy",
+    excerpt:
+      "A practical framework for selecting markers that capture immune infiltration, stromal remodeling, and tumor heterogeneity in the tumor microenvironment.",
+    content: `The tumor microenvironment (TME) is a complex ecosystem of tumor cells, immune cells, vasculature, and stroma. A well-designed spatial proteomics panel can reveal the spatial relationships between these compartments that bulk methods miss entirely.
+
+## Define your compartments
+
+A comprehensive TME panel should cover four major compartments:
+
+1. **Tumor cells** - PanCK, E-Cadherin, Ki67, and tumor-specific markers (e.g., HER2 for breast, SOX10 for melanoma)
+2. **Immune cells** - CD3, CD4, CD8, CD20, CD68, FoxP3, PD-1, PD-L1 for the core immune contexture
+3. **Vasculature** - CD31, alpha-SMA for endothelium and pericytes
+4. **Stroma** - Vimentin, Collagen I, FAP for fibroblasts and extracellular matrix
+
+## Prioritize functional markers
+
+After lineage markers, add functional readouts that answer your specific question. For immunotherapy response studies, PD-1, PD-L1, LAG-3, and TIM-3 capture checkpoint biology. For proliferation and cell death, Ki67 and cleaved Caspase-3 are essential.
+
+## Think about spatial relationships
+
+The power of spatial proteomics is measuring co-localization and proximity. Design your panel so that interacting cell types carry markers in spectrally distinct channels. For example, if you want to measure PD-1/PD-L1 interactions at the tumor-immune interface, ensure PD-1 (on T cells) and PD-L1 (on tumor/myeloid cells) are in channels with minimal cross-talk.
+
+## Start with a validated core
+
+Rather than building from scratch, start with a validated core panel (like those shared on PanelMaker) and add your study-specific markers. A 15-marker core covering major lineages plus 5-10 custom markers is a proven strategy that balances coverage with feasibility.
+
+## Validate on relevant tissue
+
+Always validate on tissue that matches your study cohort. A panel validated on tonsil (a common positive control) may need re-optimization for the specific tumor type and fixation in your study. Document every validation experiment as a structured report so your future self and collaborators can reference the results.`,
+    published: true,
+    publishedAt: new Date("2026-03-05T08:00:00Z"),
+    metaTitle: "Tumor Microenvironment Panel Design Strategy | PanelMaker",
+    metaDescription:
+      "A framework for designing spatial proteomics panels that capture immune, stromal, and tumor compartments in the tumor microenvironment.",
+    keywords: JSON.stringify([
+      "tumor microenvironment",
+      "TME",
+      "immune profiling",
+      "panel design",
+      "immunotherapy",
+      "spatial biology",
+    ]),
+    authorId: "seed_user_angelo_mike",
+  },
+]
+
 async function seedUsers() {
   return Promise.all(
     USERS.map((u) =>
       prisma.user.upsert({
         where: { id: u.id },
-        update: { name: u.name, email: u.email, institution: u.institution },
+        update: { name: u.name, email: u.email, institution: u.institution, institutionId: u.institutionId },
         create: {
           id: u.id,
           name: u.name,
           email: u.email,
           institution: u.institution,
+          institutionId: u.institutionId,
         },
       }),
     ),
@@ -704,12 +951,12 @@ type ReportInput = {
   species: "HUMAN" | "MOUSE"
   tissueType: string
   fixation: "FFPE" | "FRESH_FROZEN" | "PFA" | "METHANOL"
-  method: "CODEX" | "CYCIF" | "IMC" | "MIBI" | "IBEX" | "IF" | "IHC"
+  method: "PATHOPLEX" | "CODEX" | "CYCIF" | "IMC" | "MIBI" | "IBEX" | "OTHER"
   fluorophore?: string
   metalTag?: string
   dilution: string
   antigenRetrieval?: string
-  status: "VALIDATED" | "PENDING" | "REJECTED"
+  status: "PUBLISHED" | "PENDING" | "REJECTED"
   works: boolean
   signalQuality: "EXCELLENT" | "GOOD" | "MODERATE" | "POOR"
   specificity: "HIGH" | "MODERATE" | "LOW"
@@ -731,7 +978,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "Cy3",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -749,7 +996,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF488",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -766,7 +1013,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF647",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -783,7 +1030,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF555",
       dilution: "1:100",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -800,7 +1047,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "Cy5",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -817,7 +1064,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF750",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -834,7 +1081,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF488",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -851,7 +1098,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "Cy3",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -868,7 +1115,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "MIBI",
       metalTag: "89Y",
       dilution: "1:100",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -884,7 +1131,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "MIBI",
       metalTag: "141Pr",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -899,7 +1146,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "MIBI",
       metalTag: "115In",
       dilution: "1:500",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -914,7 +1161,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "MIBI",
       metalTag: "174Yb",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -929,7 +1176,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "MIBI",
       metalTag: "145Nd",
       dilution: "1:500",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -944,7 +1191,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "MIBI",
       metalTag: "143Nd",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -963,7 +1210,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF488",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -980,7 +1227,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF555",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -997,7 +1244,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF647",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1014,7 +1261,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF488",
       dilution: "1:400",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1031,7 +1278,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF555",
       dilution: "1:200",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1048,7 +1295,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF647",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1065,7 +1312,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF488",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "MODERATE",
@@ -1083,7 +1330,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF555",
       dilution: "1:400",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1100,7 +1347,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF647",
       dilution: "1:100",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1118,7 +1365,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "CODEX",
       fluorophore: "Cy3",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1135,7 +1382,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "CODEX",
       fluorophore: "AF488",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1152,7 +1399,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF647",
       dilution: "1:100",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1168,7 +1415,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "CODEX",
       fluorophore: "AF555",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1186,7 +1433,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "IMC",
       metalTag: "145Nd",
       dilution: "1:500",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1202,7 +1449,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "IMC",
       metalTag: "89Y",
       dilution: "1:100",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1218,7 +1465,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "IMC",
       metalTag: "115In",
       dilution: "1:500",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1234,7 +1481,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "IMC",
       metalTag: "159Tb",
       dilution: "1:100",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1250,7 +1497,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       method: "IMC",
       metalTag: "168Er",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "MODERATE",
@@ -1264,10 +1511,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "HUMAN",
       tissueType: "Lymph node",
       fixation: "FRESH_FROZEN",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF647",
       dilution: "1:100",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1279,10 +1526,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "HUMAN",
       tissueType: "Lymph node",
       fixation: "FRESH_FROZEN",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF488",
       dilution: "1:50",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1294,11 +1541,11 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "HUMAN",
       tissueType: "Tonsil",
       fixation: "FFPE",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF555",
       dilution: "1:100",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1310,11 +1557,11 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "HUMAN",
       tissueType: "Tonsil",
       fixation: "FFPE",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF647",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "MODERATE",
@@ -1327,7 +1574,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "HUMAN",
       tissueType: "Tonsil",
       fixation: "FFPE",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF488",
       dilution: "1:400",
       antigenRetrieval: "Tris-EDTA pH 9.0",
@@ -1350,7 +1597,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "Cy3",
       dilution: "1:100",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1367,7 +1614,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF488",
       dilution: "1:100",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1399,10 +1646,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "HUMAN",
       tissueType: "Lymph node",
       fixation: "FFPE",
-      method: "IHC",
+      method: "OTHER",
       dilution: "1:100",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1414,10 +1661,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "HUMAN",
       tissueType: "Lymph node",
       fixation: "FFPE",
-      method: "IHC",
+      method: "OTHER",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1431,7 +1678,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "HUMAN",
       tissueType: "Pancreas",
       fixation: "METHANOL",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF488",
       dilution: "1:400",
       status: "REJECTED",
@@ -1449,10 +1696,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "MOUSE",
       tissueType: "Spleen",
       fixation: "PFA",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF647",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1464,10 +1711,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "MOUSE",
       tissueType: "Spleen",
       fixation: "PFA",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF488",
       dilution: "1:100",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1479,10 +1726,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       species: "MOUSE",
       tissueType: "Spleen",
       fixation: "PFA",
-      method: "IF",
+      method: "OTHER",
       fluorophore: "AF555",
       dilution: "1:200",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1501,7 +1748,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "FITC",
       dilution: "1:200",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1518,7 +1765,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "PE",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1535,7 +1782,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "AF647",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1552,7 +1799,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "BV421",
       dilution: "1:200",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
@@ -1569,7 +1816,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "APC",
       dilution: "1:150",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1586,7 +1833,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "PE-Cy7",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
       specificity: "MODERATE",
@@ -1603,7 +1850,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
       fluorophore: "BV510",
       dilution: "1:200",
       antigenRetrieval: "Citrate pH 6.0",
-      status: "VALIDATED",
+      status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
@@ -1921,6 +2168,70 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   return 2
 }
 
+async function seedBlogPosts() {
+  const posts = await Promise.all(
+    BLOG_POSTS.map((post) =>
+      prisma.blogPost.upsert({
+        where: { slug: post.slug },
+        update: {
+          title: post.title,
+          excerpt: post.excerpt,
+          content: post.content,
+          published: post.published,
+          publishedAt: post.publishedAt,
+          metaTitle: post.metaTitle,
+          metaDescription: post.metaDescription,
+          keywords: post.keywords,
+          authorId: post.authorId,
+        },
+        create: {
+          title: post.title,
+          slug: post.slug,
+          excerpt: post.excerpt,
+          content: post.content,
+          published: post.published,
+          publishedAt: post.publishedAt,
+          metaTitle: post.metaTitle,
+          metaDescription: post.metaDescription,
+          keywords: post.keywords,
+          authorId: post.authorId,
+        },
+      }),
+    ),
+  )
+  return posts
+}
+
+async function seedDiseaseConditions() {
+  console.log("Seeding disease conditions...")
+  const conditions = [
+    { id: "DOID:162", label: "cancer" },
+    { id: "DOID:1612", label: "breast cancer" },
+    { id: "DOID:0050861", label: "colorectal cancer" },
+    { id: "DOID:1324", label: "lung cancer" },
+    { id: "DOID:8923", label: "skin melanoma" },
+    { id: "DOID:363", label: "uterine cancer" },
+    { id: "DOID:10283", label: "prostate cancer" },
+    { id: "DOID:3571", label: "liver cancer" },
+    { id: "DOID:1793", label: "pancreatic cancer" },
+    { id: "DOID:3068", label: "glioblastoma" },
+    { id: "DOID:0080600", label: "COVID-19" },
+    { id: "DOID:9352", label: "type 2 diabetes mellitus" },
+    { id: "DOID:10763", label: "hypertension" },
+    { id: "DOID:2377", label: "multiple sclerosis" },
+    { id: "DOID:7148", label: "rheumatoid arthritis" },
+    { id: "DOID:9008", label: "ulcerative colitis" },
+    { id: "DOID:8778", label: "Crohn disease" },
+    { id: "DOID:10652", label: "Alzheimer disease" },
+    { id: "DOID:2914", label: "immune system disease" },
+    { id: "DOID:417", label: "autoimmune disease" },
+  ]
+
+  await Promise.all(conditions.map((c) => prisma.diseaseCondition.create({ data: c })))
+  console.log(`  Created ${conditions.length} disease conditions`)
+  return conditions
+}
+
 async function resetDatabase() {
   console.log("Resetting database...")
   await prisma.panelMarker.deleteMany()
@@ -1933,9 +2244,9 @@ async function resetDatabase() {
   await prisma.protein.deleteMany()
   await prisma.cellType.deleteMany()
   await prisma.anatomicalStructure.deleteMany()
+  await prisma.diseaseCondition.deleteMany()
   await prisma.review.deleteMany()
   await prisma.chatMessage.deleteMany()
-  await prisma.chatRateLimit.deleteMany()
   await prisma.rateLimit.deleteMany()
   await prisma.blogPost.deleteMany()
   await prisma.authenticator.deleteMany()
@@ -1951,6 +2262,7 @@ async function main() {
   const users = await seedUsers()
   const cellTypes = await seedCellTypes()
   const structures = await seedStructures()
+  await seedDiseaseConditions()
   const proteins = await seedProteins()
   await seedCellTypeMarkers()
   const antibodies = await seedAntibodies()
@@ -1964,6 +2276,7 @@ async function main() {
 
   const reportCount = await seedExperimentalReports(antibodyMap)
   const panelCount = await seedPanels(antibodyMap)
+  const blogPosts = await seedBlogPosts()
 
   console.log("Seed data created successfully")
   console.log(`  ${users.length} users`)
@@ -1974,6 +2287,7 @@ async function main() {
   console.log(`  ${antibodies.length} antibodies`)
   console.log(`  ${reportCount} experimental reports`)
   console.log(`  ${panelCount} panels with cycles and markers`)
+  console.log(`  ${blogPosts.length} blog posts`)
 }
 
 main()

@@ -77,7 +77,7 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
       <div className="flex flex-wrap gap-2">
         {speciesLabel && <Badge variant="outline">{speciesLabel}</Badge>}
         {fixationLabel && <Badge variant="secondary">{fixationLabel}</Badge>}
-        {panel.condition && <Badge variant="outline">Condition: {panel.condition}</Badge>}
+        {panel.condition && <Badge variant="outline">Condition: {panel.condition.label}</Badge>}
         <Badge variant="outline">
           <Layers className="h-3.5 w-3.5 mr-1" />
           {panel.cycles.length} {panel.cycles.length === 1 ? "cycle" : "cycles"}

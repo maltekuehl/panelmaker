@@ -1,4 +1,5 @@
 import { createAuthHandler, deleteUser } from "@/lib/auth"
+import { logger } from "@/lib/monitoring"
 import { NextRequest, NextResponse } from "next/server"
 
 // DELETE /api/user/[id] - Delete a user (admin only)
@@ -19,7 +20,7 @@ export const DELETE = createAuthHandler(
       await deleteUser(userId)
       return NextResponse.json({ message: "User deleted successfully" })
     } catch (error) {
-      console.error("Error deleting user:", error)
+      logger.error("Error deleting user", error instanceof Error ? error : new Error(String(error)))
       return NextResponse.json({ error: "Failed to delete user" }, { status: 500 })
     }
   },

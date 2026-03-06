@@ -1,5 +1,15 @@
 "use client"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -32,6 +42,7 @@ export function PanelWorkspace() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [warnings, setWarnings] = useState<PanelWarning[]>([])
+  const [panelToDelete, setPanelToDelete] = useState<Panel | null>(null)
 
   useEffect(() => {
     const fetchPanels = async () => {
@@ -96,7 +107,8 @@ export function PanelWorkspace() {
         description: data.description || undefined,
         species: data.species || undefined,
         fixation: data.fixation || undefined,
-        condition: data.condition || undefined,
+        conditionId: data.conditionId || undefined,
+        conditionLabel: data.conditionLabel || undefined,
         isPublic: false,
       }),
     })
@@ -121,22 +133,26 @@ export function PanelWorkspace() {
     fetchValidation(panelId)
   }
 
-  const handleDeletePanel = async (panelId: number) => {
+  const handleDeletePanel = (panelId: number) => {
     const panel = panels.find((p) => p.id === panelId)
     if (!panel) return
+    setPanelToDelete(panel)
+  }
 
-    if (!confirm(`Delete "${panel.name}"? This will remove all cycles and markers.`)) return
+  const confirmDeletePanel = async () => {
+    if (!panelToDelete) return
 
-    const res = await fetch(`/api/panels/${panelId}`, { method: "DELETE" })
+    const res = await fetch(`/api/panels/${panelToDelete.id}`, { method: "DELETE" })
 
     if (!res.ok) {
       toast.error("Failed to delete panel")
       return
     }
 
-    const remaining = panels.filter((p) => p.id !== panelId)
+    const remaining = panels.filter((p) => p.id !== panelToDelete.id)
     setPanels(remaining)
     setActivePanelId(remaining.length > 0 ? remaining[0].id : null)
+    setPanelToDelete(null)
     toast.success("Panel deleted")
   }
 
@@ -258,7 +274,7 @@ export function PanelWorkspace() {
               <div className="space-y-1 flex-1">
                 <p className="text-xs text-muted-foreground">{activePanel.description ?? "No description."}</p>
                 {activePanel.condition && (
-                  <p className="text-xs text-zinc-500 font-medium">Condition: {activePanel.condition}</p>
+                  <p className="text-xs text-zinc-500 font-medium">Condition: {activePanel.condition.label}</p>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -318,7 +334,7 @@ export function PanelWorkspace() {
       </div>
 
       {warnings.length > 0 && (
-        <div className="px-4 pb-0">
+        <div className="px-4 pt-4 pb-0">
           <div className="space-y-1.5">
             {warnings.map((w, i) => (
               <div
@@ -352,6 +368,27 @@ export function PanelWorkspace() {
           <p className="text-sm text-muted-foreground">Create a panel to get started.</p>
         </div>
       )}
+
+      <AlertDialog open={panelToDelete !== null} onOpenChange={(open) => !open && setPanelToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Panel</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{panelToDelete?.name}&quot; and all its cycles and markers will be permanently deleted. This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
+              onClick={confirmDeletePanel}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }

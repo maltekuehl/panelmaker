@@ -32,7 +32,7 @@ const inter = localFont({
 export const metadata: Metadata = {
   title: "PanelMaker",
   description:
-    "A community-driven database of validated antibodies and cell type markers for spatial proteomics, including IF, MIBI-ToF, CODEX, PathoPlex, and IMC.",
+    "A community-driven database of validated antibodies and cell type markers for spatial proteomics, including PathoPlex, MIBI-ToF, CODEX, and IMC.",
   keywords: [
     "PanelMaker",
     "spatial proteomics",

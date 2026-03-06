@@ -16,11 +16,11 @@ const envSchema = z.object({
     .optional()
     .transform((val) => val === "true"),
 
-  // OAuth Providers
-  AUTH_GITHUB_ID: z.string().min(1, "GitHub OAuth client ID is required"),
-  AUTH_GITHUB_SECRET: z.string().min(1, "GitHub OAuth secret is required"),
-  AUTH_LINKEDIN_ID: z.string().min(1, "LinkedIn OAuth client ID is required"),
-  AUTH_LINKEDIN_SECRET: z.string().min(1, "LinkedIn OAuth secret is required"),
+  // OAuth Providers (optional — email/password is the primary auth method)
+  AUTH_GITHUB_ID: z.string().optional(),
+  AUTH_GITHUB_SECRET: z.string().optional(),
+  AUTH_LINKEDIN_ID: z.string().optional(),
+  AUTH_LINKEDIN_SECRET: z.string().optional(),
 
   // External APIs
   GEMINI_API_KEY: z.string().min(1, "Gemini API key is required"),

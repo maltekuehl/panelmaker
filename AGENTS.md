@@ -14,6 +14,8 @@
 
 **No comments by default.** Write self-explanatory code with clear naming and structure. Only add comments for complex algorithms or non-obvious business logic that cannot be made clearer through code alone.
 
+Make liberal use of plan mode and subagents, to accomplish tasks with high-quality and faster.
+
 ---
 
 ## PanelMaker Architecture Decisions
@@ -67,14 +69,14 @@ datasource db {
 
 ### Search: Prisma LIKE Queries
 
-Use Prisma `contains` mode for text search (maps to SQL `LIKE %term%`). Add `@@index` on searchable fields. Do not implement SQLite FTS5 unless LIKE queries prove too slow in production.
+Use Prisma `contains` mode for text search (maps to SQL `LIKE %term%`). Add `@@index` on searchable fields. Do not implement SQLite FTS5 unless LIKE queries prove too slow in production. Do not use `mode: "insensitive"` — it is not supported by SQLite (SQLite LIKE is case-insensitive for ASCII by default).
 
 ```typescript
 await prisma.protein.findMany({
   where: {
     OR: [
-      { label: { contains: query, mode: "insensitive" } },
-      { geneSymbol: { contains: query, mode: "insensitive" } },
+      { label: { contains: query } },
+      { geneSymbol: { contains: query } },
     ],
   },
 })

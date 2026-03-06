@@ -1,4 +1,5 @@
 import { blockUser, createAuthHandler, unblockUser } from "@/lib/auth"
+import { logger } from "@/lib/monitoring"
 import { isBlockUserRequest } from "@/types/api"
 import { NextRequest, NextResponse } from "next/server"
 
@@ -34,7 +35,7 @@ export const PATCH = createAuthHandler(
         return NextResponse.json({ error: "Invalid action. Use 'block' or 'unblock'" }, { status: 400 })
       }
     } catch (error) {
-      console.error("Error updating user status:", error)
+      logger.error("Error updating user status", error instanceof Error ? error : new Error(String(error)))
       return NextResponse.json({ error: "Failed to update user status" }, { status: 500 })
     }
   },

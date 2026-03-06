@@ -12,14 +12,14 @@ import { Suspense } from "react"
 export const metadata: Metadata = {
   title: "PanelMaker - Validated Spatial Proteomics Marker Database",
   description:
-    "A community-driven database of validated cell type markers for spatial proteomics, including IF, MIBI-Tof, CODEX, PathoPlex, and IMC. Bridge the gap between single-cell transcriptomics and spatial biology.",
+    "A community-driven database of validated cell type markers for spatial proteomics, including PathoPlex, CODEX, MIBI-ToF, IMC, and CyCIF. Bridge the gap between single-cell transcriptomics and spatial biology.",
   keywords: [
     "PanelMaker",
     "Spatial Proteomics",
     "Immunofluorescence",
+    "PathoPlex",
     "MIBI-Tof",
     "CODEX",
-    "PathoPlex",
     "IMC",
     "Multiplex Imaging",
     "Antibody Validation",
@@ -93,7 +93,7 @@ export default async function HomePage() {
           The Database for <span className="text-primary whitespace-nowrap">Spatial Proteomics</span> Markers
         </h1>
         <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed text-balance">
-          Discover experimentally validated antibodies for standard IF, MIBI-Tof, CODEX, PathoPlex, and IMC.
+          Discover experimentally validated antibodies for PathoPlex, CODEX, MIBI-ToF, IMC, and CyCIF.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-center pt-4">
           <Button asChild size="lg" className="h-12 px-8 text-base rounded-full">

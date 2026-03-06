@@ -1,4 +1,4 @@
-export type OntologyType = "cl" | "uberon" | "ncbi_taxonomy" | "go_cc" | "doid"
+export type OntologyType = "cl" | "uberon" | "ncbi_taxonomy" | "go_cc" | "doid" | "ror"
 
 export type OntologyResult = {
   id: string
@@ -55,6 +55,10 @@ export async function searchGoCellularComponent(query: string): Promise<Ontology
 
 export async function searchDiseaseOntology(query: string): Promise<OntologyResult[]> {
   return searchOls4(query, "doid", "DOID")
+}
+
+export async function searchRor(query: string): Promise<OntologyResult[]> {
+  return searchOls4(query, "ror", "ROR")
 }
 
 export async function searchSpecies(query: string): Promise<OntologyResult[]> {

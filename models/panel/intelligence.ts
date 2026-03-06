@@ -1,4 +1,4 @@
-import type { PanelMarkerRow, PanelRow } from "./queries"
+import type { PanelCycleRow, PanelMarkerRow, PanelRow } from "./queries"
 
 type WavelengthRange = { excitationMin: number; excitationMax: number; emissionMin: number; emissionMax: number }
 
@@ -86,12 +86,16 @@ function rangesOverlap(
   return Math.abs(midA - midB) < EMISSION_OVERLAP_THRESHOLD_NM
 }
 
-export function checkFluorophoreOverlap(markers: PanelMarkerRow[]): FluorophoreOverlapIssue[] {
+export function checkFluorophoreOverlap(
+  markers: PanelMarkerRow[],
+  cycleNames: Map<number, string>,
+): FluorophoreOverlapIssue[] {
   const issues: FluorophoreOverlapIssue[] = []
 
   const byCycle = groupByCycle(markers)
 
   for (const [cycleId, cycleMarkers] of byCycle) {
+    const cycleName = cycleNames.get(cycleId) ?? `Cycle ${cycleId}`
     const withSpectra = cycleMarkers
       .filter((m) => m.fluorophore !== null && m.fluorophore !== undefined)
       .map((m) => ({ marker: m, fluorophore: m.fluorophore!, spectra: FLUOROPHORE_SPECTRA[m.fluorophore!] ?? null }))
@@ -118,7 +122,7 @@ export function checkFluorophoreOverlap(markers: PanelMarkerRow[]): FluorophoreO
             severity: "warning",
             cycleId,
             markers: [a.marker.id, b.marker.id],
-            message: `Spectral overlap detected between ${a.fluorophore} and ${b.fluorophore} in the same cycle. Their emission peaks are within ${EMISSION_OVERLAP_THRESHOLD_NM}nm of each other.`,
+            message: `${cycleName}: Spectral overlap detected between ${a.fluorophore} and ${b.fluorophore}. Their emission peaks are within ${EMISSION_OVERLAP_THRESHOLD_NM}nm of each other.`,
           })
         }
       }
@@ -128,12 +132,16 @@ export function checkFluorophoreOverlap(markers: PanelMarkerRow[]): FluorophoreO
   return issues
 }
 
-export function checkCrossReactivity(markers: PanelMarkerRow[]): CrossReactivityIssue[] {
+export function checkCrossReactivity(
+  markers: PanelMarkerRow[],
+  cycleNames: Map<number, string>,
+): CrossReactivityIssue[] {
   const issues: CrossReactivityIssue[] = []
 
   const byCycle = groupByCycle(markers)
 
   for (const [cycleId, cycleMarkers] of byCycle) {
+    const cycleName = cycleNames.get(cycleId) ?? `Cycle ${cycleId}`
     const withSpecies = cycleMarkers.filter(
       (m) => m.antibody?.sourceOrganism !== null && m.antibody?.sourceOrganism !== undefined,
     )
@@ -145,12 +153,14 @@ export function checkCrossReactivity(markers: PanelMarkerRow[]): CrossReactivity
 
         if (a.antibody?.sourceOrganism === b.antibody?.sourceOrganism) {
           const species = a.antibody?.sourceOrganism as string
+          const labelA = antibodyLabel(a)
+          const labelB = antibodyLabel(b)
           issues.push({
             type: "cross_reactivity",
             severity: "warning",
             cycleId,
             markers: [a.id, b.id],
-            message: `Cross-reactivity risk: both antibodies are raised in ${species}. Secondary antibodies may cross-react without species-specific blocking.`,
+            message: `${cycleName}: Cross-reactivity risk — ${labelA} and ${labelB} are both raised in ${species}. Secondary antibodies may cross-react without species-specific blocking.`,
           })
         }
       }
@@ -162,9 +172,10 @@ export function checkCrossReactivity(markers: PanelMarkerRow[]): CrossReactivity
 
 export function validatePanel(panel: PanelRow): PanelValidationResult {
   const allMarkers: PanelMarkerRow[] = panel.cycles.flatMap((cycle) => cycle.markers)
+  const cycleNames = buildCycleNameMap(panel.cycles)
 
-  const fluorophoreWarnings = checkFluorophoreOverlap(allMarkers)
-  const crossReactivityWarnings = checkCrossReactivity(allMarkers)
+  const fluorophoreWarnings = checkFluorophoreOverlap(allMarkers, cycleNames)
+  const crossReactivityWarnings = checkCrossReactivity(allMarkers, cycleNames)
   const warnings: PanelWarning[] = [...fluorophoreWarnings, ...crossReactivityWarnings]
 
   const errorCount = warnings.filter((w) => w.severity === "error").length
@@ -316,6 +327,20 @@ export function exportPanelJson(panel: PanelRow): object {
       })),
     })),
   }
+}
+
+function buildCycleNameMap(cycles: PanelCycleRow[]): Map<number, string> {
+  const map = new Map<number, string>()
+  for (const cycle of cycles) {
+    map.set(cycle.id, cycle.name)
+  }
+  return map
+}
+
+function antibodyLabel(marker: PanelMarkerRow): string {
+  const name = marker.antibody?.name ?? marker.protein?.label ?? "Unknown"
+  const clone = marker.antibody?.cloneId
+  return clone ? `${name} (clone ${clone})` : name
 }
 
 function groupByCycle(markers: PanelMarkerRow[]): Map<number, PanelMarkerRow[]> {

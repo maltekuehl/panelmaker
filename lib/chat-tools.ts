@@ -2,7 +2,12 @@ import "server-only"
 
 import { searchAntibodies } from "@/models/antibody"
 import { searchCellTypes as searchCellTypesQuery } from "@/models/cell-type"
-import { getAllReports, getCellTypesFromReports, getReportsForProtein } from "@/models/experimental-report"
+import {
+  getAllReports,
+  getCellTypesFromReports,
+  getReportsForCellType,
+  getReportsForProtein,
+} from "@/models/experimental-report"
 import { getProteinById, searchProteins } from "@/models/protein"
 import { tool } from "ai"
 import { z } from "zod"
@@ -63,7 +68,7 @@ const getMarkerDetails = tool({
         geneSymbol: protein.geneSymbol,
         ensemblGeneId: protein.ensemblGeneId,
       },
-      validatedReports: reports.map((r) => ({
+      publishedReports: reports.map((r) => ({
         id: r.id,
         method: r.method,
         species: r.species,
@@ -73,6 +78,7 @@ const getMarkerDetails = tool({
         works: r.works,
         signalQuality: r.signalQuality,
         specificity: r.specificity,
+        antibodyId: r.antibody?.id,
         antibodyName: r.antibody?.name,
         antibodyRrid: r.antibody?.rrid,
         cellTypeLabel: r.cellType?.label,
@@ -109,26 +115,83 @@ const searchCellTypes = tool({
   },
 })
 
+const SPECIES_MAP: Record<string, string> = {
+  "human": "HUMAN",
+  "mouse": "MOUSE",
+  "rat": "RAT",
+  "pig": "PIG",
+  "rabbit": "RABBIT",
+  "zebrafish": "ZEBRAFISH",
+  "nhp": "NON_HUMAN_PRIMATE",
+  "non-human primate": "NON_HUMAN_PRIMATE",
+  "primate": "NON_HUMAN_PRIMATE",
+}
+
+function normalizeSpecies(input: string): string {
+  const upper = input.toUpperCase()
+  if (["HUMAN", "MOUSE", "RAT", "PIG", "RABBIT", "ZEBRAFISH", "NON_HUMAN_PRIMATE", "OTHER"].includes(upper)) {
+    return upper
+  }
+  return SPECIES_MAP[input.toLowerCase()] ?? input.toUpperCase()
+}
+
 const suggestPanel = tool({
   description:
-    "Suggest validated marker antibodies for a given cell type, tissue, or species combination based on community-submitted experimental reports.",
+    "Suggest validated marker antibodies for a given cell type, tissue, or species combination based on community-submitted experimental reports. Call searchCellTypes first if you need to find the correct cell type ID.",
   inputSchema: z.object({
-    cellType: z.string().optional().describe("Target cell type (e.g. 'macrophage', 'T cell')"),
+    cellType: z.string().optional().describe("Target cell type name to search for (e.g. 'macrophage', 'T cell')"),
     tissue: z.string().optional().describe("Tissue or organ of interest (e.g. 'liver', 'lung', 'tonsil')"),
-    species: z.string().optional().describe("Target species (e.g. 'HUMAN', 'MOUSE')"),
+    species: z
+      .string()
+      .optional()
+      .describe("Target species — will be normalized to enum (e.g. 'human', 'MOUSE', 'rat')"),
   }),
   execute: async ({ cellType, tissue, species }) => {
-    const reports = await getAllReports({
-      q: cellType || tissue,
-      species: species,
-      limit: 50,
+    const normalizedSpecies = species ? normalizeSpecies(species) : undefined
+
+    let allReports: Awaited<ReturnType<typeof getAllReports>> = []
+
+    if (cellType) {
+      const matchedCellTypes = await searchCellTypesQuery(cellType)
+
+      if (matchedCellTypes.length > 0) {
+        const cellTypeReportArrays = await Promise.all(
+          matchedCellTypes.slice(0, 5).map((ct) => getReportsForCellType(ct.id)),
+        )
+        allReports = cellTypeReportArrays.flat()
+      }
+
+      if (allReports.length === 0) {
+        allReports = await getAllReports({ q: cellType, species: normalizedSpecies, limit: 50 })
+      }
+    }
+
+    if (tissue) {
+      const tissueReports = await getAllReports({ q: tissue, species: normalizedSpecies, limit: 50 })
+      allReports = [...allReports, ...tissueReports]
+    }
+
+    if (!cellType && !tissue) {
+      allReports = await getAllReports({ species: normalizedSpecies, limit: 50 })
+    }
+
+    if (normalizedSpecies) {
+      allReports = allReports.filter((r) => r.species === normalizedSpecies)
+    }
+
+    const seen = new Set<number>()
+    allReports = allReports.filter((r) => {
+      if (seen.has(r.id)) return false
+      seen.add(r.id)
+      return true
     })
 
-    const workedReports = reports.filter((r) => r.works === true)
+    const workedReports = allReports.filter((r) => r.works === true)
 
     const markerMap = new Map<
       string,
       {
+        antibodyId: number | null
         antibodyName: string
         antibodyRrid: string | null
         targetName: string | null
@@ -153,9 +216,10 @@ const suggestPanel = tool({
       if (report.cellType?.label) cellTypeLabels.add(report.cellType.label)
 
       markerMap.set(key, {
+        antibodyId: report.antibodyId,
         antibodyName: report.antibody?.name ?? "Unknown",
         antibodyRrid: report.antibody?.rrid ?? null,
-        targetName: report.antibody?.name ?? null,
+        targetName: report.antibody?.targetName ?? null,
         methods,
         tissues,
         cellTypes: cellTypeLabels,
@@ -167,6 +231,7 @@ const suggestPanel = tool({
       .sort((a, b) => b.count - a.count)
       .slice(0, 15)
       .map((m) => ({
+        antibodyId: m.antibodyId,
         antibodyName: m.antibodyName,
         antibodyRrid: m.antibodyRrid,
         targetName: m.targetName,
@@ -179,7 +244,7 @@ const suggestPanel = tool({
     return {
       suggestions,
       totalValidatedReports: workedReports.length,
-      filters: { cellType, tissue, species },
+      filters: { cellType, tissue, species: normalizedSpecies },
     }
   },
 })

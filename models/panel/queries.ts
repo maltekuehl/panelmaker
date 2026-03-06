@@ -56,11 +56,16 @@ const panelSelect = {
   description: true,
   species: true,
   fixation: true,
-  condition: true,
   ownerId: true,
   isPublic: true,
   createdAt: true,
   updatedAt: true,
+  condition: {
+    select: {
+      id: true,
+      label: true,
+    },
+  },
   owner: {
     select: {
       id: true,
@@ -104,14 +109,26 @@ export async function getPanelById(id: number): Promise<PanelRow | null> {
   })
 }
 
+async function resolveCondition(conditionId?: string, conditionLabel?: string): Promise<string | undefined> {
+  if (!conditionId) return undefined
+
+  const existing = await prisma.diseaseCondition.findUnique({ where: { id: conditionId } })
+  if (existing) return existing.id
+
+  await prisma.diseaseCondition.create({ data: { id: conditionId, label: conditionLabel || conditionId } })
+  return conditionId
+}
+
 export async function createPanel(data: CreatePanelData, ownerId: string): Promise<PanelRow> {
+  const resolvedConditionId = await resolveCondition(data.conditionId, data.conditionLabel)
+
   return prisma.panel.create({
     data: {
       name: data.name,
       description: data.description,
       species: data.species,
       fixation: data.fixation,
-      condition: data.condition,
+      conditionId: resolvedConditionId,
       isPublic: data.isPublic,
       ownerId,
       cycles: {
@@ -126,6 +143,9 @@ export async function createPanel(data: CreatePanelData, ownerId: string): Promi
 }
 
 export async function updatePanel(id: number, data: UpdatePanelData): Promise<PanelRow> {
+  const resolvedConditionId =
+    data.conditionId !== undefined ? await resolveCondition(data.conditionId, data.conditionLabel) : undefined
+
   return prisma.panel.update({
     where: { id },
     data: {
@@ -133,7 +153,7 @@ export async function updatePanel(id: number, data: UpdatePanelData): Promise<Pa
       ...(data.description !== undefined && { description: data.description }),
       ...(data.species !== undefined && { species: data.species }),
       ...(data.fixation !== undefined && { fixation: data.fixation }),
-      ...(data.condition !== undefined && { condition: data.condition }),
+      ...(resolvedConditionId !== undefined && { conditionId: resolvedConditionId }),
       ...(data.isPublic !== undefined && { isPublic: data.isPublic }),
     },
     select: panelSelect,
@@ -197,4 +217,15 @@ export async function removeCycle(cycleId: number): Promise<void> {
 
 export async function removeMarker(markerId: number): Promise<void> {
   await prisma.panelMarker.delete({ where: { id: markerId } })
+}
+
+export async function reorderMarkers(items: { markerId: number; cycleId: number; sortOrder: number }[]): Promise<void> {
+  await prisma.$transaction(
+    items.map((item) =>
+      prisma.panelMarker.update({
+        where: { id: item.markerId },
+        data: { cycleId: item.cycleId, sortOrder: item.sortOrder },
+      }),
+    ),
+  )
 }

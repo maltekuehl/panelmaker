@@ -38,7 +38,7 @@ NEVER run `npx prisma migrate reset` without explicit user approval.
 
 - `User` — add `orcid String? @unique` and `institution String?` fields; remove `collections` relation; update `reviews` relation to reference `ExperimentalReport`
 - `Account`, `Session`, `VerificationToken`, `Authenticator` — keep as-is (NextAuth)
-- `RateLimit`, `ChatRateLimit` — keep as-is
+- `RateLimit` — keep as-is (used for all rate limiting including chat)
 - `ChatMessage` — keep, but remove `toolsCalls ChatMessageToolCalls[]` relation (ChatMessageToolCalls is being deleted)
 - `BlogPost` — keep, but fix `keywords String[]` → `keywords String @default("[]")`
 - `UserRole`, `UserStatus` enums — keep

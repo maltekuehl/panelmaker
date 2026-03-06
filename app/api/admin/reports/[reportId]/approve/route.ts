@@ -2,6 +2,7 @@ import { createAuthHandler } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getRequestContext, logger } from "@/lib/monitoring"
 import { updateReportStatus } from "@/models/experimental-report"
+import { revalidateTag } from "next/cache"
 import { NextRequest, NextResponse } from "next/server"
 
 export const POST = createAuthHandler(
@@ -16,7 +17,8 @@ export const POST = createAuthHandler(
     }
 
     try {
-      await updateReportStatus(id, "VALIDATED")
+      await updateReportStatus(id, "PUBLISHED")
+      revalidateTag("browse-markers")
       logger.info("Report approved by admin", { reportId: id, adminId: user.id })
       return createSuccessResponse({ message: "Report approved successfully" })
     } catch (error) {

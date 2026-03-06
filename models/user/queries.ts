@@ -1,12 +1,14 @@
 import "server-only"
 
 import { prisma } from "@/lib/prisma"
+import type { MultiplexMethod, Species, ValidationStatus } from "@prisma/client"
 
 const userProfileSelect = {
   id: true,
   name: true,
   image: true,
   institution: true,
+  institutionId: true,
   orcid: true,
   createdAt: true,
 } as const
@@ -16,17 +18,18 @@ export type UserProfileRow = {
   name: string | null
   image: string | null
   institution: string | null
+  institutionId: string | null
   orcid: string | null
   createdAt: Date
 }
 
 export type UserStats = {
   totalReports: number
-  validatedReports: number
+  publishedReports: number
   pendingReports: number
   publicPanels: number
-  methods: string[]
-  species: string[]
+  methods: MultiplexMethod[]
+  species: Species[]
 }
 
 export type LeaderboardEntry = {
@@ -35,13 +38,7 @@ export type LeaderboardEntry = {
   image: string | null
   institution: string | null
   reportCount: number
-  validatedCount: number
-}
-
-export type InstitutionEntry = {
-  institution: string
-  contributorCount: number
-  reportCount: number
+  publishedCount: number
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfileRow | null> {
@@ -52,9 +49,9 @@ export async function getUserProfile(userId: string): Promise<UserProfileRow | n
 }
 
 export async function getUserStats(userId: string): Promise<UserStats> {
-  const [totalReports, validatedReports, pendingReports, publicPanels, methodRows, speciesRows] = await Promise.all([
+  const [totalReports, publishedReports, pendingReports, publicPanels, methodRows, speciesRows] = await Promise.all([
     prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true } }),
-    prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true, status: "VALIDATED" } }),
+    prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true, status: "PUBLISHED" } }),
     prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true, status: "PENDING" } }),
     prisma.panel.count({ where: { ownerId: userId, isPublic: true } }),
     prisma.experimentalReport.findMany({
@@ -71,11 +68,11 @@ export async function getUserStats(userId: string): Promise<UserStats> {
 
   return {
     totalReports,
-    validatedReports,
+    publishedReports,
     pendingReports,
     publicPanels,
-    methods: methodRows.map((r) => r.method as string),
-    species: speciesRows.map((r) => r.species as string),
+    methods: methodRows.map((r) => r.method!),
+    species: speciesRows.map((r) => r.species!),
   }
 }
 
@@ -104,9 +101,9 @@ const recentReportSelect = {
 
 export type RecentReportRow = {
   id: number
-  method: string | null
-  species: string | null
-  status: string
+  method: MultiplexMethod | null
+  species: Species | null
+  status: ValidationStatus
   createdAt: Date
   antibody: {
     id: number
@@ -146,14 +143,14 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
     select: { id: true, name: true, image: true, institution: true },
   })
 
-  const validatedCounts = await prisma.experimentalReport.groupBy({
+  const publishedCounts = await prisma.experimentalReport.groupBy({
     by: ["submitterId"],
     _count: { id: true },
-    where: { isPublic: true, status: "VALIDATED", submitterId: { in: userIds } },
+    where: { isPublic: true, status: "PUBLISHED", submitterId: { in: userIds } },
   })
 
   const userMap = new Map(users.map((u) => [u.id, u]))
-  const validatedMap = new Map(validatedCounts.map((v) => [v.submitterId, v._count.id]))
+  const publishedMap = new Map(publishedCounts.map((v) => [v.submitterId, v._count.id]))
 
   return grouped
     .map((g) => {
@@ -165,7 +162,7 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
         image: user?.image ?? null,
         institution: user?.institution ?? null,
         reportCount: g._count.id,
-        validatedCount: validatedMap.get(uid) ?? 0,
+        publishedCount: publishedMap.get(uid) ?? 0,
       }
     })
     .filter((e) => userMap.has(e.userId))
@@ -173,32 +170,11 @@ export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
 
 export async function updateUserProfile(
   userId: string,
-  data: { orcid?: string | null; institution?: string | null },
+  data: { name?: string | null; orcid?: string | null; institution?: string | null; institutionId?: string | null },
 ): Promise<UserProfileRow> {
   return prisma.user.update({
     where: { id: userId },
     data,
     select: userProfileSelect,
   })
-}
-
-export async function getInstitutionLeaderboard(limit = 30): Promise<InstitutionEntry[]> {
-  const results = await prisma.$queryRaw<{ institution: string; contributorCount: bigint; reportCount: bigint }[]>`
-    SELECT u.institution,
-           COUNT(DISTINCT u.id) as contributorCount,
-           COUNT(er.id) as reportCount
-    FROM User u
-    JOIN ExperimentalReport er ON er.submitterId = u.id
-    WHERE u.institution IS NOT NULL
-      AND er.isPublic = 1
-    GROUP BY u.institution
-    ORDER BY reportCount DESC
-    LIMIT ${limit}
-  `
-
-  return results.map((r) => ({
-    institution: r.institution,
-    contributorCount: Number(r.contributorCount),
-    reportCount: Number(r.reportCount),
-  }))
 }

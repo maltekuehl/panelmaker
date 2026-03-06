@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Error fetching blog posts:", error)
+    logger.error("Error fetching blog posts", error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json({ error: "Failed to fetch blog posts" }, { status: 500 })
   }
 }

@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs"
 import NextAuth from "next-auth"
 import "next-auth/jwt"
 
@@ -9,65 +10,56 @@ import Credentials from "next-auth/providers/credentials"
 import GitHub from "next-auth/providers/github"
 import LinkedIn from "next-auth/providers/linkedin"
 
-const providers: Provider[] = [GitHub, LinkedIn]
+const providers: Provider[] = []
 
-if (process.env.NEXT_PUBLIC_TEST_MODE === "true") {
-  const isCI = process.env.CI === "true"
-  const isTestEnv = process.env.NODE_ENV === "test"
-  const isDevelopment = process.env.NODE_ENV === "development"
-  const isLocalhost =
-    typeof process.env.NEXT_PUBLIC_BASE_URL === "string" && process.env.NEXT_PUBLIC_BASE_URL.includes("localhost")
-
-  const isAllowedEnvironment = isCI || isTestEnv || isDevelopment || isLocalhost
-
-  if (!isAllowedEnvironment) {
-    throw new Error(
-      "CRITICAL SECURITY ERROR: Test mode authentication is enabled in production environment. " +
-        "This would allow anyone to authenticate with known test credentials. " +
-        "Please set NEXT_PUBLIC_TEST_MODE=false in production.",
-    )
-  }
-
-  if (isCI || isTestEnv) {
-    console.warn("⚠️  Test mode authentication enabled in CI/test environment.")
-  } else {
-    console.warn(
-      "⚠️  WARNING: Test mode authentication is enabled. This should only be used in development/testing environments.",
-    )
-  }
-  providers.push(
-    Credentials({
-      id: "credentials",
-      name: "Email and Password",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      authorize: async (credentials) => {
-        if (credentials?.email === "test@example.com" && credentials?.password === "password") {
-          await prisma.user.upsert({
-            where: { id: "test-user-id" },
-            update: { role: "ADMIN" },
-            create: {
-              id: "test-user-id",
-              email: "test@example.com",
-              name: "Test User",
-              image: "https://avatars.githubusercontent.com/u/67470890?s=200&v=4",
-              role: "ADMIN",
-            },
-          })
-          return {
-            id: "test-user-id",
-            email: "test@example.com",
-            name: "Test User",
-            image: "https://avatars.githubusercontent.com/u/67470890?s=200&v=4",
-          }
-        }
-        return null
-      },
-    }),
-  )
+if (process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET) {
+  providers.push(GitHub)
 }
+
+if (process.env.AUTH_LINKEDIN_ID && process.env.AUTH_LINKEDIN_SECRET) {
+  providers.push(LinkedIn)
+}
+
+providers.push(
+  Credentials({
+    id: "credentials",
+    name: "Email and Password",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    authorize: async (credentials) => {
+      const email = credentials?.email as string | undefined
+      const password = credentials?.password as string | undefined
+
+      if (!email || !password) return null
+
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          image: true,
+          password: true,
+          status: true,
+        },
+      })
+
+      if (!user || !user.password) return null
+
+      const isValidPassword = await bcrypt.compare(password, user.password)
+      if (!isValidPassword) return null
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+      }
+    },
+  }),
+)
 
 export const providerMap = providers
   .map((provider) => {
@@ -91,14 +83,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/signin",
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // Check if user can sign in (not blocked)
+    async signIn({ user, account }) {
       if (user.email) {
         const canUserSignIn = await canSignIn(user.email)
         if (!canUserSignIn) {
           return false
         }
       }
+
+      if (account?.provider === "credentials") {
+        return true
+      }
+
       return true
     },
     jwt({ token, trigger, session, account, user }) {

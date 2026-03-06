@@ -56,7 +56,6 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
             updatedAt: true,
           },
         },
-        chatRateLimit: true,
       },
     })
 
@@ -94,7 +93,6 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
       sessions: userData.sessions,
       reviews: userData.reviews,
       blogPosts: userData.blogPosts,
-      chatRateLimit: userData.chatRateLimit,
       rateLimits: rateLimits,
     }
 

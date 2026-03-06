@@ -1,4 +1,3 @@
-import { env } from "@/lib/env"
 import type { Metadata } from "next"
 import SignIn from "./SignIn"
 
@@ -18,10 +17,6 @@ export const metadata: Metadata = {
   },
 }
 
-const SignInPage = () => {
-  const isTestMode = env.NEXT_PUBLIC_TEST_MODE === "true"
-
-  return <SignIn isTestMode={isTestMode} />
+export default function SignInPage() {
+  return <SignIn />
 }
-
-export default SignInPage

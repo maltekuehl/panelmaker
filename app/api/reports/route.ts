@@ -2,9 +2,9 @@ import { requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import {
-  createReport,
   createReportSchema,
   getAllReports,
+  resolveAndCreateReport,
   searchParamsSchema,
   toReportResponse,
 } from "@/models/experimental-report"
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validated = createReportSchema.parse(body)
 
-    const report = await createReport(validated, user.id)
+    const report = await resolveAndCreateReport(validated, user.id)
 
     return createSuccessResponse({ report: toReportResponse(report) }, 201)
   } catch (error) {
@@ -51,6 +51,12 @@ export async function POST(request: NextRequest) {
     }
     if (error instanceof z.ZodError) {
       return createErrorResponse(error, "Validation error")
+    }
+    if (
+      error instanceof Error &&
+      (error.message.includes("not found in") || error.message.includes("not found in Antibody Registry"))
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 422 })
     }
     return createErrorResponse(error, "Failed to create report")
   }

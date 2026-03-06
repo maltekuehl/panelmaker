@@ -2,7 +2,7 @@ import { auth } from "@/auth"
 import { logChatMessage } from "@/lib/chat"
 import { chatTools } from "@/lib/chat-tools"
 import { logger } from "@/lib/monitoring"
-import { prisma } from "@/lib/prisma"
+import { checkUserRateLimit, RATE_LIMITS } from "@/lib/rate-limiting"
 import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { convertToModelMessages, stepCountIs, streamText } from "ai"
 import { after, NextRequest, NextResponse } from "next/server"
@@ -12,66 +12,7 @@ export interface Message {
   content: string
 }
 
-const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000
-const FREE_TIER_REQUEST_LIMIT = 50
 const MODEL_NAME = "gemini-2.5-flash"
-
-const checkRateLimit = async (userId: string): Promise<{ allowed: boolean; remaining: number; resetTime: Date }> => {
-  const now = new Date()
-  const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS)
-
-  let rateLimit = await prisma.chatRateLimit.findUnique({
-    where: { userId },
-  })
-
-  if (!rateLimit) {
-    rateLimit = await prisma.chatRateLimit.create({
-      data: {
-        userId,
-        requestCount: 1,
-        windowStartTime: now,
-        lastRequestTime: now,
-      },
-    })
-    return {
-      allowed: true,
-      remaining: FREE_TIER_REQUEST_LIMIT - 1,
-      resetTime: new Date(now.getTime() + RATE_LIMIT_WINDOW_MS),
-    }
-  }
-
-  if (rateLimit.windowStartTime < windowStart) {
-    await prisma.chatRateLimit.update({
-      where: { userId },
-      data: {
-        requestCount: 1,
-        windowStartTime: now,
-        lastRequestTime: now,
-      },
-    })
-    return {
-      allowed: true,
-      remaining: FREE_TIER_REQUEST_LIMIT - 1,
-      resetTime: new Date(now.getTime() + RATE_LIMIT_WINDOW_MS),
-    }
-  }
-
-  if (rateLimit.requestCount >= FREE_TIER_REQUEST_LIMIT) {
-    const resetTime = new Date(rateLimit.windowStartTime.getTime() + RATE_LIMIT_WINDOW_MS)
-    return { allowed: false, remaining: 0, resetTime }
-  }
-
-  await prisma.chatRateLimit.update({
-    where: { userId },
-    data: {
-      requestCount: rateLimit.requestCount + 1,
-      lastRequestTime: now,
-    },
-  })
-
-  const resetTime = new Date(rateLimit.windowStartTime.getTime() + RATE_LIMIT_WINDOW_MS)
-  return { allowed: true, remaining: FREE_TIER_REQUEST_LIMIT - (rateLimit.requestCount + 1), resetTime }
-}
 
 const chatErrorResponse = (message: string) => {
   const schemaErrorStream = new ReadableStream({
@@ -89,6 +30,17 @@ const chatErrorResponse = (message: string) => {
 const SYSTEM_PROMPT = `<core_identity>
 You are a specialized biomedical research assistant (PanelMaker Chat) designed to support researchers, physicians, and bioinformaticians working on spatial proteomics antibody panel design.
 </core_identity>
+
+<tools_guidance>
+You have access to the PanelMaker database through these tools. USE THEM proactively whenever a question involves markers, cell types, antibodies, or panel design — do not answer from memory alone.
+
+- **searchMarkers**: Search proteins and antibodies by name or gene symbol (e.g. "CD3", "EPCAM", "vimentin"). Use this when users ask about specific markers or proteins.
+- **getMarkerDetails**: Get detailed info about a specific protein including validated experimental reports. Use this after searchMarkers to get full details.
+- **searchCellTypes**: Search cell types by name (e.g. "macrophage", "T cell", "hepatocyte"). ALWAYS use this when the user mentions a cell type to check what is in the database.
+- **suggestPanel**: Suggest validated antibodies for a cell type, tissue, and/or species combination. Use this when users ask for panel suggestions, marker recommendations, or "what antibodies work for X". Pass species as uppercase enum values: HUMAN, MOUSE, RAT, PIG, RABBIT, ZEBRAFISH, NON_HUMAN_PRIMATE, OTHER.
+
+When a user asks about a cell type or tissue, ALWAYS call the relevant tool first before responding. Combine tools as needed — for example, searchCellTypes to verify the cell type exists, then suggestPanel to get recommendations.
+</tools_guidance>
 
 <safety>
   <focus>
@@ -140,12 +92,12 @@ export async function POST(req: NextRequest) {
       return chatErrorResponse("Authentication required to use chat")
     }
 
-    const rateLimitResult = await checkRateLimit(session.user.id)
+    const rateLimitResult = await checkUserRateLimit(session.user.id, RATE_LIMITS.CHAT_FREE)
 
     if (!rateLimitResult.allowed) {
       const resetTimeFormatted = rateLimitResult.resetTime.toLocaleString()
       return chatErrorResponse(
-        `You have reached the daily limit of ${FREE_TIER_REQUEST_LIMIT} free chat requests. ` +
+        `You have reached the daily limit of ${RATE_LIMITS.CHAT_FREE.maxRequests} free chat requests. ` +
           `Your limit will reset at ${resetTimeFormatted}.`,
       )
     }

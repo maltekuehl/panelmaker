@@ -48,11 +48,11 @@ function QualityBadge({ label }: { label: string | null }) {
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
-    case "VALIDATED":
+    case "PUBLISHED":
       return (
         <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
           <CheckCircle2 className="h-3 w-3" />
-          Validated
+          Published
         </Badge>
       )
     case "REJECTED":
@@ -219,6 +219,13 @@ async function ReportContent({ id }: { id: number }) {
               {usage.structureId && (
                 <DetailRow label="Anatomical Structure">{usage.structureLabel ?? usage.structureId}</DetailRow>
               )}
+              {usage.conditionId && (
+                <DetailRow label="Condition">
+                  <Link href={`/condition/${usage.conditionId}`} className="text-primary hover:underline">
+                    {usage.conditionLabel ?? usage.conditionId}
+                  </Link>
+                </DetailRow>
+              )}
             </div>
             {usage.notes && (
               <div className="mt-4 p-4 bg-zinc-50 rounded-lg border">
@@ -300,6 +307,15 @@ async function ReportContent({ id }: { id: number }) {
               >
                 <ExternalLink className="h-4 w-4" />
                 View Cell Type: {usage.cellTypeLabel}
+              </Link>
+            )}
+            {usage.conditionId && (
+              <Link
+                href={`/condition/${usage.conditionId}`}
+                className="flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" />
+                View Condition: {usage.conditionLabel}
               </Link>
             )}
           </CardContent>

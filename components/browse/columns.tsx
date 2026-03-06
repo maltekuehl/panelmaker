@@ -1,6 +1,7 @@
 "use client"
 
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
+import { Badge } from "@/components/ui/badge"
 import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
 
@@ -12,7 +13,7 @@ export type MarkerEntry = {
   species: string
   tissue: string
   validatedMethods: string[]
-  validationCategory: 0 | 1 | 2 | 3 | 4
+  reportCount: number
 }
 
 export const columns: ColumnDef<MarkerEntry>[] = [
@@ -29,10 +30,6 @@ export const columns: ColumnDef<MarkerEntry>[] = [
     accessorKey: "cellType",
     header: "Cell Type",
     cell: ({ row }) => {
-      const cellTypeId = row.original.cellTypeId || row.getValue("cellType") // Fallback or use a slugifier
-      // For now, let's assume we pass cellTypeId. If not, we might link to a search or something.
-      // But since we are building the pages, let's try to link to /celltype/[id]
-      // We'll need to ensure data has cellTypeId.
       return (
         <Link href={`/celltype/${row.original.cellTypeId || "unknown"}`} className="hover:underline text-primary">
           {row.getValue("cellType")}
@@ -57,6 +54,15 @@ export const columns: ColumnDef<MarkerEntry>[] = [
     },
   },
   {
+    accessorKey: "method",
+    header: "Method",
+    enableHiding: true,
+    filterFn: (row, columnId, filterValue: string[]) => {
+      const value = row.getValue(columnId) as string
+      return filterValue.includes(value)
+    },
+  },
+  {
     accessorKey: "validatedMethods",
     header: "Methods",
     cell: ({ row }) => {
@@ -67,35 +73,14 @@ export const columns: ColumnDef<MarkerEntry>[] = [
     },
   },
   {
-    accessorKey: "validationCategory",
-    header: "Validation",
-    filterFn: (row, columnId, filterValue: string[]) => {
-      const value = String(row.getValue(columnId))
-      return filterValue.includes(value)
-    },
+    accessorKey: "reportCount",
+    header: "Reports",
     cell: ({ row }) => {
-      const category = row.getValue("validationCategory") as number
-      const labels: Record<number, string> = {
-        0: "Text Mining",
-        1: "Submitted",
-        2: "Community",
-        3: "Systematic",
-        4: "Expert Confirmed",
-      }
-      const styles: Record<number, string> = {
-        0: "bg-zinc-100 text-zinc-800",
-        1: "bg-yellow-100 text-yellow-800",
-        2: "bg-green-100 text-green-800",
-        3: "bg-blue-100 text-blue-800",
-        4: "bg-purple-100 text-purple-800",
-      }
-
+      const count = row.getValue("reportCount") as number
       return (
-        <div
-          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold transition-colors border-transparent ${styles[category]}`}
-        >
-          {labels[category] || "Unknown"}
-        </div>
+        <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
+          {count}
+        </Badge>
       )
     },
   },

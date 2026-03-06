@@ -24,6 +24,7 @@ export {
   getPublicPanels,
   removeCycle,
   removeMarker,
+  reorderMarkers,
   updateCycle,
   updateMarker,
   updatePanel,
@@ -34,6 +35,7 @@ export {
   addMarkerSchema,
   createPanelSchema,
   panelQueryParamsSchema,
+  reorderMarkersSchema,
   updateCycleSchema,
   updatePanelSchema,
 } from "./schema"
@@ -42,6 +44,7 @@ export type {
   AddMarkerData,
   CreatePanelData,
   PanelQueryParams,
+  ReorderMarkersData,
   UpdateCycleData,
   UpdatePanelData,
 } from "./schema"

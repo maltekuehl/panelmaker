@@ -1,17 +1,10 @@
 import type { MarkerEntry } from "@/components/browse/columns"
+import { FIXATION_LABELS, SPECIES_LABELS } from "@/lib/constants"
+import { parseJsonArray } from "@/lib/transforms"
 import type { ReportRow } from "./queries"
 
 export type ReportResponse = Omit<ReportRow, "imageUrls"> & {
   imageUrls: string[]
-}
-
-function parseJsonArray(raw: string): string[] {
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
 }
 
 export function toReportResponse(report: ReportRow): ReportResponse {
@@ -19,32 +12,6 @@ export function toReportResponse(report: ReportRow): ReportResponse {
     ...report,
     imageUrls: parseJsonArray(report.imageUrls),
   }
-}
-
-const SPECIES_LABELS: Record<string, string> = {
-  HUMAN: "Homo sapiens",
-  MOUSE: "Mus musculus",
-  RAT: "Rattus norvegicus",
-  NON_HUMAN_PRIMATE: "Non-human primate",
-  PIG: "Sus scrofa",
-  RABBIT: "Oryctolagus cuniculus",
-  ZEBRAFISH: "Danio rerio",
-  OTHER: "Other",
-}
-
-const FIXATION_LABELS: Record<string, string> = {
-  FFPE: "FFPE",
-  FRESH_FROZEN: "Fresh Frozen",
-  PFA: "PFA",
-  ACETONE: "Acetone",
-  METHANOL: "Methanol",
-  OTHER: "Other",
-}
-
-const VALIDATION_CATEGORY: Record<string, 0 | 1 | 2 | 3 | 4> = {
-  PENDING: 1,
-  VALIDATED: 3,
-  REJECTED: 0,
 }
 
 export type ReportUsage = {
@@ -55,7 +22,6 @@ export type ReportUsage = {
   method: string
   dilution: string
   antigenRetrieval: string
-  validationCategory: number
   works: boolean | null
   signalQuality: string | null
   specificity: string | null
@@ -82,6 +48,8 @@ export type ReportUsage = {
   cellTypeLabel: string | null
   structureId: string | null
   structureLabel: string | null
+  conditionId: string | null
+  conditionLabel: string | null
   status: string
 }
 
@@ -94,7 +62,6 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     method: report.method ?? "Unknown",
     dilution: report.dilution ?? "N/A",
     antigenRetrieval: report.antigenRetrieval ?? "N/A",
-    validationCategory: VALIDATION_CATEGORY[report.status] ?? 0,
     works: report.works,
     signalQuality: report.signalQuality,
     specificity: report.specificity,
@@ -121,26 +88,54 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     cellTypeLabel: report.cellType?.label ?? null,
     structureId: report.structureId ?? null,
     structureLabel: report.structure?.label ?? null,
+    conditionId: report.conditionId ?? null,
+    conditionLabel: report.condition?.label ?? null,
     status: report.status,
   }
 }
 
-export function toMarkerEntry(report: ReportRow): MarkerEntry {
-  const markerName = report.antibody?.targetName ?? report.antibody?.name ?? `Report #${report.id}`
-  const cellTypeLabel = report.cellType?.label ?? "Unknown"
-  const species = report.species ? (SPECIES_LABELS[report.species] ?? report.species) : "Unknown"
-  const tissue = report.tissueType ?? "Unknown"
-  const methods = report.method ? [report.method] : []
-  const validationCategory = VALIDATION_CATEGORY[report.status] ?? 0
+export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
+  const groups = new Map<
+    string,
+    { reports: ReportRow[]; marker: string; cellType: string; cellTypeId?: string; id: string }
+  >()
 
-  return {
-    id: report.antibody?.targetProteinId ?? String(report.id),
-    marker: markerName,
-    cellType: cellTypeLabel,
-    cellTypeId: report.cellTypeId ?? undefined,
-    species,
-    tissue,
-    validatedMethods: methods,
-    validationCategory,
+  for (const report of reports) {
+    const markerId = report.antibody?.targetProteinId ?? String(report.id)
+    const cellTypeId = report.cellTypeId ?? "unknown"
+    const key = `${markerId}::${cellTypeId}`
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        reports: [],
+        marker: report.antibody?.targetName ?? report.antibody?.name ?? `Report #${report.id}`,
+        cellType: report.cellType?.label ?? "Unknown",
+        cellTypeId: report.cellTypeId ?? undefined,
+        id: markerId,
+      })
+    }
+
+    groups.get(key)!.reports.push(report)
   }
+
+  return Array.from(groups.values()).map((group) => {
+    const methods = [...new Set(group.reports.map((r) => r.method).filter(Boolean))] as string[]
+    const species = [
+      ...new Set(
+        group.reports.map((r) => (r.species ? (SPECIES_LABELS[r.species] ?? r.species) : null)).filter(Boolean),
+      ),
+    ] as string[]
+    const tissues = [...new Set(group.reports.map((r) => r.tissueType).filter(Boolean))] as string[]
+
+    return {
+      id: group.id,
+      marker: group.marker,
+      cellType: group.cellType,
+      cellTypeId: group.cellTypeId,
+      species: species.join(", ") || "Unknown",
+      tissue: tissues.join(", ") || "Unknown",
+      validatedMethods: methods,
+      reportCount: group.reports.length,
+    }
+  })
 }

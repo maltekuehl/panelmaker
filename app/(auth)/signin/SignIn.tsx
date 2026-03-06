@@ -1,4 +1,5 @@
 "use client"
+
 import { providerMap } from "@/auth"
 import GitHub from "@/components/icons/github"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -10,39 +11,59 @@ import { Separator } from "@/components/ui/separator"
 import { Linkedin } from "lucide-react"
 import { AuthError } from "next-auth"
 import { signIn } from "next-auth/react"
+import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 
-const SignIn = (props: { isTestMode: boolean }) => {
+export default function SignIn() {
   const searchParams = useSearchParams()
-  const isTestMode = !!props.isTestMode
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const signInAction = async (providerId: string, e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault() // Prevent default form submission behavior
-    if (isPending) return // Prevent multiple submissions while pending
+  function handleCredentialsSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (isPending) return
+
     startTransition(async () => {
       try {
-        setError(null) // Reset error state before sign-in
+        setError(null)
         const formData = new FormData(e.currentTarget)
-        // If using credentials, append email and password
-        if (providerId === "credentials") {
-          const email = formData.get("email") as string
-          const password = formData.get("password") as string
-          if (!email || !password) {
-            setError("Email and password are required for credentials sign-in.")
-            return
-          }
+        const email = formData.get("email") as string
+        const password = formData.get("password") as string
+
+        if (!email || !password) {
+          setError("Email and password are required.")
+          return
         }
+
+        await signIn("credentials", {
+          redirect: true,
+          redirectTo: searchParams.get("callbackUrl") || "/",
+          email,
+          password,
+        })
+      } catch (error) {
+        if (error instanceof AuthError) {
+          setError(error.message)
+          return
+        }
+        setError("Invalid email or password. Please try again.")
+      }
+    })
+  }
+
+  function handleOAuthSubmit(providerId: string, e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (isPending) return
+
+    startTransition(async () => {
+      try {
+        setError(null)
         await signIn(providerId, {
           redirect: true,
           redirectTo: searchParams.get("callbackUrl") || "/",
-          email: formData.get("email") as string,
-          password: formData.get("password") as string,
         })
       } catch (error) {
-        console.error("Sign-in error:", error)
         if (error instanceof AuthError) {
           setError(error.message)
           return
@@ -51,6 +72,8 @@ const SignIn = (props: { isTestMode: boolean }) => {
       }
     })
   }
+
+  const oauthProviders = Object.values(providerMap).filter((provider) => provider.id !== "credentials")
 
   return (
     <div className="flex pt-12 flex-col gap-6 max-w-md mx-auto">
@@ -73,8 +96,7 @@ const SignIn = (props: { isTestMode: boolean }) => {
           </div>
           <CardTitle className="text-xl">Sign in to your account</CardTitle>
           <CardDescription className="text-center">
-            Sign in to design antibody panels, submit validation data, and access personalized features. If you
-            don&apos;t have an account, one will be created for you automatically.
+            Sign in to design antibody panels, submit validation data, and access personalized features.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -82,48 +104,44 @@ const SignIn = (props: { isTestMode: boolean }) => {
             {searchParams.get("error") && (
               <Alert variant="destructive" className="bg-destructive/50">
                 <AlertTitle className="text-destructive-foreground">Error</AlertTitle>
-                <AlertDescription className="text-destructive-foreground">{searchParams.get("error")}</AlertDescription>
+                <AlertDescription className="text-destructive-foreground">
+                  {searchParams.get("error") === "CredentialsSignin"
+                    ? "Invalid email or password."
+                    : searchParams.get("error")}
+                </AlertDescription>
               </Alert>
             )}
-            {isTestMode && (
+
+            {error && (
+              <Alert variant="destructive" className="bg-destructive/50">
+                <AlertTitle className="text-destructive-foreground">Error</AlertTitle>
+                <AlertDescription className="text-destructive-foreground">{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <form onSubmit={handleCredentialsSubmit} className="flex flex-col gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" name="email" type="email" placeholder="you@institution.edu" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" name="password" type="password" placeholder="Your password" required />
+              </div>
+              <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending ? "Signing in..." : "Sign in"}
+              </Button>
+            </form>
+
+            <p className="text-center text-sm text-muted-foreground">
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="text-primary underline">
+                Create one
+              </Link>
+            </p>
+
+            {oauthProviders.length > 0 && (
               <>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    startTransition(() => {
-                      signInAction("credentials", e as React.FormEvent<HTMLFormElement> as any)
-                    })
-                  }}
-                  className="flex flex-col gap-4"
-                >
-                  <input type="hidden" name="redirect" value={1} />
-                  <input type="hidden" name="redirectTo" value="/" />
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="test@example.com"
-                      defaultValue="test@example.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="password"
-                      defaultValue="password"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    Sign In with Test Credentials
-                  </Button>
-                </form>
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
                     <Separator className="w-full" />
@@ -132,28 +150,19 @@ const SignIn = (props: { isTestMode: boolean }) => {
                     <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
                   </div>
                 </div>
-              </>
-            )}
 
-            {Object.values(providerMap).filter((provider) => provider.id !== "credentials").length > 0 && (
-              <div className="flex flex-col gap-2">
-                {Object.values(providerMap)
-                  .filter((provider) => provider.id !== "credentials")
-                  .map((provider) => (
-                    <form key={provider.id} onSubmit={signInAction.bind(null, provider.id)}>
-                      <Button
-                        type="submit"
-                        variant="outline"
-                        className="w-full disabled:opacity-50"
-                        disabled={isPending}
-                      >
+                <div className="flex flex-col gap-2">
+                  {oauthProviders.map((provider) => (
+                    <form key={provider.id} onSubmit={handleOAuthSubmit.bind(null, provider.id)}>
+                      <Button type="submit" variant="outline" className="w-full" disabled={isPending}>
                         {provider.name === "GitHub" && <GitHub className="w-4 h-4 mr-2" />}
                         {provider.name === "LinkedIn" && <Linkedin className="w-4 h-4 mr-2" />}
                         Sign in with {provider.name}
                       </Button>
                     </form>
                   ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         </CardContent>
@@ -161,5 +170,3 @@ const SignIn = (props: { isTestMode: boolean }) => {
     </div>
   )
 }
-
-export default SignIn
