@@ -29,12 +29,14 @@ interface AntibodyRegistryComboboxProps {
   value?: AntibodyRegistryValue | null
   onChange: (value: AntibodyRegistryValue | null) => void
   placeholder?: string
+  showDetails?: boolean
 }
 
 export function AntibodyRegistryCombobox({
   value,
   onChange,
   placeholder = "Search antibody by name, RRID, or target...",
+  showDetails = true,
 }: AntibodyRegistryComboboxProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -122,7 +124,7 @@ export function AntibodyRegistryCombobox({
         </PopoverContent>
       </Popover>
 
-      {value && (
+      {value && showDetails && (
         <div className="rounded-md border bg-muted/30 p-3 space-y-1 text-sm">
           <div className="flex items-center justify-between">
             <span className="font-medium">{value.name}</span>

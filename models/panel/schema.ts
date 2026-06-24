@@ -54,7 +54,7 @@ export const addMarkerSchema = z
     geneSymbol: z.string().max(100).optional(),
     ensemblGeneId: z.string().max(100).optional(),
     antibodyId: z.string().optional(),
-    fluorophore: z.string().max(100).optional(),
+    fluorophoreId: z.string().optional(),
     metalTag: z.string().max(100).optional(),
     sortOrder: z.number().int().min(0).optional(),
   })

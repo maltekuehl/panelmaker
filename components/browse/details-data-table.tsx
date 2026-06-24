@@ -10,10 +10,12 @@ import {
   useReactTable,
   VisibilityState,
 } from "@tanstack/react-table"
+import { useQueryStates } from "nuqs"
 import * as React from "react"
 
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { sortParsers } from "@/lib/data-table"
 
 interface DetailsDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -26,17 +28,18 @@ export function DetailsDataTable<TData, TValue>({
   data,
   hiddenColumns = [],
 }: DetailsDataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [{ sort, order }] = useQueryStates(sortParsers, { shallow: false })
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
     hiddenColumns.reduce((acc, col) => ({ ...acc, [col]: false }), {}),
   )
+
+  const sorting: SortingState = React.useMemo(() => (sort ? [{ id: sort, desc: order === "desc" }] : []), [sort, order])
 
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     state: {

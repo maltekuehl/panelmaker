@@ -1,6 +1,7 @@
 import { requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { prisma } from "@/lib/prisma"
+import { fluorophoreExists } from "@/models/fluorophore"
 import {
   addMarker,
   addMarkerSchema,
@@ -45,6 +46,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const { cycleId: _cycleId, ...markerBody } = body
     const validated = addMarkerSchema.parse(markerBody)
+
+    if (validated.fluorophoreId && !(await fluorophoreExists(validated.fluorophoreId))) {
+      return NextResponse.json({ error: "Unknown fluorophore" }, { status: 400 })
+    }
 
     if (validated.proteinId) {
       await prisma.protein.upsert({
@@ -120,7 +125,7 @@ const updateMarkerSchema = z
   .object({
     markerId: z.string().min(1),
     antibodyId: z.string().min(1).nullable().optional(),
-    fluorophore: z.string().max(100).nullable().optional(),
+    fluorophoreId: z.string().min(1).nullable().optional(),
     metalTag: z.string().max(100).nullable().optional(),
   })
   .strict()
@@ -150,6 +155,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const markerExists = panel.cycles.some((c) => c.markers.some((m) => m.id === markerId))
     if (!markerExists) {
       return NextResponse.json({ error: "Marker not found in this panel" }, { status: 404 })
+    }
+
+    if (updateData.fluorophoreId && !(await fluorophoreExists(updateData.fluorophoreId))) {
+      return NextResponse.json({ error: "Unknown fluorophore" }, { status: 400 })
     }
 
     const marker = await updateMarker(markerId, updateData)

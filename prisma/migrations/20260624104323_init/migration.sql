@@ -194,6 +194,19 @@ CREATE TABLE "DiseaseCondition" (
 );
 
 -- CreateTable
+CREATE TABLE "Fluorophore" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "excitation" INTEGER NOT NULL,
+    "emission" INTEGER NOT NULL,
+    "fpbaseId" TEXT,
+    "chebiId" TEXT,
+    "aliases" TEXT[],
+
+    CONSTRAINT "Fluorophore_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "CellTypeStructure" (
     "cellTypeId" TEXT NOT NULL,
     "structureId" TEXT NOT NULL,
@@ -253,7 +266,7 @@ CREATE TABLE "ExperimentalReport" (
     "tissueType" TEXT,
     "fixation" "Fixation",
     "method" "MultiplexMethod",
-    "fluorophore" TEXT,
+    "fluorophoreId" TEXT,
     "metalTag" TEXT,
     "cycleNumber" INTEGER,
     "dilution" TEXT,
@@ -306,7 +319,7 @@ CREATE TABLE "PanelMarker" (
     "cycleId" TEXT NOT NULL,
     "proteinId" TEXT,
     "antibodyId" TEXT,
-    "fluorophore" TEXT,
+    "fluorophoreId" TEXT,
     "metalTag" TEXT,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
 
@@ -383,6 +396,15 @@ CREATE INDEX "CellType_label_idx" ON "CellType"("label");
 CREATE INDEX "DiseaseCondition_label_idx" ON "DiseaseCondition"("label");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Fluorophore_name_key" ON "Fluorophore"("name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Fluorophore_fpbaseId_key" ON "Fluorophore"("fpbaseId");
+
+-- CreateIndex
+CREATE INDEX "Fluorophore_name_idx" ON "Fluorophore"("name");
+
+-- CreateIndex
 CREATE INDEX "Protein_label_idx" ON "Protein"("label");
 
 -- CreateIndex
@@ -416,6 +438,9 @@ CREATE INDEX "ExperimentalReport_conditionId_idx" ON "ExperimentalReport"("condi
 CREATE INDEX "ExperimentalReport_submitterId_idx" ON "ExperimentalReport"("submitterId");
 
 -- CreateIndex
+CREATE INDEX "ExperimentalReport_fluorophoreId_idx" ON "ExperimentalReport"("fluorophoreId");
+
+-- CreateIndex
 CREATE INDEX "ExperimentalReport_method_idx" ON "ExperimentalReport"("method");
 
 -- CreateIndex
@@ -441,6 +466,9 @@ CREATE INDEX "PanelMarker_proteinId_idx" ON "PanelMarker"("proteinId");
 
 -- CreateIndex
 CREATE INDEX "PanelMarker_antibodyId_idx" ON "PanelMarker"("antibodyId");
+
+-- CreateIndex
+CREATE INDEX "PanelMarker_fluorophoreId_idx" ON "PanelMarker"("fluorophoreId");
 
 -- AddForeignKey
 ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -494,6 +522,9 @@ ALTER TABLE "ExperimentalReport" ADD CONSTRAINT "ExperimentalReport_conditionId_
 ALTER TABLE "ExperimentalReport" ADD CONSTRAINT "ExperimentalReport_submitterId_fkey" FOREIGN KEY ("submitterId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ExperimentalReport" ADD CONSTRAINT "ExperimentalReport_fluorophoreId_fkey" FOREIGN KEY ("fluorophoreId") REFERENCES "Fluorophore"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Panel" ADD CONSTRAINT "Panel_conditionId_fkey" FOREIGN KEY ("conditionId") REFERENCES "DiseaseCondition"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -510,4 +541,7 @@ ALTER TABLE "PanelMarker" ADD CONSTRAINT "PanelMarker_proteinId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "PanelMarker" ADD CONSTRAINT "PanelMarker_antibodyId_fkey" FOREIGN KEY ("antibodyId") REFERENCES "Antibody"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PanelMarker" ADD CONSTRAINT "PanelMarker_fluorophoreId_fkey" FOREIGN KEY ("fluorophoreId") REFERENCES "Fluorophore"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

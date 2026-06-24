@@ -3,13 +3,15 @@ import { FIXATION_LABELS, METHOD_LABELS, SPECIES_LABELS } from "@/lib/constants"
 import { parseJsonArray } from "@/lib/transforms"
 import type { ReportRow } from "./queries"
 
-export type ReportResponse = Omit<ReportRow, "imageUrls"> & {
+export type ReportResponse = Omit<ReportRow, "imageUrls" | "fluorophore"> & {
   imageUrls: string[]
+  fluorophore: string | null
 }
 
 export function toReportResponse(report: ReportRow): ReportResponse {
   return {
     ...report,
+    fluorophore: report.fluorophore?.name ?? null,
     imageUrls: parseJsonArray(report.imageUrls),
   }
 }
@@ -65,7 +67,7 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     works: report.works,
     signalQuality: report.signalQuality,
     specificity: report.specificity,
-    fluorophore: report.fluorophore,
+    fluorophore: report.fluorophore?.name ?? null,
     metalTag: report.metalTag,
     cycleNumber: report.cycleNumber,
     notes: report.notes,
@@ -92,6 +94,28 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     conditionLabel: report.condition?.label ?? null,
     status: report.status,
   }
+}
+
+const MARKER_SORT_ACCESSORS: Record<string, (entry: MarkerEntry) => string | number> = {
+  marker: (entry) => entry.marker.toLowerCase(),
+  cellType: (entry) => entry.cellType.toLowerCase(),
+  species: (entry) => entry.species.toLowerCase(),
+  tissue: (entry) => entry.tissue.toLowerCase(),
+  reportCount: (entry) => entry.reportCount,
+}
+
+export function sortMarkerEntries(entries: MarkerEntry[], sort?: string | null, order: string = "desc"): MarkerEntry[] {
+  const accessor = sort ? MARKER_SORT_ACCESSORS[sort] : undefined
+  if (!accessor) return entries
+
+  const direction = order === "asc" ? 1 : -1
+  return [...entries].sort((a, b) => {
+    const aValue = accessor(a)
+    const bValue = accessor(b)
+    if (aValue < bValue) return -direction
+    if (aValue > bValue) return direction
+    return 0
+  })
 }
 
 export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {

@@ -185,7 +185,7 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
                                   <div className="flex flex-wrap gap-1.5">
                                     {marker.fluorophore && (
                                       <Badge variant="outline" className="text-xs">
-                                        {marker.fluorophore}
+                                        {marker.fluorophore.name}
                                       </Badge>
                                     )}
                                     {marker.metalTag && (

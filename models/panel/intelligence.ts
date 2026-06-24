@@ -1,29 +1,5 @@
 import type { PanelCycleRow, PanelMarkerRow, PanelRow } from "./queries"
 
-type WavelengthRange = { excitationMin: number; excitationMax: number; emissionMin: number; emissionMax: number }
-
-const FLUOROPHORE_SPECTRA: Record<string, WavelengthRange> = {
-  "FITC": { excitationMin: 470, excitationMax: 510, emissionMin: 505, emissionMax: 545 },
-  "AF488": { excitationMin: 470, excitationMax: 510, emissionMin: 505, emissionMax: 545 },
-  "BV421": { excitationMin: 395, excitationMax: 415, emissionMin: 415, emissionMax: 445 },
-  "BV510": { excitationMin: 395, excitationMax: 415, emissionMin: 490, emissionMax: 530 },
-  "BV605": { excitationMin: 395, excitationMax: 415, emissionMin: 585, emissionMax: 625 },
-  "BV711": { excitationMin: 395, excitationMax: 415, emissionMin: 690, emissionMax: 730 },
-  "BV786": { excitationMin: 395, excitationMax: 415, emissionMin: 760, emissionMax: 800 },
-  "PE": { excitationMin: 490, excitationMax: 570, emissionMin: 565, emissionMax: 605 },
-  "PE-Cy5": { excitationMin: 490, excitationMax: 570, emissionMin: 655, emissionMax: 695 },
-  "PE-Cy7": { excitationMin: 490, excitationMax: 570, emissionMin: 770, emissionMax: 810 },
-  "PerCP": { excitationMin: 470, excitationMax: 510, emissionMin: 668, emissionMax: 695 },
-  "PerCP-Cy5.5": { excitationMin: 470, excitationMax: 510, emissionMin: 685, emissionMax: 720 },
-  "AF555": { excitationMin: 540, excitationMax: 560, emissionMin: 560, emissionMax: 600 },
-  "AF594": { excitationMin: 580, excitationMax: 600, emissionMin: 605, emissionMax: 640 },
-  "AF647": { excitationMin: 625, excitationMax: 655, emissionMin: 655, emissionMax: 690 },
-  "APC": { excitationMin: 625, excitationMax: 655, emissionMin: 655, emissionMax: 690 },
-  "AF700": { excitationMin: 680, excitationMax: 710, emissionMin: 710, emissionMax: 745 },
-  "APC-Cy7": { excitationMin: 625, excitationMax: 655, emissionMin: 775, emissionMax: 810 },
-  "AF750": { excitationMin: 730, excitationMax: 760, emissionMin: 760, emissionMax: 800 },
-}
-
 const EMISSION_OVERLAP_THRESHOLD_NM = 30
 
 export type PanelWarning = {
@@ -75,16 +51,7 @@ export type PanelReport = {
   warnings: PanelWarning[]
 }
 
-function rangesOverlap(
-  emissionMinA: number,
-  emissionMaxA: number,
-  emissionMinB: number,
-  emissionMaxB: number,
-): boolean {
-  const midA = (emissionMinA + emissionMaxA) / 2
-  const midB = (emissionMinB + emissionMaxB) / 2
-  return Math.abs(midA - midB) < EMISSION_OVERLAP_THRESHOLD_NM
-}
+type MarkerWithFluorophore = PanelMarkerRow & { fluorophore: NonNullable<PanelMarkerRow["fluorophore"]> }
 
 export function checkFluorophoreOverlap(
   markers: PanelMarkerRow[],
@@ -96,33 +63,20 @@ export function checkFluorophoreOverlap(
 
   for (const [cycleId, cycleMarkers] of byCycle) {
     const cycleName = cycleNames.get(cycleId) ?? `Cycle ${cycleId}`
-    const withSpectra = cycleMarkers
-      .filter((m) => m.fluorophore !== null && m.fluorophore !== undefined)
-      .map((m) => ({ marker: m, fluorophore: m.fluorophore!, spectra: FLUOROPHORE_SPECTRA[m.fluorophore!] ?? null }))
-      .filter(
-        (entry): entry is { marker: PanelMarkerRow; fluorophore: string; spectra: WavelengthRange } =>
-          entry.spectra !== null,
-      )
+    const withSpectra = cycleMarkers.filter((m): m is MarkerWithFluorophore => m.fluorophore != null)
 
     for (let i = 0; i < withSpectra.length; i++) {
       for (let j = i + 1; j < withSpectra.length; j++) {
         const a = withSpectra[i]
         const b = withSpectra[j]
 
-        const emissionOverlaps = rangesOverlap(
-          a.spectra.emissionMin,
-          a.spectra.emissionMax,
-          b.spectra.emissionMin,
-          b.spectra.emissionMax,
-        )
-
-        if (emissionOverlaps) {
+        if (Math.abs(a.fluorophore.emission - b.fluorophore.emission) < EMISSION_OVERLAP_THRESHOLD_NM) {
           issues.push({
             type: "fluorophore_overlap",
             severity: "warning",
             cycleId,
-            markers: [a.marker.id, b.marker.id],
-            message: `${cycleName}: Spectral overlap detected between ${a.fluorophore} and ${b.fluorophore}. Their emission peaks are within ${EMISSION_OVERLAP_THRESHOLD_NM}nm of each other.`,
+            markers: [a.id, b.id],
+            message: `${cycleName}: Spectral overlap detected between ${a.fluorophore.name} and ${b.fluorophore.name}. Their emission peaks are within ${EMISSION_OVERLAP_THRESHOLD_NM}nm of each other.`,
           })
         }
       }
@@ -206,7 +160,7 @@ export function generatePanelReport(panel: PanelRow, warnings: PanelWarning[]): 
       markers: cycle.markers.map((marker) => ({
         protein: marker.protein?.label ?? String(marker.proteinId ?? ""),
         antibody: marker.antibody?.name ?? null,
-        fluorophore: marker.fluorophore ?? null,
+        fluorophore: marker.fluorophore?.name ?? null,
         metalTag: marker.metalTag ?? null,
       })),
     })),
@@ -230,7 +184,7 @@ export function exportPanelCsv(panel: PanelRow): string {
         escapeCsvField(marker.antibody?.rrid ?? ""),
         escapeCsvField(marker.antibody?.vendorName ?? ""),
         escapeCsvField(marker.antibody?.catalogNumber ?? ""),
-        escapeCsvField(marker.fluorophore ?? ""),
+        escapeCsvField(marker.fluorophore?.name ?? ""),
         escapeCsvField(marker.metalTag ?? ""),
         escapeCsvField(marker.antibody?.sourceOrganism ?? ""),
       ]
@@ -303,7 +257,7 @@ export function exportPanelJson(panel: PanelRow): object {
       markers: cycle.markers.map((marker) => ({
         id: marker.id,
         sortOrder: marker.sortOrder,
-        fluorophore: marker.fluorophore,
+        fluorophore: marker.fluorophore?.name ?? null,
         metalTag: marker.metalTag,
         protein: marker.protein
           ? {

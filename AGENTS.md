@@ -248,6 +248,7 @@ export default function ClientComponent() {
 - **Available components**: button, card, dialog, dropdown-menu, form, input, label, select, separator, tabs, toast, tooltip, alert, badge, checkbox, sheet, skeleton, switch, textarea, alert-dialog, navigation-menu, pagination, progress, accordion, avatar, collapsible, sidebar, sonner
 - **Styling**: Tailwind CSS with CSS variables for theming
 - **Icons**: Use `lucide-react` for all icons
+- **No margins inside buttons**: `Button` already spaces its children via a built-in `gap` (and icon-aware padding). NEVER add `ml-*`/`mr-*`/`mx-*` to icons or any other child inside a `Button` — just place the icon before or after the label and let the gap handle spacing. (Negative margin on the `Button` element itself for outer alignment, e.g. `-ml-3`, is fine.)
 
 #### Tailwind Patterns
 - Use utility classes, avoid custom CSS unless necessary

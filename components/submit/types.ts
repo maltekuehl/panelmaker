@@ -1,4 +1,5 @@
 import type { AntibodyRegistryValue } from "@/components/antibody-registry-combobox"
+import type { FluorophoreOption } from "@/components/fluorophore-combobox"
 import { MultiplexMethod } from "@/lib/generated/prisma/enums"
 
 export type OntologyValue = { id: string; label: string }
@@ -20,7 +21,7 @@ export type AntibodyRow = {
   markerName: string
   cellTypes: OntologyValue[]
   dilution: string
-  fluorophore: string
+  fluorophore: FluorophoreOption | null
   metalTag: string
   cycleNumber: string
   incubation: string
@@ -59,7 +60,7 @@ export function emptyRow(): AntibodyRow {
     markerName: "",
     cellTypes: [],
     dilution: "",
-    fluorophore: "",
+    fluorophore: null,
     metalTag: "",
     cycleNumber: "",
     incubation: "",
@@ -234,7 +235,7 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       hostSpecies: row.hostSpecies?.label || undefined,
       cellTypes: row.cellTypes,
       dilution: row.dilution.trim(),
-      fluorophore: row.fluorophore || undefined,
+      fluorophoreId: row.fluorophore?.id || undefined,
       metalTag: row.metalTag || undefined,
       cycleNumber: row.cycleNumber ? Number(row.cycleNumber) : undefined,
       works: row.works === "Yes" ? true : row.works === "No" ? false : undefined,

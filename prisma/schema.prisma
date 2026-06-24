@@ -297,6 +297,21 @@ model DiseaseCondition {
   @@index([label])
 }
 
+model Fluorophore {
+  id         String   @id @default(cuid())
+  name       String   @unique
+  excitation Int
+  emission   Int
+  fpbaseId   String?  @unique
+  chebiId    String?
+  aliases    String[]
+
+  panelMarkers        PanelMarker[]
+  experimentalReports ExperimentalReport[]
+
+  @@index([name])
+}
+
 model CellTypeStructure {
   cellTypeId  String
   structureId String
@@ -375,7 +390,7 @@ model ExperimentalReport {
   tissueType       String?
   fixation         Fixation?
   method           MultiplexMethod?
-  fluorophore      String?
+  fluorophoreId    String?
   metalTag         String?
   cycleNumber      Int?
   dilution         String?
@@ -391,12 +406,13 @@ model ExperimentalReport {
 
   conditionId  String?
 
-  antibody  Antibody?            @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
-  cellType  CellType?            @relation(fields: [cellTypeId], references: [id], onDelete: SetNull)
-  structure AnatomicalStructure? @relation(fields: [structureId], references: [id], onDelete: SetNull)
-  condition DiseaseCondition?    @relation(fields: [conditionId], references: [id], onDelete: SetNull)
-  submitter User?                @relation(fields: [submitterId], references: [id], onDelete: SetNull)
-  reviews   Review[]
+  antibody    Antibody?            @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
+  cellType    CellType?            @relation(fields: [cellTypeId], references: [id], onDelete: SetNull)
+  structure   AnatomicalStructure? @relation(fields: [structureId], references: [id], onDelete: SetNull)
+  condition   DiseaseCondition?    @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  submitter   User?                @relation(fields: [submitterId], references: [id], onDelete: SetNull)
+  fluorophore Fluorophore?         @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
+  reviews     Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -406,6 +422,7 @@ model ExperimentalReport {
   @@index([structureId])
   @@index([conditionId])
   @@index([submitterId])
+  @@index([fluorophoreId])
   @@index([method])
   @@index([status])
 }
@@ -448,19 +465,21 @@ model PanelCycle {
 }
 
 model PanelMarker {
-  id          String  @id @default(cuid())
-  cycleId     String
-  proteinId   String?
-  antibodyId  String?
-  fluorophore String?
-  metalTag    String?
-  sortOrder   Int     @default(0)
+  id            String  @id @default(cuid())
+  cycleId       String
+  proteinId     String?
+  antibodyId    String?
+  fluorophoreId String?
+  metalTag      String?
+  sortOrder     Int     @default(0)
 
-  cycle    PanelCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  protein  Protein?   @relation(fields: [proteinId], references: [id], onDelete: SetNull)
-  antibody Antibody?  @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
+  cycle       PanelCycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  protein     Protein?     @relation(fields: [proteinId], references: [id], onDelete: SetNull)
+  antibody    Antibody?    @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
+  fluorophore Fluorophore? @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
 
   @@index([cycleId])
   @@index([proteinId])
   @@index([antibodyId])
+  @@index([fluorophoreId])
 }

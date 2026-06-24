@@ -12,7 +12,7 @@ export interface Message {
   content: string
 }
 
-const MODEL_NAME = "gemini-3.5-flash"
+const MODEL_NAME = "gemini-3.1-flash-lite"
 
 const chatErrorResponse = (message: string) => {
   const schemaErrorStream = new ReadableStream({

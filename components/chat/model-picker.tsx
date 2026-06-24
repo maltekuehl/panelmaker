@@ -47,7 +47,7 @@ interface ModelOption {
 
 const models: ModelOption[] = [
   {
-    id: "gemini-3.5-flash-latest",
+    id: "gemini-3.1-flash-lite-latest",
     name: "Gemini 2.5 Flash",
     provider: "google",
     requiresApiKey: false,
@@ -177,7 +177,7 @@ export default function ModelPicker({ setMessages }: ModelPickerProps) {
   const [pendingModel, setPendingModel] = useState<string>("")
 
   // Get the default free model to switch to
-  const defaultFreeModel = models.find((m) => m.id === "gemini-3.5-flash")!
+  const defaultFreeModel = models.find((m) => m.id === "gemini-3.1-flash-lite")!
 
   const currentModel = models.find((m) => m.id === selectedModel)
 

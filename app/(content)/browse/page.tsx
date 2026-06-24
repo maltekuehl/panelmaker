@@ -1,9 +1,13 @@
 import { columns } from "@/components/browse/columns"
 import { DataTable } from "@/components/browse/data-table"
+import { MarkerTableToolbar } from "@/components/browse/marker-table-toolbar"
+import { DataTablePagination } from "@/components/data-table/pagination"
 import { Skeleton } from "@/components/ui/skeleton"
-import { aggregateMarkerEntries, getAllReports } from "@/models/experimental-report"
+import { browseMarkerParsers, type BrowseMarkerParams } from "@/lib/data-table"
+import { getMarkerEntriesPage } from "@/models/experimental-report"
 import type { Metadata } from "next"
 import { cacheLife, cacheTag } from "next/cache"
+import { createLoader, type SearchParams } from "nuqs/server"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
@@ -40,19 +44,26 @@ export const metadata: Metadata = {
   },
 }
 
+const loadSearchParams = createLoader(browseMarkerParsers)
+
 interface BrowsePageProps {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<SearchParams>
 }
 
-async function MarkerTable({ q }: { q?: string }) {
+async function MarkerTable({ params }: { params: BrowseMarkerParams }) {
   "use cache"
   cacheLife("hours")
   cacheTag("browse-markers")
 
-  const reports = await getAllReports({ limit: 100, q })
-  const markers = aggregateMarkerEntries(reports)
+  const { rows, total, page, pageCount } = await getMarkerEntriesPage(params)
 
-  return <DataTable columns={columns} data={markers} />
+  return (
+    <DataTable
+      columns={columns}
+      data={rows}
+      pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
+    />
+  )
 }
 
 function MarkerTableSkeleton() {
@@ -68,19 +79,24 @@ function MarkerTableSkeleton() {
 }
 
 export default async function BrowsePage({ searchParams }: BrowsePageProps) {
-  const { q } = await searchParams
+  const params = await loadSearchParams(searchParams)
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Marker Database</h1>
         <p className="text-muted-foreground mt-1">
-          {q ? `Showing results for “${q}”` : "Browse validated cell type markers to inform your panel design."}
+          {params.q
+            ? `Showing results for “${params.q}”`
+            : "Browse validated cell type markers to inform your panel design."}
         </p>
       </div>
-      <Suspense fallback={<MarkerTableSkeleton />}>
-        <MarkerTable q={q} />
-      </Suspense>
+      <div className="space-y-4">
+        <MarkerTableToolbar />
+        <Suspense key={JSON.stringify(params)} fallback={<MarkerTableSkeleton />}>
+          <MarkerTable params={params} />
+        </Suspense>
+      </div>
     </div>
   )
 }

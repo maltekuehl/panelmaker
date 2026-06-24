@@ -74,7 +74,7 @@ const getMarkerDetails = tool({
         species: r.species,
         tissueType: r.tissueType,
         fixation: r.fixation,
-        fluorophore: r.fluorophore,
+        fluorophore: r.fluorophore?.name ?? null,
         works: r.works,
         signalQuality: r.signalQuality,
         specificity: r.specificity,

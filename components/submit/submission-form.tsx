@@ -1,12 +1,14 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Loader2, Save } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { AntibodyAccordion } from "./antibody-accordion"
 import { ExperimentContextSection } from "./experiment-context-section"
+import { StepBadge } from "./step-badge"
 import {
   buildBatchPayload,
   emptyContext,
@@ -28,6 +30,7 @@ export function SubmissionForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const contextComplete = isContextComplete(context)
+  const contextConfirmed = contextComplete && !editingContext
   const organismId = context.species ? extractOrganismId(context.species.id) : undefined
 
   const rowErrors = useMemo(() => validateRows(rows), [rows])
@@ -111,50 +114,54 @@ export function SubmissionForm() {
   }
 
   return (
-    <div className="space-y-8 pb-24">
-      <ExperimentContextSection
-        context={context}
-        onChange={handleContextChange}
-        editing={editingContext || !contextComplete}
-        onEdit={() => setEditingContext(true)}
-        onDone={() => setEditingContext(false)}
-      />
+    <div className="space-y-6 pb-24">
+      <div className="divide-y overflow-hidden rounded-xl border">
+        <ExperimentContextSection
+          context={context}
+          onChange={handleContextChange}
+          editing={editingContext || !contextComplete}
+          onEdit={() => setEditingContext(true)}
+          onDone={() => setEditingContext(false)}
+        />
 
-      <section className="space-y-4 border-t pt-6">
-        <div>
-          <h2 className="text-lg font-semibold">Antibodies ({rows.length})</h2>
-          <p className="text-sm text-muted-foreground">
-            Add every antibody from this experiment. Pick one from the registry to auto-fill its details, or type them
-            in. Duplicate a row to reuse settings for a similar antibody.
-          </p>
-        </div>
+        <section className={cn(!contextConfirmed && "opacity-60")}>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <StepBadge n={2} state={contextConfirmed ? "active" : "disabled"} />
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold">Antibodies{contextConfirmed ? ` (${rows.length})` : ""}</h2>
+              <p className="text-xs text-muted-foreground">
+                {contextConfirmed
+                  ? "Pick from the registry to auto-fill, or type details in. Duplicate a row to reuse settings."
+                  : "Complete the experiment context to start adding antibodies."}
+              </p>
+            </div>
+          </div>
 
-        {contextComplete ? (
-          <AntibodyAccordion
-            rows={rows}
-            onChange={setRows}
-            method={context.method}
-            organismId={organismId}
-            invalid={invalid}
-          />
-        ) : (
-          <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-            Complete the experiment context above to start adding antibodies.
-          </p>
-        )}
-      </section>
+          {contextConfirmed && (
+            <div className="px-4 pb-4">
+              <AntibodyAccordion
+                rows={rows}
+                onChange={setRows}
+                method={context.method}
+                organismId={organismId}
+                invalid={invalid}
+              />
+            </div>
+          )}
+        </section>
+      </div>
 
       <div className="sticky bottom-0 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="container mx-auto flex items-center justify-between gap-4 px-0">
           <p className="text-sm text-muted-foreground">
-            {contextComplete
+            {contextConfirmed
               ? `${rows.length} antibod${rows.length === 1 ? "y" : "ies"} · shared context applied to all`
               : "Set the experiment context to begin"}
           </p>
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || !session?.user || !contextComplete}
+            disabled={isSubmitting || !session?.user || !contextConfirmed}
             className="min-w-[160px]"
           >
             {isSubmitting ? (
@@ -164,7 +171,7 @@ export function SubmissionForm() {
               </>
             ) : !session?.user ? (
               "Sign in to submit"
-            ) : !contextComplete ? (
+            ) : !contextConfirmed ? (
               "Submit reports"
             ) : (
               <>

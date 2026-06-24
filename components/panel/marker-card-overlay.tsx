@@ -8,7 +8,7 @@ interface MarkerCardOverlayProps {
 
 export function MarkerCardOverlay({ marker }: MarkerCardOverlayProps) {
   const geneName = marker.protein?.geneSymbol ?? marker.protein?.label ?? "Unknown"
-  const fluorophore = marker.fluorophore ?? marker.metalTag ?? null
+  const fluorophore = marker.fluorophore?.name ?? marker.metalTag ?? null
 
   return (
     <div className="rounded-lg border border-primary/30 bg-white p-3 shadow-lg w-[280px]">

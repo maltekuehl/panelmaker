@@ -218,7 +218,7 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
             disabled={isAddingCycle}
           >
             <Plus className="mr-2 h-3 w-3" />
-            {isAddingCycle ? "Adding..." : "Add New Cycle"}
+            {isAddingCycle ? "Adding..." : "Add new cycle"}
           </Button>
         </div>
       </div>

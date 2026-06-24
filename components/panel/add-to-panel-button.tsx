@@ -1,5 +1,6 @@
 "use client"
 
+import { FluorophoreCombobox, type FluorophoreOption } from "@/components/fluorophore-combobox"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -9,7 +10,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2, Plus } from "lucide-react"
 import { useSession } from "next-auth/react"
@@ -56,8 +56,7 @@ export function AddToPanelButton({
   const [isCreating, setIsCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null)
-  const [fluorophore, setFluorophore] = useState("")
-  const [metalTag, setMetalTag] = useState("")
+  const [fluorophore, setFluorophore] = useState<FluorophoreOption | null>(null)
 
   const fetchPanels = useCallback(async () => {
     setIsLoading(true)
@@ -104,8 +103,7 @@ export function AddToPanelButton({
           geneSymbol: geneSymbol || undefined,
           ensemblGeneId: ensemblGeneId || undefined,
           antibodyId: antibodyId || undefined,
-          fluorophore: fluorophore || undefined,
-          metalTag: metalTag || undefined,
+          fluorophoreId: fluorophore?.id || undefined,
         }),
       })
 
@@ -167,7 +165,7 @@ export function AddToPanelButton({
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle>Add {label} to Panel</DialogTitle>
-          <DialogDescription>Choose a panel and cycle, then optionally set fluorophore/metal tag.</DialogDescription>
+          <DialogDescription>Choose a panel and cycle, then optionally set a fluorophore.</DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
@@ -220,25 +218,9 @@ export function AddToPanelButton({
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Fluorophore</Label>
-                <Input
-                  placeholder="e.g., AF488"
-                  value={fluorophore}
-                  onChange={(e) => setFluorophore(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Metal Tag</Label>
-                <Input
-                  placeholder="e.g., 142Nd"
-                  value={metalTag}
-                  onChange={(e) => setMetalTag(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
+            <div>
+              <Label className="text-xs">Fluorophore</Label>
+              <FluorophoreCombobox value={fluorophore} onChange={setFluorophore} />
             </div>
 
             <Button onClick={handleAdd} disabled={isAdding || !selectedCycleId} className="w-full">

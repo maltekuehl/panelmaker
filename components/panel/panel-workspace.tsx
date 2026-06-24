@@ -233,7 +233,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
                   const pFixation = panel.fixation ? (FIXATION_LABELS[panel.fixation] ?? panel.fixation) : null
                   return (
                     <SelectItem key={panel.id} value={String(panel.id)}>
-                      <div className="flex flex-col items-start text-left">
+                      <div className="flex items-center gap-2">
                         <span className="font-medium">{panel.name}</span>
                         <span className="text-xs text-muted-foreground">
                           {[pSpecies, pFixation].filter(Boolean).join(" • ") || "No species / fixation set"}

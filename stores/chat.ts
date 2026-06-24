@@ -47,7 +47,7 @@ export interface ChatActions {
 
 export type ChatStore = ChatSettings & ChatActions
 
-const DEFAULT_MODEL = "gemini-3.5-flash"
+const DEFAULT_MODEL = "gemini-3.1-flash-lite"
 
 const formatDateForTitle = (date: Date): string => {
   return date.toLocaleDateString("en-US", {

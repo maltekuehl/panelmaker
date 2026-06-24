@@ -1,6 +1,7 @@
 "use client"
 
 import { AntibodyRegistryCombobox } from "@/components/antibody-registry-combobox"
+import { FluorophoreCombobox } from "@/components/fluorophore-combobox"
 import { OntologyCombobox } from "@/components/ontology-combobox"
 import { OntologyMultiCombobox } from "@/components/ontology-multi-combobox"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -13,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { MultiplexMethod } from "@/lib/generated/prisma/enums"
 import { cn } from "@/lib/utils"
-import { Copy, Plus, Trash2 } from "lucide-react"
+import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react"
+import Link from "next/link"
 import { useState } from "react"
 import { ProteinCombobox } from "./protein-combobox"
 import {
@@ -43,8 +45,50 @@ const SPECIFICITY_OPTIONS = [
   { value: "NON_SPECIFIC", label: "Non-specific" },
 ]
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</p>
+function Field({
+  label,
+  required,
+  children,
+  className,
+}: {
+  label: string
+  required?: boolean
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn("space-y-1", className)}>
+      <Label className="text-xs font-medium text-muted-foreground">
+        {label} {required && <span className="text-destructive">*</span>}
+      </Label>
+      {children}
+    </div>
+  )
+}
+
+function ResultSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+}) {
+  return (
+    <Select value={value || undefined} onValueChange={onChange}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Select" />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
 }
 
 function AntibodyEditor({
@@ -104,91 +148,61 @@ function AntibodyEditor({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-3">
-        <SectionLabel>Antibody</SectionLabel>
-        <div className="space-y-1.5">
-          <Label className="text-sm">Search Antibody Registry</Label>
-          <AntibodyRegistryCombobox value={row.antibodyRegistry} onChange={handleRegistry} />
-          <p className="text-xs text-muted-foreground">
-            Search by name, RRID, clone, or target to auto-fill the fields below. You can also type them in manually.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm">Vendor</Label>
-            <Input
-              value={row.antibodyVendor}
-              onChange={(e) => onChange({ antibodyVendor: e.target.value })}
-              placeholder="Abcam"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">Catalog #</Label>
-            <Input
-              value={row.catalogNumber}
-              onChange={(e) => onChange({ catalogNumber: e.target.value })}
-              placeholder="ab16667"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">Clone ID</Label>
-            <Input value={row.cloneId} onChange={(e) => onChange({ cloneId: e.target.value })} placeholder="SP7" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">RRID</Label>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <AntibodyRegistryCombobox value={row.antibodyRegistry} onChange={handleRegistry} showDetails={false} />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Field label="Vendor">
+            <Input value={row.antibodyVendor} onChange={(e) => onChange({ antibodyVendor: e.target.value })} />
+          </Field>
+          <Field label="Catalog #">
+            <Input value={row.catalogNumber} onChange={(e) => onChange({ catalogNumber: e.target.value })} />
+          </Field>
+          <Field label="Clone ID">
+            <Input value={row.cloneId} onChange={(e) => onChange({ cloneId: e.target.value })} />
+          </Field>
+          <Field label="RRID">
             <Input
               value={row.rrid}
               onChange={(e) => onChange({ rrid: e.target.value })}
-              placeholder="AB_302411"
               className="font-mono"
+              placeholder="AB_302411"
             />
-          </div>
+          </Field>
         </div>
-        <div className="space-y-1.5 sm:max-w-md">
-          <Label className="text-sm">Host species</Label>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 border-t pt-3 sm:grid-cols-3">
+        <Field label="Target protein">
+          <ProteinCombobox
+            value={row.markerProtein}
+            onChange={(protein) =>
+              onChange((r) => ({
+                ...r,
+                markerProtein: protein,
+                markerName: protein ? (protein.geneSymbol ?? protein.label) : r.markerName,
+              }))
+            }
+            organismId={organismId}
+          />
+        </Field>
+        <Field label="Marker name" required>
+          <Input
+            value={row.markerName}
+            onChange={(e) => onChange({ markerName: e.target.value })}
+            placeholder="CD3e, Ki-67, PanCK"
+            aria-invalid={invalid("markerName")}
+          />
+        </Field>
+        <Field label="Host species">
           <OntologyCombobox
             ontologyType="ncbi_taxonomy"
             value={row.hostSpecies}
             onChange={(hostSpecies) => onChange({ hostSpecies })}
-            placeholder="Species the antibody was raised in..."
+            placeholder="Raised in..."
           />
-        </div>
-      </div>
-
-      <div className="space-y-3 border-t pt-5">
-        <SectionLabel>Target</SectionLabel>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label className="text-sm">Target protein</Label>
-            <ProteinCombobox
-              value={row.markerProtein}
-              onChange={(protein) =>
-                onChange((r) => ({
-                  ...r,
-                  markerProtein: protein,
-                  markerName: protein ? (protein.geneSymbol ?? protein.label) : r.markerName,
-                }))
-              }
-              organismId={organismId}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">
-              Marker name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              value={row.markerName}
-              onChange={(e) => onChange({ markerName: e.target.value })}
-              placeholder="e.g. CD3e, Ki-67, PanCK"
-              aria-invalid={invalid("markerName")}
-            />
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-sm">
-            Cell type(s) <span className="text-destructive">*</span>
-          </Label>
+        </Field>
+        <Field label="Cell type(s)" required className="sm:col-span-3">
           <div className={cn(invalid("cellTypes") && "rounded-md ring-1 ring-destructive")}>
             <OntologyMultiCombobox
               ontologyType="cl"
@@ -197,130 +211,74 @@ function AntibodyEditor({
               placeholder="Search cell types where staining is observed..."
             />
           </div>
-        </div>
+        </Field>
       </div>
 
-      <div className="space-y-3 border-t pt-5">
-        <SectionLabel>Protocol</SectionLabel>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1.5">
-            <Label className="text-sm">
-              Dilution <span className="text-destructive">*</span>
-            </Label>
+      <div className="grid grid-cols-2 gap-3 border-t pt-3 lg:grid-cols-4">
+        <Field label="Dilution" required>
+          <Input
+            value={row.dilution}
+            onChange={(e) => onChange({ dilution: e.target.value })}
+            placeholder="1:100"
+            aria-invalid={invalid("dilution")}
+          />
+        </Field>
+        {methodNeedsFluorophore(method) && (
+          <Field label="Fluorophore">
+            <FluorophoreCombobox value={row.fluorophore} onChange={(fluorophore) => onChange({ fluorophore })} />
+          </Field>
+        )}
+        {methodNeedsMetal(method) && (
+          <Field label="Metal tag">
+            <Input value={row.metalTag} onChange={(e) => onChange({ metalTag: e.target.value })} placeholder="141Pr" />
+          </Field>
+        )}
+        {methodNeedsCycle(method) && (
+          <Field label="Cycle #">
             <Input
-              value={row.dilution}
-              onChange={(e) => onChange({ dilution: e.target.value })}
-              placeholder="1:100, 5 µg/mL"
-              aria-invalid={invalid("dilution")}
+              type="number"
+              min={1}
+              value={row.cycleNumber}
+              onChange={(e) => onChange({ cycleNumber: e.target.value })}
             />
-          </div>
-          {methodNeedsFluorophore(method) && (
-            <div className="space-y-1.5">
-              <Label className="text-sm">Fluorophore</Label>
-              <Input
-                value={row.fluorophore}
-                onChange={(e) => onChange({ fluorophore: e.target.value })}
-                placeholder="AF647, Opal 570"
-              />
-            </div>
-          )}
-          {methodNeedsMetal(method) && (
-            <div className="space-y-1.5">
-              <Label className="text-sm">Metal tag</Label>
-              <Input
-                value={row.metalTag}
-                onChange={(e) => onChange({ metalTag: e.target.value })}
-                placeholder="141Pr, 176Yb"
-              />
-            </div>
-          )}
-          {methodNeedsCycle(method) && (
-            <div className="space-y-1.5">
-              <Label className="text-sm">Cycle #</Label>
-              <Input
-                type="number"
-                min={1}
-                value={row.cycleNumber}
-                onChange={(e) => onChange({ cycleNumber: e.target.value })}
-                placeholder="3"
-              />
-            </div>
-          )}
-          <div className="space-y-1.5">
-            <Label className="text-sm">Incubation</Label>
-            <Input
-              value={row.incubation}
-              onChange={(e) => onChange({ incubation: e.target.value })}
-              placeholder="Overnight at 4°C"
-            />
-          </div>
-        </div>
+          </Field>
+        )}
+        <Field label="Incubation">
+          <Input
+            value={row.incubation}
+            onChange={(e) => onChange({ incubation: e.target.value })}
+            placeholder="Overnight 4°C"
+          />
+        </Field>
       </div>
 
-      <div className="space-y-3 border-t pt-5">
-        <SectionLabel>Results</SectionLabel>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label className="text-sm">Antibody works</Label>
-            <Select value={row.works || undefined} onValueChange={(works) => onChange({ works })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                {WORKS_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">Signal quality</Label>
-            <Select
-              value={row.signalQuality || undefined}
-              onValueChange={(signalQuality) => onChange({ signalQuality })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                {QUALITY_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-sm">Specificity</Label>
-            <Select value={row.specificity || undefined} onValueChange={(specificity) => onChange({ specificity })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                {SPECIFICITY_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-sm">Observed subcellular location</Label>
-          <div className="sm:max-w-md">
-            <OntologyCombobox
-              ontologyType="go_cc"
-              value={row.subcellularLocation}
-              onChange={(subcellularLocation) => onChange({ subcellularLocation })}
-              placeholder="Search GO cellular component..."
-              disabled={row.locationNotDiscernible}
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="grid grid-cols-2 gap-3 border-t pt-3 lg:grid-cols-4">
+        <Field label="Antibody works">
+          <ResultSelect value={row.works} onChange={(works) => onChange({ works })} options={WORKS_OPTIONS} />
+        </Field>
+        <Field label="Signal quality">
+          <ResultSelect
+            value={row.signalQuality}
+            onChange={(signalQuality) => onChange({ signalQuality })}
+            options={QUALITY_OPTIONS}
+          />
+        </Field>
+        <Field label="Specificity">
+          <ResultSelect
+            value={row.specificity}
+            onChange={(specificity) => onChange({ specificity })}
+            options={SPECIFICITY_OPTIONS}
+          />
+        </Field>
+        <Field label="Subcellular location">
+          <OntologyCombobox
+            ontologyType="go_cc"
+            value={row.subcellularLocation}
+            onChange={(subcellularLocation) => onChange({ subcellularLocation })}
+            placeholder="GO component..."
+            disabled={row.locationNotDiscernible}
+          />
+          <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
             <Checkbox
               checked={row.locationNotDiscernible}
               onCheckedChange={(checked) =>
@@ -330,25 +288,25 @@ function AntibodyEditor({
                 })
               }
             />
-            Not discernible (insufficient resolution)
+            Not discernible
           </label>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-sm">Additional notes</Label>
-          <Textarea
-            value={row.notes}
-            onChange={(e) => onChange({ notes: e.target.value })}
-            placeholder="Blocking buffer, troubleshooting tips, anything else worth noting..."
-            className="min-h-[80px]"
-          />
-        </div>
+        </Field>
       </div>
+
+      <Field label="Additional notes">
+        <Textarea
+          value={row.notes}
+          onChange={(e) => onChange({ notes: e.target.value })}
+          placeholder="Blocking buffer, troubleshooting tips, anything else worth noting..."
+          className="min-h-[60px]"
+        />
+      </Field>
     </div>
   )
 }
 
 function summaryDetection(row: AntibodyRow): string | null {
-  return row.fluorophore || row.metalTag || (row.cycleNumber ? `Cycle ${row.cycleNumber}` : null)
+  return row.fluorophore?.name || row.metalTag || (row.cycleNumber ? `Cycle ${row.cycleNumber}` : null)
 }
 
 export function AntibodyAccordion({
@@ -396,70 +354,90 @@ export function AntibodyAccordion({
 
   return (
     <div className="space-y-3">
-      <Accordion type="multiple" value={open} onValueChange={setOpen} className="rounded-md">
+      <Accordion type="multiple" value={open} onValueChange={setOpen}>
         {rows.map((row, index) => {
           const rowInvalid =
             invalid(row.key, "markerName") || invalid(row.key, "cellTypes") || invalid(row.key, "dilution")
           const detection = summaryDetection(row)
           return (
-            <AccordionItem key={row.key} value={row.key} className="relative">
-              <AccordionTrigger className="pr-24 hover:no-underline">
-                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-                  {rowInvalid && (
-                    <span className="size-2 shrink-0 rounded-full bg-destructive" title="Incomplete required fields" />
-                  )}
-                  <span className="font-medium">{row.markerName.trim() || `Antibody ${index + 1}`}</span>
-                  {row.antibodyRegistry?.citation && (
-                    <Badge variant="outline" className="font-mono text-xs font-normal">
-                      {row.antibodyRegistry.citation}
-                    </Badge>
-                  )}
-                  {row.cellTypes.length > 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      {row.cellTypes.length} cell type{row.cellTypes.length === 1 ? "" : "s"}
-                    </span>
-                  )}
-                  {row.dilution && <span className="text-xs text-muted-foreground">{row.dilution}</span>}
-                  {detection && (
-                    <Badge variant="secondary" className="text-xs font-normal">
-                      {detection}
-                    </Badge>
-                  )}
-                  {row.works && (
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {row.works === "Yes" ? "Works" : "Doesn't work"}
-                    </Badge>
-                  )}
+            <AccordionItem key={row.key} value={row.key}>
+              <div className="flex items-center gap-1 pr-2">
+                <div className="min-w-0 flex-1">
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                      {rowInvalid && (
+                        <span
+                          className="size-2 shrink-0 rounded-full bg-destructive"
+                          title="Incomplete required fields"
+                        />
+                      )}
+                      <span className="font-medium">{row.markerName.trim() || `Antibody ${index + 1}`}</span>
+                      {row.cellTypes.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {row.cellTypes.length} cell type{row.cellTypes.length === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {row.dilution && <span className="text-xs text-muted-foreground">{row.dilution}</span>}
+                      {detection && (
+                        <Badge variant="secondary" className="text-xs font-normal">
+                          {detection}
+                        </Badge>
+                      )}
+                      {row.works && (
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {row.works === "Yes" ? "Works" : "Doesn't work"}
+                        </Badge>
+                      )}
+                    </div>
+                  </AccordionTrigger>
                 </div>
-              </AccordionTrigger>
 
-              <div className="absolute right-12 top-2.5 z-10 flex items-center gap-0.5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-muted-foreground"
-                  title="Duplicate antibody"
-                  onClick={() => duplicate(row.key)}
-                >
-                  <Copy className="size-4" />
-                  <span className="sr-only">Duplicate antibody</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 text-muted-foreground hover:text-destructive"
-                  title="Remove antibody"
-                  disabled={rows.length === 1}
-                  onClick={() => remove(row.key)}
-                >
-                  <Trash2 className="size-4" />
-                  <span className="sr-only">Remove antibody</span>
-                </Button>
+                <div className="flex shrink-0 items-center gap-0.5">
+                  {row.rrid.trim() && (
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="h-7 font-mono text-xs font-normal"
+                      title="View antibody in database"
+                    >
+                      <Link
+                        href={`/antibody/${row.rrid.trim().replace(/^RRID:/, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {row.rrid.trim()}
+                        <ExternalLink className="size-3" />
+                      </Link>
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground"
+                    title="Duplicate antibody"
+                    onClick={() => duplicate(row.key)}
+                  >
+                    <Copy className="size-4" />
+                    <span className="sr-only">Duplicate antibody</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground hover:text-destructive"
+                    title="Remove antibody"
+                    disabled={rows.length === 1}
+                    onClick={() => remove(row.key)}
+                  >
+                    <Trash2 className="size-4" />
+                    <span className="sr-only">Remove antibody</span>
+                  </Button>
+                </div>
               </div>
 
-              <AccordionContent>
+              <AccordionContent className="!h-auto">
                 <AntibodyEditor
                   row={row}
                   onChange={(patch) => updateRow(row.key, patch)}

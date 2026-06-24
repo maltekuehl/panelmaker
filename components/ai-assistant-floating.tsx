@@ -371,7 +371,7 @@ export function AIAssistantFloating() {
           </div>
 
           {messages.length > 0 && (
-            <div className="flex justify-center border-t py-1.5">
+            <div className="flex justify-center border-t pt-6">
               <Button
                 variant="ghost"
                 size="sm"

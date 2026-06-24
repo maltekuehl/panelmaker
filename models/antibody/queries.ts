@@ -1,6 +1,7 @@
 import "server-only"
 
-import type { Prisma } from "@/lib/generated/prisma/client"
+import type { Clonality, Prisma, SourceOrganism } from "@/lib/generated/prisma/client"
+import { lookupAntibodyByRrid } from "@/lib/integrations/antibody-registry"
 import { prisma } from "@/lib/prisma"
 
 export type AntibodyQueryParams = {
@@ -106,4 +107,63 @@ export async function lookupByRrid(rrid: string): Promise<AntibodyRow | null> {
     where: { rrid },
     select: antibodySelect,
   })
+}
+
+const CLONALITY_MAP: Record<string, Clonality> = {
+  monoclonal: "MONOCLONAL",
+  polyclonal: "POLYCLONAL",
+  recombinant: "RECOMBINANT",
+  oligoclonal: "OLIGOCLONAL",
+}
+
+const SOURCE_ORGANISM_MAP: Record<string, SourceOrganism> = {
+  "mouse": "MOUSE",
+  "rabbit": "RABBIT",
+  "goat": "GOAT",
+  "rat": "RAT",
+  "donkey": "DONKEY",
+  "chicken": "CHICKEN",
+  "sheep": "SHEEP",
+  "hamster": "HAMSTER",
+  "guinea pig": "GUINEA_PIG",
+  "camelid": "CAMELID",
+}
+
+function cleanValue(value: string | undefined | null): string | null {
+  const trimmed = value?.trim()
+  return trimmed && trimmed.toLowerCase() !== "unknown" ? trimmed : null
+}
+
+export async function resolveAntibodyByRrid(rrid: string): Promise<AntibodyRow | null> {
+  const existing = await lookupByRrid(rrid)
+  if (existing) return existing
+
+  const registry = await lookupAntibodyByRrid(rrid)
+  if (!registry) return null
+
+  const clonality = CLONALITY_MAP[registry.clonality.toLowerCase()] ?? null
+  const sourceOrganism = SOURCE_ORGANISM_MAP[registry.sourceOrganism.toLowerCase()] ?? null
+
+  try {
+    return await prisma.antibody.create({
+      data: {
+        rrid,
+        name: cleanValue(registry.name) ?? "Unknown",
+        catalogNumber: cleanValue(registry.catalogNumber),
+        cloneId: cleanValue(registry.cloneId),
+        clonality,
+        sourceOrganism,
+        targetSpecies: JSON.stringify(registry.targetSpecies ?? []),
+        targetName: cleanValue(registry.target),
+        applications: JSON.stringify(registry.applications ?? []),
+        conjugate: cleanValue(registry.conjugate),
+        vendorName: cleanValue(registry.vendor),
+        vendorUrl: cleanValue(registry.url),
+      },
+      select: antibodySelect,
+    })
+  } catch {
+    // Another request may have inserted it concurrently; fall back to a read.
+    return lookupByRrid(rrid)
+  }
 }

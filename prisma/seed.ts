@@ -226,7 +226,7 @@ const ANTIBODIES: AntibodyDef[] = [
     vendorName: "BioLegend",
     vendorUrl: "https://www.biolegend.com",
     citationCount: 389,
-    conjugate: "PE",
+    conjugate: "AF555",
   },
   {
     rrid: "RRID:AB_10643421",
@@ -333,7 +333,7 @@ const ANTIBODIES: AntibodyDef[] = [
     vendorName: "BioLegend",
     vendorUrl: "https://www.biolegend.com",
     citationCount: 456,
-    conjugate: "APC",
+    conjugate: "AF647",
   },
   {
     rrid: "RRID:AB_927185",
@@ -945,6 +945,115 @@ async function seedAntibodies() {
     results.push(created)
   }
   return results
+}
+
+const FLUOROPHORE_SEED: {
+  name: string
+  excitation: number
+  emission: number
+  fpbaseId: string
+  aliases: string[]
+}[] = [
+  { name: "AF405", excitation: 401, emission: 422, fpbaseId: "alexa-fluor-405-default", aliases: ["Alexa Fluor 405"] },
+  { name: "AF350", excitation: 343, emission: 441, fpbaseId: "alexa-fluor-350-default", aliases: ["Alexa Fluor 350"] },
+  { name: "Hoechst 33342", excitation: 352, emission: 455, fpbaseId: "hoechst-33342-default", aliases: [] },
+  { name: "DAPI", excitation: 359, emission: 461, fpbaseId: "dapi-default", aliases: [] },
+  { name: "BODIPY FL", excitation: 502, emission: 511, fpbaseId: "bodipy-fl-default", aliases: [] },
+  {
+    name: "FITC",
+    excitation: 498,
+    emission: 517,
+    fpbaseId: "fluorescein-fitc-default",
+    aliases: ["Fluorescein", "Fluorescein isothiocyanate"],
+  },
+  {
+    name: "AF488",
+    excitation: 499,
+    emission: 520,
+    fpbaseId: "alexa-fluor-488-default",
+    aliases: ["Alexa Fluor 488", "Alexa 488"],
+  },
+  { name: "ATTO 488", excitation: 500, emission: 520, fpbaseId: "atto-488-default", aliases: [] },
+  { name: "AF532", excitation: 534, emission: 553, fpbaseId: "alexa-fluor-532-default", aliases: ["Alexa Fluor 532"] },
+  { name: "Cy3", excitation: 554, emission: 566, fpbaseId: "cy3-default", aliases: [] },
+  {
+    name: "AF555",
+    excitation: 553,
+    emission: 568,
+    fpbaseId: "alexa-fluor-555-default",
+    aliases: ["Alexa Fluor 555", "Alexa 555"],
+  },
+  { name: "AF546", excitation: 561, emission: 572, fpbaseId: "alexa-fluor-546-default", aliases: ["Alexa Fluor 546"] },
+  { name: "ATTO 550", excitation: 554, emission: 576, fpbaseId: "atto-550-default", aliases: [] },
+  {
+    name: "JF549",
+    excitation: 557,
+    emission: 576,
+    fpbaseId: "janelia-fluor-jf549-halotag-conjugate-default",
+    aliases: ["Janelia Fluor 549"],
+  },
+  {
+    name: "TRITC",
+    excitation: 552,
+    emission: 578,
+    fpbaseId: "tetramethylrhodamine-tamra-tritc-default",
+    aliases: ["TAMRA", "Tetramethylrhodamine"],
+  },
+  { name: "Cy3.5", excitation: 576, emission: 589, fpbaseId: "cy35-default", aliases: ["Cyanine 3.5"] },
+  { name: "ATTO 565", excitation: 564, emission: 590, fpbaseId: "atto-565-default", aliases: [] },
+  { name: "AF568", excitation: 579, emission: 603, fpbaseId: "alexa-fluor-568-default", aliases: ["Alexa Fluor 568"] },
+  { name: "Texas Red", excitation: 595, emission: 613, fpbaseId: "texas-red-default", aliases: [] },
+  {
+    name: "AF594",
+    excitation: 590,
+    emission: 618,
+    fpbaseId: "alexa-fluor-594-default",
+    aliases: ["Alexa Fluor 594", "Alexa 594"],
+  },
+  { name: "ATTO 590", excitation: 593, emission: 622, fpbaseId: "atto-590-default", aliases: [] },
+  { name: "AF633", excitation: 631, emission: 650, fpbaseId: "alexa-fluor-633-default", aliases: ["Alexa Fluor 633"] },
+  { name: "Cy5", excitation: 644, emission: 662, fpbaseId: "cy5-default", aliases: [] },
+  { name: "ATTO 647N", excitation: 646, emission: 664, fpbaseId: "atto-647n-default", aliases: [] },
+  {
+    name: "JF646",
+    excitation: 654,
+    emission: 667,
+    fpbaseId: "janelia-fluor-jf646-halotag-conjugate-default",
+    aliases: ["Janelia Fluor 646"],
+  },
+  {
+    name: "AF647",
+    excitation: 650,
+    emission: 671,
+    fpbaseId: "alexa-fluor-647-default",
+    aliases: ["Alexa Fluor 647", "Alexa 647"],
+  },
+  { name: "AF660", excitation: 663, emission: 691, fpbaseId: "alexa-fluor-660-default", aliases: ["Alexa Fluor 660"] },
+  { name: "ATTO 680", excitation: 681, emission: 698, fpbaseId: "atto-680-default", aliases: [] },
+  { name: "AF680", excitation: 681, emission: 704, fpbaseId: "alexa-fluor-680-default", aliases: ["Alexa Fluor 680"] },
+  { name: "AF700", excitation: 696, emission: 719, fpbaseId: "alexa-fluor-700-default", aliases: ["Alexa Fluor 700"] },
+  { name: "Cy7", excitation: 749, emission: 775, fpbaseId: "cy7-default", aliases: [] },
+  { name: "AF750", excitation: 752, emission: 776, fpbaseId: "alexa-fluor-750-default", aliases: ["Alexa Fluor 750"] },
+  { name: "AF790", excitation: 782, emission: 805, fpbaseId: "alexa-fluor-790-default", aliases: ["Alexa Fluor 790"] },
+]
+
+let fluorophoreIdMap: Record<string, string> = {}
+
+function fluId(name?: string | null): string | undefined {
+  if (!name) return undefined
+  const id = fluorophoreIdMap[name]
+  if (!id) throw new Error(`Seed references unknown fluorophore: ${name}`)
+  return id
+}
+
+function markerSeed<T extends { fluorophore?: string }>(rows: T[]) {
+  return rows.map(({ fluorophore, ...rest }) => ({ ...rest, fluorophoreId: fluId(fluorophore) }))
+}
+
+async function seedFluorophores() {
+  const created = await prisma.fluorophore.createManyAndReturn({ data: FLUOROPHORE_SEED })
+  fluorophoreIdMap = Object.fromEntries(created.map((f) => [f.name, f.id]))
+  return created.length
 }
 
 type ReportInput = {
@@ -1765,7 +1874,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       tissueType: "Kidney",
       fixation: "FFPE",
       method: "CODEX",
-      fluorophore: "PE",
+      fluorophore: "AF555",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
       status: "PUBLISHED",
@@ -1799,7 +1908,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       tissueType: "Kidney",
       fixation: "FFPE",
       method: "CODEX",
-      fluorophore: "BV421",
+      fluorophore: "AF405",
       dilution: "1:200",
       antigenRetrieval: "Citrate pH 6.0",
       status: "PUBLISHED",
@@ -1816,7 +1925,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       tissueType: "Kidney",
       fixation: "FFPE",
       method: "CODEX",
-      fluorophore: "APC",
+      fluorophore: "AF647",
       dilution: "1:150",
       antigenRetrieval: "Tris-EDTA pH 9.0",
       status: "PUBLISHED",
@@ -1833,7 +1942,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       tissueType: "Kidney",
       fixation: "FFPE",
       method: "CODEX",
-      fluorophore: "PE-Cy7",
+      fluorophore: "AF750",
       dilution: "1:100",
       antigenRetrieval: "Tris-EDTA pH 9.0",
       status: "PUBLISHED",
@@ -1850,7 +1959,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       tissueType: "Kidney",
       fixation: "FFPE",
       method: "CODEX",
-      fluorophore: "BV510",
+      fluorophore: "AF488",
       dilution: "1:200",
       antigenRetrieval: "Citrate pH 6.0",
       status: "PUBLISHED",
@@ -1877,7 +1986,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
         tissueType: r.tissueType,
         fixation: r.fixation,
         method: r.method,
-        fluorophore: r.fluorophore,
+        fluorophoreId: fluId(r.fluorophore),
         metalTag: r.metalTag,
         dilution: r.dilution,
         antigenRetrieval: r.antigenRetrieval,
@@ -1954,7 +2063,7 @@ async function seedPanels(antibodyMap: Record<string, string>) {
   const p1c1Count = await prisma.panelMarker.count({ where: { cycleId: p1c1.id } })
   if (p1c1Count === 0) {
     await prisma.panelMarker.createMany({
-      data: [
+      data: markerSeed([
         {
           cycleId: p1c1.id,
           proteinId: "P07766",
@@ -1976,14 +2085,14 @@ async function seedPanels(antibodyMap: Record<string, string>) {
           fluorophore: "AF647",
           sortOrder: 2,
         },
-      ],
+      ]),
     })
   }
 
   const p1c2Count = await prisma.panelMarker.count({ where: { cycleId: p1c2.id } })
   if (p1c2Count === 0) {
     await prisma.panelMarker.createMany({
-      data: [
+      data: markerSeed([
         {
           cycleId: p1c2.id,
           proteinId: "P15391",
@@ -2005,22 +2114,22 @@ async function seedPanels(antibodyMap: Record<string, string>) {
           fluorophore: "AF750",
           sortOrder: 2,
         },
-      ],
+      ]),
     })
   }
 
   const p1c3Count = await prisma.panelMarker.count({ where: { cycleId: p1c3.id } })
   if (p1c3Count === 0) {
     await prisma.panelMarker.createMany({
-      data: [
+      data: markerSeed([
         {
           cycleId: p1c3.id,
           proteinId: "P06729",
           antibodyId: antibodyMap["RRID:AB_2074650"],
-          fluorophore: "PE",
+          fluorophore: "AF555",
           sortOrder: 0,
         },
-      ],
+      ]),
     })
   }
 
@@ -2090,7 +2199,7 @@ async function seedPanels(antibodyMap: Record<string, string>) {
   const p2c1Count = await prisma.panelMarker.count({ where: { cycleId: p2c1.id } })
   if (p2c1Count === 0) {
     await prisma.panelMarker.createMany({
-      data: [
+      data: markerSeed([
         {
           cycleId: p2c1.id,
           proteinId: "PANCK",
@@ -2105,14 +2214,14 @@ async function seedPanels(antibodyMap: Record<string, string>) {
           fluorophore: "AF647",
           sortOrder: 1,
         },
-      ],
+      ]),
     })
   }
 
   const p2c2Count = await prisma.panelMarker.count({ where: { cycleId: p2c2.id } })
   if (p2c2Count === 0) {
     await prisma.panelMarker.createMany({
-      data: [
+      data: markerSeed([
         {
           cycleId: p2c2.id,
           proteinId: "P16284",
@@ -2127,14 +2236,14 @@ async function seedPanels(antibodyMap: Record<string, string>) {
           fluorophore: "AF750",
           sortOrder: 1,
         },
-      ],
+      ]),
     })
   }
 
   const p2c3Count = await prisma.panelMarker.count({ where: { cycleId: p2c3.id } })
   if (p2c3Count === 0) {
     await prisma.panelMarker.createMany({
-      data: [
+      data: markerSeed([
         {
           cycleId: p2c3.id,
           proteinId: "Q9NZQ7",
@@ -2149,22 +2258,22 @@ async function seedPanels(antibodyMap: Record<string, string>) {
           fluorophore: "AF647",
           sortOrder: 1,
         },
-      ],
+      ]),
     })
   }
 
   const p2c4Count = await prisma.panelMarker.count({ where: { cycleId: p2c4.id } })
   if (p2c4Count === 0) {
     await prisma.panelMarker.createMany({
-      data: [
+      data: markerSeed([
         {
           cycleId: p2c4.id,
           proteinId: "P49917",
           antibodyId: antibodyMap["RRID:AB_2864622"],
-          fluorophore: "PE",
+          fluorophore: "AF555",
           sortOrder: 0,
         },
-      ],
+      ]),
     })
   }
 
@@ -2241,6 +2350,7 @@ async function resetDatabase() {
   await prisma.panelCycle.deleteMany()
   await prisma.panel.deleteMany()
   await prisma.experimentalReport.deleteMany()
+  await prisma.fluorophore.deleteMany()
   await prisma.cellTypeMarker.deleteMany()
   await prisma.cellTypeStructure.deleteMany()
   await prisma.antibody.deleteMany()
@@ -2277,12 +2387,14 @@ async function main() {
     }
   }
 
+  const fluorophoreCount = await seedFluorophores()
   const reportCount = await seedExperimentalReports(antibodyMap)
   const panelCount = await seedPanels(antibodyMap)
   const blogPosts = await seedBlogPosts()
 
   console.log("Seed data created successfully")
   console.log(`  ${users.length} users`)
+  console.log(`  ${fluorophoreCount} fluorophores`)
   console.log(`  ${cellTypes.length} cell types`)
   console.log(`  ${structures.length} anatomical structures (incl. kidney, lymph node, tonsil)`)
   console.log(`  ${proteins.length} proteins`)

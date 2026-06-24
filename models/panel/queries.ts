@@ -14,9 +14,17 @@ const panelMarkerSelect = {
   cycleId: true,
   proteinId: true,
   antibodyId: true,
-  fluorophore: true,
+  fluorophoreId: true,
   metalTag: true,
   sortOrder: true,
+  fluorophore: {
+    select: {
+      id: true,
+      name: true,
+      excitation: true,
+      emission: true,
+    },
+  },
   protein: {
     select: {
       id: true,
@@ -192,7 +200,7 @@ export async function addMarker(cycleId: string, data: AddMarkerData): Promise<P
       cycleId,
       proteinId: data.proteinId,
       antibodyId: data.antibodyId,
-      fluorophore: data.fluorophore,
+      fluorophoreId: data.fluorophoreId,
       metalTag: data.metalTag,
       sortOrder: data.sortOrder ?? 0,
     },
@@ -202,7 +210,7 @@ export async function addMarker(cycleId: string, data: AddMarkerData): Promise<P
 
 export async function updateMarker(
   markerId: string,
-  data: { antibodyId?: string | null; fluorophore?: string | null; metalTag?: string | null },
+  data: { antibodyId?: string | null; fluorophoreId?: string | null; metalTag?: string | null },
 ): Promise<PanelMarkerRow> {
   return prisma.panelMarker.update({
     where: { id: markerId },

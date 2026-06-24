@@ -4,11 +4,10 @@ import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { lookupByRrid } from "@/models/antibody"
+import { resolveAntibodyByRrid } from "@/models/antibody"
 import { getReportsForAntibody, toReportUsage } from "@/models/experimental-report"
 import { ExternalLink } from "lucide-react"
 import type { Metadata } from "next"
-import { cacheLife } from "next/cache"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
@@ -23,7 +22,7 @@ export async function generateMetadata({ params }: AntibodyPageProps): Promise<M
   const { id } = await params
   const decodedId = decodeURIComponent(id)
   const rrid = decodedId.startsWith("RRID:") ? decodedId : `RRID:${decodedId}`
-  const antibody = await lookupByRrid(rrid)
+  const antibody = await resolveAntibodyByRrid(rrid)
   if (!antibody) return { title: "Antibody Not Found | PanelMaker" }
   return {
     title: `${antibody.name} (${rrid}) | PanelMaker`,
@@ -32,10 +31,7 @@ export async function generateMetadata({ params }: AntibodyPageProps): Promise<M
 }
 
 async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: string }) {
-  "use cache"
-  cacheLife("hours")
-
-  const antibody = await lookupByRrid(rrid)
+  const antibody = await resolveAntibodyByRrid(rrid)
 
   if (!antibody) {
     notFound()

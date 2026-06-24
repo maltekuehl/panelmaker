@@ -1,6 +1,7 @@
 "use client"
 
 import { ReportsDialog } from "@/components/browse/reports-dialog"
+import { DataTableColumnHeader } from "@/components/data-table/column-header"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
@@ -29,7 +30,7 @@ export type MarkerEntry = {
 export const columns: ColumnDef<MarkerEntry>[] = [
   {
     accessorKey: "marker",
-    header: "Marker",
+    header: () => <DataTableColumnHeader field="marker" title="Marker" />,
     cell: ({ row }) => (
       <Link href={`/marker/${row.original.id}`} className="font-semibold hover:underline text-primary">
         {row.getValue("marker")}
@@ -38,7 +39,7 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   },
   {
     accessorKey: "cellType",
-    header: "Cell Type",
+    header: () => <DataTableColumnHeader field="cellType" title="Cell Type" />,
     cell: ({ row }) => {
       return (
         <Link href={`/celltype/${row.original.cellTypeId || "unknown"}`} className="hover:underline text-primary">
@@ -49,7 +50,7 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   },
   {
     accessorKey: "species",
-    header: "Species",
+    header: () => <DataTableColumnHeader field="species" title="Species" />,
     cell: ({ row }) => {
       const species = row.getValue("species") as string
       return <span>{species}</span>
@@ -57,19 +58,10 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   },
   {
     accessorKey: "tissue",
-    header: "Tissue",
+    header: () => <DataTableColumnHeader field="tissue" title="Tissue" />,
     cell: ({ row }) => {
       const tissue = row.getValue("tissue") as string
       return <span className="text-muted-foreground">{tissue}</span>
-    },
-  },
-  {
-    accessorKey: "method",
-    header: "Method",
-    enableHiding: true,
-    filterFn: (row, columnId, filterValue: string[]) => {
-      const value = row.getValue(columnId) as string
-      return filterValue.includes(value)
     },
   },
   {
@@ -84,7 +76,7 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   },
   {
     accessorKey: "reportCount",
-    header: "Reports",
+    header: () => <DataTableColumnHeader field="reportCount" title="Reports" />,
     cell: ({ row }) => (
       <ReportsDialog marker={row.original.marker} cellType={row.original.cellType} reports={row.original.reports} />
     ),

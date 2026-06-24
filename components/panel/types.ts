@@ -18,9 +18,15 @@ export interface PanelMarker {
   cycleId: string
   proteinId: string | null
   antibodyId: string | null
-  fluorophore: string | null
+  fluorophoreId: string | null
   metalTag: string | null
   sortOrder: number
+  fluorophore: {
+    id: string
+    name: string
+    excitation: number
+    emission: number
+  } | null
   protein: {
     id: string
     label: string

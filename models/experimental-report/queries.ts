@@ -1,18 +1,25 @@
 import "server-only"
 
+import type { MarkerEntry } from "@/components/browse/columns"
 import type { Clonality, Prisma, SourceOrganism, ValidationStatus } from "@/lib/generated/prisma/client"
 import { lookupAntibodyByRrid, searchAntibodyRegistry } from "@/lib/integrations/antibody-registry"
 import { searchCellOntology, searchDiseaseOntology, searchGoCellularComponent } from "@/lib/ontology"
 import { prisma } from "@/lib/prisma"
 import type { CreateReportBatchData, CreateReportData } from "./schema"
+import { aggregateMarkerEntries, sortMarkerEntries } from "./transforms"
 
 export type ReportQueryParams = {
   q?: string
-  method?: string
-  fixation?: string
-  species?: string
+  method?: string | string[]
+  fixation?: string | string[]
+  species?: string | string[]
   limit?: number
   cursor?: string
+}
+
+function toFilterList(value?: string | string[]): string[] {
+  if (!value) return []
+  return Array.isArray(value) ? value : [value]
 }
 
 const reportSelect = {
@@ -24,7 +31,7 @@ const reportSelect = {
   tissueType: true,
   fixation: true,
   method: true,
-  fluorophore: true,
+  fluorophoreId: true,
   metalTag: true,
   cycleNumber: true,
   dilution: true,
@@ -52,6 +59,14 @@ const reportSelect = {
       sourceOrganism: true,
       conjugate: true,
       targetProteinId: true,
+    },
+  },
+  fluorophore: {
+    select: {
+      id: true,
+      name: true,
+      excitation: true,
+      emission: true,
     },
   },
   cellType: {
@@ -98,16 +113,19 @@ function buildReportWhere(params: ReportQueryParams): Prisma.ExperimentalReportW
     })
   }
 
-  if (params.method) {
-    conditions.push({ method: params.method as Prisma.EnumMultiplexMethodNullableFilter["equals"] })
+  const methods = toFilterList(params.method)
+  if (methods.length > 0) {
+    conditions.push({ method: { in: methods as Prisma.EnumMultiplexMethodNullableFilter["in"] } })
   }
 
-  if (params.fixation) {
-    conditions.push({ fixation: params.fixation as Prisma.EnumFixationNullableFilter["equals"] })
+  const fixations = toFilterList(params.fixation)
+  if (fixations.length > 0) {
+    conditions.push({ fixation: { in: fixations as Prisma.EnumFixationNullableFilter["in"] } })
   }
 
-  if (params.species) {
-    conditions.push({ species: params.species as Prisma.EnumSpeciesNullableFilter["equals"] })
+  const species = toFilterList(params.species)
+  if (species.length > 0) {
+    conditions.push({ species: { in: species as Prisma.EnumSpeciesNullableFilter["in"] } })
   }
 
   return { AND: conditions }
@@ -123,6 +141,50 @@ export async function getAllReports(params: ReportQueryParams): Promise<ReportRo
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     orderBy: { createdAt: "desc" },
   })
+}
+
+const MARKER_AGGREGATION_CAP = 2000
+
+export type MarkerEntriesParams = {
+  q?: string
+  species?: string[]
+  method?: string[]
+  fixation?: string[]
+  sort?: string | null
+  order?: string
+  page?: number
+  pageSize?: number
+}
+
+export type MarkerEntriesPage = {
+  rows: MarkerEntry[]
+  total: number
+  page: number
+  pageSize: number
+  pageCount: number
+}
+
+export async function getMarkerEntriesPage(params: MarkerEntriesParams): Promise<MarkerEntriesPage> {
+  const reports = await prisma.experimentalReport.findMany({
+    select: reportSelect,
+    where: buildReportWhere({
+      q: params.q,
+      species: params.species,
+      method: params.method,
+      fixation: params.fixation,
+    }),
+    orderBy: { createdAt: "desc" },
+    take: MARKER_AGGREGATION_CAP,
+  })
+
+  const sorted = sortMarkerEntries(aggregateMarkerEntries(reports), params.sort, params.order)
+  const total = sorted.length
+  const pageSize = params.pageSize ?? 20
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const page = Math.min(Math.max(1, params.page ?? 1), pageCount)
+  const rows = sorted.slice((page - 1) * pageSize, page * pageSize)
+
+  return { rows, total, page, pageSize, pageCount }
 }
 
 export async function getReportById(id: string): Promise<ReportRow | null> {
@@ -435,7 +497,7 @@ export async function resolveAndCreateReports(
       hostSpecies: item.hostSpecies,
       cellTypes: item.cellTypes,
       dilution: item.dilution,
-      fluorophore: item.fluorophore,
+      fluorophoreId: item.fluorophoreId,
       metalTag: item.metalTag,
       cycleNumber: item.cycleNumber,
       works: item.works,
