@@ -46,8 +46,8 @@ async function MarkerContent({ id }: { id: string }) {
 
   const usages = reports.map(toReportUsage)
   const images = usages.flatMap((u) => u.images)
-  const methods = [...new Set(reports.map((r) => r.method).filter(Boolean))]
-  const species = [...new Set(reports.map((r) => r.species?.label).filter(Boolean))]
+  const methods = [...new Set(reports.map((r) => r.experiment.method).filter(Boolean))]
+  const species = [...new Set(reports.map((r) => r.experiment.species?.label).filter(Boolean))]
   const uniqueAntibodies = new Set(usages.map((u) => u.antibodyId).filter(Boolean)).size
   const contributors = new Set(usages.map((u) => u.submitterId ?? u.submitter).filter(Boolean)).size
   const worksCount = usages.filter((u) => u.works === true).length

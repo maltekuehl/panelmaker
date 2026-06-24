@@ -43,6 +43,7 @@ export type AntibodyEntry = {
 
 export type ReportEntry = {
   id: string
+  experimentId: string
   marker: string
   antibodyId: string | null
   antibodyName: string
@@ -54,6 +55,19 @@ export type ReportEntry = {
   subcellular: string | null
   specificity: string | null
   works: boolean | null
+}
+
+export type ExperimentEntry = {
+  id: string
+  name: string | null
+  method: string
+  species: string
+  tissue: string
+  condition: string | null
+  stainingCount: number
+  workingCount: number
+  antibodyCount: number
+  createdAt: string
 }
 
 function antibodyHref(rrid: string): string {
@@ -315,5 +329,55 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
           />
         </div>
       ) : null,
+  },
+]
+
+export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
+  {
+    accessorKey: "name",
+    header: () => <DataTableColumnHeader field="name" title="Experiment" />,
+    cell: ({ row }) => (
+      <Link href={`/experiment/${row.original.id}`} className="font-semibold hover:underline text-primary">
+        {row.original.name ?? `Experiment ${row.original.id.slice(0, 8)}`}
+      </Link>
+    ),
+  },
+  {
+    accessorKey: "method",
+    header: () => <DataTableColumnHeader field="method" title="Method" />,
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.method}</span>,
+  },
+  {
+    accessorKey: "species",
+    header: () => <DataTableColumnHeader field="species" title="Species" />,
+    cell: ({ row }) => <span>{row.original.species}</span>,
+  },
+  {
+    accessorKey: "tissue",
+    header: () => <DataTableColumnHeader field="tissue" title="Tissue" />,
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.tissue}</span>,
+  },
+  {
+    accessorKey: "condition",
+    header: () => <DataTableColumnHeader field="condition" title="Condition" />,
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.condition ?? "N/A"}</span>,
+  },
+  {
+    accessorKey: "stainingCount",
+    header: () => <DataTableColumnHeader field="stainingCount" title="Stainings" />,
+    cell: ({ row }) => (
+      <Badge variant="secondary">
+        {row.original.stainingCount} {row.original.stainingCount === 1 ? "staining" : "stainings"}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "workingCount",
+    header: () => <DataTableColumnHeader field="workingCount" title="Working" />,
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">
+        {row.original.workingCount}/{row.original.stainingCount}
+      </span>
+    ),
   },
 ]

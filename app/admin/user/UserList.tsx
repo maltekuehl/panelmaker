@@ -32,7 +32,7 @@ interface User {
   _count: {
     reviews: number
     panels: number
-    experimentalReports: number
+    experiments: number
     blogPosts: number
   }
 }
@@ -254,8 +254,8 @@ export default function UserList() {
                   <p className="text-muted-foreground">{user._count.panels}</p>
                 </div>
                 <div>
-                  <p className="font-medium">Reports</p>
-                  <p className="text-muted-foreground">{user._count.experimentalReports}</p>
+                  <p className="font-medium">Experiments</p>
+                  <p className="text-muted-foreground">{user._count.experiments}</p>
                 </div>
                 <div>
                   <p className="font-medium">Blog Posts</p>

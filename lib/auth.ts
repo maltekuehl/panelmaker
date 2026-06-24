@@ -223,7 +223,7 @@ export async function getAllUsers(page: number = 1, pageSize: number = 20, searc
         _count: {
           select: {
             reviews: true,
-            experimentalReports: true,
+            experiments: true,
             blogPosts: true,
           },
         },

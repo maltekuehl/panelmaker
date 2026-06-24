@@ -158,7 +158,7 @@ export function AddToPanelButton({
           className={className}
           title={iconOnly ? `Add ${label} to panel` : undefined}
         >
-          <Plus className={iconOnly ? "h-4 w-4" : "h-4 w-4 mr-1"} />
+          <Plus className="h-4 w-4" />
           {!iconOnly && "Add to Panel"}
         </Button>
       </DialogTrigger>

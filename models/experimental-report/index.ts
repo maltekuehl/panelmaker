@@ -12,6 +12,7 @@ export {
   getReportsForAntibody,
   getReportsForCellType,
   getReportsForCondition,
+  getReportsForExperiment,
   getReportsForProtein,
   getReportsForSubcellular,
   getReportsForTaxon,

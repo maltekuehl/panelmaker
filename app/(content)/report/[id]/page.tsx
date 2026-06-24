@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: ReportPageProps): Promise<Met
   const marker = report.antibody?.targetName ?? report.antibody?.name ?? "Unknown"
   return {
     title: `${marker}: Experimental Report #${report.id} | PanelMaker`,
-    description: `Experimental validation report for ${marker} using ${report.method ?? "unknown method"} on ${report.species?.label ?? "unknown species"} ${report.tissue?.label ?? ""} tissue.`,
+    description: `Experimental validation report for ${marker} using ${report.experiment.method ?? "unknown method"} on ${report.experiment.species?.label ?? "unknown species"} ${report.experiment.tissue?.label ?? ""} tissue.`,
   }
 }
 
@@ -135,6 +135,13 @@ async function ReportContent({ id }: { id: string }) {
             <Badge variant="outline">{usage.species}</Badge>
             <WorksIndicator works={usage.works} />
           </div>
+
+          <p className="text-sm text-muted-foreground">
+            Part of{" "}
+            <Link href={`/experiment/${usage.experimentId}`} className="text-primary hover:underline">
+              {usage.experimentName ?? "this experiment"}
+            </Link>
+          </p>
         </div>
 
         <div className="space-y-3 border-t pt-6">

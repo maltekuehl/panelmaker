@@ -70,10 +70,10 @@ const getMarkerDetails = tool({
       },
       publishedReports: reports.map((r) => ({
         id: r.id,
-        method: r.method,
-        species: r.species?.label ?? null,
-        tissue: r.tissue?.label ?? null,
-        fixation: r.fixation,
+        method: r.experiment.method,
+        species: r.experiment.species?.label ?? null,
+        tissue: r.experiment.tissue?.label ?? null,
+        fixation: r.experiment.fixation,
         fluorophore: r.fluorophore?.name ?? null,
         works: r.works,
         signalQuality: r.signalQuality,
@@ -152,7 +152,7 @@ const suggestPanel = tool({
 
     if (species) {
       const lowerSpecies = species.toLowerCase()
-      allReports = allReports.filter((r) => r.species?.label?.toLowerCase().includes(lowerSpecies))
+      allReports = allReports.filter((r) => r.experiment.species?.label?.toLowerCase().includes(lowerSpecies))
     }
 
     const seen = new Set<string>()
@@ -187,8 +187,8 @@ const suggestPanel = tool({
       const tissues = existing?.tissues ?? new Set<string>()
       const cellTypeLabels = existing?.cellTypes ?? new Set<string>()
 
-      if (report.method) methods.add(report.method)
-      if (report.tissue?.label) tissues.add(report.tissue.label)
+      if (report.experiment.method) methods.add(report.experiment.method)
+      if (report.experiment.tissue?.label) tissues.add(report.experiment.tissue.label)
       for (const link of report.cellTypes) {
         cellTypeLabels.add(link.cellType.label)
       }

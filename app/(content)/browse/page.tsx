@@ -1,9 +1,10 @@
-import { antibodyColumns, columns, reportColumns } from "@/components/browse/columns"
+import { antibodyColumns, columns, experimentColumns, reportColumns } from "@/components/browse/columns"
 import { DataTable } from "@/components/browse/data-table"
 import { MarkerTableToolbar } from "@/components/browse/marker-table-toolbar"
 import { DataTablePagination } from "@/components/data-table/pagination"
 import { Skeleton } from "@/components/ui/skeleton"
 import { browseMarkerParsers, type BrowseMarkerParams } from "@/lib/data-table"
+import { getExperimentEntriesPage } from "@/models/experiment"
 import {
   getAntibodyEntriesPage,
   getBrowseFacets,
@@ -90,6 +91,17 @@ async function BrowseTable({ params }: { params: BrowseMarkerParams }) {
     )
   }
 
+  if (params.mode === "experiments") {
+    const { rows, total, page, pageCount } = await getExperimentEntriesPage(params)
+    return (
+      <DataTable
+        columns={experimentColumns}
+        data={rows}
+        pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
+      />
+    )
+  }
+
   const { rows, total, page, pageCount } = await getMarkerEntriesPage(params)
   return (
     <DataTable
@@ -116,7 +128,14 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const params = await loadSearchParams(searchParams)
   const facets = await cachedFacets()
 
-  const modeLabel = params.mode === "antibodies" ? "Antibodies" : params.mode === "reports" ? "Reports" : "Markers"
+  const modeLabel =
+    params.mode === "antibodies"
+      ? "Antibodies"
+      : params.mode === "reports"
+        ? "Reports"
+        : params.mode === "experiments"
+          ? "Experiments"
+          : "Markers"
 
   return (
     <div className="container mx-auto space-y-6 px-4 py-6">

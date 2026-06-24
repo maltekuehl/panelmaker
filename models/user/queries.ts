@@ -49,24 +49,28 @@ export async function getUserProfile(userId: string): Promise<UserProfileRow | n
 }
 
 export async function getUserStats(userId: string, includeNonPublished = false): Promise<UserStats> {
-  const visibility = includeNonPublished
-    ? { submitterId: userId, isPublic: true }
-    : { submitterId: userId, isPublic: true, status: "PUBLISHED" as const }
+  const reportVisibility = includeNonPublished
+    ? { experiment: { submitterId: userId, isPublic: true } }
+    : { experiment: { submitterId: userId, isPublic: true }, status: "PUBLISHED" as const }
 
   const [totalReports, publishedReports, pendingReports, publicPanels, methodRows, speciesRows] = await Promise.all([
-    prisma.experimentalReport.count({ where: visibility }),
-    prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true, status: "PUBLISHED" } }),
+    prisma.experimentalReport.count({ where: reportVisibility }),
+    prisma.experimentalReport.count({
+      where: { experiment: { submitterId: userId, isPublic: true }, status: "PUBLISHED" },
+    }),
     includeNonPublished
-      ? prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true, status: "PENDING" } })
+      ? prisma.experimentalReport.count({
+          where: { experiment: { submitterId: userId, isPublic: true }, status: "PENDING" },
+        })
       : Promise.resolve(0),
     prisma.panel.count({ where: { ownerId: userId, isPublic: true } }),
-    prisma.experimentalReport.findMany({
-      where: { ...visibility, method: { not: null } },
+    prisma.experiment.findMany({
+      where: { submitterId: userId, isPublic: true, method: { not: null } },
       select: { method: true },
       distinct: ["method"],
     }),
-    prisma.experimentalReport.findMany({
-      where: { ...visibility, speciesId: { not: null } },
+    prisma.experiment.findMany({
+      where: { submitterId: userId, isPublic: true, speciesId: { not: null } },
       select: { species: { select: { id: true, label: true } } },
       distinct: ["speciesId"],
     }),
@@ -84,10 +88,9 @@ export async function getUserStats(userId: string, includeNonPublished = false):
 
 const recentReportSelect = {
   id: true,
-  method: true,
   status: true,
   createdAt: true,
-  species: { select: { id: true, label: true } },
+  experiment: { select: { method: true, species: { select: { id: true, label: true } } } },
   antibody: {
     select: {
       id: true,
@@ -121,55 +124,64 @@ export async function getUserRecentReports(
   limit = 20,
   includeNonPublished = false,
 ): Promise<RecentReportRow[]> {
-  return prisma.experimentalReport.findMany({
+  const rows = await prisma.experimentalReport.findMany({
     where: includeNonPublished
-      ? { submitterId: userId, isPublic: true }
-      : { submitterId: userId, isPublic: true, status: "PUBLISHED" },
+      ? { experiment: { submitterId: userId, isPublic: true } }
+      : { experiment: { submitterId: userId, isPublic: true }, status: "PUBLISHED" },
     select: recentReportSelect,
     orderBy: { createdAt: "desc" },
     take: limit,
-  }) as Promise<RecentReportRow[]>
+  })
+
+  return rows.map((r) => ({
+    id: r.id,
+    method: r.experiment.method,
+    species: r.experiment.species,
+    status: r.status,
+    createdAt: r.createdAt,
+    antibody: r.antibody,
+    cellTypes: r.cellTypes,
+  }))
 }
 
 export async function getLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
-  const grouped = await prisma.experimentalReport.groupBy({
-    by: ["submitterId"],
-    _count: { id: true },
+  const experiments = await prisma.experiment.findMany({
     where: { isPublic: true, submitterId: { not: null } },
-    orderBy: { _count: { id: "desc" } },
-    take: limit,
+    select: { submitterId: true, reports: { select: { status: true } } },
   })
 
-  const userIds = grouped.map((g) => g.submitterId as string)
+  const tally = new Map<string, { reportCount: number; publishedCount: number }>()
+  for (const exp of experiments) {
+    const uid = exp.submitterId as string
+    const current = tally.get(uid) ?? { reportCount: 0, publishedCount: 0 }
+    current.reportCount += exp.reports.length
+    current.publishedCount += exp.reports.filter((r) => r.status === "PUBLISHED").length
+    tally.set(uid, current)
+  }
+
+  const ranked = [...tally.entries()].sort((a, b) => b[1].reportCount - a[1].reportCount).slice(0, limit)
+
+  const userIds = ranked.map(([uid]) => uid)
 
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
     select: { id: true, name: true, image: true, institution: true },
   })
-
-  const publishedCounts = await prisma.experimentalReport.groupBy({
-    by: ["submitterId"],
-    _count: { id: true },
-    where: { isPublic: true, status: "PUBLISHED", submitterId: { in: userIds } },
-  })
-
   const userMap = new Map(users.map((u) => [u.id, u]))
-  const publishedMap = new Map(publishedCounts.map((v) => [v.submitterId, v._count.id]))
 
-  return grouped
-    .map((g) => {
-      const uid = g.submitterId as string
+  return ranked
+    .filter(([uid]) => userMap.has(uid))
+    .map(([uid, counts]) => {
       const user = userMap.get(uid)
       return {
         userId: uid,
         name: user?.name ?? null,
         image: user?.image ?? null,
         institution: user?.institution ?? null,
-        reportCount: g._count.id,
-        publishedCount: publishedMap.get(uid) ?? 0,
+        reportCount: counts.reportCount,
+        publishedCount: counts.publishedCount,
       }
     })
-    .filter((e) => userMap.has(e.userId))
 }
 
 export async function updateUserProfile(

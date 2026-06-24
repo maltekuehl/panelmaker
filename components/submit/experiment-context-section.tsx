@@ -2,8 +2,10 @@
 
 import { OntologyCombobox } from "@/components/ontology-combobox"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
 import { AntigenRetrieval, MultiplexMethod } from "@/lib/generated/prisma/enums"
 import { Check, Pencil } from "lucide-react"
 import { StepBadge } from "./step-badge"
@@ -32,6 +34,7 @@ export function ExperimentContextSection({
   const collapsed = !editing
 
   const summary = [
+    context.name,
     context.species?.label,
     context.tissue?.label,
     fixationLabel(context.fixation),
@@ -64,6 +67,25 @@ export function ExperimentContextSection({
 
       {!collapsed && (
         <div className="space-y-4 px-4 pb-4">
+          <div className="space-y-1.5">
+            <Label>Experiment name (optional)</Label>
+            <Input
+              value={context.name}
+              onChange={(event) => onChange({ ...context, name: event.target.value })}
+              placeholder="e.g. Tonsil CODEX immune panel"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Description (optional)</Label>
+            <Textarea
+              value={context.description}
+              onChange={(event) => onChange({ ...context, description: event.target.value })}
+              placeholder="Briefly describe this experiment so it can be cited from a publication."
+              rows={2}
+            />
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Target Species</Label>

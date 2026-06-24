@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Report not found" }, { status: 404 })
     }
 
-    if (!report.isPublic) {
+    if (!report.experiment.isPublic) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 })
     }
 

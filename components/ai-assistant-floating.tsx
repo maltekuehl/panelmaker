@@ -218,7 +218,7 @@ export function AIAssistantFloating() {
         <div className="bg-primary-foreground/20 p-1 rounded-full">
           <Sparkles className="h-4 w-4" />
         </div>
-        AI Assistant
+        PanelMaker AI
       </Button>
     )
   }
@@ -259,7 +259,7 @@ export function AIAssistantFloating() {
       >
         <h3 className="font-semibold text-sm flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          AI Assistant
+          PanelMaker AI
           <div className="text-xs text-muted-foreground font-normal" style={{ marginLeft: 4 }}>
             powered by <strong className="font-semibold">BioContextAI</strong>
           </div>

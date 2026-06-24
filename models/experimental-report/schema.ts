@@ -63,6 +63,8 @@ export const createReportSchema = z.object({
 export type CreateReportData = z.infer<typeof createReportSchema>
 
 const batchContextSchema = z.object({
+  name: z.string().max(255).optional(),
+  description: z.string().max(5000).optional(),
   species: ontologyValueSchema.nullable().optional(),
   tissue: ontologyValueSchema.nullable().optional(),
   fixation: z.nativeEnum(Fixation).optional(),

@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { prisma } from "@/lib/prisma"
@@ -41,7 +40,7 @@ async function HomeStats() {
   const [proteinCount, antibodyCount, reportCount] = await Promise.all([
     prisma.protein.count(),
     prisma.antibody.count(),
-    prisma.experimentalReport.count({ where: { isPublic: true } }),
+    prisma.experimentalReport.count({ where: { experiment: { isPublic: true } } }),
   ])
 
   const stats = [
@@ -108,10 +107,7 @@ export default function HomePage() {
   return (
     <div className="container mx-auto flex flex-col gap-10 px-4 py-10 md:py-16">
       <section className="flex flex-col items-start gap-5">
-        <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
-          Community-Driven Spatial Biology
-        </Badge>
-        <h1 className="max-w-3xl text-3xl font-bold tracking-tight md:text-5xl">
+        <h1 className="max-w-4xl text-3xl font-bold tracking-tight md:text-5xl">
           The database for <span className="text-primary">spatial proteomics</span> antibody validation
         </h1>
         <p className="max-w-3xl text-lg text-muted-foreground">

@@ -93,7 +93,7 @@ model User {
   reviews             Review[]
   approvedReviews     Review[]             @relation("ReviewApprovals")
   blogPosts           BlogPost[]
-  experimentalReports ExperimentalReport[]
+  experiments         Experiment[]
   panels              Panel[]
 
   createdAt DateTime @default(now())
@@ -263,8 +263,8 @@ model Taxon {
   id    String @id
   label String
 
-  reportSpecies ExperimentalReport[] @relation("ReportSpecies")
-  antibodyHosts Antibody[]           @relation("AntibodyHost")
+  experiments   Experiment[] @relation("ExperimentSpecies")
+  antibodyHosts Antibody[]   @relation("AntibodyHost")
   panels        Panel[]
 
   @@index([label])
@@ -275,7 +275,7 @@ model Tissue {
   label     String
   partOfIds String @default("[]")
 
-  experimentalReports ExperimentalReport[]
+  experiments Experiment[]
 
   @@index([label])
 }
@@ -294,8 +294,8 @@ model DiseaseCondition {
   id    String @id
   label String
 
-  experimentalReports ExperimentalReport[]
-  panels              Panel[]
+  experiments Experiment[]
+  panels      Panel[]
 
   @@index([label])
 }
@@ -384,39 +384,58 @@ model Antibody {
   @@index([hostTaxonId])
 }
 
-// ─── Spatial Proteomics: Experimental Report ──────────────────────────
+// ─── Spatial Proteomics: Experiment & Experimental Report ─────────────
 
-model ExperimentalReport {
+model Experiment {
   id               String            @id @default(cuid())
-  antibodyId       String?
+  name             String?
+  description      String?
   speciesId        String?
   tissueId         String?
-  subcellularId    String?
   fixation         Fixation?
   method           MultiplexMethod?
-  fluorophoreId    String?
-  metalTag         String?
-  cycleNumber      Int?
-  dilution         String?
-  incubation       String?
   antigenRetrieval AntigenRetrieval?
-  status           ValidationStatus  @default(PENDING)
-  works            Boolean?
-  signalQuality    SignalQuality?
-  specificity      Specificity?
-  notes            String?
-  imageUrls        String            @default("[]")
+  conditionId      String?
   submitterId      String?
   isPublic         Boolean           @default(true)
 
-  conditionId String?
+  species   Taxon?            @relation("ExperimentSpecies", fields: [speciesId], references: [id], onDelete: SetNull)
+  tissue    Tissue?           @relation(fields: [tissueId], references: [id], onDelete: SetNull)
+  condition DiseaseCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  submitter User?             @relation(fields: [submitterId], references: [id], onDelete: SetNull)
+  reports   ExperimentalReport[]
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([speciesId])
+  @@index([tissueId])
+  @@index([conditionId])
+  @@index([submitterId])
+  @@index([method])
+  @@index([isPublic])
+}
+
+model ExperimentalReport {
+  id            String           @id @default(cuid())
+  experimentId  String
+  antibodyId    String?
+  subcellularId String?
+  fluorophoreId String?
+  metalTag      String?
+  cycleNumber   Int?
+  dilution      String?
+  incubation    String?
+  status        ValidationStatus @default(PENDING)
+  works         Boolean?
+  signalQuality SignalQuality?
+  specificity   Specificity?
+  notes         String?
+  imageUrls     String           @default("[]")
+
+  experiment  Experiment         @relation(fields: [experimentId], references: [id], onDelete: Cascade)
   antibody    Antibody?          @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
-  species     Taxon?             @relation("ReportSpecies", fields: [speciesId], references: [id], onDelete: SetNull)
-  tissue      Tissue?            @relation(fields: [tissueId], references: [id], onDelete: SetNull)
   subcellular CellularComponent? @relation(fields: [subcellularId], references: [id], onDelete: SetNull)
-  condition   DiseaseCondition?  @relation(fields: [conditionId], references: [id], onDelete: SetNull)
-  submitter   User?              @relation(fields: [submitterId], references: [id], onDelete: SetNull)
   fluorophore Fluorophore?       @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
   cellTypes   ReportCellType[]
   reviews     Review[]
@@ -424,14 +443,10 @@ model ExperimentalReport {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([experimentId])
   @@index([antibodyId])
-  @@index([speciesId])
-  @@index([tissueId])
   @@index([subcellularId])
-  @@index([conditionId])
-  @@index([submitterId])
   @@index([fluorophoreId])
-  @@index([method])
   @@index([status])
 }
 

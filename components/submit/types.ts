@@ -6,6 +6,8 @@ export type OntologyValue = { id: string; label: string }
 export type ProteinValue = { id: string; label: string; geneSymbol?: string | null }
 
 export type ExperimentContext = {
+  name: string
+  description: string
   species: OntologyValue | null
   tissue: OntologyValue | null
   fixation: string
@@ -40,6 +42,8 @@ export type AntibodyRow = {
 
 export function emptyContext(): ExperimentContext {
   return {
+    name: "",
+    description: "",
     species: null,
     tissue: null,
     fixation: "FFPE",
@@ -167,6 +171,8 @@ export function validateRows(rows: AntibodyRow[]): RowValidationError[] {
 export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[]) {
   return {
     context: {
+      name: context.name.trim() || undefined,
+      description: context.description.trim() || undefined,
       species: context.species ?? undefined,
       tissue: context.tissue ?? undefined,
       fixation: context.fixation || undefined,

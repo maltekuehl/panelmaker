@@ -40,29 +40,37 @@ function toFilterList(value?: string | string[]): string[] {
 
 const reportSelect = {
   id: true,
+  experimentId: true,
   antibodyId: true,
-  speciesId: true,
-  tissueId: true,
   subcellularId: true,
-  fixation: true,
-  method: true,
   fluorophoreId: true,
   metalTag: true,
   cycleNumber: true,
   dilution: true,
   incubation: true,
-  antigenRetrieval: true,
   status: true,
   works: true,
   signalQuality: true,
   specificity: true,
   notes: true,
   imageUrls: true,
-  conditionId: true,
-  submitterId: true,
-  isPublic: true,
   createdAt: true,
   updatedAt: true,
+  experiment: {
+    select: {
+      id: true,
+      name: true,
+      fixation: true,
+      method: true,
+      antigenRetrieval: true,
+      isPublic: true,
+      createdAt: true,
+      species: { select: { id: true, label: true } },
+      tissue: { select: { id: true, label: true } },
+      condition: { select: { id: true, label: true } },
+      submitter: { select: { id: true, name: true, institution: true } },
+    },
+  },
   antibody: {
     select: {
       id: true,
@@ -86,18 +94,8 @@ const reportSelect = {
       emission: true,
     },
   },
-  species: { select: { id: true, label: true } },
-  tissue: { select: { id: true, label: true } },
   subcellular: { select: { id: true, label: true } },
-  condition: { select: { id: true, label: true } },
   cellTypes: { select: { cellType: { select: { id: true, label: true } } } },
-  submitter: {
-    select: {
-      id: true,
-      name: true,
-      institution: true,
-    },
-  },
 } satisfies Prisma.ExperimentalReportSelect
 
 export type ReportRow = Prisma.ExperimentalReportGetPayload<{ select: typeof reportSelect }>
@@ -112,16 +110,16 @@ function resultWhere(values: string[]): Prisma.ExperimentalReportWhereInput | nu
 }
 
 const WHERE_BUILDERS: Record<string, (values: string[]) => Prisma.ExperimentalReportWhereInput | null> = {
-  species: (v) => ({ speciesId: { in: v } }),
-  tissue: (v) => ({ tissueId: { in: v } }),
-  method: (v) => ({ method: { in: v as Prisma.EnumMultiplexMethodNullableFilter["in"] } }),
-  fixation: (v) => ({ fixation: { in: v as Prisma.EnumFixationNullableFilter["in"] } }),
+  species: (v) => ({ experiment: { speciesId: { in: v } } }),
+  tissue: (v) => ({ experiment: { tissueId: { in: v } } }),
+  method: (v) => ({ experiment: { method: { in: v as Prisma.EnumMultiplexMethodNullableFilter["in"] } } }),
+  fixation: (v) => ({ experiment: { fixation: { in: v as Prisma.EnumFixationNullableFilter["in"] } } }),
   vendor: (v) => ({ antibody: { vendorName: { in: v } } }),
   host: (v) => ({ antibody: { hostTaxonId: { in: v } } }),
   conjugate: (v) => ({ antibody: { conjugate: { in: v } } }),
   clonality: (v) => ({ antibody: { clonality: { in: v as Prisma.EnumClonalityNullableFilter["in"] } } }),
   subcellular: (v) => ({ subcellularId: { in: v } }),
-  condition: (v) => ({ conditionId: { in: v } }),
+  condition: (v) => ({ experiment: { conditionId: { in: v } } }),
   specificity: (v) => ({ specificity: { in: v as Prisma.EnumSpecificityNullableFilter["in"] } }),
   result: (v) => resultWhere(v),
 }
@@ -130,7 +128,7 @@ function buildReportWhere(
   q: string | undefined,
   filters: Record<string, string[]>,
 ): Prisma.ExperimentalReportWhereInput {
-  const conditions: Prisma.ExperimentalReportWhereInput[] = [{ isPublic: true, status: "PUBLISHED" }]
+  const conditions: Prisma.ExperimentalReportWhereInput[] = [{ status: "PUBLISHED", experiment: { isPublic: true } }]
 
   if (q) {
     conditions.push({
@@ -139,7 +137,8 @@ function buildReportWhere(
         { antibody: { targetName: { contains: q, mode: "insensitive" } } },
         { antibody: { vendorName: { contains: q, mode: "insensitive" } } },
         { cellTypes: { some: { cellType: { label: { contains: q, mode: "insensitive" } } } } },
-        { tissue: { label: { contains: q, mode: "insensitive" } } },
+        { experiment: { tissue: { label: { contains: q, mode: "insensitive" } } } },
+        { experiment: { name: { contains: q, mode: "insensitive" } } },
         { notes: { contains: q, mode: "insensitive" } },
       ],
     })
@@ -196,7 +195,7 @@ export type EntriesPage<T> = {
 
 export type MarkerEntriesPage = EntriesPage<MarkerEntry>
 
-function paginate<T>(rows: T[], page = 1, pageSize = 20): EntriesPage<T> {
+export function paginate<T>(rows: T[], page = 1, pageSize = 20): EntriesPage<T> {
   const total = rows.length
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
   const current = Math.min(Math.max(1, page), pageCount)
@@ -237,10 +236,22 @@ export type BrowseFacets = Record<string, FacetOption[]>
 type FacetExtractor = (report: ReportRow) => FacetOption[]
 
 const FACET_EXTRACTORS: Record<string, FacetExtractor> = {
-  species: (r) => (r.species ? [{ value: r.species.id, label: r.species.label, description: r.species.id }] : []),
-  tissue: (r) => (r.tissue ? [{ value: r.tissue.id, label: r.tissue.label, description: r.tissue.id }] : []),
-  method: (r) => (r.method ? [{ value: r.method, label: METHOD_LABELS[r.method] ?? r.method }] : []),
-  fixation: (r) => (r.fixation ? [{ value: r.fixation, label: FIXATION_LABELS[r.fixation] ?? r.fixation }] : []),
+  species: (r) =>
+    r.experiment.species
+      ? [{ value: r.experiment.species.id, label: r.experiment.species.label, description: r.experiment.species.id }]
+      : [],
+  tissue: (r) =>
+    r.experiment.tissue
+      ? [{ value: r.experiment.tissue.id, label: r.experiment.tissue.label, description: r.experiment.tissue.id }]
+      : [],
+  method: (r) =>
+    r.experiment.method
+      ? [{ value: r.experiment.method, label: METHOD_LABELS[r.experiment.method] ?? r.experiment.method }]
+      : [],
+  fixation: (r) =>
+    r.experiment.fixation
+      ? [{ value: r.experiment.fixation, label: FIXATION_LABELS[r.experiment.fixation] ?? r.experiment.fixation }]
+      : [],
   vendor: (r) => (r.antibody?.vendorName ? [{ value: r.antibody.vendorName, label: r.antibody.vendorName }] : []),
   host: (r) =>
     r.antibody?.hostTaxon
@@ -254,7 +265,15 @@ const FACET_EXTRACTORS: Record<string, FacetExtractor> = {
   subcellular: (r) =>
     r.subcellular ? [{ value: r.subcellular.id, label: r.subcellular.label, description: r.subcellular.id }] : [],
   condition: (r) =>
-    r.condition ? [{ value: r.condition.id, label: r.condition.label, description: r.condition.id }] : [],
+    r.experiment.condition
+      ? [
+          {
+            value: r.experiment.condition.id,
+            label: r.experiment.condition.label,
+            description: r.experiment.condition.id,
+          },
+        ]
+      : [],
   specificity: (r) =>
     r.specificity ? [{ value: r.specificity, label: SPECIFICITY_LABELS[r.specificity] ?? r.specificity }] : [],
   result: (r) =>
@@ -264,7 +283,7 @@ const FACET_EXTRACTORS: Record<string, FacetExtractor> = {
 export async function getBrowseFacets(): Promise<BrowseFacets> {
   const reports = await prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { isPublic: true, status: "PUBLISHED" },
+    where: { status: "PUBLISHED", experiment: { isPublic: true } },
     take: BROWSE_AGGREGATION_CAP,
   })
 
@@ -295,7 +314,7 @@ export async function getReportById(id: string): Promise<ReportRow | null> {
 export async function getReportsForAntibody(antibodyId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { antibodyId, isPublic: true, status: "PUBLISHED" },
+    where: { antibodyId, status: "PUBLISHED", experiment: { isPublic: true } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -303,7 +322,7 @@ export async function getReportsForAntibody(antibodyId: string): Promise<ReportR
 export async function getReportsForCellType(cellTypeId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { cellTypes: { some: { cellTypeId } }, isPublic: true, status: "PUBLISHED" },
+    where: { cellTypes: { some: { cellTypeId } }, status: "PUBLISHED", experiment: { isPublic: true } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -315,7 +334,7 @@ export async function getConditionById(conditionId: string): Promise<{ id: strin
 export async function getReportsForCondition(conditionId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { conditionId, isPublic: true, status: "PUBLISHED" },
+    where: { status: "PUBLISHED", experiment: { conditionId, isPublic: true } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -323,7 +342,7 @@ export async function getReportsForCondition(conditionId: string): Promise<Repor
 export async function getReportsForTissue(tissueId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { tissueId, isPublic: true, status: "PUBLISHED" },
+    where: { status: "PUBLISHED", experiment: { tissueId, isPublic: true } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -331,7 +350,7 @@ export async function getReportsForTissue(tissueId: string): Promise<ReportRow[]
 export async function getReportsForSubcellular(subcellularId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { subcellularId, isPublic: true, status: "PUBLISHED" },
+    where: { subcellularId, status: "PUBLISHED", experiment: { isPublic: true } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -339,7 +358,7 @@ export async function getReportsForSubcellular(subcellularId: string): Promise<R
 export async function getReportsForTaxon(speciesId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { speciesId, isPublic: true, status: "PUBLISHED" },
+    where: { status: "PUBLISHED", experiment: { speciesId, isPublic: true } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -347,7 +366,7 @@ export async function getReportsForTaxon(speciesId: string): Promise<ReportRow[]
 export async function getCellTypesFromReports(proteinId: string): Promise<{ id: string; label: string }[]> {
   const links = await prisma.reportCellType.findMany({
     where: {
-      report: { antibody: { targetProteinId: proteinId }, isPublic: true, status: "PUBLISHED" },
+      report: { antibody: { targetProteinId: proteinId }, status: "PUBLISHED", experiment: { isPublic: true } },
     },
     select: { cellType: { select: { id: true, label: true } } },
     distinct: ["cellTypeId"],
@@ -356,13 +375,21 @@ export async function getCellTypesFromReports(proteinId: string): Promise<{ id: 
   return links.map((l) => l.cellType)
 }
 
+export async function getReportsForExperiment(experimentId: string): Promise<ReportRow[]> {
+  return prisma.experimentalReport.findMany({
+    select: reportSelect,
+    where: { experimentId, status: "PUBLISHED" },
+    orderBy: { createdAt: "asc" },
+  })
+}
+
 export async function getReportsForProtein(proteinId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
     where: {
       antibody: { targetProteinId: proteinId },
-      isPublic: true,
       status: "PUBLISHED",
+      experiment: { isPublic: true },
     },
     orderBy: { createdAt: "desc" },
   })
@@ -508,43 +535,82 @@ async function validateAntibody(data: CreateReportData): Promise<void> {
   }
 }
 
-export async function resolveAndCreateReport(data: CreateReportData, submitterId: string): Promise<ReportRow> {
-  const resolvedCellTypes: OntologyValue[] = []
-  for (const ct of data.cellTypes ?? []) {
-    resolvedCellTypes.push(await validateAndResolveCellType(ct))
-  }
-  const resolvedSpecies = data.species ? await validateAndResolveTaxon(data.species) : undefined
-  const resolvedHostTaxon = data.hostSpecies ? await validateAndResolveTaxon(data.hostSpecies) : undefined
-  const resolvedTissue = data.tissue ? await validateAndResolveTissue(data.tissue) : undefined
-  const resolvedSubcellular = data.subcellularLocation
-    ? await validateAndResolveCellularComponent(data.subcellularLocation)
-    : undefined
-  const resolvedCondition = data.condition ? await validateAndResolveCondition(data.condition) : undefined
+type ExperimentContextInput = {
+  name?: string | null
+  description?: string | null
+  species?: OntologyValue | null
+  tissue?: OntologyValue | null
+  condition?: OntologyValue | null
+  fixation?: CreateReportData["fixation"]
+  method?: CreateReportData["method"]
+  antigenRetrieval?: CreateReportData["antigenRetrieval"]
+  isPublic?: boolean
+}
 
-  await validateAntibody(data)
+export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, submitterId: string): Promise<string> {
+  const resolvedSpecies = ctx.species ? await validateAndResolveTaxon(ctx.species) : undefined
+  const resolvedTissue = ctx.tissue ? await validateAndResolveTissue(ctx.tissue) : undefined
+  const resolvedCondition = ctx.condition ? await validateAndResolveCondition(ctx.condition) : undefined
 
   return prisma.$transaction(async (tx) => {
-    const proteinId = await resolveProtein(tx, data)
-
-    for (const taxon of [resolvedSpecies, resolvedHostTaxon]) {
-      if (taxon && !(await tx.taxon.findUnique({ where: { id: taxon.id }, select: { id: true } }))) {
-        await tx.taxon.create({ data: taxon })
-      }
+    if (resolvedSpecies && !(await tx.taxon.findUnique({ where: { id: resolvedSpecies.id }, select: { id: true } }))) {
+      await tx.taxon.create({ data: resolvedSpecies })
     }
     if (resolvedTissue && !(await tx.tissue.findUnique({ where: { id: resolvedTissue.id }, select: { id: true } }))) {
       await tx.tissue.create({ data: resolvedTissue })
-    }
-    if (
-      resolvedSubcellular &&
-      !(await tx.cellularComponent.findUnique({ where: { id: resolvedSubcellular.id }, select: { id: true } }))
-    ) {
-      await tx.cellularComponent.create({ data: resolvedSubcellular })
     }
     if (
       resolvedCondition &&
       !(await tx.diseaseCondition.findUnique({ where: { id: resolvedCondition.id }, select: { id: true } }))
     ) {
       await tx.diseaseCondition.create({ data: resolvedCondition })
+    }
+
+    const experiment = await tx.experiment.create({
+      data: {
+        name: ctx.name ?? null,
+        description: ctx.description ?? null,
+        speciesId: resolvedSpecies?.id ?? null,
+        tissueId: resolvedTissue?.id ?? null,
+        conditionId: resolvedCondition?.id ?? null,
+        fixation: ctx.fixation ?? null,
+        method: ctx.method ?? null,
+        antigenRetrieval: ctx.antigenRetrieval ?? null,
+        isPublic: ctx.isPublic ?? true,
+        submitterId,
+      },
+      select: { id: true },
+    })
+    return experiment.id
+  })
+}
+
+export async function resolveAndCreateReport(data: CreateReportData, experimentId: string): Promise<ReportRow> {
+  const resolvedCellTypes: OntologyValue[] = []
+  for (const ct of data.cellTypes ?? []) {
+    resolvedCellTypes.push(await validateAndResolveCellType(ct))
+  }
+  const resolvedHostTaxon = data.hostSpecies ? await validateAndResolveTaxon(data.hostSpecies) : undefined
+  const resolvedSubcellular = data.subcellularLocation
+    ? await validateAndResolveCellularComponent(data.subcellularLocation)
+    : undefined
+
+  await validateAntibody(data)
+
+  return prisma.$transaction(async (tx) => {
+    const proteinId = await resolveProtein(tx, data)
+
+    if (
+      resolvedHostTaxon &&
+      !(await tx.taxon.findUnique({ where: { id: resolvedHostTaxon.id }, select: { id: true } }))
+    ) {
+      await tx.taxon.create({ data: resolvedHostTaxon })
+    }
+    if (
+      resolvedSubcellular &&
+      !(await tx.cellularComponent.findUnique({ where: { id: resolvedSubcellular.id }, select: { id: true } }))
+    ) {
+      await tx.cellularComponent.create({ data: resolvedSubcellular })
     }
     for (const ct of resolvedCellTypes) {
       if (!(await tx.cellType.findUnique({ where: { id: ct.id }, select: { id: true } }))) {
@@ -556,25 +622,18 @@ export async function resolveAndCreateReport(data: CreateReportData, submitterId
 
     const report = await tx.experimentalReport.create({
       data: {
+        experimentId,
         antibodyId: antibodyId ?? data.antibodyId ?? null,
-        speciesId: resolvedSpecies?.id ?? null,
-        tissueId: resolvedTissue?.id ?? null,
         subcellularId: resolvedSubcellular?.id ?? null,
-        conditionId: resolvedCondition?.id ?? null,
-        fixation: data.fixation ?? null,
-        method: data.method ?? null,
         fluorophoreId: data.fluorophoreId ?? null,
         metalTag: data.metalTag ?? null,
         cycleNumber: data.cycleNumber ?? null,
         dilution: data.dilution ?? null,
         incubation: data.incubation ?? null,
-        antigenRetrieval: data.antigenRetrieval ?? null,
         works: data.works ?? null,
         signalQuality: data.signalQuality ?? null,
         specificity: data.specificity ?? null,
         notes: data.notes ?? null,
-        isPublic: data.isPublic ?? true,
-        submitterId,
         imageUrls: JSON.stringify(data.imageUrls ?? []),
       },
       select: { id: true },
@@ -604,15 +663,24 @@ export async function resolveAndCreateReports(
   const created: ReportRow[] = []
   const failed: BatchReportResult["failed"] = []
 
-  for (let index = 0; index < antibodies.length; index++) {
-    const item = antibodies[index]
-    const reportData: CreateReportData = {
+  const experimentId = await resolveAndCreateExperiment(
+    {
+      name: context.name ?? null,
+      description: context.description ?? null,
       species: context.species ?? null,
       tissue: context.tissue ?? null,
+      condition: context.condition ?? null,
       fixation: context.fixation,
       method: context.method,
       antigenRetrieval: context.antigenRetrieval,
-      condition: context.condition ?? null,
+      isPublic: true,
+    },
+    submitterId,
+  )
+
+  for (let index = 0; index < antibodies.length; index++) {
+    const item = antibodies[index]
+    const reportData: CreateReportData = {
       markerName: item.markerName,
       rrid: item.rrid,
       antibodyVendor: item.antibodyVendor,
@@ -637,7 +705,7 @@ export async function resolveAndCreateReports(
     }
 
     try {
-      created.push(await resolveAndCreateReport(reportData, submitterId))
+      created.push(await resolveAndCreateReport(reportData, experimentId))
     } catch (error) {
       failed.push({
         index,
@@ -647,11 +715,27 @@ export async function resolveAndCreateReports(
     }
   }
 
+  if (created.length === 0) {
+    await prisma.experiment.delete({ where: { id: experimentId } }).catch(() => {})
+  }
+
   return { created, failed }
 }
 
 export async function createReport(data: CreateReportData, submitterId: string): Promise<ReportRow> {
-  return resolveAndCreateReport(data, submitterId)
+  const experimentId = await resolveAndCreateExperiment(
+    {
+      species: data.species ?? null,
+      tissue: data.tissue ?? null,
+      condition: data.condition ?? null,
+      fixation: data.fixation,
+      method: data.method,
+      antigenRetrieval: data.antigenRetrieval,
+      isPublic: data.isPublic ?? true,
+    },
+    submitterId,
+  )
+  return resolveAndCreateReport(data, experimentId)
 }
 
 export async function getPendingReports(): Promise<ReportRow[]> {

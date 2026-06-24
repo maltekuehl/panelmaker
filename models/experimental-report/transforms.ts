@@ -18,6 +18,8 @@ export function toReportResponse(report: ReportRow): ReportResponse {
 
 export type ReportUsage = {
   id: string
+  experimentId: string
+  experimentName: string | null
   species: string
   speciesId: string | null
   tissueLabel: string
@@ -60,16 +62,18 @@ export type ReportUsage = {
 export function toReportUsage(report: ReportRow): ReportUsage {
   return {
     id: String(report.id),
-    species: report.species?.label ?? "Unknown",
-    speciesId: report.species?.id ?? null,
-    tissueLabel: report.tissue?.label ?? "N/A",
-    tissueId: report.tissue?.id ?? null,
-    fixation: report.fixation ?? "N/A",
-    method: report.method ?? "Unknown",
+    experimentId: report.experimentId,
+    experimentName: report.experiment.name ?? null,
+    species: report.experiment.species?.label ?? "Unknown",
+    speciesId: report.experiment.species?.id ?? null,
+    tissueLabel: report.experiment.tissue?.label ?? "N/A",
+    tissueId: report.experiment.tissue?.id ?? null,
+    fixation: report.experiment.fixation ?? "N/A",
+    method: report.experiment.method ?? "Unknown",
     dilution: report.dilution ?? "N/A",
     incubation: report.incubation,
-    antigenRetrieval: report.antigenRetrieval
-      ? (ANTIGEN_RETRIEVAL_LABELS[report.antigenRetrieval] ?? report.antigenRetrieval)
+    antigenRetrieval: report.experiment.antigenRetrieval
+      ? (ANTIGEN_RETRIEVAL_LABELS[report.experiment.antigenRetrieval] ?? report.experiment.antigenRetrieval)
       : "N/A",
     works: report.works,
     signalQuality: report.signalQuality,
@@ -80,9 +84,9 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     notes: report.notes,
     images: parseJsonArray(report.imageUrls),
     createdAt: report.createdAt.toISOString(),
-    submitter: report.submitter?.name ?? "Anonymous",
-    submitterId: report.submitter?.id ?? null,
-    submitterInstitution: report.submitter?.institution ?? null,
+    submitter: report.experiment.submitter?.name ?? "Anonymous",
+    submitterId: report.experiment.submitter?.id ?? null,
+    submitterInstitution: report.experiment.submitter?.institution ?? null,
     antibodyId: report.antibody?.rrid ?? `AB_${report.antibodyId ?? "unknown"}`,
     antibodyDbId: report.antibody?.id ?? null,
     antibodyName: report.antibody?.name ?? "Unknown",
@@ -96,8 +100,8 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     cellTypes: report.cellTypes.map((l) => ({ id: l.cellType.id, label: l.cellType.label })),
     subcellularId: report.subcellular?.id ?? null,
     subcellularLabel: report.subcellular?.label ?? null,
-    conditionId: report.condition?.id ?? null,
-    conditionLabel: report.condition?.label ?? null,
+    conditionId: report.experiment.condition?.id ?? null,
+    conditionLabel: report.experiment.condition?.label ?? null,
     status: report.status,
   }
 }
@@ -195,9 +199,9 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
   }
 
   return Array.from(groups.values()).map((group) => {
-    const methods = [...new Set(group.reports.map((r) => r.method).filter(Boolean))] as string[]
-    const species = [...new Set(group.reports.map((r) => r.species?.label).filter(Boolean))] as string[]
-    const tissues = [...new Set(group.reports.map((r) => r.tissue?.label).filter(Boolean))] as string[]
+    const methods = [...new Set(group.reports.map((r) => r.experiment.method).filter(Boolean))] as string[]
+    const species = [...new Set(group.reports.map((r) => r.experiment.species?.label).filter(Boolean))] as string[]
+    const tissues = [...new Set(group.reports.map((r) => r.experiment.tissue?.label).filter(Boolean))] as string[]
 
     const cellTypeMap = new Map<string, string>()
     for (const r of group.reports) {
@@ -217,10 +221,10 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
       reportCount: group.reports.length,
       reports: group.reports.map((r) => ({
         id: String(r.id),
-        submitter: r.submitter?.name ?? "Anonymous",
-        submitterId: r.submitter?.id ?? null,
-        method: r.method ? (METHOD_LABELS[r.method] ?? r.method) : "Unknown",
-        species: r.species?.label ?? "Unknown",
+        submitter: r.experiment.submitter?.name ?? "Anonymous",
+        submitterId: r.experiment.submitter?.id ?? null,
+        method: r.experiment.method ? (METHOD_LABELS[r.experiment.method] ?? r.experiment.method) : "Unknown",
+        species: r.experiment.species?.label ?? "Unknown",
         works: r.works,
       })),
     }
@@ -254,13 +258,16 @@ export function aggregateAntibodyEntries(reports: ReportRow[]): AntibodyEntry[] 
 export function toReportEntry(report: ReportRow): ReportEntry {
   return {
     id: String(report.id),
+    experimentId: report.experimentId,
     marker: report.antibody?.targetName ?? report.antibody?.name ?? `Report #${report.id}`,
     antibodyId: report.antibody?.id ?? null,
     antibodyName: report.antibody?.name ?? "Unknown",
     rrid: report.antibody?.rrid ?? null,
-    species: report.species?.label ?? "Unknown",
-    tissue: report.tissue?.label ?? "Unknown",
-    method: report.method ? (METHOD_LABELS[report.method] ?? report.method) : "Unknown",
+    species: report.experiment.species?.label ?? "Unknown",
+    tissue: report.experiment.tissue?.label ?? "Unknown",
+    method: report.experiment.method
+      ? (METHOD_LABELS[report.experiment.method] ?? report.experiment.method)
+      : "Unknown",
     cellTypes: report.cellTypes.map((l) => ({ id: l.cellType.id, label: l.cellType.label })),
     subcellular: report.subcellular?.label ?? null,
     specificity: report.specificity,

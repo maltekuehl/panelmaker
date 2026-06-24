@@ -2206,52 +2206,73 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     },
   ]
 
+  // Group reports that share an experiment context (same submitter + species + tissue +
+  // fixation + method + antigen retrieval) into a single Experiment, then create each
+  // report as a child staining record.
+  type Grouped = { context: ReportInput; members: { r: ReportInput; index: number }[] }
+  const groups = new Map<string, Grouped>()
   for (let i = 0; i < reports.length; i++) {
     const r = reports[i]
-    const antibodyId = antibodyMap[r.antibodyRrid]
-    if (antibodyId === undefined) {
-      throw new Error(`Antibody not found for RRID: ${r.antibodyRrid}`)
-    }
+    const key = [r.submitterId, r.species, r.tissueType, r.fixation, r.method, r.antigenRetrieval ?? "NONE"].join("|")
+    if (!groups.has(key)) groups.set(key, { context: r, members: [] })
+    groups.get(key)!.members.push({ r, index: i })
+  }
 
-    const speciesId = SPECIES_TO_TAXON[r.species] ?? null
-    const tissueId = TISSUE_TYPE_TO_UBERON[r.tissueType] ?? null
-    const subcellularId = r.targetProteinId ? (PROTEIN_SUBCELLULAR[r.targetProteinId] ?? null) : null
+  for (const { context, members } of groups.values()) {
+    const speciesId = SPECIES_TO_TAXON[context.species] ?? null
+    const tissueId = TISSUE_TYPE_TO_UBERON[context.tissueType] ?? null
 
-    const report = await prisma.experimentalReport.create({
+    const experiment = await prisma.experiment.create({
       data: {
-        antibodyId,
+        name: `${context.tissueType} ${context.method} run`,
         speciesId,
         tissueId,
-        subcellularId,
-        fixation: r.fixation,
-        method: r.method,
-        fluorophoreId: fluId(r.fluorophore),
-        metalTag: r.metalTag,
-        dilution: r.dilution,
-        incubation: r.incubation ?? null,
-        antigenRetrieval: r.antigenRetrieval ?? null,
-        status: r.status,
-        works: r.works,
-        signalQuality: r.signalQuality,
-        specificity: r.specificity,
-        submitterId: r.submitterId,
-        notes: r.notes,
+        fixation: context.fixation,
+        method: context.method,
+        antigenRetrieval: context.antigenRetrieval ?? null,
+        submitterId: context.submitterId,
         isPublic: true,
-        imageUrls: getReportImages(i),
       },
     })
 
-    // Create ReportCellType join rows; reports may have no cell type at all, and
-    // guard against non-existent cell types
-    const allCellTypeIds = [r.cellTypeId, ...(r.extraCellTypeIds ?? [])].filter(
-      (id): id is string => typeof id === "string",
-    )
-    for (const ctId of allCellTypeIds) {
-      const exists = await prisma.cellType.findUnique({ where: { id: ctId } })
-      if (exists) {
-        await prisma.reportCellType.create({
-          data: { reportId: report.id, cellTypeId: ctId },
-        })
+    for (const { r, index } of members) {
+      const antibodyId = antibodyMap[r.antibodyRrid]
+      if (antibodyId === undefined) {
+        throw new Error(`Antibody not found for RRID: ${r.antibodyRrid}`)
+      }
+
+      const subcellularId = r.targetProteinId ? (PROTEIN_SUBCELLULAR[r.targetProteinId] ?? null) : null
+
+      const report = await prisma.experimentalReport.create({
+        data: {
+          experimentId: experiment.id,
+          antibodyId,
+          subcellularId,
+          fluorophoreId: fluId(r.fluorophore),
+          metalTag: r.metalTag,
+          dilution: r.dilution,
+          incubation: r.incubation ?? null,
+          status: r.status,
+          works: r.works,
+          signalQuality: r.signalQuality,
+          specificity: r.specificity,
+          notes: r.notes,
+          imageUrls: getReportImages(index),
+        },
+      })
+
+      // Create ReportCellType join rows; reports may have no cell type at all, and
+      // guard against non-existent cell types
+      const allCellTypeIds = [r.cellTypeId, ...(r.extraCellTypeIds ?? [])].filter(
+        (id): id is string => typeof id === "string",
+      )
+      for (const ctId of allCellTypeIds) {
+        const exists = await prisma.cellType.findUnique({ where: { id: ctId } })
+        if (exists) {
+          await prisma.reportCellType.create({
+            data: { reportId: report.id, cellTypeId: ctId },
+          })
+        }
       }
     }
   }
