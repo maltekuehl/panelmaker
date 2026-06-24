@@ -1,15 +1,4 @@
-import { Fixation, MultiplexMethod, Species } from "@/lib/generated/prisma/enums"
-
-export const SPECIES_LABELS: Record<Species, string> = {
-  HUMAN: "Homo sapiens",
-  MOUSE: "Mus musculus",
-  RAT: "Rattus norvegicus",
-  NON_HUMAN_PRIMATE: "Non-human primate",
-  PIG: "Sus scrofa",
-  RABBIT: "Oryctolagus cuniculus",
-  ZEBRAFISH: "Danio rerio",
-  OTHER: "Other",
-}
+import { AntigenRetrieval, Clonality, Fixation, MultiplexMethod, Specificity } from "@/lib/generated/prisma/enums"
 
 export const FIXATION_LABELS: Record<Fixation, string> = {
   FFPE: "FFPE",
@@ -28,4 +17,25 @@ export const METHOD_LABELS: Record<MultiplexMethod, string> = {
   MIBI: "MIBI",
   IBEX: "IBEX",
   OTHER: "Other",
+}
+
+export const ANTIGEN_RETRIEVAL_LABELS: Record<AntigenRetrieval, string> = {
+  CITRATE_PH6: "Citrate pH 6.0",
+  TRIS_EDTA_PH9: "Tris-EDTA pH 9.0",
+  ENZYMATIC: "Enzymatic (Pepsin/Trypsin)",
+  NONE: "None",
+}
+
+export const CLONALITY_LABELS: Record<Clonality, string> = {
+  MONOCLONAL: "Monoclonal",
+  POLYCLONAL: "Polyclonal",
+  RECOMBINANT: "Recombinant",
+  OLIGOCLONAL: "Oligoclonal",
+}
+
+export const SPECIFICITY_LABELS: Record<Specificity, string> = {
+  HIGH: "High",
+  MODERATE: "Moderate",
+  LOW: "Low",
+  NON_SPECIFIC: "Non-specific",
 }

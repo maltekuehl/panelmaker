@@ -35,12 +35,6 @@ const cellTypeWithMarkersSelect = {
       },
     },
   },
-  structures: {
-    select: {
-      structureId: true,
-      source: true,
-    },
-  },
 } satisfies Prisma.CellTypeSelect
 
 export type CellTypeWithRelations = Prisma.CellTypeGetPayload<{ select: typeof cellTypeWithMarkersSelect }>
@@ -83,15 +77,4 @@ export async function getCellTypesForProtein(proteinId: string): Promise<CellTyp
   })
 
   return markers.map((m) => m.cellType)
-}
-
-export async function getCellTypesForStructure(structureId: string): Promise<CellTypeRow[]> {
-  const relations = await prisma.cellTypeStructure.findMany({
-    where: { structureId },
-    select: {
-      cellType: { select: cellTypeSelect },
-    },
-  })
-
-  return relations.map((r) => r.cellType)
 }

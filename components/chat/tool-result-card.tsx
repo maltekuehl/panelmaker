@@ -31,7 +31,7 @@ type AntibodyResult = {
   targetName: string | null
   vendorName: string | null
   clonality: string | null
-  sourceOrganism: string | null
+  hostSpecies: string | null
   targetSpecies: string | null
 }
 
@@ -72,7 +72,7 @@ interface GetMarkerDetailsOutput {
     id: string
     method: string | null
     species: string | null
-    tissueType: string | null
+    tissue: string | null
     fixation: string | null
     fluorophore: string | null
     works: boolean
@@ -81,8 +81,8 @@ interface GetMarkerDetailsOutput {
     antibodyId: string | undefined
     antibodyName: string | undefined
     antibodyRrid: string | undefined
-    cellTypeLabel: string | undefined
-    structureLabel: string | undefined
+    cellTypes: string | null
+    subcellular: string | null
   }>
   associatedCellTypes?: Array<{
     id: string

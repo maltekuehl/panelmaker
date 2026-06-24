@@ -9,13 +9,12 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { MarkerSearchDialog } from "./marker-search-dialog"
 import { SortableMarkerCard } from "./sortable-marker-card"
-import type { Species } from "./types"
 import { PanelCycle } from "./types"
 
 interface CycleSectionProps {
   cycle: PanelCycle
   panelId: string
-  species?: Species | null
+  species?: { id: string; label: string } | null
   onRemoveMarker?: (cycleId: string, markerId: string) => void
   onRemoveCycle?: (cycleId: string) => void
   onMarkerAdded?: () => void

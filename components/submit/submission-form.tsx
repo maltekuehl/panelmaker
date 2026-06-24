@@ -14,7 +14,6 @@ import {
   emptyContext,
   emptyRow,
   extractOrganismId,
-  isContextComplete,
   validateRows,
   type AntibodyRow,
   type ExperimentContext,
@@ -29,8 +28,7 @@ export function SubmissionForm() {
   const [showErrors, setShowErrors] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const contextComplete = isContextComplete(context)
-  const contextConfirmed = contextComplete && !editingContext
+  const contextConfirmed = !editingContext
   const organismId = context.species ? extractOrganismId(context.species.id) : undefined
 
   const rowErrors = useMemo(() => validateRows(rows), [rows])
@@ -51,11 +49,6 @@ export function SubmissionForm() {
   async function handleSubmit() {
     if (!session?.user) {
       toast.error("You must be signed in to submit a report.")
-      return
-    }
-    if (!contextComplete) {
-      setEditingContext(true)
-      toast.error("Complete the experiment context first.")
       return
     }
     if (rowErrors.length > 0) {
@@ -119,7 +112,7 @@ export function SubmissionForm() {
         <ExperimentContextSection
           context={context}
           onChange={handleContextChange}
-          editing={editingContext || !contextComplete}
+          editing={editingContext}
           onEdit={() => setEditingContext(true)}
           onDone={() => setEditingContext(false)}
         />

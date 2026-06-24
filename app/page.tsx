@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { prisma } from "@/lib/prisma"
-import { ArrowRight, BookOpen, Layers, Plus, Search } from "lucide-react"
+import { ArrowRight, BadgeCheck, BookOpen, Dna, FlaskConical, Layers, Plus, Search } from "lucide-react"
 import type { Metadata } from "next"
 import { cacheLife } from "next/cache"
 import Link from "next/link"
@@ -45,30 +45,32 @@ async function HomeStats() {
   ])
 
   const stats = [
-    { label: "Proteins", value: formatCount(proteinCount) },
-    { label: "Antibodies", value: formatCount(antibodyCount) },
-    { label: "Validated Reports", value: formatCount(reportCount) },
+    { label: "Proteins", value: formatCount(proteinCount), icon: Dna },
+    { label: "Antibodies", value: formatCount(antibodyCount), icon: FlaskConical },
+    { label: "Validated Reports", value: formatCount(reportCount), icon: BadgeCheck },
   ]
 
   return (
-    <div className="grid grid-cols-3 gap-4 sm:gap-8">
+    <dl className="grid grid-cols-3 divide-x divide-border overflow-hidden rounded-xl border bg-muted/30">
       {stats.map((s) => (
-        <div key={s.label} className="text-center">
-          <div className="text-2xl font-bold text-primary sm:text-3xl">{s.value}</div>
-          <div className="text-sm text-muted-foreground">{s.label}</div>
+        <div key={s.label} className="flex flex-col gap-1.5 px-4 py-4 sm:px-6">
+          <s.icon className="size-4 text-primary" />
+          <dd className="text-2xl font-bold tabular-nums leading-none sm:text-3xl">{s.value}</dd>
+          <dt className="text-xs text-muted-foreground sm:text-sm">{s.label}</dt>
         </div>
       ))}
-    </div>
+    </dl>
   )
 }
 
 function HomeStatsSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-4 sm:gap-8">
+    <div className="grid grid-cols-3 divide-x divide-border overflow-hidden rounded-xl border bg-muted/30">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="flex flex-col items-center gap-2 text-center">
-          <Skeleton className="h-8 w-16" />
-          <Skeleton className="h-4 w-24" />
+        <div key={i} className="flex flex-col gap-2 px-4 py-4 sm:px-6">
+          <Skeleton className="size-4" />
+          <Skeleton className="h-7 w-14" />
+          <Skeleton className="h-4 w-20" />
         </div>
       ))}
     </div>
@@ -110,14 +112,15 @@ export default function HomePage() {
           Community-Driven Spatial Biology
         </Badge>
         <h1 className="max-w-3xl text-3xl font-bold tracking-tight md:text-5xl">
-          The database for <span className="text-primary">spatial proteomics</span> markers
+          The database for <span className="text-primary">spatial proteomics</span> antibody validation
         </h1>
-        <p className="max-w-2xl text-balance text-lg text-muted-foreground">
-          Discover experimentally validated antibodies for PathoPlex, CODEX, MIBI-ToF, IMC, and CyCIF — then design and
-          share your panels.
+        <p className="max-w-3xl text-lg text-muted-foreground">
+          Discover experimentally validated antibodies for PathoPlex, CODEX, and tCyCIF.
+          <br />
+          Then design and share your panels.
         </p>
         <Suspense fallback={<HomeStatsSkeleton />}>
-          <div className="w-full max-w-md pt-2">
+          <div className="w-full max-w-xl pt-2">
             <HomeStats />
           </div>
         </Suspense>

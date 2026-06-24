@@ -1,6 +1,6 @@
 import type { AntibodyRegistryValue } from "@/components/antibody-registry-combobox"
 import type { FluorophoreOption } from "@/components/fluorophore-combobox"
-import { MultiplexMethod } from "@/lib/generated/prisma/enums"
+import { AntigenRetrieval, MultiplexMethod } from "@/lib/generated/prisma/enums"
 
 export type OntologyValue = { id: string; label: string }
 export type ProteinValue = { id: string; label: string; geneSymbol?: string | null }
@@ -10,7 +10,7 @@ export type ExperimentContext = {
   tissue: OntologyValue | null
   fixation: string
   method: MultiplexMethod | ""
-  antigenRetrieval: string
+  antigenRetrieval: AntigenRetrieval | ""
   condition: OntologyValue | null
 }
 
@@ -44,7 +44,7 @@ export function emptyContext(): ExperimentContext {
     tissue: null,
     fixation: "FFPE",
     method: "",
-    antigenRetrieval: "Citrate pH 6.0",
+    antigenRetrieval: "",
     condition: null,
   }
 }
@@ -109,19 +109,6 @@ export function methodNeedsCycle(method: MultiplexMethod | ""): boolean {
   return !!method && CYCLE_NUMBER_METHODS.has(method)
 }
 
-const SPECIES_LABEL_TO_ENUM: Record<string, string> = {
-  "Homo sapiens": "HUMAN",
-  "Mus musculus": "MOUSE",
-  "Rattus norvegicus": "RAT",
-  "Sus scrofa": "PIG",
-  "Oryctolagus cuniculus": "RABBIT",
-  "Danio rerio": "ZEBRAFISH",
-}
-
-export function mapSpeciesToEnum(label: string): string {
-  return SPECIES_LABEL_TO_ENUM[label] ?? (label.toLowerCase().includes("primate") ? "NON_HUMAN_PRIMATE" : "OTHER")
-}
-
 export function extractOrganismId(speciesId: string): number | undefined {
   const match = speciesId.match(/txid(\d+)/)
   if (match?.[1]) return parseInt(match[1], 10)
@@ -130,42 +117,8 @@ export function extractOrganismId(speciesId: string): number | undefined {
   return undefined
 }
 
-function buildRowNotes(row: AntibodyRow, context: ExperimentContext): string {
-  const parts: string[] = []
-  const ab = row.antibodyRegistry
-
-  parts.push(`Marker: ${row.markerName}`)
-  if (row.markerProtein) parts.push(`Protein: ${row.markerProtein.label} [${row.markerProtein.id}]`)
-  parts.push(`Cell types: ${row.cellTypes.map((ct) => `${ct.label} [${ct.id}]`).join(", ")}`)
-  if (context.species) parts.push(`Species: ${context.species.label} [${context.species.id}]`)
-  if (context.tissue) parts.push(`Tissue: ${context.tissue.label} [${context.tissue.id}]`)
-
-  const vendor = ab?.vendor || row.antibodyVendor
-  const catalog = ab?.catalogNumber || row.catalogNumber
-  const cloneId = ab?.cloneId || row.cloneId
-  const rrid = ab?.citation || row.rrid
-
-  if (vendor) parts.push(`Vendor: ${vendor}`)
-  if (catalog) parts.push(`Catalog #: ${catalog}`)
-  if (cloneId) parts.push(`Clone ID: ${cloneId}`)
-  if (rrid) parts.push(`RRID: ${rrid}`)
-  if (ab?.clonality) parts.push(`Clonality: ${ab.clonality}`)
-  if (ab?.target) parts.push(`Target: ${ab.target}`)
-  if (row.hostSpecies) parts.push(`Host species: ${row.hostSpecies.label} [${row.hostSpecies.id}]`)
-  if (row.incubation) parts.push(`Incubation: ${row.incubation}`)
-  if (row.locationNotDiscernible) {
-    parts.push("Subcellular location: Not discernible")
-  } else if (row.subcellularLocation) {
-    parts.push(`Subcellular location: ${row.subcellularLocation.label} (${row.subcellularLocation.id})`)
-  }
-  if (context.condition?.label) parts.push(`Condition: ${context.condition.label} (${context.condition.id})`)
-  if (row.notes) parts.push(`Notes: ${row.notes}`)
-
-  return parts.join("\n")
-}
-
-export function isContextComplete(context: ExperimentContext): boolean {
-  return !!(context.species && context.tissue && context.fixation && context.method && context.antigenRetrieval)
+export function isContextComplete(_context: ExperimentContext): boolean {
+  return true
 }
 
 export const FIXATION_OPTIONS: { value: string; label: string }[] = [
@@ -186,11 +139,11 @@ export const METHOD_OPTIONS: { value: MultiplexMethod; label: string }[] = [
   { value: MultiplexMethod.IBEX, label: "IBEX" },
 ]
 
-export const ANTIGEN_RETRIEVAL_OPTIONS: { value: string; label: string }[] = [
-  { value: "Citrate pH 6.0", label: "Citrate pH 6.0" },
-  { value: "Tris-EDTA pH 9.0", label: "Tris-EDTA pH 9.0" },
-  { value: "Enzymatic", label: "Enzymatic (Pepsin/Trypsin)" },
-  { value: "None", label: "None" },
+export const ANTIGEN_RETRIEVAL_OPTIONS: { value: AntigenRetrieval; label: string }[] = [
+  { value: AntigenRetrieval.CITRATE_PH6, label: "Citrate pH 6.0" },
+  { value: AntigenRetrieval.TRIS_EDTA_PH9, label: "Tris-EDTA pH 9.0" },
+  { value: AntigenRetrieval.ENZYMATIC, label: "Enzymatic (Pepsin/Trypsin)" },
+  { value: AntigenRetrieval.NONE, label: "None" },
 ]
 
 export function fixationLabel(value: string): string {
@@ -207,9 +160,6 @@ export function validateRows(rows: AntibodyRow[]): RowValidationError[] {
   const errors: RowValidationError[] = []
   for (const row of rows) {
     if (!row.markerName.trim()) errors.push({ key: row.key, field: "markerName", message: "Marker name is required" })
-    if (row.cellTypes.length === 0)
-      errors.push({ key: row.key, field: "cellTypes", message: "At least one cell type is required" })
-    if (!row.dilution.trim()) errors.push({ key: row.key, field: "dilution", message: "Dilution is required" })
   }
   return errors
 }
@@ -217,11 +167,11 @@ export function validateRows(rows: AntibodyRow[]): RowValidationError[] {
 export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[]) {
   return {
     context: {
-      species: mapSpeciesToEnum(context.species?.label ?? ""),
-      tissueType: context.tissue?.label ?? "",
-      fixation: context.fixation,
-      method: context.method,
-      antigenRetrieval: context.antigenRetrieval,
+      species: context.species ?? undefined,
+      tissue: context.tissue ?? undefined,
+      fixation: context.fixation || undefined,
+      method: context.method || undefined,
+      antigenRetrieval: context.antigenRetrieval || undefined,
       condition: context.condition ?? undefined,
     },
     antibodies: rows.map((row) => ({
@@ -229,12 +179,13 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       proteinData: row.markerProtein ?? undefined,
       markerName: row.markerName.trim(),
       rrid: row.rrid || row.antibodyRegistry?.citation || undefined,
-      antibodyVendor: row.antibodyVendor || undefined,
+      vendor: row.antibodyVendor || undefined,
       catalogNumber: row.catalogNumber || undefined,
       cloneId: row.cloneId || undefined,
-      hostSpecies: row.hostSpecies?.label || undefined,
+      hostSpecies: row.hostSpecies ?? undefined,
       cellTypes: row.cellTypes,
-      dilution: row.dilution.trim(),
+      dilution: row.dilution.trim() || undefined,
+      incubation: row.incubation || undefined,
       fluorophoreId: row.fluorophore?.id || undefined,
       metalTag: row.metalTag || undefined,
       cycleNumber: row.cycleNumber ? Number(row.cycleNumber) : undefined,
@@ -242,7 +193,7 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       signalQuality: row.signalQuality || undefined,
       specificity: row.specificity || undefined,
       subcellularLocation: row.locationNotDiscernible ? undefined : (row.subcellularLocation ?? undefined),
-      notes: buildRowNotes(row, context),
+      notes: row.notes || undefined,
     })),
   }
 }

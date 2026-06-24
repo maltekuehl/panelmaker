@@ -62,7 +62,7 @@ async function CellTypeContent({ id }: { id: string }) {
             <h2 className="text-lg font-semibold">Related Markers</h2>
             <p className="text-sm text-muted-foreground">Validated markers associated with {cellType.label}.</p>
           </div>
-          <DetailsDataTable columns={columns} data={markers} hiddenColumns={["cellType"]} />
+          <DetailsDataTable columns={columns} data={markers} hiddenColumns={["cellTypes"]} />
         </div>
 
         <div className="space-y-3 border-t pt-6">

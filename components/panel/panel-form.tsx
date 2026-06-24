@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
-import { FIXATION_LABELS, SPECIES_LABELS } from "./types"
+import { FIXATION_LABELS } from "./types"
 
 const ontologyValueSchema = z.object({
   id: z.string().min(1),
@@ -19,7 +19,7 @@ const ontologyValueSchema = z.object({
 const panelFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
-  species: z.string().optional(),
+  species: ontologyValueSchema.nullable().optional(),
   fixation: z.string().optional(),
   condition: ontologyValueSchema.nullable().optional(),
 })
@@ -29,7 +29,8 @@ type PanelFormValues = z.infer<typeof panelFormSchema>
 export interface CreatePanelFormData {
   name: string
   description?: string
-  species?: string
+  speciesId?: string
+  speciesLabel?: string
   fixation?: string
   conditionId?: string
   conditionLabel?: string
@@ -47,7 +48,7 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
     defaultValues: {
       name: "",
       description: "",
-      species: undefined,
+      species: null,
       fixation: undefined,
       condition: null,
     },
@@ -57,7 +58,8 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
     onSubmit({
       name: data.name,
       description: data.description,
-      species: data.species,
+      speciesId: data.species?.id,
+      speciesLabel: data.species?.label,
       fixation: data.fixation,
       conditionId: data.condition?.id,
       conditionLabel: data.condition?.label,
@@ -95,30 +97,21 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
           )}
         />
         <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="species"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Species</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select species" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {(Object.keys(SPECIES_LABELS) as Array<keyof typeof SPECIES_LABELS>).map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {SPECIES_LABELS[key]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <FormItem>
+            <FormLabel>Species</FormLabel>
+            <Controller
+              control={form.control}
+              name="species"
+              render={({ field }) => (
+                <OntologyCombobox
+                  ontologyType="ncbi_taxonomy"
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  placeholder="Search species..."
+                />
+              )}
+            />
+          </FormItem>
           <FormField
             control={form.control}
             name="fixation"
@@ -152,7 +145,7 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
             render={({ field }) => (
               <OntologyCombobox
                 ontologyType="doid"
-                value={field.value}
+                value={field.value ?? null}
                 onChange={field.onChange}
                 placeholder="Search disease conditions..."
               />

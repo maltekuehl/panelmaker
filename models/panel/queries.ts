@@ -38,7 +38,7 @@ const panelMarkerSelect = {
       rrid: true,
       name: true,
       conjugate: true,
-      sourceOrganism: true,
+      hostTaxon: { select: { id: true, label: true } },
       vendorName: true,
       catalogNumber: true,
       cloneId: true,
@@ -62,7 +62,7 @@ const panelSelect = {
   id: true,
   name: true,
   description: true,
-  species: true,
+  species: { select: { id: true, label: true } },
   fixation: true,
   ownerId: true,
   isPublic: true,
@@ -127,14 +127,25 @@ async function resolveCondition(conditionId?: string, conditionLabel?: string): 
   return conditionId
 }
 
+async function resolveTaxon(speciesId?: string, speciesLabel?: string): Promise<string | undefined> {
+  if (!speciesId) return undefined
+
+  const existing = await prisma.taxon.findUnique({ where: { id: speciesId } })
+  if (existing) return existing.id
+
+  await prisma.taxon.create({ data: { id: speciesId, label: speciesLabel || speciesId } })
+  return speciesId
+}
+
 export async function createPanel(data: CreatePanelData, ownerId: string): Promise<PanelRow> {
   const resolvedConditionId = await resolveCondition(data.conditionId, data.conditionLabel)
+  const resolvedSpeciesId = await resolveTaxon(data.speciesId, data.speciesLabel)
 
   return prisma.panel.create({
     data: {
       name: data.name,
       description: data.description,
-      species: data.species,
+      speciesId: resolvedSpeciesId,
       fixation: data.fixation,
       conditionId: resolvedConditionId,
       isPublic: data.isPublic,
@@ -153,13 +164,15 @@ export async function createPanel(data: CreatePanelData, ownerId: string): Promi
 export async function updatePanel(id: string, data: UpdatePanelData): Promise<PanelRow> {
   const resolvedConditionId =
     data.conditionId !== undefined ? await resolveCondition(data.conditionId, data.conditionLabel) : undefined
+  const resolvedSpeciesId =
+    data.speciesId !== undefined ? await resolveTaxon(data.speciesId, data.speciesLabel) : undefined
 
   return prisma.panel.update({
     where: { id },
     data: {
       ...(data.name !== undefined && { name: data.name }),
       ...(data.description !== undefined && { description: data.description }),
-      ...(data.species !== undefined && { species: data.species }),
+      ...(resolvedSpeciesId !== undefined && { speciesId: resolvedSpeciesId }),
       ...(data.fixation !== undefined && { fixation: data.fixation }),
       ...(resolvedConditionId !== undefined && { conditionId: resolvedConditionId }),
       ...(data.isPublic !== undefined && { isPublic: data.isPublic }),

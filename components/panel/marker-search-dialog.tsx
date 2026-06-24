@@ -9,8 +9,6 @@ import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import type { Species } from "./types"
-import { SPECIES_LABELS, SPECIES_ORGANISM_IDS } from "./types"
 
 type SearchResult = {
   type: "protein" | "antibody"
@@ -28,7 +26,7 @@ type SearchResult = {
 interface MarkerSearchDialogProps {
   panelId: string
   cycleId: string
-  species?: Species | null
+  species?: { id: string; label: string } | null
   onMarkerAdded: () => void
 }
 
@@ -56,13 +54,12 @@ export function MarkerSearchDialog({ panelId, cycleId, species, onMarkerAdded }:
     debounceRef.current = setTimeout(async () => {
       setIsSearching(true)
       try {
-        const encoded = encodeURIComponent(query.trim())
-        const organismId = species ? SPECIES_ORGANISM_IDS[species] : null
+        const organismIdMatch = species ? /txid(\d+)/.exec(species.id) : null
         const proteinParams = new URLSearchParams({ q: query.trim(), limit: "5" })
-        if (organismId) proteinParams.set("organismId", String(organismId))
+        if (organismIdMatch) proteinParams.set("organismId", organismIdMatch[1])
 
         const antibodyParams = new URLSearchParams({ q: query.trim(), limit: "5" })
-        if (species) antibodyParams.set("species", SPECIES_LABELS[species])
+        if (species) antibodyParams.set("species", species.label)
 
         const [proteinsRes, antibodiesRes] = await Promise.all([
           fetch(`/api/proteins?${proteinParams}`),

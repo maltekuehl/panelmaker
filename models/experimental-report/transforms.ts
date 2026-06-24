@@ -1,5 +1,5 @@
-import type { MarkerEntry } from "@/components/browse/columns"
-import { FIXATION_LABELS, METHOD_LABELS, SPECIES_LABELS } from "@/lib/constants"
+import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
+import { ANTIGEN_RETRIEVAL_LABELS, METHOD_LABELS } from "@/lib/constants"
 import { parseJsonArray } from "@/lib/transforms"
 import type { ReportRow } from "./queries"
 
@@ -19,10 +19,13 @@ export function toReportResponse(report: ReportRow): ReportResponse {
 export type ReportUsage = {
   id: string
   species: string
-  tissueType: string
+  speciesId: string | null
+  tissueLabel: string
+  tissueId: string | null
   fixation: string
   method: string
   dilution: string
+  incubation: string | null
   antigenRetrieval: string
   works: boolean | null
   signalQuality: string | null
@@ -46,10 +49,9 @@ export type ReportUsage = {
   conjugate: string | null
   proteinId: string | null
   markerName: string | null
-  cellTypeId: string | null
-  cellTypeLabel: string | null
-  structureId: string | null
-  structureLabel: string | null
+  cellTypes: { id: string; label: string }[]
+  subcellularId: string | null
+  subcellularLabel: string | null
   conditionId: string | null
   conditionLabel: string | null
   status: string
@@ -58,12 +60,17 @@ export type ReportUsage = {
 export function toReportUsage(report: ReportRow): ReportUsage {
   return {
     id: String(report.id),
-    species: report.species ? (SPECIES_LABELS[report.species] ?? report.species) : "Unknown",
-    tissueType: report.tissueType ?? "N/A",
-    fixation: report.fixation ? (FIXATION_LABELS[report.fixation] ?? report.fixation) : "N/A",
+    species: report.species?.label ?? "Unknown",
+    speciesId: report.species?.id ?? null,
+    tissueLabel: report.tissue?.label ?? "N/A",
+    tissueId: report.tissue?.id ?? null,
+    fixation: report.fixation ?? "N/A",
     method: report.method ?? "Unknown",
     dilution: report.dilution ?? "N/A",
-    antigenRetrieval: report.antigenRetrieval ?? "N/A",
+    incubation: report.incubation,
+    antigenRetrieval: report.antigenRetrieval
+      ? (ANTIGEN_RETRIEVAL_LABELS[report.antigenRetrieval] ?? report.antigenRetrieval)
+      : "N/A",
     works: report.works,
     signalQuality: report.signalQuality,
     specificity: report.specificity,
@@ -82,30 +89,28 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     antibodyVendor: report.antibody?.vendorName ?? "Unknown",
     catalogNumber: report.antibody?.catalogNumber ?? null,
     clone: report.antibody?.cloneId ?? "N/A",
-    hostSpecies: report.antibody?.sourceOrganism ?? null,
+    hostSpecies: report.antibody?.hostTaxon?.label ?? null,
     conjugate: report.antibody?.conjugate ?? null,
     proteinId: report.antibody?.targetProteinId ?? null,
     markerName: report.antibody?.targetName ?? report.antibody?.name ?? null,
-    cellTypeId: report.cellTypeId ?? null,
-    cellTypeLabel: report.cellType?.label ?? null,
-    structureId: report.structureId ?? null,
-    structureLabel: report.structure?.label ?? null,
-    conditionId: report.conditionId ?? null,
+    cellTypes: report.cellTypes.map((l) => ({ id: l.cellType.id, label: l.cellType.label })),
+    subcellularId: report.subcellular?.id ?? null,
+    subcellularLabel: report.subcellular?.label ?? null,
+    conditionId: report.condition?.id ?? null,
     conditionLabel: report.condition?.label ?? null,
     status: report.status,
   }
 }
 
-const MARKER_SORT_ACCESSORS: Record<string, (entry: MarkerEntry) => string | number> = {
-  marker: (entry) => entry.marker.toLowerCase(),
-  cellType: (entry) => entry.cellType.toLowerCase(),
-  species: (entry) => entry.species.toLowerCase(),
-  tissue: (entry) => entry.tissue.toLowerCase(),
-  reportCount: (entry) => entry.reportCount,
-}
+type SortAccessor<T> = (entry: T) => string | number
 
-export function sortMarkerEntries(entries: MarkerEntry[], sort?: string | null, order: string = "desc"): MarkerEntry[] {
-  const accessor = sort ? MARKER_SORT_ACCESSORS[sort] : undefined
+function sortEntries<T>(
+  entries: T[],
+  accessors: Record<string, SortAccessor<T>>,
+  sort?: string | null,
+  order: string = "desc",
+): T[] {
+  const accessor = sort ? accessors[sort] : undefined
   if (!accessor) return entries
 
   const direction = order === "asc" ? 1 : -1
@@ -118,44 +123,94 @@ export function sortMarkerEntries(entries: MarkerEntry[], sort?: string | null, 
   })
 }
 
+const joinedCellTypes = (cellTypes: { label: string }[]) =>
+  cellTypes
+    .map((c) => c.label)
+    .join(", ")
+    .toLowerCase()
+
+const MARKER_SORT_ACCESSORS: Record<string, SortAccessor<MarkerEntry>> = {
+  marker: (entry) => entry.marker.toLowerCase(),
+  cellType: (entry) => joinedCellTypes(entry.cellTypes),
+  species: (entry) => entry.species.toLowerCase(),
+  tissue: (entry) => entry.tissue.toLowerCase(),
+  methods: (entry) => entry.validatedMethods.join(", ").toLowerCase(),
+  reportCount: (entry) => entry.reportCount,
+}
+
+const ANTIBODY_SORT_ACCESSORS: Record<string, SortAccessor<AntibodyEntry>> = {
+  name: (entry) => entry.name.toLowerCase(),
+  target: (entry) => (entry.target ?? "").toLowerCase(),
+  rrid: (entry) => (entry.rrid ?? "").toLowerCase(),
+  vendor: (entry) => (entry.vendor ?? "").toLowerCase(),
+  clone: (entry) => (entry.clone ?? "").toLowerCase(),
+  reportCount: (entry) => entry.reportCount,
+}
+
+const REPORT_SORT_ACCESSORS: Record<string, SortAccessor<ReportEntry>> = {
+  marker: (entry) => entry.marker.toLowerCase(),
+  antibodyName: (entry) => entry.antibodyName.toLowerCase(),
+  cellType: (entry) => joinedCellTypes(entry.cellTypes),
+  subcellular: (entry) => (entry.subcellular ?? "").toLowerCase(),
+  species: (entry) => entry.species.toLowerCase(),
+  tissue: (entry) => entry.tissue.toLowerCase(),
+  method: (entry) => entry.method.toLowerCase(),
+  specificity: (entry) => SPECIFICITY_RANK[entry.specificity ?? ""] ?? -1,
+  works: (entry) => (entry.works === null ? -1 : entry.works ? 1 : 0),
+}
+
+const SPECIFICITY_RANK: Record<string, number> = { HIGH: 3, MODERATE: 2, LOW: 1, NON_SPECIFIC: 0 }
+
+export function sortMarkerEntries(entries: MarkerEntry[], sort?: string | null, order: string = "desc"): MarkerEntry[] {
+  return sortEntries(entries, MARKER_SORT_ACCESSORS, sort, order)
+}
+
+export function sortAntibodyEntries(
+  entries: AntibodyEntry[],
+  sort?: string | null,
+  order: string = "desc",
+): AntibodyEntry[] {
+  return sortEntries(entries, ANTIBODY_SORT_ACCESSORS, sort, order)
+}
+
+export function sortReportEntries(entries: ReportEntry[], sort?: string | null, order: string = "desc"): ReportEntry[] {
+  return sortEntries(entries, REPORT_SORT_ACCESSORS, sort, order)
+}
+
 export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
-  const groups = new Map<
-    string,
-    { reports: ReportRow[]; marker: string; cellType: string; cellTypeId?: string; id: string }
-  >()
+  const groups = new Map<string, { reports: ReportRow[]; marker: string; id: string }>()
 
   for (const report of reports) {
     const markerId = report.antibody?.targetProteinId ?? String(report.id)
-    const cellTypeId = report.cellTypeId ?? "unknown"
-    const key = `${markerId}::${cellTypeId}`
 
-    if (!groups.has(key)) {
-      groups.set(key, {
+    if (!groups.has(markerId)) {
+      groups.set(markerId, {
         reports: [],
         marker: report.antibody?.targetName ?? report.antibody?.name ?? `Report #${report.id}`,
-        cellType: report.cellType?.label ?? "Unknown",
-        cellTypeId: report.cellTypeId ?? undefined,
         id: markerId,
       })
     }
 
-    groups.get(key)!.reports.push(report)
+    groups.get(markerId)!.reports.push(report)
   }
 
   return Array.from(groups.values()).map((group) => {
     const methods = [...new Set(group.reports.map((r) => r.method).filter(Boolean))] as string[]
-    const species = [
-      ...new Set(
-        group.reports.map((r) => (r.species ? (SPECIES_LABELS[r.species] ?? r.species) : null)).filter(Boolean),
-      ),
-    ] as string[]
-    const tissues = [...new Set(group.reports.map((r) => r.tissueType).filter(Boolean))] as string[]
+    const species = [...new Set(group.reports.map((r) => r.species?.label).filter(Boolean))] as string[]
+    const tissues = [...new Set(group.reports.map((r) => r.tissue?.label).filter(Boolean))] as string[]
+
+    const cellTypeMap = new Map<string, string>()
+    for (const r of group.reports) {
+      for (const link of r.cellTypes) {
+        cellTypeMap.set(link.cellType.id, link.cellType.label)
+      }
+    }
+    const cellTypes = [...cellTypeMap.entries()].map(([id, label]) => ({ id, label }))
 
     return {
       id: group.id,
       marker: group.marker,
-      cellType: group.cellType,
-      cellTypeId: group.cellTypeId,
+      cellTypes,
       species: species.join(", ") || "Unknown",
       tissue: tissues.join(", ") || "Unknown",
       validatedMethods: methods,
@@ -165,9 +220,50 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
         submitter: r.submitter?.name ?? "Anonymous",
         submitterId: r.submitter?.id ?? null,
         method: r.method ? (METHOD_LABELS[r.method] ?? r.method) : "Unknown",
-        species: r.species ? (SPECIES_LABELS[r.species] ?? r.species) : "Unknown",
+        species: r.species?.label ?? "Unknown",
         works: r.works,
       })),
     }
   })
+}
+
+export function aggregateAntibodyEntries(reports: ReportRow[]): AntibodyEntry[] {
+  const groups = new Map<string, { reports: ReportRow[]; antibody: NonNullable<ReportRow["antibody"]> }>()
+
+  for (const report of reports) {
+    if (!report.antibody) continue
+    const key = report.antibody.id
+    if (!groups.has(key)) {
+      groups.set(key, { reports: [], antibody: report.antibody })
+    }
+    groups.get(key)!.reports.push(report)
+  }
+
+  return Array.from(groups.values()).map(({ reports: rows, antibody }) => ({
+    id: antibody.id,
+    rrid: antibody.rrid,
+    name: antibody.name,
+    target: antibody.targetName,
+    targetProteinId: antibody.targetProteinId,
+    vendor: antibody.vendorName,
+    clone: antibody.cloneId,
+    reportCount: rows.length,
+  }))
+}
+
+export function toReportEntry(report: ReportRow): ReportEntry {
+  return {
+    id: String(report.id),
+    marker: report.antibody?.targetName ?? report.antibody?.name ?? `Report #${report.id}`,
+    antibodyId: report.antibody?.id ?? null,
+    antibodyName: report.antibody?.name ?? "Unknown",
+    rrid: report.antibody?.rrid ?? null,
+    species: report.species?.label ?? "Unknown",
+    tissue: report.tissue?.label ?? "Unknown",
+    method: report.method ? (METHOD_LABELS[report.method] ?? report.method) : "Unknown",
+    cellTypes: report.cellTypes.map((l) => ({ id: l.cellType.id, label: l.cellType.label })),
+    subcellular: report.subcellular?.label ?? null,
+    specificity: report.specificity,
+    works: report.works,
+  }
 }

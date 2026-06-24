@@ -202,26 +202,19 @@ function AntibodyEditor({
             placeholder="Raised in..."
           />
         </Field>
-        <Field label="Cell type(s)" required className="sm:col-span-3">
-          <div className={cn(invalid("cellTypes") && "rounded-md ring-1 ring-destructive")}>
-            <OntologyMultiCombobox
-              ontologyType="cl"
-              values={row.cellTypes}
-              onChange={(cellTypes) => onChange({ cellTypes })}
-              placeholder="Search cell types where staining is observed..."
-            />
-          </div>
+        <Field label="Cell type(s)" className="sm:col-span-3">
+          <OntologyMultiCombobox
+            ontologyType="cl"
+            values={row.cellTypes}
+            onChange={(cellTypes) => onChange({ cellTypes })}
+            placeholder="Search cell types where staining is observed..."
+          />
         </Field>
       </div>
 
       <div className="grid grid-cols-2 gap-3 border-t pt-3 lg:grid-cols-4">
-        <Field label="Dilution" required>
-          <Input
-            value={row.dilution}
-            onChange={(e) => onChange({ dilution: e.target.value })}
-            placeholder="1:100"
-            aria-invalid={invalid("dilution")}
-          />
+        <Field label="Dilution">
+          <Input value={row.dilution} onChange={(e) => onChange({ dilution: e.target.value })} placeholder="1:100" />
         </Field>
         {methodNeedsFluorophore(method) && (
           <Field label="Fluorophore">
@@ -356,8 +349,7 @@ export function AntibodyAccordion({
     <div className="space-y-3">
       <Accordion type="multiple" value={open} onValueChange={setOpen}>
         {rows.map((row, index) => {
-          const rowInvalid =
-            invalid(row.key, "markerName") || invalid(row.key, "cellTypes") || invalid(row.key, "dilution")
+          const rowInvalid = invalid(row.key, "markerName")
           const detection = summaryDetection(row)
           return (
             <AccordionItem key={row.key} value={row.key}>

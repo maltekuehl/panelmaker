@@ -21,8 +21,8 @@ export async function generateMetadata({ params }: ReportPageProps): Promise<Met
   if (!report) return { title: "Report Not Found | PanelMaker" }
   const marker = report.antibody?.targetName ?? report.antibody?.name ?? "Unknown"
   return {
-    title: `${marker} — Experimental Report #${report.id} | PanelMaker`,
-    description: `Experimental validation report for ${marker} using ${report.method ?? "unknown method"} on ${report.species ?? "unknown species"} ${report.tissueType ?? ""} tissue.`,
+    title: `${marker}: Experimental Report #${report.id} | PanelMaker`,
+    description: `Experimental validation report for ${marker} using ${report.method ?? "unknown method"} on ${report.species?.label ?? "unknown species"} ${report.tissue?.label ?? ""} tissue.`,
   }
 }
 
@@ -172,11 +172,12 @@ async function ReportContent({ id }: { id: string }) {
           <h2 className="text-lg font-semibold">Sample &amp; Protocol</h2>
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
             <DetailRow label="Species">{usage.species}</DetailRow>
-            <DetailRow label="Tissue Type">{usage.tissueType}</DetailRow>
+            <DetailRow label="Tissue">{usage.tissueLabel}</DetailRow>
             <DetailRow label="Fixation">{usage.fixation}</DetailRow>
             <DetailRow label="Method">{usage.method}</DetailRow>
             <DetailRow label="Dilution">{usage.dilution}</DetailRow>
             <DetailRow label="Antigen Retrieval">{usage.antigenRetrieval}</DetailRow>
+            {usage.incubation && <DetailRow label="Incubation">{usage.incubation}</DetailRow>}
             {usage.fluorophore && <DetailRow label="Fluorophore">{usage.fluorophore}</DetailRow>}
             {usage.metalTag && <DetailRow label="Metal Tag">{usage.metalTag}</DetailRow>}
             {usage.cycleNumber !== null && <DetailRow label="Cycle Number">{usage.cycleNumber}</DetailRow>}
@@ -195,15 +196,22 @@ async function ReportContent({ id }: { id: string }) {
             <DetailRow label="Specificity">
               <QualityBadge label={usage.specificity} />
             </DetailRow>
-            {usage.cellTypeId && (
-              <DetailRow label="Cell Type">
-                <Link href={`/celltype/${usage.cellTypeId}`} className="text-primary hover:underline">
-                  {usage.cellTypeLabel}
-                </Link>
+            {usage.cellTypes.length > 0 && (
+              <DetailRow label="Cell Types">
+                <span className="flex flex-wrap gap-x-1">
+                  {usage.cellTypes.map((ct, idx) => (
+                    <span key={ct.id}>
+                      <Link href={`/celltype/${ct.id}`} className="text-primary hover:underline">
+                        {ct.label}
+                      </Link>
+                      {idx < usage.cellTypes.length - 1 && ", "}
+                    </span>
+                  ))}
+                </span>
               </DetailRow>
             )}
-            {usage.structureId && (
-              <DetailRow label="Anatomical Structure">{usage.structureLabel ?? usage.structureId}</DetailRow>
+            {usage.subcellularId && (
+              <DetailRow label="Subcellular Location">{usage.subcellularLabel ?? usage.subcellularId}</DetailRow>
             )}
             {usage.conditionId && (
               <DetailRow label="Condition">
@@ -278,15 +286,16 @@ async function ReportContent({ id }: { id: string }) {
             <ExternalLink className="h-4 w-4" />
             View Antibody: {usage.antibodyId}
           </Link>
-          {usage.cellTypeId && (
+          {usage.cellTypes.map((ct) => (
             <Link
-              href={`/celltype/${usage.cellTypeId}`}
+              key={ct.id}
+              href={`/celltype/${ct.id}`}
               className="flex items-center gap-2 text-sm text-primary hover:underline"
             >
               <ExternalLink className="h-4 w-4" />
-              View Cell Type: {usage.cellTypeLabel}
+              View Cell Type: {ct.label}
             </Link>
-          )}
+          ))}
           {usage.conditionId && (
             <Link
               href={`/condition/${usage.conditionId}`}

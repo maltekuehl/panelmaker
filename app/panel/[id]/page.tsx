@@ -1,6 +1,6 @@
 import { auth } from "@/auth"
 import { PanelExportMenu } from "@/components/panel/panel-export-menu"
-import { FIXATION_LABELS, SPECIES_LABELS } from "@/components/panel/types"
+import { FIXATION_LABELS } from "@/components/panel/types"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
@@ -45,8 +45,10 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
   }
 
   const isOwner = session?.user?.id === panel.ownerId
-  const speciesLabel = panel.species ? (SPECIES_LABELS[panel.species] ?? panel.species) : null
-  const fixationLabel = panel.fixation ? (FIXATION_LABELS[panel.fixation] ?? panel.fixation) : null
+  const speciesLabel = panel.species?.label ?? null
+  const fixationLabel = panel.fixation
+    ? (FIXATION_LABELS[panel.fixation as keyof typeof FIXATION_LABELS] ?? panel.fixation)
+    : null
   const totalMarkers = panel.cycles.reduce((sum, cycle) => sum + cycle.markers.length, 0)
 
   return (

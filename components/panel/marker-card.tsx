@@ -10,8 +10,7 @@ import { Check, ChevronsUpDown, FlaskConical, GripVertical, Info, Loader2, X } f
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import type { PanelMarker, Species } from "./types"
-import { SPECIES_LABELS } from "./types"
+import type { PanelMarker } from "./types"
 
 type AntibodyResult = {
   id: string
@@ -21,7 +20,7 @@ type AntibodyResult = {
   catalogNumber: string | null
   cloneId: string | null
   conjugate: string | null
-  sourceOrganism: string | null
+  hostTaxon: { id: string; label: string } | null
   targetSpecies: string[]
   applications: string[]
   vendorUrl: string | null
@@ -32,7 +31,7 @@ type AntibodyResult = {
 interface MarkerCardProps {
   marker: PanelMarker
   panelId: string
-  species?: Species | null
+  species?: { id: string; label: string } | null
   onRemove?: (id: string) => void
   onMarkerUpdated?: () => void
   isDragging?: boolean
@@ -41,7 +40,7 @@ interface MarkerCardProps {
 export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated, isDragging }: MarkerCardProps) {
   const geneName = marker.protein?.geneSymbol ?? marker.protein?.label ?? "Unknown"
   const antibodyName = marker.antibody?.name ?? null
-  const hostOrganism = marker.antibody?.sourceOrganism ?? null
+  const hostOrganism = marker.antibody?.hostTaxon?.label ?? null
 
   const [abOpen, setAbOpen] = useState(false)
   const [abQuery, setAbQuery] = useState("")
@@ -103,7 +102,7 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
       setIsSearching(true)
       try {
         const params = new URLSearchParams({ q: abQuery.trim(), limit: "8" })
-        if (species) params.set("species", SPECIES_LABELS[species])
+        if (species) params.set("species", species.label)
         const res = await fetch(`/api/antibodies?${params}`)
         if (res.ok) {
           const json = await res.json()
@@ -291,10 +290,10 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
                                       </span>
                                     </div>
                                   )}
-                                  {ab.sourceOrganism && (
+                                  {ab.hostTaxon && (
                                     <div className="flex gap-1">
                                       <span className="text-[10px] text-muted-foreground">Host:</span>
-                                      <span className="text-[10px]">{ab.sourceOrganism}</span>
+                                      <span className="text-[10px]">{ab.hostTaxon.label}</span>
                                     </div>
                                   )}
                                   {ab.targetSpecies.length > 0 && (

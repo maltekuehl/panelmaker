@@ -1,4 +1,4 @@
-import { Fixation, MultiplexMethod, SignalQuality, Species, Specificity } from "@/lib/generated/prisma/enums"
+import { AntigenRetrieval, Fixation, MultiplexMethod, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
 import { z } from "zod"
 
 const ontologyValueSchema = z.object({
@@ -31,17 +31,16 @@ const proteinSubmissionSchema = z.object({
 
 export const createReportSchema = z.object({
   antibodyId: z.string().optional(),
-  cellTypeId: z.string().optional(),
-  structureId: z.string().optional(),
-  species: z.nativeEnum(Species).optional(),
-  tissueType: z.string().max(255).optional(),
+  species: ontologyValueSchema.nullable().optional(),
+  tissue: ontologyValueSchema.nullable().optional(),
   fixation: z.nativeEnum(Fixation).optional(),
   method: z.nativeEnum(MultiplexMethod).optional(),
   fluorophoreId: z.string().optional(),
   metalTag: z.string().max(100).optional(),
   cycleNumber: z.number().int().positive().optional(),
   dilution: z.string().max(50).optional(),
-  antigenRetrieval: z.string().max(255).optional(),
+  incubation: z.string().max(255).optional(),
+  antigenRetrieval: z.nativeEnum(AntigenRetrieval).optional(),
   works: z.boolean().optional(),
   signalQuality: z.nativeEnum(SignalQuality).optional(),
   specificity: z.nativeEnum(Specificity).optional(),
@@ -55,7 +54,7 @@ export const createReportSchema = z.object({
   condition: ontologyValueSchema.nullable().optional(),
   markerName: z.string().max(255).optional(),
   rrid: z.string().max(100).optional(),
-  hostSpecies: z.string().max(100).optional(),
+  hostSpecies: ontologyValueSchema.nullable().optional(),
   antibodyVendor: z.string().max(255).optional(),
   catalogNumber: z.string().max(100).optional(),
   cloneId: z.string().max(100).optional(),
@@ -64,11 +63,11 @@ export const createReportSchema = z.object({
 export type CreateReportData = z.infer<typeof createReportSchema>
 
 const batchContextSchema = z.object({
-  species: z.nativeEnum(Species),
-  tissueType: z.string().min(1).max(255),
-  fixation: z.nativeEnum(Fixation),
-  method: z.nativeEnum(MultiplexMethod),
-  antigenRetrieval: z.string().min(1).max(255),
+  species: ontologyValueSchema.nullable().optional(),
+  tissue: ontologyValueSchema.nullable().optional(),
+  fixation: z.nativeEnum(Fixation).optional(),
+  method: z.nativeEnum(MultiplexMethod).optional(),
+  antigenRetrieval: z.nativeEnum(AntigenRetrieval).optional(),
   condition: ontologyValueSchema.nullable().optional(),
 })
 
@@ -80,9 +79,10 @@ const batchAntibodySchema = z.object({
   antibodyVendor: z.string().max(255).optional(),
   catalogNumber: z.string().max(100).optional(),
   cloneId: z.string().max(100).optional(),
-  hostSpecies: z.string().max(100).optional(),
-  cellTypes: z.array(ontologyValueSchema).min(1, "At least one cell type is required"),
-  dilution: z.string().min(1).max(50),
+  hostSpecies: ontologyValueSchema.nullable().optional(),
+  cellTypes: z.array(ontologyValueSchema).optional(),
+  dilution: z.string().max(50).optional(),
+  incubation: z.string().max(255).optional(),
   fluorophoreId: z.string().optional(),
   metalTag: z.string().max(100).optional(),
   cycleNumber: z.number().int().positive().optional(),
@@ -117,7 +117,8 @@ export const searchParamsSchema = z
     q: z.string().optional(),
     method: z.nativeEnum(MultiplexMethod).optional(),
     fixation: z.nativeEnum(Fixation).optional(),
-    species: z.nativeEnum(Species).optional(),
+    species: z.string().optional(),
+    tissue: z.string().optional(),
     limit: z.coerce.number().min(1).max(100).default(20),
     cursor: z.string().optional(),
   })

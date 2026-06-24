@@ -42,7 +42,7 @@ const members = [
   {
     avatar: "https://www.github.com/maltekuehl.png",
     name: "Malte Kuehl",
-    title: "Maintainer",
+    title: "Project Lead",
     bio: "Platform development and project management.",
     links: [
       { icon: "github", link: "https://github.com/maltekuehl" },
@@ -69,13 +69,6 @@ const members = [
     title: "Maintainer",
     bio: "Platform maintenance and infrastructure.",
     links: [{ icon: "github", link: "https://github.com/nnnkaiser" }],
-  },
-  {
-    avatar: "https://www.github.com/saezrodriguez.png",
-    name: "Julio Sáez Rodríguez",
-    title: "Advisory Committee",
-    bio: "Technical advisory and project guidance.",
-    links: [{ icon: "github", link: "https://github.com/saezrodriguez" }],
   },
 ]
 

@@ -17,15 +17,15 @@ type ReportItem = {
   clone: string
   hostSpecies: string | null
   species: string
-  tissueType: string
+  tissueLabel: string
   method: string
   fixation: string
   works: boolean | null
   signalQuality: string | null
   specificity: string | null
   notes: string | null
-  cellTypeLabel: string | null
-  structureLabel: string | null
+  cellTypes: { id: string; label: string }[]
+  subcellularLabel: string | null
   submitter: string
   submitterInstitution: string | null
   createdAt: string
@@ -100,18 +100,18 @@ function ReportCard({
           </div>
           <div>
             <span className="font-medium text-muted-foreground">Tissue</span>
-            <p>{report.tissueType}</p>
+            <p>{report.tissueLabel}</p>
           </div>
-          {report.cellTypeLabel && (
+          {report.cellTypes.length > 0 && (
             <div>
-              <span className="font-medium text-muted-foreground">Cell type</span>
-              <p>{report.cellTypeLabel}</p>
+              <span className="font-medium text-muted-foreground">Cell types</span>
+              <p>{report.cellTypes.map((ct) => ct.label).join(", ")}</p>
             </div>
           )}
-          {report.structureLabel && (
+          {report.subcellularLabel && (
             <div>
-              <span className="font-medium text-muted-foreground">Structure</span>
-              <p>{report.structureLabel}</p>
+              <span className="font-medium text-muted-foreground">Subcellular</span>
+              <p>{report.subcellularLabel}</p>
             </div>
           )}
           <div>

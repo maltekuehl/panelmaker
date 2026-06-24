@@ -4,7 +4,7 @@ import { OntologyCombobox } from "@/components/ontology-combobox"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MultiplexMethod } from "@/lib/generated/prisma/enums"
+import { AntigenRetrieval, MultiplexMethod } from "@/lib/generated/prisma/enums"
 import { Check, Pencil } from "lucide-react"
 import { StepBadge } from "./step-badge"
 import {
@@ -12,7 +12,6 @@ import {
   FIXATION_OPTIONS,
   METHOD_OPTIONS,
   fixationLabel,
-  isContextComplete,
   methodLabel,
   type ExperimentContext,
 } from "./types"
@@ -30,8 +29,7 @@ export function ExperimentContextSection({
   onEdit: () => void
   onDone: () => void
 }) {
-  const complete = isContextComplete(context)
-  const collapsed = !editing && complete
+  const collapsed = !editing
 
   const summary = [
     context.species?.label,
@@ -68,9 +66,7 @@ export function ExperimentContextSection({
         <div className="space-y-4 px-4 pb-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>
-                Target Species <span className="text-destructive">*</span>
-              </Label>
+              <Label>Target Species</Label>
               <OntologyCombobox
                 ontologyType="ncbi_taxonomy"
                 value={context.species}
@@ -80,9 +76,7 @@ export function ExperimentContextSection({
             </div>
 
             <div className="space-y-1.5">
-              <Label>
-                Tissue Type <span className="text-destructive">*</span>
-              </Label>
+              <Label>Tissue Type</Label>
               <OntologyCombobox
                 ontologyType="uberon"
                 value={context.tissue}
@@ -94,9 +88,7 @@ export function ExperimentContextSection({
 
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
-              <Label>
-                Fixation <span className="text-destructive">*</span>
-              </Label>
+              <Label>Fixation</Label>
               <Select value={context.fixation} onValueChange={(fixation) => onChange({ ...context, fixation })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select fixation" />
@@ -112,9 +104,7 @@ export function ExperimentContextSection({
             </div>
 
             <div className="space-y-1.5">
-              <Label>
-                Method <span className="text-destructive">*</span>
-              </Label>
+              <Label>Method</Label>
               <Select
                 value={context.method}
                 onValueChange={(method) => onChange({ ...context, method: method as MultiplexMethod })}
@@ -133,12 +123,12 @@ export function ExperimentContextSection({
             </div>
 
             <div className="space-y-1.5">
-              <Label>
-                Antigen Retrieval <span className="text-destructive">*</span>
-              </Label>
+              <Label>Antigen Retrieval</Label>
               <Select
                 value={context.antigenRetrieval}
-                onValueChange={(antigenRetrieval) => onChange({ ...context, antigenRetrieval })}
+                onValueChange={(antigenRetrieval) =>
+                  onChange({ ...context, antigenRetrieval: antigenRetrieval as AntigenRetrieval })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select AR" />
@@ -164,7 +154,7 @@ export function ExperimentContextSection({
             />
           </div>
 
-          <Button type="button" size="sm" onClick={onDone} disabled={!complete}>
+          <Button type="button" size="sm" onClick={onDone}>
             <Check className="size-4" />
             Next
           </Button>

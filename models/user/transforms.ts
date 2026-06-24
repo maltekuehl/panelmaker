@@ -1,4 +1,3 @@
-import { SPECIES_LABELS } from "@/lib/constants"
 import type { LeaderboardEntry, RecentReportRow, UserProfileRow, UserStats } from "./queries"
 
 export type { LeaderboardEntry, UserProfileRow, UserStats }
@@ -21,9 +20,9 @@ export function toRecentReportSummary(report: RecentReportRow): RecentReportSumm
     markerName: report.antibody?.name ?? `Report #${report.id}`,
     proteinId: report.antibody?.targetProteinId ?? null,
     antibodyRrid: report.antibody?.rrid ?? null,
-    cellType: report.cellType?.label ?? null,
+    cellType: report.cellTypes.map((l) => l.cellType.label).join(", ") || null,
     method: report.method,
-    species: report.species ? (SPECIES_LABELS[report.species] ?? report.species) : null,
+    species: report.species?.label ?? null,
     status: report.status,
     createdAt: report.createdAt,
   }

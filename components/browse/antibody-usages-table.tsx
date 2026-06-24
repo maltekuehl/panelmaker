@@ -56,7 +56,7 @@ function ReportTooltipContent({ usage }: { usage: ReportUsage }) {
         <span className="text-muted-foreground">Species:</span>
         <span>{usage.species}</span>
         <span className="text-muted-foreground">Tissue:</span>
-        <span>{usage.tissueType}</span>
+        <span>{usage.tissueLabel}</span>
         <span className="text-muted-foreground">Fixation:</span>
         <span>{usage.fixation}</span>
         {usage.fluorophore && (
@@ -161,7 +161,7 @@ export function AntibodyUsagesTable({ data }: AntibodyUsagesTableProps) {
                         <div className="flex flex-col">
                           <span className="font-medium">{usage.species}</span>
                           <span className="text-[10px] text-muted-foreground">
-                            {usage.tissueType} &middot; {usage.fixation}
+                            {usage.tissueLabel} &middot; {usage.fixation}
                           </span>
                         </div>
                       </TableCell>
@@ -255,21 +255,25 @@ export function AntibodyUsagesTable({ data }: AntibodyUsagesTableProps) {
                             </div>
                           )}
                           <div>
-                            <span className="text-muted-foreground block">Cell Type</span>
-                            {usage.cellTypeId ? (
-                              <Link
-                                href={`/celltype/${usage.cellTypeId}`}
-                                className="text-primary hover:underline font-medium"
-                              >
-                                {usage.cellTypeLabel}
-                              </Link>
+                            <span className="text-muted-foreground block">Cell Types</span>
+                            {usage.cellTypes.length > 0 ? (
+                              <span className="font-medium flex flex-wrap gap-x-1">
+                                {usage.cellTypes.map((ct, idx) => (
+                                  <span key={ct.id}>
+                                    <Link href={`/celltype/${ct.id}`} className="text-primary hover:underline">
+                                      {ct.label}
+                                    </Link>
+                                    {idx < usage.cellTypes.length - 1 && ", "}
+                                  </span>
+                                ))}
+                              </span>
                             ) : (
                               <span className="font-medium">N/A</span>
                             )}
                           </div>
                           <div>
-                            <span className="text-muted-foreground block">Structure</span>
-                            <span className="font-medium">{usage.structureLabel ?? "N/A"}</span>
+                            <span className="text-muted-foreground block">Subcellular Location</span>
+                            <span className="font-medium">{usage.subcellularLabel ?? "N/A"}</span>
                           </div>
                         </div>
 

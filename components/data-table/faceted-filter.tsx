@@ -10,6 +10,7 @@ import { Check, PlusCircle } from "lucide-react"
 interface FacetedFilterOption {
   label: string
   value: string
+  description?: string
   icon?: React.ComponentType<{ className?: string }>
 }
 
@@ -64,7 +65,7 @@ export function DataTableFacetedFilter({ title, options, value, onChange }: Data
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0" align="start">
+      <PopoverContent className="w-auto min-w-[220px] max-w-[420px] p-0" align="start">
         <div className="p-1">
           {options.map((option) => {
             const isSelected = selected.has(option.value)
@@ -73,7 +74,7 @@ export function DataTableFacetedFilter({ title, options, value, onChange }: Data
                 key={option.value}
                 role="button"
                 tabIndex={0}
-                className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground"
+                className="relative flex cursor-pointer select-none items-center whitespace-nowrap rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground"
                 onClick={() => toggle(option.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -92,6 +93,9 @@ export function DataTableFacetedFilter({ title, options, value, onChange }: Data
                 </div>
                 {option.icon && <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />}
                 <span>{option.label}</span>
+                {option.description && (
+                  <span className="ml-auto pl-2 font-mono text-xs text-muted-foreground">{option.description}</span>
+                )}
               </div>
             )
           })}

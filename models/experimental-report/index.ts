@@ -1,21 +1,43 @@
 export {
   createReport,
   getAllReports,
+  getAntibodyEntriesPage,
+  getBrowseFacets,
   getCellTypesFromReports,
   getConditionById,
   getMarkerEntriesPage,
   getPendingReports,
   getReportById,
+  getReportEntriesPage,
   getReportsForAntibody,
   getReportsForCellType,
   getReportsForCondition,
   getReportsForProtein,
+  getReportsForSubcellular,
+  getReportsForTaxon,
+  getReportsForTissue,
   resolveAndCreateReport,
   resolveAndCreateReports,
   updateReportStatus,
 } from "./queries"
-export type { BatchReportResult, MarkerEntriesPage, MarkerEntriesParams, ReportQueryParams, ReportRow } from "./queries"
+export type {
+  BatchReportResult,
+  BrowseFacets,
+  BrowseQueryParams,
+  EntriesPage,
+  MarkerEntriesPage,
+  MarkerEntriesParams,
+  ReportQueryParams,
+  ReportRow,
+} from "./queries"
 export { createReportBatchSchema, createReportSchema, searchParamsSchema, updateReportStatusSchema } from "./schema"
 export type { CreateReportBatchData, CreateReportData, SearchParams, UpdateReportStatusData } from "./schema"
-export { aggregateMarkerEntries, sortMarkerEntries, toReportResponse, toReportUsage } from "./transforms"
+export {
+  aggregateAntibodyEntries,
+  aggregateMarkerEntries,
+  sortMarkerEntries,
+  toReportEntry,
+  toReportResponse,
+  toReportUsage,
+} from "./transforms"
 export type { ReportResponse, ReportUsage } from "./transforms"

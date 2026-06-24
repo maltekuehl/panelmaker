@@ -26,31 +26,6 @@ enum Clonality {
   OLIGOCLONAL
 }
 
-enum SourceOrganism {
-  MOUSE
-  RABBIT
-  GOAT
-  RAT
-  DONKEY
-  CHICKEN
-  SHEEP
-  HAMSTER
-  GUINEA_PIG
-  CAMELID
-  OTHER
-}
-
-enum Species {
-  HUMAN
-  MOUSE
-  RAT
-  NON_HUMAN_PRIMATE
-  PIG
-  RABBIT
-  ZEBRAFISH
-  OTHER
-}
-
 enum Fixation {
   FFPE
   FRESH_FROZEN
@@ -68,6 +43,13 @@ enum MultiplexMethod {
   MIBI
   IBEX
   OTHER
+}
+
+enum AntigenRetrieval {
+  CITRATE_PH6
+  TRIS_EDTA_PH9
+  ENZYMATIC
+  NONE
 }
 
 enum ValidationStatus {
@@ -94,23 +76,23 @@ enum Specificity {
 // ─── Auth & User Models ───────────────────────────────────────────────
 
 model User {
-  id            String          @id @default(cuid())
-  name          String?
-  email         String          @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          UserRole        @default(USER)
-  status        UserStatus      @default(ACTIVE)
-  orcid              String?  @unique
-  institution        String?
-  institutionId      String?
-  accounts      Account[]
-  sessions      Session[]
-  Authenticator Authenticator[]
-  reviews         Review[]
-  approvedReviews Review[]        @relation("ReviewApprovals")
-  blogPosts       BlogPost[]
+  id                  String               @id @default(cuid())
+  name                String?
+  email               String               @unique
+  emailVerified       DateTime?
+  image               String?
+  password            String?
+  role                UserRole             @default(USER)
+  status              UserStatus           @default(ACTIVE)
+  orcid               String?              @unique
+  institution         String?
+  institutionId       String?
+  accounts            Account[]
+  sessions            Session[]
+  Authenticator       Authenticator[]
+  reviews             Review[]
+  approvedReviews     Review[]             @relation("ReviewApprovals")
+  blogPosts           BlogPost[]
   experimentalReports ExperimentalReport[]
   panels              Panel[]
 
@@ -250,11 +232,11 @@ model Review {
   approvedBy String?
   approvedAt DateTime?
 
-  author             User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId           String
-  experimentalReport ExperimentalReport @relation(fields: [experimentalReportId], references: [id], onDelete: Cascade)
+  author               User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId             String
+  experimentalReport   ExperimentalReport @relation(fields: [experimentalReportId], references: [id], onDelete: Cascade)
   experimentalReportId String
-  approvedByUser     User?              @relation("ReviewApprovals", fields: [approvedBy], references: [id], onDelete: SetNull)
+  approvedByUser       User?              @relation("ReviewApprovals", fields: [approvedBy], references: [id], onDelete: SetNull)
 
   @@unique([authorId, experimentalReportId])
   @@index([experimentalReportId])
@@ -271,20 +253,41 @@ model CellType {
   label     String
   parentIds String @default("[]")
 
-  markers            CellTypeMarker[]
-  structures         CellTypeStructure[]
+  markers     CellTypeMarker[]
+  reportLinks ReportCellType[]
+
+  @@index([label])
+}
+
+model Taxon {
+  id    String @id
+  label String
+
+  reportSpecies ExperimentalReport[] @relation("ReportSpecies")
+  antibodyHosts Antibody[]           @relation("AntibodyHost")
+  panels        Panel[]
+
+  @@index([label])
+}
+
+model Tissue {
+  id        String @id
+  label     String
+  partOfIds String @default("[]")
+
   experimentalReports ExperimentalReport[]
 
   @@index([label])
 }
 
-model AnatomicalStructure {
+model CellularComponent {
   id        String @id
   label     String
   partOfIds String @default("[]")
 
-  cellTypes           CellTypeStructure[]
   experimentalReports ExperimentalReport[]
+
+  @@index([label])
 }
 
 model DiseaseCondition {
@@ -312,27 +315,27 @@ model Fluorophore {
   @@index([name])
 }
 
-model CellTypeStructure {
-  cellTypeId  String
-  structureId String
-  source      String?
+model ReportCellType {
+  reportId   String
+  cellTypeId String
 
-  cellType  CellType            @relation(fields: [cellTypeId], references: [id], onDelete: Cascade)
-  structure AnatomicalStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  report   ExperimentalReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  cellType CellType           @relation(fields: [cellTypeId], references: [id], onDelete: Cascade)
 
-  @@id([cellTypeId, structureId])
+  @@id([reportId, cellTypeId])
+  @@index([cellTypeId])
 }
 
 // ─── Spatial Proteomics: Protein & Marker Models ──────────────────────
 
 model Protein {
-  id            String @id
+  id            String  @id
   label         String
   geneSymbol    String?
   ensemblGeneId String?
 
-  markers     CellTypeMarker[]
-  antibodies  Antibody[]
+  markers      CellTypeMarker[]
+  antibodies   Antibody[]
   panelMarkers PanelMarker[]
 
   @@index([label])
@@ -354,72 +357,77 @@ model CellTypeMarker {
 // ─── Spatial Proteomics: Antibody ─────────────────────────────────────
 
 model Antibody {
-  id              String  @id @default(cuid())
-  rrid            String? @unique
+  id              String     @id @default(cuid())
+  rrid            String?    @unique
   name            String
   catalogNumber   String?
   cloneId         String?
   clonality       Clonality?
-  sourceOrganism  SourceOrganism?
-  targetSpecies   String  @default("[]")
+  hostTaxonId     String?
+  targetSpecies   String     @default("[]")
   targetProteinId String?
   targetName      String?
-  applications    String  @default("[]")
+  applications    String     @default("[]")
   conjugate       String?
   vendorName      String?
   vendorUrl       String?
-  citationCount   Int     @default(0)
+  citationCount   Int        @default(0)
 
   targetProtein       Protein?             @relation(fields: [targetProteinId], references: [id], onDelete: SetNull)
+  hostTaxon           Taxon?               @relation("AntibodyHost", fields: [hostTaxonId], references: [id], onDelete: SetNull)
   experimentalReports ExperimentalReport[]
   panelMarkers        PanelMarker[]
 
   @@index([name])
   @@index([targetProteinId])
   @@index([targetName])
+  @@index([hostTaxonId])
 }
 
 // ─── Spatial Proteomics: Experimental Report ──────────────────────────
 
 model ExperimentalReport {
-  id               String   @id @default(cuid())
+  id               String            @id @default(cuid())
   antibodyId       String?
-  cellTypeId       String?
-  structureId      String?
-  species          Species?
-  tissueType       String?
+  speciesId        String?
+  tissueId         String?
+  subcellularId    String?
   fixation         Fixation?
   method           MultiplexMethod?
   fluorophoreId    String?
   metalTag         String?
   cycleNumber      Int?
   dilution         String?
-  antigenRetrieval String?
-  status           ValidationStatus @default(PENDING)
+  incubation       String?
+  antigenRetrieval AntigenRetrieval?
+  status           ValidationStatus  @default(PENDING)
   works            Boolean?
   signalQuality    SignalQuality?
   specificity      Specificity?
   notes            String?
-  imageUrls        String   @default("[]")
+  imageUrls        String            @default("[]")
   submitterId      String?
-  isPublic         Boolean  @default(true)
+  isPublic         Boolean           @default(true)
 
-  conditionId  String?
+  conditionId String?
 
-  antibody    Antibody?            @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
-  cellType    CellType?            @relation(fields: [cellTypeId], references: [id], onDelete: SetNull)
-  structure   AnatomicalStructure? @relation(fields: [structureId], references: [id], onDelete: SetNull)
-  condition   DiseaseCondition?    @relation(fields: [conditionId], references: [id], onDelete: SetNull)
-  submitter   User?                @relation(fields: [submitterId], references: [id], onDelete: SetNull)
-  fluorophore Fluorophore?         @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
+  antibody    Antibody?          @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
+  species     Taxon?             @relation("ReportSpecies", fields: [speciesId], references: [id], onDelete: SetNull)
+  tissue      Tissue?            @relation(fields: [tissueId], references: [id], onDelete: SetNull)
+  subcellular CellularComponent? @relation(fields: [subcellularId], references: [id], onDelete: SetNull)
+  condition   DiseaseCondition?  @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  submitter   User?              @relation(fields: [submitterId], references: [id], onDelete: SetNull)
+  fluorophore Fluorophore?       @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
+  cellTypes   ReportCellType[]
   reviews     Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([antibodyId])
-  @@index([cellTypeId])
-  @@index([structureId])
+  @@index([speciesId])
+  @@index([tissueId])
+  @@index([subcellularId])
   @@index([conditionId])
   @@index([submitterId])
   @@index([fluorophoreId])
@@ -430,16 +438,17 @@ model ExperimentalReport {
 // ─── Spatial Proteomics: Panel Builder ────────────────────────────────
 
 model Panel {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   description String?
-  species     Species?
+  speciesId   String?
   fixation    Fixation?
   conditionId String?
   ownerId     String?
-  isPublic    Boolean  @default(false)
+  isPublic    Boolean   @default(false)
 
   condition DiseaseCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  species   Taxon?            @relation(fields: [speciesId], references: [id], onDelete: SetNull)
   owner     User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   cycles    PanelCycle[]
 
@@ -449,6 +458,7 @@ model Panel {
   @@index([ownerId])
   @@index([isPublic])
   @@index([conditionId])
+  @@index([speciesId])
 }
 
 model PanelCycle {

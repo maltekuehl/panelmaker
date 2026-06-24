@@ -1,8 +1,9 @@
 import "server-only"
 
-import type { Clonality, Prisma, SourceOrganism } from "@/lib/generated/prisma/client"
+import type { Clonality, Prisma } from "@/lib/generated/prisma/client"
 import { lookupAntibodyByRrid } from "@/lib/integrations/antibody-registry"
 import { prisma } from "@/lib/prisma"
+import { resolveTaxonByName } from "@/models/taxon"
 
 export type AntibodyQueryParams = {
   q?: string
@@ -18,7 +19,7 @@ const antibodySelect = {
   catalogNumber: true,
   cloneId: true,
   clonality: true,
-  sourceOrganism: true,
+  hostTaxon: { select: { id: true, label: true } },
   targetSpecies: true,
   targetProteinId: true,
   targetName: true,
@@ -116,19 +117,6 @@ const CLONALITY_MAP: Record<string, Clonality> = {
   oligoclonal: "OLIGOCLONAL",
 }
 
-const SOURCE_ORGANISM_MAP: Record<string, SourceOrganism> = {
-  "mouse": "MOUSE",
-  "rabbit": "RABBIT",
-  "goat": "GOAT",
-  "rat": "RAT",
-  "donkey": "DONKEY",
-  "chicken": "CHICKEN",
-  "sheep": "SHEEP",
-  "hamster": "HAMSTER",
-  "guinea pig": "GUINEA_PIG",
-  "camelid": "CAMELID",
-}
-
 function cleanValue(value: string | undefined | null): string | null {
   const trimmed = value?.trim()
   return trimmed && trimmed.toLowerCase() !== "unknown" ? trimmed : null
@@ -142,7 +130,7 @@ export async function resolveAntibodyByRrid(rrid: string): Promise<AntibodyRow |
   if (!registry) return null
 
   const clonality = CLONALITY_MAP[registry.clonality.toLowerCase()] ?? null
-  const sourceOrganism = SOURCE_ORGANISM_MAP[registry.sourceOrganism.toLowerCase()] ?? null
+  const hostTaxonId = await resolveTaxonByName(registry.sourceOrganism)
 
   try {
     return await prisma.antibody.create({
@@ -152,7 +140,7 @@ export async function resolveAntibodyByRrid(rrid: string): Promise<AntibodyRow |
         catalogNumber: cleanValue(registry.catalogNumber),
         cloneId: cleanValue(registry.cloneId),
         clonality,
-        sourceOrganism,
+        hostTaxonId,
         targetSpecies: JSON.stringify(registry.targetSpecies ?? []),
         targetName: cleanValue(registry.target),
         applications: JSON.stringify(registry.applications ?? []),
@@ -163,7 +151,6 @@ export async function resolveAntibodyByRrid(rrid: string): Promise<AntibodyRow |
       select: antibodySelect,
     })
   } catch {
-    // Another request may have inserted it concurrently; fall back to a read.
     return lookupByRrid(rrid)
   }
 }

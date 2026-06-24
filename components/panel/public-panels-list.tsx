@@ -8,7 +8,7 @@ import { Layers, Search } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
-import { FIXATION_LABELS, SPECIES_LABELS, type Panel } from "./types"
+import { FIXATION_LABELS, type Panel } from "./types"
 
 function markerCount(panel: Panel): number {
   return panel.cycles.reduce((sum, cycle) => sum + cycle.markers.length, 0)
@@ -83,8 +83,10 @@ export function PublicPanelsList() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((panel) => {
-            const speciesLabel = panel.species ? (SPECIES_LABELS[panel.species] ?? panel.species) : null
-            const fixationLabel = panel.fixation ? (FIXATION_LABELS[panel.fixation] ?? panel.fixation) : null
+            const speciesLabel = panel.species?.label ?? null
+            const fixationLabel = panel.fixation
+              ? (FIXATION_LABELS[panel.fixation as keyof typeof FIXATION_LABELS] ?? panel.fixation)
+              : null
             const markers = markerCount(panel)
             const cycles = panel.cycles.length
 

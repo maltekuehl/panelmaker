@@ -1,10 +1,11 @@
+import { auth } from "@/auth"
 import Orcid from "@/components/icons/orcid"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { SPECIES_LABELS } from "@/lib/constants"
+import { isUserAdmin } from "@/lib/auth"
 import {
   getContributionTier,
   getLeaderboard,
@@ -51,7 +52,7 @@ const STATUS_STYLES: Record<string, string> = {
   REJECTED: "bg-red-100 text-red-700",
 }
 
-async function ProfileContent({ id }: { id: string }) {
+async function ProfileContent({ id, isAdmin }: { id: string; isAdmin: boolean }) {
   "use cache"
   cacheLife("hours")
 
@@ -59,8 +60,8 @@ async function ProfileContent({ id }: { id: string }) {
   if (!user) notFound()
 
   const [stats, recentReports, leaderboard] = await Promise.all([
-    getUserStats(id),
-    getUserRecentReports(id, 10),
+    getUserStats(id, isAdmin),
+    getUserRecentReports(id, 10, isAdmin),
     getLeaderboard(50),
   ])
 
@@ -154,7 +155,7 @@ async function ProfileContent({ id }: { id: string }) {
           <span className="text-muted-foreground">Panels</span>
         </span>
         <span>
-          <span className="text-lg font-semibold tabular-nums">{displayRank ? `#${displayRank}` : "—"}</span>{" "}
+          <span className="text-lg font-semibold tabular-nums">{displayRank ? `#${displayRank}` : "N/A"}</span>{" "}
           <span className="text-muted-foreground">Rank</span>
         </span>
       </div>
@@ -165,30 +166,32 @@ async function ProfileContent({ id }: { id: string }) {
             <FlaskConical className="h-4 w-4" />
             Contributions
           </h2>
-          {stats.methods.length > 0 && (
-            <div>
-              <span className="mb-2 block text-xs font-medium text-muted-foreground">Methods</span>
-              <div className="flex flex-wrap gap-2">
-                {stats.methods.map((method) => (
-                  <Badge key={method} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                    {method}
-                  </Badge>
-                ))}
+          <div className="flex flex-wrap gap-6">
+            {stats.methods.length > 0 && (
+              <div>
+                <span className="mb-2 block text-xs font-medium text-muted-foreground">Methods</span>
+                <div className="flex flex-wrap gap-2">
+                  {stats.methods.map((method) => (
+                    <Badge key={method} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                      {method}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          {stats.species.length > 0 && (
-            <div>
-              <span className="mb-2 block text-xs font-medium text-muted-foreground">Species</span>
-              <div className="flex flex-wrap gap-2">
-                {stats.species.map((sp) => (
-                  <Badge key={sp} variant="outline">
-                    {SPECIES_LABELS[sp] ?? sp}
-                  </Badge>
-                ))}
+            )}
+            {stats.species.length > 0 && (
+              <div>
+                <span className="mb-2 block text-xs font-medium text-muted-foreground">Species</span>
+                <div className="flex flex-wrap gap-2">
+                  {stats.species.map((sp) => (
+                    <Badge key={sp} variant="outline">
+                      {sp}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
 
@@ -234,12 +237,12 @@ async function ProfileContent({ id }: { id: string }) {
                           {report.antibodyRrid}
                         </Link>
                       ) : (
-                        "—"
+                        "N/A"
                       )}
                     </TableCell>
-                    <TableCell className="py-2 text-muted-foreground">{report.cellType ?? "—"}</TableCell>
-                    <TableCell className="py-2">{report.method ?? "—"}</TableCell>
-                    <TableCell className="py-2">{report.species ?? "—"}</TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{report.cellType ?? "N/A"}</TableCell>
+                    <TableCell className="py-2">{report.method ?? "N/A"}</TableCell>
+                    <TableCell className="py-2">{report.species ?? "N/A"}</TableCell>
                     <TableCell className="py-2">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[report.status] ?? "bg-zinc-100 text-zinc-700"}`}
@@ -288,12 +291,14 @@ function ProfileContentSkeleton() {
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { id } = await params
+  const session = await auth()
+  const isAdmin = session?.user?.id ? await isUserAdmin(session.user.id) : false
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       <CustomBreadcrumbs items={[{ label: "Community", href: "/leaderboard" }, { label: "Profile" }]} />
       <Suspense fallback={<ProfileContentSkeleton />}>
-        <ProfileContent id={id} />
+        <ProfileContent id={id} isAdmin={isAdmin} />
       </Suspense>
     </div>
   )

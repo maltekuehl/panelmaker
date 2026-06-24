@@ -1,6 +1,5 @@
 "use client"
 
-import Bluesky from "@/components/icons/bluesky"
 import GitHub from "@/components/icons/github"
 import {
   Sidebar,
@@ -15,7 +14,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { BookOpen, Boxes, Landmark, Layers, Microscope, Newspaper, Search, Users } from "lucide-react"
+import { BookOpen, Boxes, Layers, Microscope, Newspaper, Search, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as React from "react"
@@ -30,10 +29,8 @@ const navItems = [
 
 const resourceItems = [
   { href: "/docs/community/team", title: "Team", icon: Users, external: false },
-  { href: "/docs/community/governance", title: "Governance", icon: Landmark, external: false },
   { href: "https://scverse.org", title: "scverse", icon: Boxes, external: true },
   { href: "https://github.com/complextissue/panelmaker", title: "GitHub", icon: GitHub, external: true },
-  { href: "https://bsky.app/profile/panelmaker.ai", title: "Bluesky", icon: Bluesky, external: true },
 ]
 
 const legalLinks = [

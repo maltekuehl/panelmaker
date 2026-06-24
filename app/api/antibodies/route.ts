@@ -1,5 +1,5 @@
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
-import type { Clonality, SourceOrganism } from "@/lib/generated/prisma/client"
+import type { Clonality } from "@/lib/generated/prisma/client"
 import {
   type AntibodyRegistryResult,
   searchAntibodyRegistry,
@@ -13,6 +13,7 @@ import {
   searchParamsSchema,
   toAntibodyResponse,
 } from "@/models/antibody"
+import { resolveTaxonByName } from "@/models/taxon"
 import { NextRequest } from "next/server"
 import { z } from "zod"
 
@@ -23,29 +24,8 @@ const CLONALITY_MAP: Record<string, Clonality> = {
   oligoclonal: "OLIGOCLONAL",
 }
 
-const SOURCE_ORGANISM_MAP: Record<string, SourceOrganism> = {
-  "mouse": "MOUSE",
-  "rabbit": "RABBIT",
-  "goat": "GOAT",
-  "rat": "RAT",
-  "donkey": "DONKEY",
-  "chicken": "CHICKEN",
-  "sheep": "SHEEP",
-  "hamster": "HAMSTER",
-  "guinea pig": "GUINEA_PIG",
-  "camelid": "CAMELID",
-}
-
 function mapClonality(raw: string): Clonality | null {
   return CLONALITY_MAP[raw.toLowerCase()] ?? null
-}
-
-function mapSourceOrganism(raw: string): SourceOrganism | null {
-  const lower = raw.toLowerCase()
-  for (const [key, value] of Object.entries(SOURCE_ORGANISM_MAP)) {
-    if (lower.includes(key)) return value
-  }
-  return null
 }
 
 async function upsertRegistryResults(registryResults: AntibodyRegistryResult[]) {
@@ -64,6 +44,8 @@ async function upsertRegistryResults(registryResults: AntibodyRegistryResult[]) 
       targetProteinId = r.uniprotId
     }
 
+    const hostTaxonId = r.sourceOrganism ? await resolveTaxonByName(r.sourceOrganism) : null
+
     const upserted = await prisma.antibody.upsert({
       where: { rrid: r.citation },
       update: {},
@@ -73,7 +55,7 @@ async function upsertRegistryResults(registryResults: AntibodyRegistryResult[]) 
         catalogNumber: r.catalogNumber || null,
         cloneId: r.cloneId || null,
         clonality: mapClonality(r.clonality),
-        sourceOrganism: mapSourceOrganism(r.sourceOrganism),
+        hostTaxonId,
         targetSpecies: JSON.stringify(r.targetSpecies),
         targetName: r.target || null,
         targetProteinId,

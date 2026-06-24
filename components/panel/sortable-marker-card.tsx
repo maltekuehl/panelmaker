@@ -2,14 +2,14 @@
 
 import { useSortable } from "@dnd-kit/react/sortable"
 import { MarkerCard } from "./marker-card"
-import type { PanelMarker, Species } from "./types"
+import type { PanelMarker } from "./types"
 
 interface SortableMarkerCardProps {
   marker: PanelMarker
   index: number
   column: string
   panelId: string
-  species?: Species | null
+  species?: { id: string; label: string } | null
   onRemove?: (id: string) => void
   onMarkerUpdated?: () => void
 }

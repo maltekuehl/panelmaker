@@ -112,7 +112,7 @@ function LeaderboardSkeleton() {
 export default function LeaderboardPage() {
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      <CustomBreadcrumbs items={[{ label: "Community Leaderboard" }]} />
+      <CustomBreadcrumbs items={[{ label: "Community" }]} />
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Community Leaderboard</h1>
         <p className="text-muted-foreground mt-1">

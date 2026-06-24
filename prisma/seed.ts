@@ -151,7 +151,29 @@ const CELL_TYPES = [
   { id: "CL:0000623", label: "Natural killer cell", parentIds: ["CL:0000542"] },
 ]
 
-const STRUCTURES = [
+// NCBI taxonomy IDs for all organisms referenced by antibody hosts and report species
+const TAXA = [
+  { id: "NCBI:txid9606", label: "Homo sapiens" },
+  { id: "NCBI:txid10090", label: "Mus musculus" },
+  { id: "NCBI:txid10116", label: "Rattus norvegicus" },
+  { id: "NCBI:txid9986", label: "Oryctolagus cuniculus" },
+  { id: "NCBI:txid9925", label: "Capra hircus" },
+  { id: "NCBI:txid9793", label: "Equus asinus" },
+  { id: "NCBI:txid10036", label: "Mesocricetus auratus" },
+]
+
+// Map old sourceOrganism enum values to Taxon ids
+const SOURCE_ORGANISM_TO_TAXON: Record<string, string> = {
+  MOUSE: "NCBI:txid10090",
+  RABBIT: "NCBI:txid9986",
+  RAT: "NCBI:txid10116",
+  GOAT: "NCBI:txid9925",
+  HAMSTER: "NCBI:txid10036",
+  DONKEY: "NCBI:txid9793",
+}
+
+// UBERON tissues (replaces old AnatomicalStructure seeding)
+const TISSUES = [
   { id: "UBERON:0002370", label: "Thymus", partOfIds: ["UBERON:0000178"] },
   { id: "UBERON:0002106", label: "Spleen", partOfIds: ["UBERON:0000178"] },
   { id: "UBERON:0000160", label: "Intestine", partOfIds: ["UBERON:0001009"] },
@@ -160,9 +182,49 @@ const STRUCTURES = [
   { id: "UBERON:0002113", label: "Kidney", partOfIds: ["UBERON:0001008"] },
   { id: "UBERON:0000082", label: "Lymph Node", partOfIds: ["UBERON:0000178"] },
   { id: "UBERON:0001723", label: "Tonsil", partOfIds: ["UBERON:0000178"] },
+  { id: "UBERON:0000310", label: "Breast", partOfIds: ["UBERON:0001009"] },
+  { id: "UBERON:0001264", label: "Pancreas", partOfIds: ["UBERON:0001009"] },
 ]
 
-// [rrid, name, catalogNumber, cloneId, clonality, sourceOrganism, targetSpecies, targetProteinId, targetName, applications, vendorName, vendorUrl, citationCount]
+// GO Cellular Component terms for subcellular localization
+const CELLULAR_COMPONENTS = [
+  { id: "GO:0005634", label: "nucleus", partOfIds: ["GO:0005623"] },
+  { id: "GO:0005886", label: "plasma membrane", partOfIds: ["GO:0071944"] },
+  { id: "GO:0005737", label: "cytoplasm", partOfIds: ["GO:0005623"] },
+  { id: "GO:0005829", label: "cytosol", partOfIds: ["GO:0005737"] },
+  { id: "GO:0005739", label: "mitochondrion", partOfIds: ["GO:0005737"] },
+  { id: "GO:0005730", label: "nucleolus", partOfIds: ["GO:0005634"] },
+  { id: "GO:0009986", label: "cell surface", partOfIds: ["GO:0005886"] },
+  { id: "GO:0031012", label: "extracellular matrix", partOfIds: ["GO:0005576"] },
+  { id: "GO:0005604", label: "basement membrane", partOfIds: ["GO:0031012"] },
+  { id: "GO:0005576", label: "extracellular region", partOfIds: [] },
+]
+
+// Map proteinId -> GO CC id for subcellular localization (used to assign subcellularId to reports)
+const PROTEIN_SUBCELLULAR: Record<string, string> = {
+  P07766: "GO:0005886", // CD3 epsilon - plasma membrane
+  P06139: "GO:0005886", // CD4 - plasma membrane
+  P01732: "GO:0005886", // CD8 alpha - plasma membrane
+  P11836: "GO:0009986", // CD20 - cell surface
+  P06729: "GO:0005886", // CD45 - plasma membrane
+  P31996: "GO:0005737", // CD68 - cytoplasm (lysosomal)
+  P15391: "GO:0005886", // CD19 - plasma membrane
+  Q9BZS1: "GO:0005634", // FoxP3 - nucleus
+  Q86VB7: "GO:0005886", // CD163 - plasma membrane
+  P46531: "GO:0005886", // PD-1 - plasma membrane
+  Q9NZQ7: "GO:0005886", // PD-L1 - plasma membrane
+  P04233: "GO:0005886", // HLA-DR alpha - plasma membrane
+  P08581: "GO:0005886", // MET - plasma membrane
+  P16284: "GO:0009986", // CD31 - cell surface
+  P35968: "GO:0005886", // VEGFR2 - plasma membrane
+  P49917: "GO:0005634", // Ki67 - nucleus
+  P02533: "GO:0005737", // Keratin 14 - cytoplasm
+  P05067: "GO:0005886", // E-Cadherin - plasma membrane
+  P08670: "GO:0005737", // Vimentin - cytoplasm
+  P62736: "GO:0005737", // Alpha-SMA - cytoplasm
+  PANCK: "GO:0005737", // Pan-Cytokeratin - cytoplasm
+}
+
 type AntibodyDef = {
   rrid: string
   name: string
@@ -816,6 +878,42 @@ async function seedUsers() {
   )
 }
 
+async function seedTaxa() {
+  return Promise.all(
+    TAXA.map((t) =>
+      prisma.taxon.upsert({
+        where: { id: t.id },
+        update: { label: t.label },
+        create: { id: t.id, label: t.label },
+      }),
+    ),
+  )
+}
+
+async function seedTissues() {
+  return Promise.all(
+    TISSUES.map((t) =>
+      prisma.tissue.upsert({
+        where: { id: t.id },
+        update: { label: t.label, partOfIds: JSON.stringify(t.partOfIds) },
+        create: { id: t.id, label: t.label, partOfIds: JSON.stringify(t.partOfIds) },
+      }),
+    ),
+  )
+}
+
+async function seedCellularComponents() {
+  return Promise.all(
+    CELLULAR_COMPONENTS.map((c) =>
+      prisma.cellularComponent.upsert({
+        where: { id: c.id },
+        update: { label: c.label, partOfIds: JSON.stringify(c.partOfIds) },
+        create: { id: c.id, label: c.label, partOfIds: JSON.stringify(c.partOfIds) },
+      }),
+    ),
+  )
+}
+
 async function seedCellTypes() {
   return Promise.all(
     CELL_TYPES.map((ct) =>
@@ -826,22 +924,6 @@ async function seedCellTypes() {
           id: ct.id,
           label: ct.label,
           parentIds: JSON.stringify(ct.parentIds),
-        },
-      }),
-    ),
-  )
-}
-
-async function seedStructures() {
-  return Promise.all(
-    STRUCTURES.map((s) =>
-      prisma.anatomicalStructure.upsert({
-        where: { id: s.id },
-        update: { label: s.label, partOfIds: JSON.stringify(s.partOfIds) },
-        create: {
-          id: s.id,
-          label: s.label,
-          partOfIds: JSON.stringify(s.partOfIds),
         },
       }),
     ),
@@ -908,6 +990,7 @@ async function seedCellTypeMarkers() {
 async function seedAntibodies() {
   const results = []
   for (const ab of ANTIBODIES) {
+    const hostTaxonId = SOURCE_ORGANISM_TO_TAXON[ab.sourceOrganism] ?? null
     const created = await prisma.antibody.upsert({
       where: { rrid: ab.rrid },
       update: {
@@ -915,7 +998,7 @@ async function seedAntibodies() {
         catalogNumber: ab.catalogNumber,
         cloneId: ab.cloneId,
         clonality: ab.clonality,
-        sourceOrganism: ab.sourceOrganism,
+        hostTaxonId,
         targetSpecies: JSON.stringify(ab.targetSpecies),
         targetProteinId: ab.targetProteinId,
         targetName: ab.targetName,
@@ -931,7 +1014,7 @@ async function seedAntibodies() {
         catalogNumber: ab.catalogNumber,
         cloneId: ab.cloneId,
         clonality: ab.clonality,
-        sourceOrganism: ab.sourceOrganism,
+        hostTaxonId,
         targetSpecies: JSON.stringify(ab.targetSpecies),
         targetProteinId: ab.targetProteinId,
         targetName: ab.targetName,
@@ -1056,18 +1139,45 @@ async function seedFluorophores() {
   return created.length
 }
 
+// Maps tissueType string to a seeded UBERON Tissue id.
+// Reports that had a structureId already had the canonical UBERON id; those without
+// need to be looked up from the free-text tissueType string.
+const TISSUE_TYPE_TO_UBERON: Record<string, string> = {
+  "Spleen": "UBERON:0002106",
+  "Thymus": "UBERON:0002370",
+  "Colon": "UBERON:0000160",
+  "Colon tumor": "UBERON:0000160",
+  "Intestine": "UBERON:0000160",
+  "Lung": "UBERON:0002048",
+  "Lung tumor": "UBERON:0002048",
+  "Liver": "UBERON:0002107",
+  "Kidney": "UBERON:0002113",
+  "Lymph node": "UBERON:0000082",
+  "Breast tumor": "UBERON:0000310",
+  "Breast": "UBERON:0000310",
+  "Tonsil": "UBERON:0001723",
+  "Pancreas": "UBERON:0001264",
+}
+
 type ReportInput = {
   antibodyRrid: string
-  cellTypeId: string
-  structureId?: string
-  species: "HUMAN" | "MOUSE"
+  // Primary cell type; omit entirely for general QC / ubiquitous / extracellular markers
+  // that are not tied to a single cell identity. Additional cell types go in extraCellTypeIds.
+  cellTypeId?: string
+  extraCellTypeIds?: string[]
+  // Old structureId was UBERON; now use tissueType string resolved via TISSUE_TYPE_TO_UBERON
   tissueType: string
+  // Old species enum value -> Taxon id mapping done in the loop
+  species: "HUMAN" | "MOUSE"
+  // targetProteinId drives subcellularId assignment
+  targetProteinId?: string
   fixation: "FFPE" | "FRESH_FROZEN" | "PFA" | "METHANOL"
   method: "PATHOPLEX" | "CODEX" | "CYCIF" | "IMC" | "MIBI" | "IBEX" | "OTHER"
   fluorophore?: string
   metalTag?: string
   dilution: string
-  antigenRetrieval?: string
+  antigenRetrieval?: "CITRATE_PH6" | "TRIS_EDTA_PH9" | "ENZYMATIC" | "NONE"
+  incubation?: string
   status: "PUBLISHED" | "PENDING" | "REJECTED"
   works: boolean
   signalQuality: "EXCELLENT" | "GOOD" | "MODERATE" | "POOR"
@@ -1076,20 +1186,26 @@ type ReportInput = {
   notes?: string
 }
 
+const SPECIES_TO_TAXON: Record<string, string> = {
+  HUMAN: "NCBI:txid9606",
+  MOUSE: "NCBI:txid10090",
+}
+
 async function seedExperimentalReports(antibodyMap: Record<string, string>) {
   const reports: ReportInput[] = [
     // --- Garry Nolan (heavy contributor, CODEX specialist) ---
     {
       antibodyRrid: "RRID:AB_314056",
       cellTypeId: "CL:0000084",
-      structureId: "UBERON:0002106",
-      species: "HUMAN",
       tissueType: "Spleen",
+      species: "HUMAN",
+      targetProteinId: "P07766",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "Cy3",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      incubation: "Overnight 4°C",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1100,14 +1216,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_395943",
       cellTypeId: "CL:0000624",
-      structureId: "UBERON:0002106",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000084"],
       tissueType: "Spleen",
+      species: "HUMAN",
+      targetProteinId: "P06139",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF488",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1117,14 +1234,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_314126",
       cellTypeId: "CL:0000625",
-      structureId: "UBERON:0002106",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000084"],
       tissueType: "Spleen",
+      species: "HUMAN",
+      targetProteinId: "P01732",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF647",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1134,14 +1252,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_927185",
       cellTypeId: "CL:0000235",
-      structureId: "UBERON:0002106",
-      species: "HUMAN",
       tissueType: "Spleen",
+      species: "HUMAN",
+      targetProteinId: "P31996",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF555",
       dilution: "1:100",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1151,14 +1269,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2074650",
       cellTypeId: "CL:0000988",
-      structureId: "UBERON:0002106",
-      species: "HUMAN",
       tissueType: "Spleen",
+      species: "HUMAN",
+      targetProteinId: "P06729",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "Cy5",
       dilution: "1:100",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1168,14 +1286,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2892867",
       cellTypeId: "CL:0000576",
-      structureId: "UBERON:0002106",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000988"],
       tissueType: "Spleen",
+      species: "HUMAN",
+      targetProteinId: "P06729",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF750",
       dilution: "1:100",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1185,14 +1304,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2864622",
       cellTypeId: "CL:0000066",
-      structureId: "UBERON:0000160",
-      species: "HUMAN",
       tissueType: "Colon",
+      species: "HUMAN",
+      targetProteinId: "P49917",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF488",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1202,14 +1321,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2860866",
       cellTypeId: "CL:0000451",
-      structureId: "UBERON:0002106",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000235"],
       tissueType: "Spleen",
+      species: "HUMAN",
+      targetProteinId: "P04233",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "Cy3",
       dilution: "1:100",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1221,12 +1341,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_927185",
       cellTypeId: "CL:0000235",
-      species: "HUMAN",
       tissueType: "Breast tumor",
+      species: "HUMAN",
+      targetProteinId: "P31996",
       fixation: "FFPE",
       method: "MIBI",
       metalTag: "89Y",
       dilution: "1:100",
+      incubation: "Overnight 4°C",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1237,8 +1359,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_314056",
       cellTypeId: "CL:0000084",
-      species: "HUMAN",
       tissueType: "Breast tumor",
+      species: "HUMAN",
+      targetProteinId: "P07766",
       fixation: "FFPE",
       method: "MIBI",
       metalTag: "141Pr",
@@ -1252,8 +1375,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2756012",
       cellTypeId: "CL:0000066",
-      species: "HUMAN",
       tissueType: "Breast tumor",
+      species: "HUMAN",
+      targetProteinId: "PANCK",
       fixation: "FFPE",
       method: "MIBI",
       metalTag: "115In",
@@ -1267,8 +1391,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2891175",
       cellTypeId: "CL:0000057",
-      species: "HUMAN",
       tissueType: "Breast tumor",
+      species: "HUMAN",
+      targetProteinId: "P08670",
       fixation: "FFPE",
       method: "MIBI",
       metalTag: "174Yb",
@@ -1282,8 +1407,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2223500",
       cellTypeId: "CL:0000057",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000115"],
       tissueType: "Breast tumor",
+      species: "HUMAN",
+      targetProteinId: "P62736",
       fixation: "FFPE",
       method: "MIBI",
       metalTag: "145Nd",
@@ -1297,8 +1424,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_395943",
       cellTypeId: "CL:0000624",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000084"],
       tissueType: "Lung tumor",
+      species: "HUMAN",
+      targetProteinId: "P06139",
       fixation: "FFPE",
       method: "MIBI",
       metalTag: "143Nd",
@@ -1314,14 +1443,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_10643421",
       cellTypeId: "CL:0000624",
-      structureId: "UBERON:0002370",
-      species: "HUMAN",
       tissueType: "Thymus",
+      species: "HUMAN",
+      targetProteinId: "P06139",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF488",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      incubation: "Overnight 4°C",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1331,14 +1461,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_443426",
       cellTypeId: "CL:0000625",
-      structureId: "UBERON:0002370",
-      species: "HUMAN",
       tissueType: "Thymus",
+      species: "HUMAN",
+      targetProteinId: "P01732",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF555",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1348,14 +1478,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2074649",
       cellTypeId: "CL:0000236",
-      structureId: "UBERON:0002370",
-      species: "HUMAN",
       tissueType: "Thymus",
+      species: "HUMAN",
+      targetProteinId: "P11836",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF647",
       dilution: "1:100",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1365,14 +1495,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2810957",
       cellTypeId: "CL:0000066",
-      structureId: "UBERON:0000160",
-      species: "HUMAN",
       tissueType: "Colon",
+      species: "HUMAN",
+      targetProteinId: "P05067",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF488",
       dilution: "1:400",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1382,14 +1512,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2891175",
       cellTypeId: "CL:0000057",
-      structureId: "UBERON:0000160",
-      species: "HUMAN",
       tissueType: "Colon",
+      species: "HUMAN",
+      targetProteinId: "P08670",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF555",
       dilution: "1:200",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1399,14 +1529,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2810960",
       cellTypeId: "CL:0000066",
-      structureId: "UBERON:0000160",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000235"],
       tissueType: "Colon",
+      species: "HUMAN",
+      targetProteinId: "Q9NZQ7",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF647",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1417,13 +1548,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2716564",
       cellTypeId: "CL:0000625",
-      species: "HUMAN",
       tissueType: "Lung tumor",
+      species: "HUMAN",
+      targetProteinId: "P46531",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF488",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1434,14 +1566,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_302459",
       cellTypeId: "CL:0000066",
-      structureId: "UBERON:0000160",
-      species: "HUMAN",
       tissueType: "Colon tumor",
+      species: "HUMAN",
+      targetProteinId: "P49917",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF555",
       dilution: "1:400",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1451,14 +1583,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2924631",
       cellTypeId: "CL:0000115",
-      structureId: "UBERON:0000160",
-      species: "HUMAN",
       tissueType: "Colon",
+      species: "HUMAN",
+      targetProteinId: "P16284",
       fixation: "FFPE",
       method: "CYCIF",
       fluorophore: "AF647",
       dilution: "1:100",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1470,9 +1602,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_314056",
       cellTypeId: "CL:0000084",
-      structureId: "UBERON:0002370",
-      species: "MOUSE",
       tissueType: "Thymus",
+      species: "MOUSE",
+      targetProteinId: "P07766",
       fixation: "PFA",
       method: "CODEX",
       fluorophore: "Cy3",
@@ -1487,9 +1619,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_395943",
       cellTypeId: "CL:0000624",
-      structureId: "UBERON:0002370",
-      species: "MOUSE",
       tissueType: "Thymus",
+      species: "MOUSE",
+      targetProteinId: "P06139",
       fixation: "PFA",
       method: "CODEX",
       fluorophore: "AF488",
@@ -1503,14 +1635,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2650493",
       cellTypeId: "CL:0000815",
-      structureId: "UBERON:0002370",
-      species: "MOUSE",
       tissueType: "Thymus",
+      species: "MOUSE",
+      targetProteinId: "Q9BZS1",
       fixation: "PFA",
       method: "CODEX",
       fluorophore: "AF647",
       dilution: "1:100",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1520,9 +1652,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2864622",
       cellTypeId: "CL:0000988",
-      structureId: "UBERON:0002106",
-      species: "MOUSE",
       tissueType: "Spleen",
+      species: "MOUSE",
+      targetProteinId: "P49917",
       fixation: "PFA",
       method: "CODEX",
       fluorophore: "AF555",
@@ -1538,13 +1670,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2223500",
       cellTypeId: "CL:0000057",
-      structureId: "UBERON:0002048",
-      species: "HUMAN",
       tissueType: "Lung",
+      species: "HUMAN",
+      targetProteinId: "P62736",
       fixation: "FFPE",
       method: "IMC",
       metalTag: "145Nd",
       dilution: "1:500",
+      incubation: "Overnight 4°C",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1554,9 +1687,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_927185",
       cellTypeId: "CL:0000235",
-      structureId: "UBERON:0002048",
-      species: "HUMAN",
       tissueType: "Lung tumor",
+      species: "HUMAN",
+      targetProteinId: "P31996",
       fixation: "FFPE",
       method: "IMC",
       metalTag: "89Y",
@@ -1570,9 +1703,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2756012",
       cellTypeId: "CL:0000066",
-      structureId: "UBERON:0002048",
-      species: "HUMAN",
       tissueType: "Lung tumor",
+      species: "HUMAN",
+      targetProteinId: "PANCK",
       fixation: "FFPE",
       method: "IMC",
       metalTag: "115In",
@@ -1586,9 +1719,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2860866",
       cellTypeId: "CL:0000451",
-      structureId: "UBERON:0002048",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000235"],
       tissueType: "Lung tumor",
+      species: "HUMAN",
+      targetProteinId: "P04233",
       fixation: "FFPE",
       method: "IMC",
       metalTag: "159Tb",
@@ -1602,9 +1736,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2716564",
       cellTypeId: "CL:0000625",
-      structureId: "UBERON:0002048",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000084"],
       tissueType: "Lung tumor",
+      species: "HUMAN",
+      targetProteinId: "P46531",
       fixation: "FFPE",
       method: "IMC",
       metalTag: "168Er",
@@ -1620,8 +1755,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_314056",
       cellTypeId: "CL:0000084",
-      species: "HUMAN",
       tissueType: "Lymph node",
+      species: "HUMAN",
+      targetProteinId: "P07766",
       fixation: "FRESH_FROZEN",
       method: "OTHER",
       fluorophore: "AF647",
@@ -1635,8 +1771,10 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2650493",
       cellTypeId: "CL:0000815",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000624"],
       tissueType: "Lymph node",
+      species: "HUMAN",
+      targetProteinId: "Q9BZS1",
       fixation: "FRESH_FROZEN",
       method: "OTHER",
       fluorophore: "AF488",
@@ -1650,13 +1788,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_1236477",
       cellTypeId: "CL:0000815",
-      species: "HUMAN",
       tissueType: "Tonsil",
+      species: "HUMAN",
+      targetProteinId: "Q9BZS1",
       fixation: "FFPE",
       method: "OTHER",
       fluorophore: "AF555",
       dilution: "1:100",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1666,13 +1805,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2716564",
       cellTypeId: "CL:0000625",
-      species: "HUMAN",
       tissueType: "Tonsil",
+      species: "HUMAN",
+      targetProteinId: "P46531",
       fixation: "FFPE",
       method: "OTHER",
       fluorophore: "AF647",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1683,13 +1823,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2810960",
       cellTypeId: "CL:0000066",
-      species: "HUMAN",
       tissueType: "Tonsil",
+      species: "HUMAN",
+      targetProteinId: "Q9NZQ7",
       fixation: "FFPE",
       method: "OTHER",
       fluorophore: "AF488",
       dilution: "1:400",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PENDING",
       works: true,
       signalQuality: "GOOD",
@@ -1701,14 +1842,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_927185",
       cellTypeId: "CL:0000235",
-      structureId: "UBERON:0002107",
-      species: "HUMAN",
       tissueType: "Liver",
+      species: "HUMAN",
+      targetProteinId: "P31996",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "Cy3",
       dilution: "1:100",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1718,14 +1859,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2924631",
       cellTypeId: "CL:0000115",
-      structureId: "UBERON:0002107",
-      species: "HUMAN",
       tissueType: "Liver",
+      species: "HUMAN",
+      targetProteinId: "P16284",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF488",
       dilution: "1:100",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1735,14 +1876,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_443427",
       cellTypeId: "CL:0000235",
-      structureId: "UBERON:0002107",
-      species: "HUMAN",
       tissueType: "Liver",
+      species: "HUMAN",
+      targetProteinId: "P31996",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF647",
       dilution: "1:200",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PENDING",
       works: true,
       signalQuality: "MODERATE",
@@ -1755,12 +1896,13 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_443425",
       cellTypeId: "CL:0000084",
-      species: "HUMAN",
       tissueType: "Lymph node",
+      species: "HUMAN",
+      targetProteinId: "P07766",
       fixation: "FFPE",
       method: "OTHER",
       dilution: "1:100",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1770,12 +1912,13 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2832070",
       cellTypeId: "CL:0000235",
-      species: "HUMAN",
       tissueType: "Lymph node",
+      species: "HUMAN",
+      targetProteinId: "Q86VB7",
       fixation: "FFPE",
       method: "OTHER",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1787,8 +1930,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_302459",
       cellTypeId: "CL:0000057",
-      species: "HUMAN",
       tissueType: "Pancreas",
+      species: "HUMAN",
+      targetProteinId: "P49917",
       fixation: "METHANOL",
       method: "OTHER",
       fluorophore: "AF488",
@@ -1805,8 +1949,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_314056",
       cellTypeId: "CL:0000084",
-      species: "MOUSE",
       tissueType: "Spleen",
+      species: "MOUSE",
+      targetProteinId: "P07766",
       fixation: "PFA",
       method: "OTHER",
       fluorophore: "AF647",
@@ -1820,8 +1965,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_1236477",
       cellTypeId: "CL:0000815",
-      species: "MOUSE",
       tissueType: "Spleen",
+      species: "MOUSE",
+      targetProteinId: "Q9BZS1",
       fixation: "PFA",
       method: "OTHER",
       fluorophore: "AF488",
@@ -1835,8 +1981,9 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_395943",
       cellTypeId: "CL:0000624",
-      species: "MOUSE",
       tissueType: "Spleen",
+      species: "MOUSE",
+      targetProteinId: "P06139",
       fixation: "PFA",
       method: "OTHER",
       fluorophore: "AF555",
@@ -1852,14 +1999,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_314056",
       cellTypeId: "CL:0000084",
-      structureId: "UBERON:0002113",
-      species: "HUMAN",
       tissueType: "Kidney",
+      species: "HUMAN",
+      targetProteinId: "P07766",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "FITC",
       dilution: "1:200",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1869,14 +2016,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_443425",
       cellTypeId: "CL:0000624",
-      structureId: "UBERON:0002113",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000084"],
       tissueType: "Kidney",
+      species: "HUMAN",
+      targetProteinId: "P07766",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF555",
       dilution: "1:100",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1886,14 +2034,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_395943",
       cellTypeId: "CL:0000625",
-      structureId: "UBERON:0002113",
-      species: "HUMAN",
+      extraCellTypeIds: ["CL:0000084"],
       tissueType: "Kidney",
+      species: "HUMAN",
+      targetProteinId: "P06139",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF647",
       dilution: "1:100",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1903,14 +2052,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_927185",
       cellTypeId: "CL:0000066",
-      structureId: "UBERON:0002113",
-      species: "HUMAN",
       tissueType: "Kidney",
+      species: "HUMAN",
+      targetProteinId: "P31996",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF405",
       dilution: "1:200",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1920,14 +2069,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_314126",
       cellTypeId: "CL:0000576",
-      structureId: "UBERON:0002113",
-      species: "HUMAN",
       tissueType: "Kidney",
+      species: "HUMAN",
+      targetProteinId: "P01732",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF647",
       dilution: "1:150",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
@@ -1937,14 +2086,14 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_563543",
       cellTypeId: "CL:0000235",
-      structureId: "UBERON:0002113",
-      species: "HUMAN",
       tissueType: "Kidney",
+      species: "HUMAN",
+      targetProteinId: "P15391",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF750",
       dilution: "1:100",
-      antigenRetrieval: "Tris-EDTA pH 9.0",
+      antigenRetrieval: "TRIS_EDTA_PH9",
       status: "PUBLISHED",
       works: true,
       signalQuality: "GOOD",
@@ -1954,19 +2103,106 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
     {
       antibodyRrid: "RRID:AB_2074649",
       cellTypeId: "CL:0000115",
-      structureId: "UBERON:0002113",
-      species: "HUMAN",
       tissueType: "Kidney",
+      species: "HUMAN",
+      targetProteinId: "P11836",
       fixation: "FFPE",
       method: "CODEX",
       fluorophore: "AF488",
       dilution: "1:200",
-      antigenRetrieval: "Citrate pH 6.0",
+      antigenRetrieval: "CITRATE_PH6",
       status: "PUBLISHED",
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
       submitterId: "seed_user_puelles_victor",
+    },
+    // --- General QC / ubiquitous / structural markers with NO cell type assignment ---
+    {
+      antibodyRrid: "RRID:AB_2864622",
+      tissueType: "Tonsil",
+      species: "HUMAN",
+      targetProteinId: "P49917",
+      fixation: "FFPE",
+      method: "CYCIF",
+      fluorophore: "AF555",
+      dilution: "1:500",
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      status: "PUBLISHED",
+      works: true,
+      signalQuality: "EXCELLENT",
+      specificity: "HIGH",
+      submitterId: "seed_user_lin_jia",
+      notes:
+        "Proliferation marker. Nuclear signal across many proliferating cell types, not tied to a single identity.",
+    },
+    {
+      antibodyRrid: "RRID:AB_2891175",
+      tissueType: "Kidney",
+      species: "HUMAN",
+      targetProteinId: "P08670",
+      fixation: "FFPE",
+      method: "CODEX",
+      fluorophore: "Cy5",
+      dilution: "1:300",
+      antigenRetrieval: "CITRATE_PH6",
+      status: "PUBLISHED",
+      works: true,
+      signalQuality: "GOOD",
+      specificity: "MODERATE",
+      submitterId: "seed_user_puelles_victor",
+      notes: "Broad mesenchymal and stromal marker used for tissue architecture QC rather than a specific cell type.",
+    },
+    {
+      antibodyRrid: "RRID:AB_2223500",
+      tissueType: "Lung",
+      species: "HUMAN",
+      targetProteinId: "P62736",
+      fixation: "FFPE",
+      method: "IMC",
+      metalTag: "141Pr",
+      dilution: "1:100",
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      status: "PUBLISHED",
+      works: true,
+      signalQuality: "EXCELLENT",
+      specificity: "HIGH",
+      submitterId: "seed_user_angelo_mike",
+      notes: "Smooth muscle and perivascular/stromal structural stain; not assigned to a single cell identity.",
+    },
+    {
+      antibodyRrid: "RRID:AB_2756012",
+      tissueType: "Intestine",
+      species: "HUMAN",
+      targetProteinId: "PANCK",
+      fixation: "FFPE",
+      method: "CODEX",
+      fluorophore: "AF488",
+      dilution: "1:200",
+      antigenRetrieval: "CITRATE_PH6",
+      status: "PUBLISHED",
+      works: true,
+      signalQuality: "EXCELLENT",
+      specificity: "HIGH",
+      submitterId: "seed_user_goltsev_yury",
+      notes: "Pan-epithelial structural marker used to delineate epithelium; spans many epithelial cell types.",
+    },
+    {
+      antibodyRrid: "RRID:AB_2810957",
+      tissueType: "Breast",
+      species: "HUMAN",
+      targetProteinId: "P05067",
+      fixation: "FFPE",
+      method: "CYCIF",
+      fluorophore: "AF647",
+      dilution: "1:250",
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      status: "PENDING",
+      works: true,
+      signalQuality: "GOOD",
+      specificity: "MODERATE",
+      submitterId: "seed_user_krummel_matt",
+      notes: "Epithelial adherens-junction marker; broad epithelial coverage, no single cell type assigned.",
     },
   ]
 
@@ -1977,19 +2213,23 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       throw new Error(`Antibody not found for RRID: ${r.antibodyRrid}`)
     }
 
-    await prisma.experimentalReport.create({
+    const speciesId = SPECIES_TO_TAXON[r.species] ?? null
+    const tissueId = TISSUE_TYPE_TO_UBERON[r.tissueType] ?? null
+    const subcellularId = r.targetProteinId ? (PROTEIN_SUBCELLULAR[r.targetProteinId] ?? null) : null
+
+    const report = await prisma.experimentalReport.create({
       data: {
         antibodyId,
-        cellTypeId: r.cellTypeId,
-        structureId: r.structureId,
-        species: r.species,
-        tissueType: r.tissueType,
+        speciesId,
+        tissueId,
+        subcellularId,
         fixation: r.fixation,
         method: r.method,
         fluorophoreId: fluId(r.fluorophore),
         metalTag: r.metalTag,
         dilution: r.dilution,
-        antigenRetrieval: r.antigenRetrieval,
+        incubation: r.incubation ?? null,
+        antigenRetrieval: r.antigenRetrieval ?? null,
         status: r.status,
         works: r.works,
         signalQuality: r.signalQuality,
@@ -2000,6 +2240,20 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
         imageUrls: getReportImages(i),
       },
     })
+
+    // Create ReportCellType join rows; reports may have no cell type at all, and
+    // guard against non-existent cell types
+    const allCellTypeIds = [r.cellTypeId, ...(r.extraCellTypeIds ?? [])].filter(
+      (id): id is string => typeof id === "string",
+    )
+    for (const ctId of allCellTypeIds) {
+      const exists = await prisma.cellType.findUnique({ where: { id: ctId } })
+      if (exists) {
+        await prisma.reportCellType.create({
+          data: { reportId: report.id, cellTypeId: ctId },
+        })
+      }
+    }
   }
 
   return reports.length
@@ -2017,7 +2271,7 @@ async function seedPanels(antibodyMap: Record<string, string>) {
       name: "Immune Cell Profiling - Spleen (CODEX)",
       description:
         "Multi-cycle CODEX panel for comprehensive immune cell typing in human spleen. Covers T cells, B cells, myeloid and structural markers across 3 imaging cycles.",
-      species: "HUMAN",
+      speciesId: "NCBI:txid9606",
       fixation: "FFPE",
       ownerId: nolanId,
       isPublic: true,
@@ -2141,7 +2395,7 @@ async function seedPanels(antibodyMap: Record<string, string>) {
       name: "Tumor Microenvironment - CyCIF Core Panel",
       description:
         "4-cycle CyCIF panel for comprehensive TME characterization in FFPE. Covers epithelial, immune, stromal, and checkpoint markers across iterative staining rounds.",
-      species: "HUMAN",
+      speciesId: "NCBI:txid9606",
       fixation: "FFPE",
       ownerId: linId,
       isPublic: true,
@@ -2349,14 +2603,16 @@ async function resetDatabase() {
   await prisma.panelMarker.deleteMany()
   await prisma.panelCycle.deleteMany()
   await prisma.panel.deleteMany()
+  await prisma.reportCellType.deleteMany()
   await prisma.experimentalReport.deleteMany()
   await prisma.fluorophore.deleteMany()
   await prisma.cellTypeMarker.deleteMany()
-  await prisma.cellTypeStructure.deleteMany()
   await prisma.antibody.deleteMany()
   await prisma.protein.deleteMany()
   await prisma.cellType.deleteMany()
-  await prisma.anatomicalStructure.deleteMany()
+  await prisma.tissue.deleteMany()
+  await prisma.cellularComponent.deleteMany()
+  await prisma.taxon.deleteMany()
   await prisma.diseaseCondition.deleteMany()
   await prisma.review.deleteMany()
   await prisma.chatMessage.deleteMany()
@@ -2373,8 +2629,10 @@ async function resetDatabase() {
 async function main() {
   await resetDatabase()
   const users = await seedUsers()
+  await seedTaxa()
+  await seedTissues()
+  await seedCellularComponents()
   const cellTypes = await seedCellTypes()
-  const structures = await seedStructures()
   await seedDiseaseConditions()
   const proteins = await seedProteins()
   await seedCellTypeMarkers()
@@ -2394,9 +2652,11 @@ async function main() {
 
   console.log("Seed data created successfully")
   console.log(`  ${users.length} users`)
+  console.log(`  ${TAXA.length} taxa`)
+  console.log(`  ${TISSUES.length} tissues`)
+  console.log(`  ${CELLULAR_COMPONENTS.length} cellular components`)
   console.log(`  ${fluorophoreCount} fluorophores`)
   console.log(`  ${cellTypes.length} cell types`)
-  console.log(`  ${structures.length} anatomical structures (incl. kidney, lymph node, tonsil)`)
   console.log(`  ${proteins.length} proteins`)
   console.log(`  25 cell type markers`)
   console.log(`  ${antibodies.length} antibodies`)

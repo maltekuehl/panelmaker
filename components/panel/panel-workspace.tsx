@@ -24,7 +24,7 @@ import { toast } from "sonner"
 import type { CreatePanelFormData } from "./panel-form"
 import { PanelForm } from "./panel-form"
 import { PanelList } from "./panel-list"
-import { FIXATION_LABELS, Panel, PanelCycle, SPECIES_LABELS } from "./types"
+import { FIXATION_LABELS, Panel, PanelCycle } from "./types"
 
 type PanelWarning = {
   type: string
@@ -104,7 +104,8 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
       body: JSON.stringify({
         name: data.name,
         description: data.description || undefined,
-        species: data.species || undefined,
+        speciesId: data.speciesId || undefined,
+        speciesLabel: data.speciesLabel || undefined,
         fixation: data.fixation || undefined,
         conditionId: data.conditionId || undefined,
         conditionLabel: data.conditionLabel || undefined,
@@ -218,34 +219,38 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
   return (
     <Wrapper className="flex h-full flex-col overflow-hidden p-0">
       <div className="p-4 pb-0 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <Palette className="h-5 w-5 text-primary" />
-          </div>
+        <div className="flex items-center justify-between gap-3">
           {panels.length > 0 ? (
-            <Select value={activePanelId ?? undefined} onValueChange={(val) => setActivePanelId(val)}>
-              <SelectTrigger className="h-10 flex-1 font-medium">
-                <SelectValue placeholder="Select panel" />
-              </SelectTrigger>
-              <SelectContent>
-                {panels.map((panel) => {
-                  const pSpecies = panel.species ? (SPECIES_LABELS[panel.species] ?? panel.species) : null
-                  const pFixation = panel.fixation ? (FIXATION_LABELS[panel.fixation] ?? panel.fixation) : null
-                  return (
-                    <SelectItem key={panel.id} value={String(panel.id)}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{panel.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {[pSpecies, pFixation].filter(Boolean).join(" • ") || "No species / fixation set"}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  )
-                })}
-              </SelectContent>
-            </Select>
+            <>
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Palette className="h-5 w-5 text-primary" />
+              </div>
+              <Select value={activePanelId ?? undefined} onValueChange={(val) => setActivePanelId(val)}>
+                <SelectTrigger className="h-10 flex-1 font-medium">
+                  <SelectValue placeholder="Select panel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {panels.map((panel) => {
+                    const pSpecies = panel.species?.label ?? null
+                    const pFixation = panel.fixation
+                      ? (FIXATION_LABELS[panel.fixation as keyof typeof FIXATION_LABELS] ?? panel.fixation)
+                      : null
+                    return (
+                      <SelectItem key={panel.id} value={String(panel.id)}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{panel.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {[pSpecies, pFixation].filter(Boolean).join(" • ") || "No species / fixation set"}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </>
           ) : (
-            <p className="flex-1 text-sm text-muted-foreground">No panels yet. Create your first panel.</p>
+            <div></div>
           )}
           <Popover open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <PopoverTrigger asChild>
@@ -351,7 +356,9 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
         />
       ) : (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">Create a panel to get started.</p>
+          <p className="text-sm text-muted-foreground text-center px-8">
+            Click on the plus icon in the upper right corner to create your first panel and get started.
+          </p>
         </div>
       )}
 

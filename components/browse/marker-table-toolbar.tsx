@@ -3,19 +3,16 @@
 import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { FIXATION_LABELS, METHOD_LABELS, SPECIES_LABELS } from "@/lib/constants"
-import { browseMarkerParsers, isBrowseParamsActive } from "@/lib/data-table"
+import { browseMarkerParsers, FILTER_DIMENSIONS, FILTER_KEYS, isBrowseParamsActive } from "@/lib/data-table"
+import type { BrowseFacets } from "@/models/experimental-report"
 import { X } from "lucide-react"
 import { useQueryStates } from "nuqs"
 import { useEffect, useRef, useState } from "react"
-
-const SPECIES_OPTIONS = Object.entries(SPECIES_LABELS).map(([value, label]) => ({ value, label }))
-const METHOD_OPTIONS = Object.entries(METHOD_LABELS).map(([value, label]) => ({ value, label }))
-const FIXATION_OPTIONS = Object.entries(FIXATION_LABELS).map(([value, label]) => ({ value, label }))
+import { BrowseModeTabs } from "./browse-mode-tabs"
 
 const SEARCH_DEBOUNCE_MS = 300
 
-export function MarkerTableToolbar() {
+export function MarkerTableToolbar({ facets }: { facets: BrowseFacets }) {
   const [params, setParams] = useQueryStates(browseMarkerParsers, { shallow: false })
   const [search, setSearch] = useState(params.q)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -34,44 +31,50 @@ export function MarkerTableToolbar() {
 
   const isActive = isBrowseParamsActive(params)
 
+  const visibleDimensions = FILTER_DIMENSIONS.filter(
+    (dimension) => dimension.tabs.includes(params.mode) && (facets[dimension.key]?.length ?? 0) > 0,
+  )
+
+  const resetFilters = () =>
+    setParams({
+      q: null,
+      sort: null,
+      order: null,
+      page: null,
+      ...Object.fromEntries(FILTER_KEYS.map((key) => [key, null])),
+    } as Parameters<typeof setParams>[0])
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Input
-        placeholder="Search markers, cell types, tissues…"
-        value={search}
-        onChange={(event) => onSearchChange(event.target.value)}
-        className="h-8 w-[180px] lg:w-[280px]"
-      />
-      <DataTableFacetedFilter
-        title="Species"
-        options={SPECIES_OPTIONS}
-        value={params.species}
-        onChange={(value) => setParams({ species: value.length ? value : null, page: 1 })}
-      />
-      <DataTableFacetedFilter
-        title="Method"
-        options={METHOD_OPTIONS}
-        value={params.method}
-        onChange={(value) => setParams({ method: value.length ? value : null, page: 1 })}
-      />
-      <DataTableFacetedFilter
-        title="Fixation"
-        options={FIXATION_OPTIONS}
-        value={params.fixation}
-        onChange={(value) => setParams({ fixation: value.length ? value : null, page: 1 })}
-      />
-      {isActive && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="h-8 px-2 lg:px-3"
-          onClick={() =>
-            setParams({ q: null, species: null, method: null, fixation: null, sort: null, order: null, page: null })
-          }
-        >
-          <X className="h-4 w-4" />
-          Reset
-        </Button>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <BrowseModeTabs />
+        <Input
+          placeholder="Search markers, cell types, tissues..."
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          className="h-8 w-[180px] lg:w-[280px]"
+        />
+      </div>
+      {(visibleDimensions.length > 0 || isActive) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {visibleDimensions.map((dimension) => (
+            <DataTableFacetedFilter
+              key={dimension.key}
+              title={dimension.title}
+              options={facets[dimension.key] ?? []}
+              value={(params[dimension.key as keyof typeof params] as string[]) ?? []}
+              onChange={(value) =>
+                setParams({ [dimension.key]: value.length ? value : null, page: 1 } as Parameters<typeof setParams>[0])
+              }
+            />
+          ))}
+          {isActive && (
+            <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters}>
+              <X className="h-4 w-4" />
+              Reset
+            </Button>
+          )}
+        </div>
       )}
     </div>
   )

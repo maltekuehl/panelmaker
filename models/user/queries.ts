@@ -1,6 +1,6 @@
 import "server-only"
 
-import type { MultiplexMethod, Species, ValidationStatus } from "@/lib/generated/prisma/client"
+import type { MultiplexMethod, ValidationStatus } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 
 const userProfileSelect = {
@@ -29,7 +29,7 @@ export type UserStats = {
   pendingReports: number
   publicPanels: number
   methods: MultiplexMethod[]
-  species: Species[]
+  species: string[]
 }
 
 export type LeaderboardEntry = {
@@ -48,21 +48,27 @@ export async function getUserProfile(userId: string): Promise<UserProfileRow | n
   })
 }
 
-export async function getUserStats(userId: string): Promise<UserStats> {
+export async function getUserStats(userId: string, includeNonPublished = false): Promise<UserStats> {
+  const visibility = includeNonPublished
+    ? { submitterId: userId, isPublic: true }
+    : { submitterId: userId, isPublic: true, status: "PUBLISHED" as const }
+
   const [totalReports, publishedReports, pendingReports, publicPanels, methodRows, speciesRows] = await Promise.all([
-    prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true } }),
+    prisma.experimentalReport.count({ where: visibility }),
     prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true, status: "PUBLISHED" } }),
-    prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true, status: "PENDING" } }),
+    includeNonPublished
+      ? prisma.experimentalReport.count({ where: { submitterId: userId, isPublic: true, status: "PENDING" } })
+      : Promise.resolve(0),
     prisma.panel.count({ where: { ownerId: userId, isPublic: true } }),
     prisma.experimentalReport.findMany({
-      where: { submitterId: userId, isPublic: true, method: { not: null } },
+      where: { ...visibility, method: { not: null } },
       select: { method: true },
       distinct: ["method"],
     }),
     prisma.experimentalReport.findMany({
-      where: { submitterId: userId, isPublic: true, species: { not: null } },
-      select: { species: true },
-      distinct: ["species"],
+      where: { ...visibility, speciesId: { not: null } },
+      select: { species: { select: { id: true, label: true } } },
+      distinct: ["speciesId"],
     }),
   ])
 
@@ -72,16 +78,16 @@ export async function getUserStats(userId: string): Promise<UserStats> {
     pendingReports,
     publicPanels,
     methods: methodRows.map((r) => r.method!),
-    species: speciesRows.map((r) => r.species!),
+    species: speciesRows.map((r) => r.species?.label).filter((l): l is string => l != null),
   }
 }
 
 const recentReportSelect = {
   id: true,
   method: true,
-  species: true,
   status: true,
   createdAt: true,
+  species: { select: { id: true, label: true } },
   antibody: {
     select: {
       id: true,
@@ -91,18 +97,13 @@ const recentReportSelect = {
       targetProteinId: true,
     },
   },
-  cellType: {
-    select: {
-      id: true,
-      label: true,
-    },
-  },
+  cellTypes: { select: { cellType: { select: { id: true, label: true } } } },
 } as const
 
 export type RecentReportRow = {
   id: string
   method: MultiplexMethod | null
-  species: Species | null
+  species: { id: string; label: string } | null
   status: ValidationStatus
   createdAt: Date
   antibody: {
@@ -112,15 +113,18 @@ export type RecentReportRow = {
     targetName: string | null
     targetProteinId: string | null
   } | null
-  cellType: {
-    id: string
-    label: string
-  } | null
+  cellTypes: { cellType: { id: string; label: string } }[]
 }
 
-export async function getUserRecentReports(userId: string, limit = 20): Promise<RecentReportRow[]> {
+export async function getUserRecentReports(
+  userId: string,
+  limit = 20,
+  includeNonPublished = false,
+): Promise<RecentReportRow[]> {
   return prisma.experimentalReport.findMany({
-    where: { submitterId: userId, isPublic: true },
+    where: includeNonPublished
+      ? { submitterId: userId, isPublic: true }
+      : { submitterId: userId, isPublic: true, status: "PUBLISHED" },
     select: recentReportSelect,
     orderBy: { createdAt: "desc" },
     take: limit,

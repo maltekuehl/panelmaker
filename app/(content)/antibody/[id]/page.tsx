@@ -66,7 +66,7 @@ async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: s
             <Badge variant="outline">Cat: {antibody.catalogNumber ?? "N/A"}</Badge>
             {antibody.clonality && <Badge variant="outline">{antibody.clonality}</Badge>}
             {antibody.targetName && <Badge variant="outline">Target: {antibody.targetName}</Badge>}
-            {antibody.sourceOrganism && <Badge variant="outline">Host: {antibody.sourceOrganism}</Badge>}
+            {antibody.hostTaxon?.label && <Badge variant="outline">Host: {antibody.hostTaxon.label}</Badge>}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">

@@ -97,7 +97,7 @@ export function checkCrossReactivity(
   for (const [cycleId, cycleMarkers] of byCycle) {
     const cycleName = cycleNames.get(cycleId) ?? `Cycle ${cycleId}`
     const withSpecies = cycleMarkers.filter(
-      (m) => m.antibody?.sourceOrganism !== null && m.antibody?.sourceOrganism !== undefined,
+      (m) => m.antibody?.hostTaxon?.label !== null && m.antibody?.hostTaxon?.label !== undefined,
     )
 
     for (let i = 0; i < withSpecies.length; i++) {
@@ -105,8 +105,8 @@ export function checkCrossReactivity(
         const a = withSpecies[i]
         const b = withSpecies[j]
 
-        if (a.antibody?.sourceOrganism === b.antibody?.sourceOrganism) {
-          const species = a.antibody?.sourceOrganism as string
+        if (a.antibody?.hostTaxon?.label === b.antibody?.hostTaxon?.label) {
+          const species = a.antibody?.hostTaxon?.label as string
           const labelA = antibodyLabel(a)
           const labelB = antibodyLabel(b)
           issues.push({
@@ -152,7 +152,7 @@ export function generatePanelReport(panel: PanelRow, warnings: PanelWarning[]): 
     summary: {
       totalMarkers,
       totalCycles: panel.cycles.length,
-      species: panel.species ?? null,
+      species: panel.species?.label ?? null,
       fixation: panel.fixation ?? null,
     },
     cycles: panel.cycles.map((cycle) => ({
@@ -186,7 +186,7 @@ export function exportPanelCsv(panel: PanelRow): string {
         escapeCsvField(marker.antibody?.catalogNumber ?? ""),
         escapeCsvField(marker.fluorophore?.name ?? ""),
         escapeCsvField(marker.metalTag ?? ""),
-        escapeCsvField(marker.antibody?.sourceOrganism ?? ""),
+        escapeCsvField(marker.antibody?.hostTaxon?.label ?? ""),
       ]
       return cols.join(",")
     }),
@@ -228,7 +228,7 @@ export function exportPanelOrderCsv(panel: PanelRow): string {
       escapeCsvField(marker.antibody?.rrid ?? ""),
       escapeCsvField(marker.antibody?.vendorName ?? ""),
       escapeCsvField(marker.antibody?.catalogNumber ?? ""),
-      escapeCsvField(marker.antibody?.sourceOrganism ?? ""),
+      escapeCsvField(marker.antibody?.hostTaxon?.label ?? ""),
       escapeCsvField(marker.antibody?.conjugate ?? ""),
       "1",
     ]
@@ -243,7 +243,7 @@ export function exportPanelJson(panel: PanelRow): object {
     id: panel.id,
     name: panel.name,
     description: panel.description,
-    species: panel.species,
+    species: panel.species?.label ?? null,
     fixation: panel.fixation,
     condition: panel.condition,
     isPublic: panel.isPublic,
@@ -272,7 +272,7 @@ export function exportPanelJson(panel: PanelRow): object {
               name: marker.antibody.name,
               rrid: marker.antibody.rrid,
               conjugate: marker.antibody.conjugate,
-              sourceOrganism: marker.antibody.sourceOrganism,
+              hostSpecies: marker.antibody.hostTaxon?.label ?? null,
               vendorName: marker.antibody.vendorName,
               catalogNumber: marker.antibody.catalogNumber,
               cloneId: marker.antibody.cloneId,

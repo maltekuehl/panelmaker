@@ -7,13 +7,13 @@ import { Plus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { CycleSection } from "./cycle-section"
-import type { PanelMarker, Species } from "./types"
+import type { PanelMarker } from "./types"
 import { PanelCycle } from "./types"
 
 interface PanelListProps {
   panelId: string
   cycles: PanelCycle[]
-  species?: Species | null
+  species?: { id: string; label: string } | null
   onCyclesChange: (cycles: PanelCycle[]) => void
 }
 

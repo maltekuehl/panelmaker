@@ -1,11 +1,12 @@
-import { Fixation, Species } from "@/lib/generated/prisma/enums"
+import { Fixation } from "@/lib/generated/prisma/enums"
 import { z } from "zod"
 
 export const createPanelSchema = z
   .object({
     name: z.string().min(1).max(255),
     description: z.string().max(2000).optional(),
-    species: z.nativeEnum(Species).optional(),
+    speciesId: z.string().max(255).optional(),
+    speciesLabel: z.string().max(255).optional(),
     fixation: z.nativeEnum(Fixation).optional(),
     conditionId: z.string().max(255).optional(),
     conditionLabel: z.string().max(255).optional(),
@@ -19,7 +20,8 @@ export const updatePanelSchema = z
   .object({
     name: z.string().min(1).max(255).optional(),
     description: z.string().max(2000).optional(),
-    species: z.nativeEnum(Species).optional(),
+    speciesId: z.string().max(255).optional(),
+    speciesLabel: z.string().max(255).optional(),
     fixation: z.nativeEnum(Fixation).optional(),
     conditionId: z.string().max(255).optional(),
     conditionLabel: z.string().max(255).optional(),
