@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { usePanelsSignal } from "@/stores/panels"
 import { Palette, X } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useCallback, useEffect, useState } from "react"
@@ -13,6 +14,7 @@ export function PanelDrawer() {
   const [hasOpened, setHasOpened] = useState(false)
   const [markerCount, setMarkerCount] = useState(0)
   const { data: session } = useSession()
+  const panelsVersion = usePanelsSignal((s) => s.version)
 
   useEffect(() => {
     if (open) setHasOpened(true)
@@ -37,7 +39,7 @@ export function PanelDrawer() {
 
   useEffect(() => {
     if (session?.user) fetchPanelCount()
-  }, [session, fetchPanelCount])
+  }, [session, fetchPanelCount, panelsVersion])
 
   useEffect(() => {
     if (!open && session?.user) fetchPanelCount()

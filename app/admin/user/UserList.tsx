@@ -17,7 +17,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { ChevronLeft, ChevronRight, Loader2, Search, Shield, ShieldOff, Trash2, User, X } from "lucide-react"
+import {
+  BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Loader2,
+  Search,
+  Shield,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  User,
+  X,
+} from "lucide-react"
 import { useEffect, useState } from "react"
 
 interface User {
@@ -27,6 +40,8 @@ interface User {
   image: string | null
   role: "USER" | "ADMIN"
   status: "ACTIVE" | "BLOCKED"
+  submissionAccess: "NONE" | "REQUESTED" | "VERIFIED"
+  submissionRequestedAt: string | null
   createdAt: string
   updatedAt: string
   _count: {
@@ -141,6 +156,39 @@ export default function UserList() {
     }
   }
 
+  const handleSubmissionAccess = async (userId: string, action: "grant" | "revoke") => {
+    setActionLoading(userId)
+    try {
+      const response = await fetch(`/api/user/${userId}/submission-access`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      })
+
+      if (!response.ok) {
+        const errorData: { error: string } = await response.json()
+        throw new Error(errorData.error || "Failed to update submission access")
+      }
+
+      toast({
+        title: "Success",
+        description: action === "grant" ? "Submission access granted" : "Submission access revoked",
+      })
+
+      await fetchUsers(pagination.page)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update submission access",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   const handleDeleteUser = async (userId: string) => {
     setActionLoading(userId)
     try {
@@ -240,6 +288,22 @@ export default function UserList() {
                 <div className="flex items-center space-x-2">
                   <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>{user.role}</Badge>
                   <Badge variant={user.status === "BLOCKED" ? "destructive" : "outline"}>{user.status}</Badge>
+                  {user.role !== "ADMIN" &&
+                    (user.submissionAccess === "VERIFIED" ? (
+                      <Badge variant="outline" className="border-green-600/40 text-green-700 dark:text-green-400">
+                        <BadgeCheck className="size-3" />
+                        Verified
+                      </Badge>
+                    ) : user.submissionAccess === "REQUESTED" ? (
+                      <Badge variant="outline" className="border-amber-600/40 text-amber-700 dark:text-amber-400">
+                        <Clock className="size-3" />
+                        Requested
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground">
+                        Unverified
+                      </Badge>
+                    ))}
                 </div>
               </div>
             </CardHeader>
@@ -314,6 +378,37 @@ export default function UserList() {
                     Unblock User
                   </Button>
                 )}
+
+                {user.role !== "ADMIN" &&
+                  (user.submissionAccess === "VERIFIED" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSubmissionAccess(user.id, "revoke")}
+                      disabled={actionLoading === user.id}
+                    >
+                      {actionLoading === user.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShieldOff className="h-4 w-4" />
+                      )}
+                      Revoke submissions
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSubmissionAccess(user.id, "grant")}
+                      disabled={actionLoading === user.id}
+                    >
+                      {actionLoading === user.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="h-4 w-4" />
+                      )}
+                      {user.submissionAccess === "REQUESTED" ? "Approve submissions" : "Verify submissions"}
+                    </Button>
+                  ))}
 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

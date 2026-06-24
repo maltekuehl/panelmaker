@@ -1,11 +1,13 @@
 "use client"
 
+import { ImageCarouselDialog, type CarouselImage } from "@/components/browse/image-carousel-dialog"
 import { ReportsDialog } from "@/components/browse/reports-dialog"
 import { DataTableColumnHeader } from "@/components/data-table/column-header"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { Badge } from "@/components/ui/badge"
 import { SPECIFICITY_LABELS } from "@/lib/constants"
 import { ColumnDef } from "@tanstack/react-table"
+import { ImageIcon } from "lucide-react"
 import Link from "next/link"
 
 export type OntologyRef = { id: string; label: string }
@@ -28,6 +30,7 @@ export type MarkerEntry = {
   validatedMethods: string[]
   reportCount: number
   reports: MarkerReport[]
+  images: CarouselImage[]
 }
 
 export type AntibodyEntry = {
@@ -39,6 +42,7 @@ export type AntibodyEntry = {
   vendor: string | null
   clone: string | null
   reportCount: number
+  images: CarouselImage[]
 }
 
 export type ReportEntry = {
@@ -55,6 +59,7 @@ export type ReportEntry = {
   subcellular: string | null
   specificity: string | null
   works: boolean | null
+  images: CarouselImage[]
 }
 
 export type ExperimentEntry = {
@@ -67,6 +72,7 @@ export type ExperimentEntry = {
   stainingCount: number
   workingCount: number
   antibodyCount: number
+  images: CarouselImage[]
   createdAt: string
 }
 
@@ -115,6 +121,37 @@ function WorksBadge({ works }: { works: boolean | null }) {
   )
 }
 
+function ImageCell({ images, title }: { images: CarouselImage[]; title: string }) {
+  if (!images || images.length === 0) {
+    return (
+      <span className="flex size-10 items-center justify-center rounded border bg-muted/40 text-muted-foreground">
+        <ImageIcon className="size-4" />
+      </span>
+    )
+  }
+  return (
+    <ImageCarouselDialog
+      images={images}
+      title={title}
+      trigger={
+        <button
+          type="button"
+          title="Quick image look"
+          className="group relative size-10 overflow-hidden rounded border bg-muted/40 transition-colors hover:border-primary/50"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={images[0].src} alt={`${title} image`} className="size-full object-cover" />
+          {images.length > 1 && (
+            <span className="absolute bottom-0 right-0 rounded-tl bg-black/70 px-1 text-[10px] leading-tight text-white">
+              {images.length}
+            </span>
+          )}
+        </button>
+      }
+    />
+  )
+}
+
 export const columns: ColumnDef<MarkerEntry>[] = [
   {
     accessorKey: "marker",
@@ -160,6 +197,11 @@ export const columns: ColumnDef<MarkerEntry>[] = [
         reports={row.original.reports}
       />
     ),
+  },
+  {
+    id: "images",
+    header: "Images",
+    cell: ({ row }) => <ImageCell images={row.original.images} title={row.original.marker} />,
   },
   {
     id: "actions",
@@ -241,6 +283,11 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
     ),
   },
   {
+    id: "images",
+    header: "Images",
+    cell: ({ row }) => <ImageCell images={row.original.images} title={row.original.name} />,
+  },
+  {
     id: "actions",
     header: "",
     cell: ({ row }) => (
@@ -315,6 +362,11 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
     cell: ({ row }) => <WorksBadge works={row.original.works} />,
   },
   {
+    id: "images",
+    header: "Images",
+    cell: ({ row }) => <ImageCell images={row.original.images} title={row.original.marker} />,
+  },
+  {
     id: "actions",
     header: "",
     cell: ({ row }) =>
@@ -378,6 +430,16 @@ export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
       <span className="text-muted-foreground">
         {row.original.workingCount}/{row.original.stainingCount}
       </span>
+    ),
+  },
+  {
+    id: "images",
+    header: "Images",
+    cell: ({ row }) => (
+      <ImageCell
+        images={row.original.images}
+        title={row.original.name ?? `Experiment ${row.original.id.slice(0, 8)}`}
+      />
     ),
   },
 ]

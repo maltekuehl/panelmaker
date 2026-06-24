@@ -143,11 +143,11 @@ async function SessionProvider({ children }: React.PropsWithChildren) {
     <Providers session={clientSession}>
       <SidebarProvider>
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="min-w-0">
           <SiteHeader>
             <UserButton />
           </SiteHeader>
-          <div className="flex-1">{children}</div>
+          <div className="min-w-0 flex-1">{children}</div>
         </SidebarInset>
         <PanelDrawer />
         <AIAssistantFloating />

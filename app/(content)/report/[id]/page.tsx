@@ -3,7 +3,7 @@ import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getReportById, toReportResponse, toReportUsage } from "@/models/experimental-report"
+import { getReportById, reportUsageImages, toReportUsage } from "@/models/experimental-report"
 import { CheckCircle2, ExternalLink, HelpCircle, XCircle } from "lucide-react"
 import type { Metadata } from "next"
 import { cacheLife } from "next/cache"
@@ -108,7 +108,6 @@ async function ReportContent({ id }: { id: string }) {
   if (!report) notFound()
 
   const usage = toReportUsage(report)
-  const response = toReportResponse(report)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -238,10 +237,10 @@ async function ReportContent({ id }: { id: string }) {
       </div>
 
       <div className="space-y-6">
-        {response.imageUrls.length > 0 && (
+        {usage.images.length > 0 && (
           <div className="space-y-4">
             <h3 className="font-semibold">Images</h3>
-            <ImageCarouselDialog images={response.imageUrls} title={`Report #${report.id}`} />
+            <ImageCarouselDialog images={reportUsageImages(usage)} title={`Report #${report.id}`} />
           </div>
         )}
 

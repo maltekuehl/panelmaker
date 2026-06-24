@@ -1,6 +1,7 @@
 import "server-only"
 
 import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
+import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
 import { CLONALITY_LABELS, FIXATION_LABELS, METHOD_LABELS, SPECIFICITY_LABELS } from "@/lib/constants"
 import { FILTER_KEYS, type BrowseMarkerParams } from "@/lib/data-table"
 import type { Clonality, Prisma, ValidationStatus } from "@/lib/generated/prisma/client"
@@ -53,7 +54,10 @@ const reportSelect = {
   signalQuality: true,
   specificity: true,
   notes: true,
-  imageUrls: true,
+  images: {
+    select: { url: true, cellTypes: { select: { cellTypeId: true } } },
+    orderBy: { sortOrder: "asc" },
+  },
   createdAt: true,
   updatedAt: true,
   experiment: {
@@ -324,6 +328,37 @@ export async function getReportsForCellType(cellTypeId: string): Promise<ReportR
     select: reportSelect,
     where: { cellTypes: { some: { cellTypeId } }, status: "PUBLISHED", experiment: { isPublic: true } },
     orderBy: { createdAt: "desc" },
+  })
+}
+
+export async function getImagesForCellType(cellTypeId: string): Promise<CarouselImage[]> {
+  const images = await prisma.reportImage.findMany({
+    where: {
+      cellTypes: { some: { cellTypeId } },
+      report: { status: "PUBLISHED", experiment: { isPublic: true } },
+    },
+    select: {
+      url: true,
+      report: {
+        select: {
+          antibody: { select: { rrid: true, name: true, targetName: true, targetProteinId: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  })
+
+  return images.map((image) => {
+    const antibody = image.report.antibody
+    const markerName = antibody?.targetName ?? antibody?.name ?? null
+    const links: CarouselImageLink[] = []
+    if (antibody?.targetProteinId && markerName) {
+      links.push({ label: markerName, href: `/marker/${antibody.targetProteinId}` })
+    }
+    if (antibody?.rrid) {
+      links.push({ label: antibody.name ?? "Antibody", href: `/antibody/${antibody.rrid.replace(/^RRID:/, "")}` })
+    }
+    return { src: image.url, title: markerName ?? antibody?.name ?? undefined, links }
   })
 }
 
@@ -634,7 +669,6 @@ export async function resolveAndCreateReport(data: CreateReportData, experimentI
         signalQuality: data.signalQuality ?? null,
         specificity: data.specificity ?? null,
         notes: data.notes ?? null,
-        imageUrls: JSON.stringify(data.imageUrls ?? []),
       },
       select: { id: true },
     })
@@ -643,6 +677,22 @@ export async function resolveAndCreateReport(data: CreateReportData, experimentI
       await tx.reportCellType.createMany({
         data: resolvedCellTypes.map((ct) => ({ reportId: report.id, cellTypeId: ct.id })),
         skipDuplicates: true,
+      })
+    }
+
+    const resolvedCellTypeIds = new Set(resolvedCellTypes.map((ct) => ct.id))
+    const images = data.images ?? []
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i]
+      const tags = (image.cellTypeIds ?? []).filter((id) => resolvedCellTypeIds.has(id))
+      await tx.reportImage.create({
+        data: {
+          reportId: report.id,
+          url: image.url,
+          sortOrder: i,
+          cellTypes: { create: tags.map((cellTypeId) => ({ cellTypeId })) },
+        },
+        select: { id: true },
       })
     }
 
@@ -698,7 +748,7 @@ export async function resolveAndCreateReports(
       specificity: item.specificity,
       subcellularLocation: item.subcellularLocation,
       notes: item.notes,
-      imageUrls: item.imageUrls,
+      images: item.images,
       antibodyData: item.antibodyData,
       proteinData: item.proteinData,
       isPublic: true,

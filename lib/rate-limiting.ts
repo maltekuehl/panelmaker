@@ -53,6 +53,11 @@ export const RATE_LIMITS = {
     maxRequests: 50,
     resourceType: "panels_create",
   },
+  UPLOADS: {
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    maxRequests: 200,
+    resourceType: "uploads",
+  },
 } as const
 
 /**

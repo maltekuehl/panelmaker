@@ -17,5 +17,21 @@ services:
       timeout: 5s
       retries: 5
 
+  nginx:
+    image: nginx:alpine
+    container_name: panelmaker-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Shared uploads volume: the app (UPLOADS_DIR=./data/uploads) writes here, nginx serves it read-only.
+      - ./data/uploads:/srv/uploads:ro
+      # When the app is containerized, switch the line above to the named volume below
+      # (also mount `uploads_data:/app/data/uploads` on the app service) and enable the
+      # commented reverse-proxy block in docker/nginx/nginx.conf.
+      # - uploads_data:/srv/uploads:ro
+
 volumes:
   postgres_data:
+  # uploads_data:

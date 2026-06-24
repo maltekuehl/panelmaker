@@ -34,3 +34,6 @@ test-results
 
 # Prisma generated client (run `prisma generate`)
 lib/generated
+
+# Uploaded images (local dev / shared volume)
+/data/uploads/

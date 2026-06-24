@@ -1,6 +1,8 @@
 import { auth } from "@/auth"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
+import { RequestSubmissionAccess } from "@/components/submit/request-submission-access"
 import { SubmissionForm } from "@/components/submit/submission-form"
+import { getSubmissionAccessState } from "@/lib/auth"
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
 
@@ -15,6 +17,9 @@ export default async function SubmitPage() {
   if (!session?.user?.id) {
     redirect("/signin")
   }
+
+  const { canSubmit, access } = await getSubmissionAccessState(session.user.id)
+
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       <CustomBreadcrumbs items={[{ label: "Submit Report" }]} />
@@ -27,7 +32,7 @@ export default async function SubmitPage() {
         </p>
       </div>
 
-      <SubmissionForm />
+      {canSubmit ? <SubmissionForm /> : <RequestSubmissionAccess initialAccess={access} />}
     </div>
   )
 }

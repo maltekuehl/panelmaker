@@ -18,8 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { usePanelsSignal } from "@/stores/panels"
 import { AlertTriangle, Download, Globe, Lock, Palette, Plus, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { CreatePanelFormData } from "./panel-form"
 import { PanelForm } from "./panel-form"
@@ -42,39 +43,41 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
   const [isCreating, setIsCreating] = useState(false)
   const [warnings, setWarnings] = useState<PanelWarning[]>([])
   const [panelToDelete, setPanelToDelete] = useState<Panel | null>(null)
+  const panelsVersion = usePanelsSignal((s) => s.version)
+
+  const fetchPanels = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) setIsLoading(true)
+    try {
+      const res = await fetch("/api/panels")
+
+      if (res.status === 401) return
+
+      if (!res.ok) {
+        toast.error("Failed to load panels")
+        return
+      }
+
+      const json = await res.json()
+      const fetched: Panel[] = json.data?.panels ?? json.panels ?? []
+      setPanels(fetched)
+      setActivePanelId((current) =>
+        current && fetched.some((p) => p.id === current) ? current : (fetched[0]?.id ?? null),
+      )
+    } catch {
+      toast.error("Failed to load panels")
+    } finally {
+      if (!silent) setIsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    const fetchPanels = async () => {
-      setIsLoading(true)
-      try {
-        const res = await fetch("/api/panels")
-
-        if (res.status === 401) {
-          setIsLoading(false)
-          return
-        }
-
-        if (!res.ok) {
-          toast.error("Failed to load panels")
-          setIsLoading(false)
-          return
-        }
-
-        const json = await res.json()
-        const fetched: Panel[] = json.data?.panels ?? json.panels ?? []
-        setPanels(fetched)
-        if (fetched.length > 0) {
-          setActivePanelId(fetched[0].id)
-        }
-      } catch {
-        toast.error("Failed to load panels")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
     fetchPanels()
-  }, [])
+  }, [fetchPanels])
+
+  useEffect(() => {
+    if (panelsVersion === 0) return
+    fetchPanels({ silent: true })
+  }, [panelsVersion, fetchPanels])
 
   const fetchValidation = async (panelId: string) => {
     try {

@@ -124,7 +124,7 @@ export function SubmissionForm() {
               <h2 className="text-sm font-semibold">Antibodies{contextConfirmed ? ` (${rows.length})` : ""}</h2>
               <p className="text-xs text-muted-foreground">
                 {contextConfirmed
-                  ? "Pick from the registry to auto-fill, or type details in. Duplicate a row to reuse settings."
+                  ? "Pick from the registry to auto-fill, or type details in. Each antibody needs at least one image."
                   : "Complete the experiment context to start adding antibodies."}
               </p>
             </div>

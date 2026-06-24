@@ -1,5 +1,6 @@
 import { auth } from "@/auth"
-import { UserRole, UserStatus } from "@/lib/generated/prisma/enums"
+import { env } from "@/lib/env"
+import { SubmissionAccess, UserRole, UserStatus } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { NextRequest, NextResponse } from "next/server"
@@ -165,6 +166,69 @@ export async function unblockUser(userId: string): Promise<void> {
   })
 }
 
+// Submission access is only enforced in production. Elsewhere everyone can submit.
+const SUBMISSION_GATE_ENABLED = env.NODE_ENV === "production"
+
+export interface SubmissionAccessState {
+  access: SubmissionAccess
+  isAdmin: boolean
+  gateEnabled: boolean
+  canSubmit: boolean
+}
+
+export async function getSubmissionAccessState(userId: string): Promise<SubmissionAccessState> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, submissionAccess: true },
+  })
+
+  const isAdmin = user?.role === UserRole.ADMIN
+  const access = user?.submissionAccess ?? SubmissionAccess.NONE
+  const canSubmit = !SUBMISSION_GATE_ENABLED || isAdmin || access === SubmissionAccess.VERIFIED
+
+  return { access, isAdmin, gateEnabled: SUBMISSION_GATE_ENABLED, canSubmit }
+}
+
+// Whether a user is allowed to create submissions (experimental reports)
+export async function canSubmit(userId: string): Promise<boolean> {
+  if (!SUBMISSION_GATE_ENABLED) return true
+  return (await getSubmissionAccessState(userId)).canSubmit
+}
+
+// User requests submission access (idempotent: only NONE → REQUESTED)
+export async function requestSubmissionAccess(userId: string): Promise<SubmissionAccess> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { submissionAccess: true },
+  })
+
+  if (!user) throw new Error("User not found")
+  if (user.submissionAccess !== SubmissionAccess.NONE) return user.submissionAccess
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { submissionAccess: SubmissionAccess.REQUESTED, submissionRequestedAt: new Date() },
+    select: { submissionAccess: true },
+  })
+  return updated.submissionAccess
+}
+
+// Admin grants submission access
+export async function grantSubmissionAccess(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { submissionAccess: SubmissionAccess.VERIFIED, submissionRequestedAt: null },
+  })
+}
+
+// Admin revokes submission access
+export async function revokeSubmissionAccess(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { submissionAccess: SubmissionAccess.NONE, submissionRequestedAt: null },
+  })
+}
+
 // Delete a user and all their data
 export async function deleteUser(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
@@ -218,19 +282,20 @@ export async function getAllUsers(page: number = 1, pageSize: number = 20, searc
         image: true,
         role: true,
         status: true,
+        submissionAccess: true,
+        submissionRequestedAt: true,
         createdAt: true,
         updatedAt: true,
         _count: {
           select: {
             reviews: true,
+            panels: true,
             experiments: true,
             blogPosts: true,
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: [{ submissionRequestedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
       skip,
       take: pageSize,
     }),

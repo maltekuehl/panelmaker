@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { usePanelsSignal } from "@/stores/panels"
 import { Loader2, Plus } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useCallback, useEffect, useState } from "react"
@@ -49,6 +50,7 @@ export function AddToPanelButton({
   iconOnly = false,
 }: AddToPanelButtonProps) {
   const { data: session } = useSession()
+  const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
   const [open, setOpen] = useState(false)
   const [panels, setPanels] = useState<PanelOption[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -114,6 +116,7 @@ export function AddToPanelButton({
       }
 
       toast.success(`${label} added to panel`)
+      notifyPanelsChanged()
       setOpen(false)
     } catch {
       toast.error("Failed to add marker")
@@ -138,6 +141,7 @@ export function AddToPanelButton({
       }
 
       toast.success("Panel created")
+      notifyPanelsChanged()
       setShowCreateForm(false)
       await fetchPanels()
     } catch {

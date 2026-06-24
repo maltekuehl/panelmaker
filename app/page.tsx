@@ -108,12 +108,13 @@ export default function HomePage() {
     <div className="container mx-auto flex flex-col gap-10 px-4 py-10 md:py-16">
       <section className="flex flex-col items-start gap-5">
         <h1 className="max-w-4xl text-3xl font-bold tracking-tight md:text-5xl">
-          The database for <span className="text-primary">spatial proteomics</span> antibody validation
+          <span>Your lab&apos;s source of truth for</span>{" "}
+          <span className="text-primary whitespace-nowrap">spatial proteomics</span> <span>antibody validation</span>
         </h1>
         <p className="max-w-3xl text-lg text-muted-foreground">
           Discover experimentally validated antibodies for PathoPlex, CODEX, and tCyCIF.
           <br />
-          Then design and share your panels.
+          Then design your panels, organize your lab resources and share your validations.
         </p>
         <Suspense fallback={<HomeStatsSkeleton />}>
           <div className="w-full max-w-xl pt-2">

@@ -5,6 +5,7 @@ export {
   getBrowseFacets,
   getCellTypesFromReports,
   getConditionById,
+  getImagesForCellType,
   getMarkerEntriesPage,
   getPendingReports,
   getReportById,
@@ -36,6 +37,7 @@ export type { CreateReportBatchData, CreateReportData, SearchParams, UpdateRepor
 export {
   aggregateAntibodyEntries,
   aggregateMarkerEntries,
+  reportUsageImages,
   sortMarkerEntries,
   toReportEntry,
   toReportResponse,

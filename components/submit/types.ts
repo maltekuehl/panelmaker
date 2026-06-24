@@ -4,6 +4,7 @@ import { AntigenRetrieval, MultiplexMethod } from "@/lib/generated/prisma/enums"
 
 export type OntologyValue = { id: string; label: string }
 export type ProteinValue = { id: string; label: string; geneSymbol?: string | null }
+export type ReportImageInput = { url: string; cellTypeIds: string[] }
 
 export type ExperimentContext = {
   name: string
@@ -38,6 +39,7 @@ export type AntibodyRow = {
   subcellularLocation: OntologyValue | null
   locationNotDiscernible: boolean
   notes: string
+  images: ReportImageInput[]
 }
 
 export function emptyContext(): ExperimentContext {
@@ -79,12 +81,13 @@ export function emptyRow(): AntibodyRow {
     subcellularLocation: null,
     locationNotDiscernible: false,
     notes: "",
+    images: [],
   }
 }
 
 export function duplicateRow(row: AntibodyRow): AntibodyRow {
   rowCounter += 1
-  return { ...row, key: `row-${rowCounter}`, cellTypes: [...row.cellTypes] }
+  return { ...row, key: `row-${rowCounter}`, cellTypes: [...row.cellTypes], images: [] }
 }
 
 const FLUOROPHORE_METHODS = new Set<MultiplexMethod>([
@@ -164,6 +167,7 @@ export function validateRows(rows: AntibodyRow[]): RowValidationError[] {
   const errors: RowValidationError[] = []
   for (const row of rows) {
     if (!row.markerName.trim()) errors.push({ key: row.key, field: "markerName", message: "Marker name is required" })
+    if (row.images.length === 0) errors.push({ key: row.key, field: "images", message: "Add at least one image" })
   }
   return errors
 }
@@ -200,6 +204,7 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       specificity: row.specificity || undefined,
       subcellularLocation: row.locationNotDiscernible ? undefined : (row.subcellularLocation ?? undefined),
       notes: row.notes || undefined,
+      images: row.images.map((img) => ({ url: img.url, cellTypeIds: img.cellTypeIds })),
     })),
   }
 }

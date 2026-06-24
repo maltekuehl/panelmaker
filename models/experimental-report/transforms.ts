@@ -1,18 +1,19 @@
 import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
+import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
 import { ANTIGEN_RETRIEVAL_LABELS, METHOD_LABELS } from "@/lib/constants"
-import { parseJsonArray } from "@/lib/transforms"
 import type { ReportRow } from "./queries"
 
-export type ReportResponse = Omit<ReportRow, "imageUrls" | "fluorophore"> & {
+export type ReportResponse = Omit<ReportRow, "images" | "fluorophore"> & {
   imageUrls: string[]
   fluorophore: string | null
 }
 
 export function toReportResponse(report: ReportRow): ReportResponse {
+  const { images, ...rest } = report
   return {
-    ...report,
+    ...rest,
     fluorophore: report.fluorophore?.name ?? null,
-    imageUrls: parseJsonArray(report.imageUrls),
+    imageUrls: images.map((i) => i.url),
   }
 }
 
@@ -82,7 +83,7 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     metalTag: report.metalTag,
     cycleNumber: report.cycleNumber,
     notes: report.notes,
-    images: parseJsonArray(report.imageUrls),
+    images: report.images.map((i) => i.url),
     createdAt: report.createdAt.toISOString(),
     submitter: report.experiment.submitter?.name ?? "Anonymous",
     submitterId: report.experiment.submitter?.id ?? null,
@@ -104,6 +105,27 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     conditionLabel: report.experiment.condition?.label ?? null,
     status: report.status,
   }
+}
+
+export function reportUsageImages(usage: ReportUsage): CarouselImage[] {
+  const links: CarouselImageLink[] = []
+  if (usage.proteinId && usage.markerName) {
+    links.push({ label: usage.markerName, href: `/marker/${usage.proteinId}` })
+  }
+  if (usage.antibodyDbId) {
+    links.push({ label: usage.antibodyName, href: `/antibody/${usage.antibodyId.replace(/^RRID:/, "")}` })
+  }
+  for (const cellType of usage.cellTypes) {
+    links.push({ label: cellType.label, href: `/celltype/${cellType.id}` })
+  }
+
+  const facts: string[] = []
+  if (usage.subcellularLabel) facts.push(usage.subcellularLabel)
+  if (usage.tissueLabel && usage.tissueLabel !== "N/A") facts.push(usage.tissueLabel)
+  if (usage.species && usage.species !== "Unknown") facts.push(usage.species)
+
+  const title = usage.markerName ?? usage.antibodyName
+  return usage.images.map((src) => ({ src, title, links, facts }))
 }
 
 type SortAccessor<T> = (entry: T) => string | number
@@ -181,6 +203,22 @@ export function sortReportEntries(entries: ReportEntry[], sort?: string | null, 
   return sortEntries(entries, REPORT_SORT_ACCESSORS, sort, order)
 }
 
+const MAX_ENTRY_IMAGES = 12
+
+function collectImages(reports: ReportRow[], cap = MAX_ENTRY_IMAGES): CarouselImage[] {
+  const items: CarouselImage[] = []
+  const seen = new Set<string>()
+  for (const report of reports) {
+    for (const item of reportUsageImages(toReportUsage(report))) {
+      if (seen.has(item.src)) continue
+      seen.add(item.src)
+      items.push(item)
+      if (items.length >= cap) return items
+    }
+  }
+  return items
+}
+
 export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
   const groups = new Map<string, { reports: ReportRow[]; marker: string; id: string }>()
 
@@ -219,6 +257,7 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
       tissue: tissues.join(", ") || "Unknown",
       validatedMethods: methods,
       reportCount: group.reports.length,
+      images: collectImages(group.reports),
       reports: group.reports.map((r) => ({
         id: String(r.id),
         submitter: r.experiment.submitter?.name ?? "Anonymous",
@@ -252,6 +291,7 @@ export function aggregateAntibodyEntries(reports: ReportRow[]): AntibodyEntry[] 
     vendor: antibody.vendorName,
     clone: antibody.cloneId,
     reportCount: rows.length,
+    images: collectImages(rows),
   }))
 }
 
@@ -272,5 +312,6 @@ export function toReportEntry(report: ReportRow): ReportEntry {
     subcellular: report.subcellular?.label ?? null,
     specificity: report.specificity,
     works: report.works,
+    images: collectImages([report]),
   }
 }

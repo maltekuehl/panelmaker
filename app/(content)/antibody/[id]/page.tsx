@@ -5,7 +5,7 @@ import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { resolveAntibodyByRrid } from "@/models/antibody"
-import { getReportsForAntibody, toReportUsage } from "@/models/experimental-report"
+import { getReportsForAntibody, reportUsageImages, toReportUsage } from "@/models/experimental-report"
 import { ExternalLink } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
@@ -39,7 +39,7 @@ async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: s
 
   const reports = await getReportsForAntibody(antibody.id)
   const usages = reports.map(toReportUsage)
-  const images = usages.flatMap((u) => u.images)
+  const images = usages.flatMap(reportUsageImages)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

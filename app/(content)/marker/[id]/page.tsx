@@ -5,7 +5,12 @@ import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getCellTypesFromReports, getReportsForProtein, toReportUsage } from "@/models/experimental-report"
+import {
+  getCellTypesFromReports,
+  getReportsForProtein,
+  reportUsageImages,
+  toReportUsage,
+} from "@/models/experimental-report"
 import { getProteinById } from "@/models/protein"
 import { ExternalLink } from "lucide-react"
 import type { Metadata } from "next"
@@ -45,7 +50,7 @@ async function MarkerContent({ id }: { id: string }) {
   ])
 
   const usages = reports.map(toReportUsage)
-  const images = usages.flatMap((u) => u.images)
+  const images = usages.flatMap(reportUsageImages)
   const methods = [...new Set(reports.map((r) => r.experiment.method).filter(Boolean))]
   const species = [...new Set(reports.map((r) => r.experiment.species?.label).filter(Boolean))]
   const uniqueAntibodies = new Set(usages.map((u) => u.antibodyId).filter(Boolean)).size

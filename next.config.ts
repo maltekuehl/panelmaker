@@ -7,7 +7,7 @@ const ContentSecurityPolicy = `
   script-src 'self' ${process.env.NODE_ENV !== "production" ? "'unsafe-eval' " : ""} 'unsafe-inline' *.panelmaker.ai panelmaker.ai ${
     process.env.NODE_ENV !== "production" ? "localhost:* " : ""
   } *.cloudflareinsights.com;
-  img-src 'self' data: *.panelmaker.ai panelmaker.ai ${
+  img-src 'self' data: blob: *.panelmaker.ai panelmaker.ai ${
     process.env.NODE_ENV !== "production" ? "localhost:* " : ""
   } https://media.licdn.com https://github.com https://www.github.com https://www.github.com https://avatars.githubusercontent.com https://raw.githubusercontent.com https://img.shields.io https://codecov.io;
   style-src 'self' 'unsafe-inline' *.panelmaker.ai panelmaker.ai ${
@@ -64,7 +64,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
-  serverExternalPackages: ["pg", "@prisma/adapter-pg"],
+  output: "standalone",
+  serverExternalPackages: ["pg", "@prisma/adapter-pg", "sharp"],
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   trailingSlash: false,
   reactCompiler: true,

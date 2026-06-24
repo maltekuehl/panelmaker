@@ -4,7 +4,7 @@ import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ANTIGEN_RETRIEVAL_LABELS, FIXATION_LABELS, METHOD_LABELS } from "@/lib/constants"
 import { getExperimentById } from "@/models/experiment"
-import { getReportsForExperiment, toReportUsage } from "@/models/experimental-report"
+import { getReportsForExperiment, reportUsageImages, toReportUsage } from "@/models/experimental-report"
 import type { Metadata } from "next"
 import { cacheLife } from "next/cache"
 import Link from "next/link"
@@ -52,7 +52,7 @@ async function ExperimentContent({ id }: { id: string }) {
 
   const reports = await getReportsForExperiment(id)
   const usages = reports.map(toReportUsage)
-  const images = usages.flatMap((u) => u.images)
+  const images = usages.flatMap(reportUsageImages)
 
   const workingCount = usages.filter((u) => u.works === true).length
   const antibodyCount = new Set(usages.map((u) => u.antibodyId).filter(Boolean)).size

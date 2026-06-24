@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils"
 import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { ImageUpload } from "./image-upload"
 import { ProteinCombobox } from "./protein-combobox"
 import {
   duplicateRow,
@@ -286,6 +287,15 @@ function AntibodyEditor({
         </Field>
       </div>
 
+      <Field label="Images" required className="border-t pt-3">
+        <ImageUpload
+          value={row.images}
+          onChange={(images) => onChange({ images })}
+          availableCellTypes={row.cellTypes}
+          invalid={invalid("images")}
+        />
+      </Field>
+
       <Field label="Additional notes">
         <Textarea
           value={row.notes}
@@ -349,7 +359,7 @@ export function AntibodyAccordion({
     <div className="space-y-3">
       <Accordion type="multiple" value={open} onValueChange={setOpen}>
         {rows.map((row, index) => {
-          const rowInvalid = invalid(row.key, "markerName")
+          const rowInvalid = invalid(row.key, "markerName") || invalid(row.key, "images")
           const detection = summaryDetection(row)
           return (
             <AccordionItem key={row.key} value={row.key}>
@@ -367,6 +377,11 @@ export function AntibodyAccordion({
                       {row.cellTypes.length > 0 && (
                         <span className="text-xs text-muted-foreground">
                           {row.cellTypes.length} cell type{row.cellTypes.length === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {row.images.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {row.images.length} image{row.images.length === 1 ? "" : "s"}
                         </span>
                       )}
                       {row.dilution && <span className="text-xs text-muted-foreground">{row.dilution}</span>}

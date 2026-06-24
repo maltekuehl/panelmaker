@@ -1,31 +1,85 @@
 import { PrismaPg } from "@prisma/adapter-pg"
 import "dotenv/config"
+import { mkdir } from "node:fs/promises"
+import path from "node:path"
+import sharp from "sharp"
 import { PrismaClient } from "../lib/generated/prisma/client"
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter })
 
-const PLACEHOLDER_IMAGES = [
-  "https://placehold.co/800x600/1a1a2e/e0e0e0?text=IF+CD3+FITC",
-  "https://placehold.co/800x600/16213e/e0e0e0?text=CODEX+Cycle1",
-  "https://placehold.co/800x600/0f3460/e0e0e0?text=IMC+Panel",
-  "https://placehold.co/800x600/1a1a2e/e0e0e0?text=CyCIF+Overlay",
-  "https://placehold.co/800x600/533483/e0e0e0?text=MIBI+Kidney",
-  "https://placehold.co/800x600/2b2d42/e0e0e0?text=IHC+DAB",
-  "https://placehold.co/800x600/0b0c10/00ff88?text=IF+AF488",
-  "https://placehold.co/800x600/0b0c10/ff4444?text=IF+AF647",
-  "https://placehold.co/800x600/0b0c10/ffcc00?text=CODEX+Merge",
-  "https://placehold.co/800x600/1a1a2e/66ccff?text=IMC+142Nd",
-]
+// Deterministic PRNG so re-running the seed produces the same demo images.
+function mulberry32(seed: number): () => number {
+  let a = seed
+  return () => {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
 
-function getReportImages(index: number): string {
+// Fluorophore-like marker channel colors layered over blue "nuclei".
+const SEED_CHANNEL_COLORS = ["#00ff88", "#ff4d4d", "#4d9bff", "#ffd24d", "#c44dff", "#4dffe0"]
+
+function blobLayer(
+  w: number,
+  h: number,
+  color: string,
+  rng: () => number,
+  n: number,
+  rMin: number,
+  rMax: number,
+): string {
+  let s = ""
+  for (let i = 0; i < n; i++) {
+    const cx = Math.round(rng() * w)
+    const cy = Math.round(rng() * h)
+    const r = Math.round(rMin + rng() * (rMax - rMin))
+    const o = (0.3 + rng() * 0.55).toFixed(2)
+    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${color}" opacity="${o}"/>`
+  }
+  return s
+}
+
+function blobSvg(w: number, h: number, color: string, rng: () => number): string {
+  const nuclei = blobLayer(w, h, "#2f5fd0", rng, 55, 3, 9)
+  const marker = blobLayer(w, h, color, rng, 16, 10, 30)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <defs><filter id="b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.2"/></filter></defs>
+    <rect width="${w}" height="${h}" fill="#070710"/>
+    <g filter="url(#b)">${nuclei}${marker}</g>
+  </svg>`
+}
+
+const SEED_UPLOADS_DIR = path.resolve(process.cwd(), process.env.UPLOADS_DIR ?? "./data/uploads")
+const SEED_IMAGE_POOL_SIZE = 12
+let SEED_IMAGE_POOL: string[] = []
+
+async function generateSeedBlobImages(): Promise<string[]> {
+  await mkdir(SEED_UPLOADS_DIR, { recursive: true })
+  const urls: string[] = []
+  for (let i = 0; i < SEED_IMAGE_POOL_SIZE; i++) {
+    const rng = mulberry32(0x5eed_0000 + i)
+    const color = SEED_CHANNEL_COLORS[i % SEED_CHANNEL_COLORS.length]
+    const svg = blobSvg(640, 512, color, rng)
+    const filename = `seed-blob-${i}.webp`
+    await sharp(Buffer.from(svg)).webp({ quality: 82 }).toFile(path.join(SEED_UPLOADS_DIR, filename))
+    urls.push(`/uploads/${filename}`)
+  }
+  return urls
+}
+
+function getReportImages(index: number): string[] {
+  if (SEED_IMAGE_POOL.length === 0) return []
   const count = (index % 3) + 1
-  const start = index % PLACEHOLDER_IMAGES.length
+  const start = index % SEED_IMAGE_POOL.length
   const images: string[] = []
   for (let i = 0; i < count; i++) {
-    images.push(PLACEHOLDER_IMAGES[(start + i) % PLACEHOLDER_IMAGES.length])
+    images.push(SEED_IMAGE_POOL[(start + i) % SEED_IMAGE_POOL.length])
   }
-  return JSON.stringify(images)
+  return images
 }
 
 // Stable user IDs so reports can reference them reliably across re-runs
@@ -2257,7 +2311,6 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
           signalQuality: r.signalQuality,
           specificity: r.specificity,
           notes: r.notes,
-          imageUrls: getReportImages(index),
         },
       })
 
@@ -2266,13 +2319,29 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       const allCellTypeIds = [r.cellTypeId, ...(r.extraCellTypeIds ?? [])].filter(
         (id): id is string => typeof id === "string",
       )
+      const linkedCellTypeIds: string[] = []
       for (const ctId of allCellTypeIds) {
         const exists = await prisma.cellType.findUnique({ where: { id: ctId } })
         if (exists) {
           await prisma.reportCellType.create({
             data: { reportId: report.id, cellTypeId: ctId },
           })
+          linkedCellTypeIds.push(ctId)
         }
+      }
+
+      // Create ReportImage rows, each tagged with the report's cell types so cell-type
+      // pages surface relevant images.
+      const imageUrls = getReportImages(index)
+      for (let imgIndex = 0; imgIndex < imageUrls.length; imgIndex++) {
+        await prisma.reportImage.create({
+          data: {
+            reportId: report.id,
+            url: imageUrls[imgIndex],
+            sortOrder: imgIndex,
+            cellTypes: { create: linkedCellTypeIds.map((cellTypeId) => ({ cellTypeId })) },
+          },
+        })
       }
     }
   }
@@ -2667,6 +2736,7 @@ async function main() {
   }
 
   const fluorophoreCount = await seedFluorophores()
+  SEED_IMAGE_POOL = await generateSeedBlobImages()
   const reportCount = await seedExperimentalReports(antibodyMap)
   const panelCount = await seedPanels(antibodyMap)
   const blogPosts = await seedBlogPosts()
@@ -2677,6 +2747,7 @@ async function main() {
   console.log(`  ${TISSUES.length} tissues`)
   console.log(`  ${CELLULAR_COMPONENTS.length} cellular components`)
   console.log(`  ${fluorophoreCount} fluorophores`)
+  console.log(`  ${SEED_IMAGE_POOL.length} generated blob images`)
   console.log(`  ${cellTypes.length} cell types`)
   console.log(`  ${proteins.length} proteins`)
   console.log(`  25 cell type markers`)

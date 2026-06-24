@@ -19,6 +19,12 @@ enum UserStatus {
   BLOCKED
 }
 
+enum SubmissionAccess {
+  NONE
+  REQUESTED
+  VERIFIED
+}
+
 enum Clonality {
   MONOCLONAL
   POLYCLONAL
@@ -84,6 +90,8 @@ model User {
   password            String?
   role                UserRole             @default(USER)
   status              UserStatus           @default(ACTIVE)
+  submissionAccess    SubmissionAccess     @default(NONE)
+  submissionRequestedAt DateTime?
   orcid               String?              @unique
   institution         String?
   institutionId       String?
@@ -255,6 +263,7 @@ model CellType {
 
   markers     CellTypeMarker[]
   reportLinks ReportCellType[]
+  imageLinks  ReportImageCellType[]
 
   @@index([label])
 }
@@ -431,13 +440,13 @@ model ExperimentalReport {
   signalQuality SignalQuality?
   specificity   Specificity?
   notes         String?
-  imageUrls     String           @default("[]")
 
   experiment  Experiment         @relation(fields: [experimentId], references: [id], onDelete: Cascade)
   antibody    Antibody?          @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
   subcellular CellularComponent? @relation(fields: [subcellularId], references: [id], onDelete: SetNull)
   fluorophore Fluorophore?       @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
   cellTypes   ReportCellType[]
+  images      ReportImage[]
   reviews     Review[]
 
   createdAt DateTime @default(now())
@@ -448,6 +457,30 @@ model ExperimentalReport {
   @@index([subcellularId])
   @@index([fluorophoreId])
   @@index([status])
+}
+
+model ReportImage {
+  id        String   @id @default(cuid())
+  reportId  String
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  report    ExperimentalReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  cellTypes ReportImageCellType[]
+
+  @@index([reportId])
+}
+
+model ReportImageCellType {
+  imageId    String
+  cellTypeId String
+
+  image    ReportImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  cellType CellType    @relation(fields: [cellTypeId], references: [id], onDelete: Cascade)
+
+  @@id([imageId, cellTypeId])
+  @@index([cellTypeId])
 }
 
 // ─── Spatial Proteomics: Panel Builder ────────────────────────────────

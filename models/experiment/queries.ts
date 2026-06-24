@@ -1,6 +1,7 @@
 import "server-only"
 
 import type { ExperimentEntry } from "@/components/browse/columns"
+import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
 import { METHOD_LABELS } from "@/lib/constants"
 import type { BrowseMarkerParams } from "@/lib/data-table"
 import type { Prisma } from "@/lib/generated/prisma/client"
@@ -38,8 +39,19 @@ const experimentEntrySelect = {
   species: { select: { id: true, label: true } },
   tissue: { select: { id: true, label: true } },
   condition: { select: { id: true, label: true } },
-  reports: { where: { status: "PUBLISHED" }, select: { works: true, antibodyId: true } },
+  reports: {
+    where: { status: "PUBLISHED" },
+    select: {
+      works: true,
+      antibodyId: true,
+      antibody: { select: { name: true, rrid: true, targetName: true, targetProteinId: true } },
+      cellTypes: { select: { cellType: { select: { id: true, label: true } } } },
+      images: { select: { url: true } },
+    },
+  },
 } satisfies Prisma.ExperimentSelect
+
+const MAX_ENTRY_IMAGES = 12
 
 type ExperimentEntryRow = Prisma.ExperimentGetPayload<{ select: typeof experimentEntrySelect }>
 
@@ -70,6 +82,28 @@ function buildExperimentWhere(params: BrowseMarkerParams): Prisma.ExperimentWher
 function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
   const workingCount = exp.reports.filter((r) => r.works === true).length
   const antibodyCount = new Set(exp.reports.map((r) => r.antibodyId).filter(Boolean)).size
+
+  const facts = [exp.species?.label, exp.tissue?.label].filter((f): f is string => !!f)
+  const images: CarouselImage[] = []
+  const seenImages = new Set<string>()
+  for (const report of exp.reports) {
+    const markerName = report.antibody?.targetName ?? report.antibody?.name ?? undefined
+    const links: CarouselImageLink[] = []
+    if (report.antibody?.targetProteinId && report.antibody.targetName) {
+      links.push({ label: report.antibody.targetName, href: `/marker/${report.antibody.targetProteinId}` })
+    }
+    if (report.antibody?.rrid) {
+      links.push({ label: report.antibody.name, href: `/antibody/${report.antibody.rrid.replace(/^RRID:/, "")}` })
+    }
+    for (const link of report.cellTypes) {
+      links.push({ label: link.cellType.label, href: `/celltype/${link.cellType.id}` })
+    }
+    for (const image of report.images) {
+      if (seenImages.has(image.url) || images.length >= MAX_ENTRY_IMAGES) continue
+      seenImages.add(image.url)
+      images.push({ src: image.url, title: markerName, links, facts })
+    }
+  }
   return {
     id: exp.id,
     name: exp.name ?? null,
@@ -80,6 +114,7 @@ function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
     stainingCount: exp.reports.length,
     workingCount,
     antibodyCount,
+    images,
     createdAt: exp.createdAt.toISOString(),
   }
 }

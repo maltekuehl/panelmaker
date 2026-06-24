@@ -1,8 +1,8 @@
 "use client"
 
+import { FluorophoreCombobox, type FluorophoreOption } from "@/components/fluorophore-combobox"
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
@@ -36,8 +36,7 @@ export function MarkerSearchDialog({ panelId, cycleId, species, onMarkerAdded }:
   const [results, setResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [selected, setSelected] = useState<SearchResult | null>(null)
-  const [fluorophore, setFluorophore] = useState("")
-  const [metalTag, setMetalTag] = useState("")
+  const [fluorophore, setFluorophore] = useState<FluorophoreOption | null>(null)
   const [isAdding, setIsAdding] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -117,9 +116,6 @@ export function MarkerSearchDialog({ panelId, cycleId, species, onMarkerAdded }:
     setSelected(result)
     setOpen(false)
     setQuery("")
-    if (result.type === "antibody" && result.conjugate) {
-      setFluorophore(result.conjugate)
-    }
   }
 
   const handleAdd = async () => {
@@ -137,8 +133,7 @@ export function MarkerSearchDialog({ panelId, cycleId, species, onMarkerAdded }:
           geneSymbol: selected.geneSymbol || undefined,
           ensemblGeneId: selected.ensemblGeneId || undefined,
           antibodyId: selected.antibodyId || undefined,
-          fluorophore: fluorophore || undefined,
-          metalTag: metalTag || undefined,
+          fluorophoreId: fluorophore?.id || undefined,
         }),
       })
 
@@ -151,8 +146,7 @@ export function MarkerSearchDialog({ panelId, cycleId, species, onMarkerAdded }:
       toast.success("Marker added to cycle")
       onMarkerAdded()
       setSelected(null)
-      setFluorophore("")
-      setMetalTag("")
+      setFluorophore(null)
     } catch {
       toast.error("Failed to add marker")
     } finally {
@@ -267,25 +261,9 @@ export function MarkerSearchDialog({ panelId, cycleId, species, onMarkerAdded }:
         </Popover>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className="text-xs">Fluorophore</Label>
-          <Input
-            placeholder="e.g., AF488"
-            value={fluorophore}
-            onChange={(e) => setFluorophore(e.target.value)}
-            className="mt-1 h-9 text-sm"
-          />
-        </div>
-        <div>
-          <Label className="text-xs">Metal Tag</Label>
-          <Input
-            placeholder="e.g., 142Nd"
-            value={metalTag}
-            onChange={(e) => setMetalTag(e.target.value)}
-            className="mt-1 h-9 text-sm"
-          />
-        </div>
+      <div>
+        <Label className="text-xs">Fluorophore</Label>
+        <FluorophoreCombobox value={fluorophore} onChange={setFluorophore} />
       </div>
 
       <Button onClick={handleAdd} disabled={isAdding || !selected} size="sm" className="w-full">

@@ -29,6 +29,18 @@ const proteinSubmissionSchema = z.object({
   geneSymbol: z.string().nullable().optional(),
 })
 
+const imageUrlSchema = z
+  .string()
+  .max(512)
+  .refine((s) => s.startsWith("/uploads/") || /^https?:\/\//.test(s), "Invalid image URL")
+
+const reportImageSchema = z.object({
+  url: imageUrlSchema,
+  cellTypeIds: z.array(z.string().min(1)).max(50).optional(),
+})
+
+const reportImagesSchema = z.array(reportImageSchema).max(6)
+
 export const createReportSchema = z.object({
   antibodyId: z.string().optional(),
   species: ontologyValueSchema.nullable().optional(),
@@ -45,7 +57,7 @@ export const createReportSchema = z.object({
   signalQuality: z.nativeEnum(SignalQuality).optional(),
   specificity: z.nativeEnum(Specificity).optional(),
   notes: z.string().max(5000).optional(),
-  imageUrls: z.array(z.string().url()).optional(),
+  images: reportImagesSchema.optional(),
   isPublic: z.boolean().default(true),
   antibodyData: antibodySubmissionSchema.nullable().optional(),
   proteinData: proteinSubmissionSchema.nullable().optional(),
@@ -93,7 +105,7 @@ const batchAntibodySchema = z.object({
   specificity: z.nativeEnum(Specificity).optional(),
   subcellularLocation: ontologyValueSchema.nullable().optional(),
   notes: z.string().max(5000).optional(),
-  imageUrls: z.array(z.string().url()).optional(),
+  images: reportImagesSchema.optional(),
 })
 
 export const createReportBatchSchema = z.object({

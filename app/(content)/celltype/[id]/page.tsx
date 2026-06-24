@@ -6,7 +6,7 @@ import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getCellTypeById } from "@/models/cell-type"
-import { aggregateMarkerEntries, getReportsForCellType } from "@/models/experimental-report"
+import { aggregateMarkerEntries, getImagesForCellType, getReportsForCellType } from "@/models/experimental-report"
 import { ExternalLink } from "lucide-react"
 import type { Metadata } from "next"
 import { cacheLife } from "next/cache"
@@ -41,6 +41,7 @@ async function CellTypeContent({ id }: { id: string }) {
 
   const reports = await getReportsForCellType(id)
   const markers = aggregateMarkerEntries(reports)
+  const images = await getImagesForCellType(id)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -82,7 +83,7 @@ async function CellTypeContent({ id }: { id: string }) {
       <div className="space-y-6">
         <div className="space-y-4">
           <h3 className="font-semibold">Images</h3>
-          <ImageCarouselDialog images={[]} title={cellType.label} />
+          <ImageCarouselDialog images={images} title={cellType.label} />
         </div>
 
         {markers.length > 0 && (
