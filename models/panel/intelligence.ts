@@ -29,22 +29,22 @@ const EMISSION_OVERLAP_THRESHOLD_NM = 30
 export type PanelWarning = {
   type: string
   severity: "info" | "warning" | "error"
-  cycleId?: number
-  markers?: number[]
+  cycleId?: string
+  markers?: string[]
   message: string
 }
 
 export type FluorophoreOverlapIssue = PanelWarning & {
   type: "fluorophore_overlap"
-  cycleId: number
-  markers: [number, number]
+  cycleId: string
+  markers: [string, string]
 }
 
 export type CrossReactivityIssue = PanelWarning & {
   type: "cross_reactivity"
   severity: "warning"
-  cycleId: number
-  markers: [number, number]
+  cycleId: string
+  markers: [string, string]
 }
 
 export type PanelValidationResult = {
@@ -88,7 +88,7 @@ function rangesOverlap(
 
 export function checkFluorophoreOverlap(
   markers: PanelMarkerRow[],
-  cycleNames: Map<number, string>,
+  cycleNames: Map<string, string>,
 ): FluorophoreOverlapIssue[] {
   const issues: FluorophoreOverlapIssue[] = []
 
@@ -134,7 +134,7 @@ export function checkFluorophoreOverlap(
 
 export function checkCrossReactivity(
   markers: PanelMarkerRow[],
-  cycleNames: Map<number, string>,
+  cycleNames: Map<string, string>,
 ): CrossReactivityIssue[] {
   const issues: CrossReactivityIssue[] = []
 
@@ -244,7 +244,7 @@ export function exportPanelCsv(panel: PanelRow): string {
 const ORDER_CSV_HEADER = "Protein,Gene Symbol,Antibody,Clone,RRID,Vendor,Catalog #,Host Species,Conjugate,Quantity"
 
 export function exportPanelOrderCsv(panel: PanelRow): string {
-  const seen = new Set<number>()
+  const seen = new Set<string>()
   const dedupedMarkers: PanelMarkerRow[] = []
 
   for (const cycle of panel.cycles) {
@@ -329,8 +329,8 @@ export function exportPanelJson(panel: PanelRow): object {
   }
 }
 
-function buildCycleNameMap(cycles: PanelCycleRow[]): Map<number, string> {
-  const map = new Map<number, string>()
+function buildCycleNameMap(cycles: PanelCycleRow[]): Map<string, string> {
+  const map = new Map<string, string>()
   for (const cycle of cycles) {
     map.set(cycle.id, cycle.name)
   }
@@ -343,8 +343,8 @@ function antibodyLabel(marker: PanelMarkerRow): string {
   return clone ? `${name} (clone ${clone})` : name
 }
 
-function groupByCycle(markers: PanelMarkerRow[]): Map<number, PanelMarkerRow[]> {
-  const map = new Map<number, PanelMarkerRow[]>()
+function groupByCycle(markers: PanelMarkerRow[]): Map<string, PanelMarkerRow[]> {
+  const map = new Map<string, PanelMarkerRow[]>()
   for (const marker of markers) {
     const existing = map.get(marker.cycleId) ?? []
     existing.push(marker)

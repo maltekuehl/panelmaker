@@ -65,7 +65,7 @@ export function DataTableFacetedFilter<TData, TValue>({
               <div
                 key={option.value}
                 className={cn(
-                  "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+                  "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
                 )}
                 onClick={() => {
                   if (isSelected) {
@@ -99,7 +99,7 @@ export function DataTableFacetedFilter<TData, TValue>({
             <>
               <Separator className="my-1" />
               <div
-                className="flex cursor-pointer select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                className="flex cursor-pointer select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground"
                 onClick={() => column?.setFilterValue(undefined)}
               >
                 Clear filters

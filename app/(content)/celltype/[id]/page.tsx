@@ -4,7 +4,6 @@ import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getCellTypeById } from "@/models/cell-type"
 import { aggregateMarkerEntries, getReportsForCellType } from "@/models/experimental-report"
@@ -58,32 +57,26 @@ async function CellTypeContent({ id }: { id: string }) {
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Related Markers</CardTitle>
-            <CardDescription>Validated markers associated with {cellType.label}.</CardDescription>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <DetailsDataTable columns={columns} data={markers} hiddenColumns={["cellType"]} />
-          </CardContent>
-        </Card>
+        <div className="space-y-4 border-t pt-6">
+          <div>
+            <h2 className="text-lg font-semibold">Related Markers</h2>
+            <p className="text-sm text-muted-foreground">Validated markers associated with {cellType.label}.</p>
+          </div>
+          <DetailsDataTable columns={columns} data={markers} hiddenColumns={["cellType"]} />
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>External Resources</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <a
-              href={`https://www.ebi.ac.uk/ols4/ontologies/cl/classes?obo_id=${encodeURIComponent(cellType.id)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <ExternalLink className="h-4 w-4" />
-              View in Cell Ontology (OLS)
-            </a>
-          </CardContent>
-        </Card>
+        <div className="space-y-3 border-t pt-6">
+          <h2 className="text-lg font-semibold">External Resources</h2>
+          <a
+            href={`https://www.ebi.ac.uk/ols4/ontologies/cl/classes?obo_id=${encodeURIComponent(cellType.id)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-primary hover:underline"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View in Cell Ontology (OLS)
+          </a>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -93,16 +86,14 @@ async function CellTypeContent({ id }: { id: string }) {
         </div>
 
         {markers.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Add Markers to Panel</CardTitle>
-              <CardDescription className="text-xs">
-                Add {cellType.label} markers directly to your panel.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
+          <div className="space-y-3 border-t pt-6">
+            <div>
+              <h3 className="font-semibold">Add Markers to Panel</h3>
+              <p className="text-xs text-muted-foreground">Add {cellType.label} markers directly to your panel.</p>
+            </div>
+            <div className="space-y-1">
               {markers.map((m) => (
-                <div key={m.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
+                <div key={m.id} className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/50">
                   <span className="text-sm font-medium">{m.marker}</span>
                   <AddToPanelButton
                     proteinId={m.id}
@@ -113,8 +104,8 @@ async function CellTypeContent({ id }: { id: string }) {
                   />
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         )}
       </div>
     </div>

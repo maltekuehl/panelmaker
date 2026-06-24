@@ -179,7 +179,7 @@ const suggestPanel = tool({
       allReports = allReports.filter((r) => r.species === normalizedSpecies)
     }
 
-    const seen = new Set<number>()
+    const seen = new Set<string>()
     allReports = allReports.filter((r) => {
       if (seen.has(r.id)) return false
       seen.add(r.id)
@@ -191,7 +191,7 @@ const suggestPanel = tool({
     const markerMap = new Map<
       string,
       {
-        antibodyId: number | null
+        antibodyId: string | null
         antibodyName: string
         antibodyRrid: string | null
         targetName: string | null

@@ -52,24 +52,23 @@ Rules:
 - `index.ts` re-exports everything public (types and query functions)
 - Do not add domain logic to `lib/` — `lib/` is for cross-cutting infrastructure only
 
-### Database: SQLite via Prisma
+### Database: PostgreSQL via Prisma
 
 ```prisma
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
 }
 ```
 
-- No shadow database, no `pg` dependency
-- No `@db.VarChar()` or `@db.Text` annotations (not supported in SQLite)
-- No `String[]` array fields — use `String @default("[]")` (JSON) or join tables
-- Enums are Prisma-level only (SQLite has no native enums)
+- Connection via the `@prisma/adapter-pg` driver adapter (`PrismaPg`) in `lib/prisma.ts`
+- `DATABASE_URL` and `SHADOW_DATABASE_URL` (used by `migrate dev`) are both required
+- Primary keys are `String @id @default(cuid())` — do NOT use `Int @default(autoincrement())` on any model (autoincrement sequences drift out of sync when rows are seeded with explicit ids, causing P2002 unique-constraint errors on insert)
+- Native Postgres features are available: enums, `@db.VarChar()`/`@db.Text` annotations, `String[]` array fields
 - Migrations: always `npx prisma migrate dev --create-only --name <name>`, then review SQL before applying
 
 ### Search: Prisma LIKE Queries
 
-Use Prisma `contains` mode for text search (maps to SQL `LIKE %term%`). Add `@@index` on searchable fields. Do not implement SQLite FTS5 unless LIKE queries prove too slow in production. Do not use `mode: "insensitive"` — it is not supported by SQLite (SQLite LIKE is case-insensitive for ASCII by default).
+Use Prisma `contains` mode for text search (maps to SQL `LIKE %term%`). Add `@@index` on searchable fields. Use `mode: "insensitive"` for case-insensitive matching (supported by PostgreSQL).
 
 ```typescript
 await prisma.protein.findMany({
@@ -160,7 +159,9 @@ Add to `RATE_LIMITS` in `lib/rate-limiting.ts`:
   - camelCase: Functions, variables, file names (except components)
   - UPPER_SNAKE_CASE: Constants and enums
 - **HTML escaping**: Always escape special characters (including `'` as `&apos;` and `"` as `&quot;`)
-- **Comments**: Avoid comments—code should be self-explanatory through clear naming and structure. Only add comments in exceptional circumstances where complex logic or non-obvious reasoning cannot be understood otherwise
+- **NEVER use em dashes (`—`) in user-facing copy**: not in headings, body text, button labels, placeholders, toasts, descriptions, or anywhere a user reads. This is non-negotiable. Em dashes read as AI slop. Rewrite the sentence instead: use two shorter sentences, a comma, a colon, or parentheses. A short, plain label (e.g. "Next") beats a clever dashed one. This also applies to en dashes (`–`) in copy. (Numeric/date ranges and code are the only exceptions.)
+- **No manual gaps inside buttons**: shadcn `Button` already applies an internal `gap` between an icon and its label. Do NOT add `mr-2`/`ml-2`/`gap-*` to icons placed inside a `Button`; just render `<Icon className="size-4" />` followed by the label.
+- **Comments**: Avoid comments. Code should be self-explanatory through clear naming and structure. Only add comments in exceptional circumstances where complex logic or non-obvious reasoning cannot be understood otherwise
 
 ### React & Next.js Patterns
 
@@ -254,6 +255,39 @@ export default function ClientComponent() {
 - Theme colors via CSS variables (defined in `app/globals.css`)
 - Responsive: mobile-first approach
 
+#### Layout & Visual Design Principles
+
+These are the house style for app pages. Follow them by default; deviate only with a clear reason.
+
+**App shell**
+- The whole app lives inside a left **sidebar shell** (`components/app-sidebar.tsx` + `SidebarProvider`/`SidebarInset`). Primary nav lives in the sidebar ("Platform" group); secondary/footer links live in the sidebar ("Resources" group + legal/copyright in `SidebarFooter`). There is **no page footer component** — do not reintroduce one.
+- Global search, the Submit action, theme toggle, and the user button live in the **top bar** (`components/site-header.tsx`), not in the sidebar.
+- The content wrapper in `app/layout.tsx` is a plain block (`flex-1`), **not** a flex column. Never make the top-level content wrapper `flex flex-col` — auto-margin children (`mx-auto`) shrink-to-fit inside a flex parent, which silently narrows every centered page ("double compression"). Pages own their own container (`container mx-auto px-4`).
+
+**De-carding (don't wrap content in cards)**
+- Do **not** wrap data tables or page content in `Card`. Tables render directly inside the centered container, optionally in a `rounded-md border` for definition. The marketing home page is the only place feature/navigation cards are appropriate (and even there, keep it toned down).
+- Detail pages (`marker`, `antibody`, `celltype`, `condition`, `report`, `profile`, `panel`) follow one pattern: **breadcrumb → header (title + inline metadata + actions) → plain sections separated by `border-t pt-6`**. Section headings are `text-lg font-semibold` (sidebar sub-blocks use `font-semibold`).
+- `Card` is reserved for genuinely card-like floating UI (e.g. home navigation tiles, auth/settings forms), not as a generic content container.
+
+**Condensing & surfacing data**
+- Prefer **inline metadata rows** over grids of bordered tiles: `Label: value · Label: value` using `flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm` (muted label, `font-medium`/`font-mono` value). Apply this to header key/value facts.
+- For per-record detail grids, use borderless label/value pairs (`grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4`), not filled tile boxes.
+- Replace lone big-number blocks with a compact **"At a glance"** stat list (`dl` of `flex justify-between` rows) that surfaces several derived metrics (counts of reports, antibodies, contributors, cell types, etc.).
+- For tabular data inside another surface (e.g. an accordion), use the shadcn `Table` with transparent, border-only rows — never grey filled boxes, which clash with surrounding greys.
+
+**Cross-linking (link every entity reference)**
+- Any reference to an entity must link to its detail page: markers → `/marker/{uniprotId}`, antibodies/RRID → `/antibody/{rrid-without-RRID:}`, cell types → `/celltype/{id}`, conditions → `/condition/{id}`, users → `/profile/{userId}` (including panel owner bylines). Strip the `RRID:` prefix for antibody hrefs. Links use `text-primary hover:underline`.
+
+**Theme-aware styling**
+- Use semantic tokens: `bg-muted/40` for subtle fills, `text-muted-foreground`, `border`, `bg-popover`, etc. **Do not hardcode** `bg-zinc-50`/`text-zinc-*` for surfaces — they don't adapt to dark mode or the active theme.
+
+**Long lists**
+- For potentially large collections (e.g. a panel with 100+ cycles), use a multi-open `Accordion`. Put a summary in the collapsed trigger (name + count + a truncated preview of contents) so the list is scannable without expanding; Radix unmounts collapsed content, keeping it cheap.
+
+**Overlays & interaction**
+- When an overlay should let the user keep interacting with the page behind it (e.g. the right-side `PanelDrawer`), do **not** use a modal `Dialog`/`Sheet` — its scroll-lock adds body padding that shifts `fixed` elements, and its overlay blurs/blocks the page. Use a non-modal fixed `<aside>` that slides via `translate-x`, with no backdrop. Lazy-mount heavy contents on first open.
+- Never put both `fixed … -translate-y-1/2` positioning **and** a `Button` on the same element — the button's `active:translate-y-px` overwrites the same `--tw-translate-y` variable and the element jumps on press. Put positioning transforms on a wrapper element, interactive transforms on the inner control.
+
 ### API Design
 
 #### Route Structure
@@ -317,21 +351,20 @@ export async function POST(request: NextRequest) {
 - Check rate limits before expensive operations
 - Return 429 with reset time when exceeded
 
-### Database (Prisma + SQLite)
+### Database (Prisma + PostgreSQL)
 
-#### SQLite Configuration
+#### PostgreSQL Configuration
 
 ```prisma
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
 }
 ```
 
-- No shadow database (`shadowDatabaseUrl` is PostgreSQL-only — do not add it)
-- No `@db.VarChar()` or `@db.Text` column annotations (SQLite does not support them)
-- No native array fields — use `String @default("[]")` for JSON arrays or join tables
-- Enums must be defined at the Prisma level (not as database-native enums)
+- Connected through the `@prisma/adapter-pg` driver adapter (`PrismaPg`) in `lib/prisma.ts`
+- `DATABASE_URL` (runtime) and `SHADOW_DATABASE_URL` (used by `migrate dev`) are both required
+- Native `@db.VarChar()`/`@db.Text` column annotations and `String[]` array fields are supported
+- Enums are database-native (`CREATE TYPE`)
 
 #### Migration Workflow
 
@@ -350,10 +383,10 @@ npx prisma migrate deploy
 - ALWAYS use `--create-only` first to review the generated SQL
 - NEVER use `migrate dev` on production
 - NEVER run `migrate reset` without explicit user approval (destructive)
-- No shadow database needed for SQLite
+- `SHADOW_DATABASE_URL` must point at a separate, disposable database that `migrate dev` can drop/recreate
 
 #### Schema Patterns
-- All models have `id`, `createdAt`, `updatedAt`
+- All models have `id` (`String @id @default(cuid())`), `createdAt`, `updatedAt`
 - Use `@relation` for foreign keys with `onDelete` cascade where appropriate
 - Enums for fixed sets of values (`UserRole`, `UserStatus`)
 - Use `@unique` for unique constraints, `@@index` for performance
@@ -385,7 +418,8 @@ await prisma.$transaction([
 - **Type-safe access**: Import `env` from `@/lib/env`
 - **Required vars**:
   - `NEXT_PUBLIC_BASE_URL`: Public URL
-  - `DATABASE_URL`: SQLite path (`file:./dev.db`)
+  - `DATABASE_URL`: PostgreSQL connection string
+  - `SHADOW_DATABASE_URL`: PostgreSQL shadow DB for `migrate dev`
   - `AUTH_SECRET`: Auth.js secret (32+ chars)
   - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`: OAuth
   - `AUTH_LINKEDIN_ID`, `AUTH_LINKEDIN_SECRET`: OAuth
@@ -393,7 +427,7 @@ await prisma.$transaction([
   - `CRON_SECRET`: Cron job auth
 - **Image storage vars** (add when implementing uploads):
   - `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_URL`
-- **Removed vars** (no longer needed): `GITHUB_TOKEN` (no GitHub API calls), `SHADOW_DATABASE_URL` (SQLite)
+- **Removed vars** (no longer needed): `GITHUB_TOKEN` (no GitHub API calls)
 - **Never hardcode secrets** in code or commit to git
 
 ### Security Headers

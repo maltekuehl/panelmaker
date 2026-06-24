@@ -6,11 +6,9 @@ import { z } from "zod"
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string; cycleId: string }> }) {
   try {
-    const { id, cycleId } = await params
-    const panelId = parseInt(id, 10)
-    const cycleIdNum = parseInt(cycleId, 10)
+    const { id: panelId, cycleId } = await params
 
-    if (isNaN(panelId) || isNaN(cycleIdNum)) {
+    if (!panelId || !cycleId) {
       return NextResponse.json({ error: "Invalid panel or cycle ID" }, { status: 400 })
     }
 
@@ -25,7 +23,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const cycleExists = panel.cycles.some((c) => c.id === cycleIdNum)
+    const cycleExists = panel.cycles.some((c) => c.id === cycleId)
     if (!cycleExists) {
       return NextResponse.json({ error: "Cycle not found in this panel" }, { status: 404 })
     }
@@ -33,7 +31,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
     const validated = updateCycleSchema.parse(body)
 
-    const updated = await updateCycle(cycleIdNum, validated)
+    const updated = await updateCycle(cycleId, validated)
 
     return createSuccessResponse({ cycle: toPanelCycleResponse(updated) })
   } catch (error) {
@@ -49,11 +47,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string; cycleId: string }> }) {
   try {
-    const { id, cycleId } = await params
-    const panelId = parseInt(id, 10)
-    const cycleIdNum = parseInt(cycleId, 10)
+    const { id: panelId, cycleId } = await params
 
-    if (isNaN(panelId) || isNaN(cycleIdNum)) {
+    if (!panelId || !cycleId) {
       return NextResponse.json({ error: "Invalid panel or cycle ID" }, { status: 400 })
     }
 
@@ -68,12 +64,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const cycleExists = panel.cycles.some((c) => c.id === cycleIdNum)
+    const cycleExists = panel.cycles.some((c) => c.id === cycleId)
     if (!cycleExists) {
       return NextResponse.json({ error: "Cycle not found in this panel" }, { status: 404 })
     }
 
-    await removeCycle(cycleIdNum)
+    await removeCycle(cycleId)
 
     return createSuccessResponse({ message: "Cycle removed successfully" })
   } catch (error) {

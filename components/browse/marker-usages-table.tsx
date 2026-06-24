@@ -31,7 +31,7 @@ function QualityBadge({ label }: { label: string | null }) {
   if (!label) return null
   const styles: Record<string, string> = {
     EXCELLENT: "bg-green-100 text-green-700",
-    GOOD: "bg-blue-100 text-blue-700",
+    GOOD: "bg-primary/10 text-primary",
     MODERATE: "bg-amber-100 text-amber-700",
     POOR: "bg-red-100 text-red-700",
     HIGH: "bg-green-100 text-green-700",
@@ -221,7 +221,12 @@ export function MarkerUsagesTable({ data }: MarkerUsagesTableProps) {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           <div>
                             <span className="text-muted-foreground block">Antibody</span>
-                            <span className="font-medium">{usage.antibodyName}</span>
+                            <Link
+                              href={`/antibody/${usage.antibodyId.replace(/^RRID:/, "")}`}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {usage.antibodyName}
+                            </Link>
                           </div>
                           <div>
                             <span className="text-muted-foreground block">Clone</span>

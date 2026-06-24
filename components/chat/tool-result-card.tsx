@@ -25,7 +25,7 @@ type ProteinResult = {
 }
 
 type AntibodyResult = {
-  id: number
+  id: string
   name: string
   rrid: string | null
   targetName: string | null
@@ -44,7 +44,7 @@ interface SearchMarkersOutput {
 
 interface SuggestPanelOutput {
   suggestions?: Array<{
-    antibodyId: number | null
+    antibodyId: string | null
     antibodyName: string
     antibodyRrid: string | null
     targetName: string | null
@@ -69,7 +69,7 @@ interface GetMarkerDetailsOutput {
     ensemblGeneId: string | null
   }
   publishedReports?: Array<{
-    id: number
+    id: string
     method: string | null
     species: string | null
     tissueType: string | null
@@ -78,7 +78,7 @@ interface GetMarkerDetailsOutput {
     works: boolean
     signalQuality: string | null
     specificity: string | null
-    antibodyId: number | undefined
+    antibodyId: string | undefined
     antibodyName: string | undefined
     antibodyRrid: string | undefined
     cellTypeLabel: string | undefined

@@ -1,4 +1,4 @@
-import { Fixation, MultiplexMethod, Species } from "@prisma/client"
+import { Fixation, MultiplexMethod, Species } from "@/lib/generated/prisma/enums"
 
 export const SPECIES_LABELS: Record<Species, string> = {
   HUMAN: "Homo sapiens",

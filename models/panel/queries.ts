@@ -1,12 +1,12 @@
 import "server-only"
 
+import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import type { Prisma } from "@prisma/client"
 import type { AddCycleData, AddMarkerData, CreatePanelData, UpdatePanelData } from "./schema"
 
 export type PanelQueryParams = {
   limit?: number
-  cursor?: number
+  cursor?: string
 }
 
 const panelMarkerSelect = {
@@ -102,7 +102,7 @@ export async function getPublicPanels(params: PanelQueryParams): Promise<PanelRo
   })
 }
 
-export async function getPanelById(id: number): Promise<PanelRow | null> {
+export async function getPanelById(id: string): Promise<PanelRow | null> {
   return prisma.panel.findUnique({
     where: { id },
     select: panelSelect,
@@ -142,7 +142,7 @@ export async function createPanel(data: CreatePanelData, ownerId: string): Promi
   })
 }
 
-export async function updatePanel(id: number, data: UpdatePanelData): Promise<PanelRow> {
+export async function updatePanel(id: string, data: UpdatePanelData): Promise<PanelRow> {
   const resolvedConditionId =
     data.conditionId !== undefined ? await resolveCondition(data.conditionId, data.conditionLabel) : undefined
 
@@ -160,11 +160,11 @@ export async function updatePanel(id: number, data: UpdatePanelData): Promise<Pa
   })
 }
 
-export async function deletePanel(id: number): Promise<void> {
+export async function deletePanel(id: string): Promise<void> {
   await prisma.panel.delete({ where: { id } })
 }
 
-export async function addCycle(panelId: number, data: AddCycleData): Promise<PanelCycleRow> {
+export async function addCycle(panelId: string, data: AddCycleData): Promise<PanelCycleRow> {
   return prisma.panelCycle.create({
     data: {
       panelId,
@@ -176,7 +176,7 @@ export async function addCycle(panelId: number, data: AddCycleData): Promise<Pan
   })
 }
 
-export async function updateCycle(cycleId: number, data: { notes?: string | null }): Promise<PanelCycleRow> {
+export async function updateCycle(cycleId: string, data: { notes?: string | null }): Promise<PanelCycleRow> {
   return prisma.panelCycle.update({
     where: { id: cycleId },
     data: {
@@ -186,7 +186,7 @@ export async function updateCycle(cycleId: number, data: { notes?: string | null
   })
 }
 
-export async function addMarker(cycleId: number, data: AddMarkerData): Promise<PanelMarkerRow> {
+export async function addMarker(cycleId: string, data: AddMarkerData): Promise<PanelMarkerRow> {
   return prisma.panelMarker.create({
     data: {
       cycleId,
@@ -201,8 +201,8 @@ export async function addMarker(cycleId: number, data: AddMarkerData): Promise<P
 }
 
 export async function updateMarker(
-  markerId: number,
-  data: { antibodyId?: number | null; fluorophore?: string | null; metalTag?: string | null },
+  markerId: string,
+  data: { antibodyId?: string | null; fluorophore?: string | null; metalTag?: string | null },
 ): Promise<PanelMarkerRow> {
   return prisma.panelMarker.update({
     where: { id: markerId },
@@ -211,15 +211,15 @@ export async function updateMarker(
   })
 }
 
-export async function removeCycle(cycleId: number): Promise<void> {
+export async function removeCycle(cycleId: string): Promise<void> {
   await prisma.panelCycle.delete({ where: { id: cycleId } })
 }
 
-export async function removeMarker(markerId: number): Promise<void> {
+export async function removeMarker(markerId: string): Promise<void> {
   await prisma.panelMarker.delete({ where: { id: markerId } })
 }
 
-export async function reorderMarkers(items: { markerId: number; cycleId: number; sortOrder: number }[]): Promise<void> {
+export async function reorderMarkers(items: { markerId: string; cycleId: string; sortOrder: number }[]): Promise<void> {
   await prisma.$transaction(
     items.map((item) =>
       prisma.panelMarker.update({

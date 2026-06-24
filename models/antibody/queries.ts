@@ -1,13 +1,13 @@
 import "server-only"
 
+import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import type { Prisma } from "@prisma/client"
 
 export type AntibodyQueryParams = {
   q?: string
   species?: string
   limit?: number
-  cursor?: number
+  cursor?: string
 }
 
 const antibodySelect = {
@@ -70,7 +70,7 @@ export async function getAllAntibodies(params: AntibodyQueryParams): Promise<Ant
   })
 }
 
-export async function getAntibodyById(id: number): Promise<AntibodyRow | null> {
+export async function getAntibodyById(id: string): Promise<AntibodyRow | null> {
   return prisma.antibody.findUnique({
     where: { id },
     select: antibodySelect,

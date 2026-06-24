@@ -18,7 +18,7 @@ type SearchResult = {
   proteinLabel?: string
   geneSymbol?: string
   ensemblGeneId?: string
-  antibodyId?: number
+  antibodyId?: string
   antibodyName?: string
   rrid?: string
   vendorName?: string
@@ -26,8 +26,8 @@ type SearchResult = {
 }
 
 interface MarkerSearchDialogProps {
-  panelId: number
-  cycleId: number
+  panelId: string
+  cycleId: string
   species?: Species | null
   onMarkerAdded: () => void
 }
@@ -187,7 +187,7 @@ export function MarkerSearchDialog({ panelId, cycleId, species, onMarkerAdded }:
               <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
             <Command shouldFilter={false}>
               <CommandInput placeholder="Type to search..." value={query} onValueChange={setQuery} />
               <CommandList>

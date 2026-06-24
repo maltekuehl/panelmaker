@@ -1,7 +1,7 @@
 import "server-only"
 
+import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import type { Prisma } from "@prisma/client"
 
 export type CellTypeQueryParams = {
   q?: string

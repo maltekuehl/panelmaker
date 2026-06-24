@@ -125,7 +125,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
           ref={textareaRef}
           value={editableValue}
           onChange={(e) => setEditableValue(e.target.value)}
-          className="hljs rounded-lg overflow-x-auto p-4 text-sm font-mono leading-relaxed whitespace-pre w-full resize-none bg-transparent border-none outline-none focus:ring-2 focus:ring-primary/50"
+          className="hljs rounded-lg overflow-x-auto p-4 text-sm font-mono leading-relaxed whitespace-pre w-full resize-none bg-transparent border-none outline-hidden focus:ring-2 focus:ring-primary/50"
           spellCheck={false}
         />
       ) : isLoading ? (

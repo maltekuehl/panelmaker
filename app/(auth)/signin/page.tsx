@@ -1,3 +1,4 @@
+import { providerMap } from "@/auth"
 import type { Metadata } from "next"
 import SignIn from "./SignIn"
 
@@ -18,5 +19,5 @@ export const metadata: Metadata = {
 }
 
 export default function SignInPage() {
-  return <SignIn />
+  return <SignIn providerMap={providerMap} />
 }

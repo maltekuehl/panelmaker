@@ -64,6 +64,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  serverExternalPackages: ["pg", "@prisma/adapter-pg"],
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   trailingSlash: false,
   reactCompiler: true,

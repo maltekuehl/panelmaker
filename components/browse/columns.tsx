@@ -1,9 +1,18 @@
 "use client"
 
+import { ReportsDialog } from "@/components/browse/reports-dialog"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
-import { Badge } from "@/components/ui/badge"
 import { ColumnDef } from "@tanstack/react-table"
 import Link from "next/link"
+
+export type MarkerReport = {
+  id: string
+  submitter: string
+  submitterId: string | null
+  method: string
+  species: string
+  works: boolean | null
+}
 
 export type MarkerEntry = {
   id: string
@@ -14,6 +23,7 @@ export type MarkerEntry = {
   tissue: string
   validatedMethods: string[]
   reportCount: number
+  reports: MarkerReport[]
 }
 
 export const columns: ColumnDef<MarkerEntry>[] = [
@@ -75,14 +85,9 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   {
     accessorKey: "reportCount",
     header: "Reports",
-    cell: ({ row }) => {
-      const count = row.getValue("reportCount") as number
-      return (
-        <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-          {count}
-        </Badge>
-      )
-    },
+    cell: ({ row }) => (
+      <ReportsDialog marker={row.original.marker} cellType={row.original.cellType} reports={row.original.reports} />
+    ),
   },
   {
     id: "actions",

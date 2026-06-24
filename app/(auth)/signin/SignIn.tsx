@@ -1,6 +1,5 @@
 "use client"
 
-import { providerMap } from "@/auth"
 import GitHub from "@/components/icons/github"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -15,7 +14,9 @@ import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 
-export default function SignIn() {
+type ProviderInfo = { id: string; name: string }
+
+export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] }) {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -73,7 +74,7 @@ export default function SignIn() {
     })
   }
 
-  const oauthProviders = Object.values(providerMap).filter((provider) => provider.id !== "credentials")
+  const oauthProviders = providerMap.filter((provider) => provider.id !== "credentials")
 
   return (
     <div className="flex pt-12 flex-col gap-6 max-w-md mx-auto">

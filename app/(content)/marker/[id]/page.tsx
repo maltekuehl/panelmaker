@@ -4,7 +4,6 @@ import { RelatedCellTypesTable } from "@/components/browse/related-cell-types-ta
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getCellTypesFromReports, getReportsForProtein, toReportUsage } from "@/models/experimental-report"
 import { getProteinById } from "@/models/protein"
@@ -49,6 +48,9 @@ async function MarkerContent({ id }: { id: string }) {
   const images = usages.flatMap((u) => u.images)
   const methods = [...new Set(reports.map((r) => r.method).filter(Boolean))]
   const species = [...new Set(reports.map((r) => r.species).filter(Boolean))]
+  const uniqueAntibodies = new Set(usages.map((u) => u.antibodyId).filter(Boolean)).size
+  const contributors = new Set(usages.map((u) => u.submitterId ?? u.submitter).filter(Boolean)).size
+  const worksCount = usages.filter((u) => u.works === true).length
 
   const cellTypesForTable = relatedCellTypes.map((ct) => ({
     id: ct.id,
@@ -76,85 +78,79 @@ async function MarkerContent({ id }: { id: string }) {
               <Badge
                 key={method}
                 variant="secondary"
-                className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+                className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
               >
                 {method}
               </Badge>
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="p-3 bg-zinc-50 rounded-lg border">
-              <span className="text-xs font-medium text-muted-foreground block mb-1">Gene Symbol</span>
-              <span className="text-sm font-medium">{protein.geneSymbol ?? "N/A"}</span>
-            </div>
-            <div className="p-3 bg-zinc-50 rounded-lg border">
-              <span className="text-xs font-medium text-muted-foreground block mb-1">Ensembl Gene ID</span>
-              <span className="text-sm font-mono">{protein.ensemblGeneId ?? "N/A"}</span>
-            </div>
-            <div className="p-3 bg-zinc-50 rounded-lg border">
-              <span className="text-xs font-medium text-muted-foreground block mb-1">UniProt ID</span>
-              <span className="text-sm font-mono">{protein.id}</span>
-            </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
+            <span>
+              <span className="text-muted-foreground">Gene Symbol: </span>
+              <span className="font-medium">{protein.geneSymbol ?? "N/A"}</span>
+            </span>
+            <span>
+              <span className="text-muted-foreground">Ensembl: </span>
+              <span className="font-mono">{protein.ensemblGeneId ?? "N/A"}</span>
+            </span>
+            <span>
+              <span className="text-muted-foreground">UniProt: </span>
+              <span className="font-mono">{protein.id}</span>
+            </span>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Experimental Reports</CardTitle>
-            <CardDescription>Detailed usage reports and validation data from various experiments.</CardDescription>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <MarkerUsagesTable data={usages} />
-          </CardContent>
-        </Card>
+        <div className="space-y-4 border-t pt-6">
+          <div>
+            <h2 className="text-lg font-semibold">Experimental Reports</h2>
+            <p className="text-sm text-muted-foreground">
+              Detailed usage reports and validation data from various experiments.
+            </p>
+          </div>
+          <MarkerUsagesTable data={usages} />
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Associated Cell Types</CardTitle>
-            <CardDescription>Cell types known to express {protein.label}.</CardDescription>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <RelatedCellTypesTable data={cellTypesForTable} />
-          </CardContent>
-        </Card>
+        <div className="space-y-4 border-t pt-6">
+          <div>
+            <h2 className="text-lg font-semibold">Associated Cell Types</h2>
+            <p className="text-sm text-muted-foreground">Cell types known to express {protein.label}.</p>
+          </div>
+          <RelatedCellTypesTable data={cellTypesForTable} />
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>External Resources</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
+        <div className="space-y-3 border-t pt-6">
+          <h2 className="text-lg font-semibold">External Resources</h2>
+          <a
+            href={`https://www.uniprot.org/uniprotkb/${protein.id}/entry`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-primary hover:underline"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View in UniProt ({protein.id})
+          </a>
+          <a
+            href={`https://www.proteinatlas.org/search/${protein.geneSymbol ?? protein.label}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-primary hover:underline"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View in Human Protein Atlas
+          </a>
+          {protein.ensemblGeneId && (
             <a
-              href={`https://www.uniprot.org/uniprotkb/${protein.id}/entry`}
+              href={`https://www.ensembl.org/Homo_sapiens/Gene/Summary?g=${protein.ensemblGeneId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm text-primary hover:underline"
             >
               <ExternalLink className="h-4 w-4" />
-              View in UniProt ({protein.id})
+              View in Ensembl ({protein.ensemblGeneId})
             </a>
-            <a
-              href={`https://www.proteinatlas.org/search/${protein.geneSymbol ?? protein.label}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-primary hover:underline"
-            >
-              <ExternalLink className="h-4 w-4" />
-              View in Human Protein Atlas
-            </a>
-            {protein.ensemblGeneId && (
-              <a
-                href={`https://www.ensembl.org/Homo_sapiens/Gene/Summary?g=${protein.ensemblGeneId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View in Ensembl ({protein.ensemblGeneId})
-              </a>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -163,17 +159,31 @@ async function MarkerContent({ id }: { id: string }) {
           <ImageCarouselDialog images={images} title={protein.label} />
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Community Reports</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{reports.length}</div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {reports.length === 1 ? "1 published report" : `${reports.length} published reports`}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-3">
+          <h3 className="font-semibold">At a glance</h3>
+          <dl className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">Reports</dt>
+              <dd className="font-medium tabular-nums">{reports.length}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">Validated (works)</dt>
+              <dd className="font-medium tabular-nums">{worksCount}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">Antibodies</dt>
+              <dd className="font-medium tabular-nums">{uniqueAntibodies}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">Contributors</dt>
+              <dd className="font-medium tabular-nums">{contributors}</dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-muted-foreground">Cell types</dt>
+              <dd className="font-medium tabular-nums">{relatedCellTypes.length}</dd>
+            </div>
+          </dl>
+        </div>
       </div>
     </div>
   )
@@ -189,10 +199,10 @@ function MarkerContentSkeleton() {
             <Skeleton className="h-6 w-20" />
             <Skeleton className="h-6 w-20" />
           </div>
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-5 w-28" />
           </div>
         </div>
         <Skeleton className="h-48 w-full" />

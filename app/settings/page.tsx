@@ -1,6 +1,8 @@
 import { auth } from "@/auth"
 import { isUserAdmin } from "@/lib/auth"
+import { ArrowRight } from "lucide-react"
 import { Metadata } from "next"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import DataExportSection from "./data-export-section"
 import DeleteAccountSection from "./delete-account-section"
@@ -21,20 +23,25 @@ export default async function SettingsPage() {
   const isAdmin = await isUserAdmin(session.user.id)
 
   return (
-    <div>
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground mt-2">Manage your account settings and preferences</p>
-        </div>
+    <div className="container mx-auto max-w-4xl px-4 py-8">
+      <div className="mb-8 space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground">Manage your account settings and preferences</p>
+        <Link
+          href={`/profile/${session.user.id}`}
+          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          View your public profile
+          <ArrowRight className="size-3.5" />
+        </Link>
+      </div>
 
-        <div className="space-y-6">
-          <ProfileSection name={session.user.name ?? null} email={session.user.email ?? null} />
+      <div className="space-y-8">
+        <ProfileSection name={session.user.name ?? null} email={session.user.email ?? null} />
 
-          <DataExportSection />
+        <DataExportSection />
 
-          {!isAdmin && <DeleteAccountSection />}
-        </div>
+        {!isAdmin && <DeleteAccountSection />}
       </div>
     </div>
   )

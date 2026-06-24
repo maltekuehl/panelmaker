@@ -1,6 +1,6 @@
+import type { BlogPost } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { generateSlug } from "@/lib/utils"
-import { BlogPost } from "@prisma/client"
 import "server-only"
 
 // Types for blog operations

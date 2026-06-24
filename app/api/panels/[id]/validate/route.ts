@@ -5,10 +5,9 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
-    const panelId = parseInt(id, 10)
+    const { id: panelId } = await params
 
-    if (isNaN(panelId)) {
+    if (!panelId) {
       return NextResponse.json({ error: "Invalid panel ID" }, { status: 400 })
     }
 

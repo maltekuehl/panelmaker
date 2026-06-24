@@ -3,7 +3,6 @@ import BlogSearchInput from "@/components/blog/blog-search-input"
 import DeleteBlogPostButton from "@/components/blog/delete-blog-post-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Pagination,
   PaginationContent,
@@ -61,21 +60,14 @@ async function getCachedBlogPosts(
 
 function BlogPostsSkeleton() {
   return (
-    <div className="space-y-6">
+    <div className="divide-y">
       {Array.from({ length: 6 }, (_, i) => (
-        <Card key={i}>
-          <CardHeader>
-            <Skeleton className="h-6 w-3/4" />
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-2/3" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-          </CardContent>
-        </Card>
+        <div key={i} className="space-y-3 py-8 first:pt-0">
+          <Skeleton className="h-7 w-2/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-4 w-40" />
+        </div>
       ))}
     </div>
   )
@@ -115,18 +107,27 @@ async function BlogPostsList({ page, search }: { page: number; search?: string }
 
   return (
     <>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-1">
-        {posts.map((post) => (
-          <Card key={post.id} className="group hover:shadow-lg transition-all duration-300 hover:bg-card/80 shadow-sm">
-            <CardHeader className="space-y-4">
+      <div className="divide-y">
+        {posts.map((post) => {
+          const keywords: string[] = (() => {
+            try {
+              return JSON.parse(post.keywords)
+            } catch {
+              return []
+            }
+          })()
+          const dateValue = post.publishedAt ?? post.createdAt
+
+          return (
+            <article key={post.id} className="group py-8 first:pt-0">
               <div className="flex items-start justify-between gap-4">
-                <div className="space-y-3 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <CardTitle className="text-xl md:text-2xl leading-tight group-hover:text-primary transition-colors">
-                      <Link href={`/blog/${post.slug}`} className="line-clamp-2">
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-2xl font-semibold leading-tight tracking-tight">
+                      <Link href={`/blog/${post.slug}`} className="transition-colors hover:text-primary">
                         {post.title}
                       </Link>
-                    </CardTitle>
+                    </h2>
                     {!post.published && (
                       <Badge
                         variant="secondary"
@@ -136,14 +137,38 @@ async function BlogPostsList({ page, search }: { page: number; search?: string }
                       </Badge>
                     )}
                   </div>
-                  {post.excerpt && (
-                    <CardDescription className="text-base leading-relaxed line-clamp-3">{post.excerpt}</CardDescription>
+
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <User className="size-3.5" />
+                      {post.author.name || post.author.email}
+                    </span>
+                    <span aria-hidden>·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <CalendarDays className="size-3.5" />
+                      {format(new Date(dateValue), "MMM d, yyyy")}
+                    </span>
+                    <span aria-hidden>·</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Clock className="size-3.5" />
+                      {Math.ceil(post.content.split(" ").length / 200)} min read
+                    </span>
+                  </div>
+
+                  {post.excerpt && <p className="leading-relaxed text-muted-foreground line-clamp-3">{post.excerpt}</p>}
+
+                  {keywords.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {keywords.slice(0, 5).join(" · ")}
+                      {keywords.length > 5 && ` · +${keywords.length - 5} more`}
+                    </p>
                   )}
                 </div>
+
                 {isAdmin && (
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex shrink-0 items-center gap-1">
                     <Link href={`/blog/edit/${post.id}`}>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="icon">
                         <Edit className="h-4 w-4" />
                       </Button>
                     </Link>
@@ -151,56 +176,9 @@ async function BlogPostsList({ page, search }: { page: number; search?: string }
                   </div>
                 )}
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                <div className="flex items-center space-x-2 bg-accent/50 px-3 py-1 rounded-full">
-                  <User className="h-3 w-3" />
-                  <span className="font-medium">{post.author.name || post.author.email}</span>
-                </div>
-                <div className="flex items-center space-x-2 bg-accent/50 px-3 py-1 rounded-full">
-                  <CalendarDays className="h-3 w-3" />
-                  <span>
-                    {post.publishedAt
-                      ? format(new Date(post.publishedAt), "MMM d, yyyy")
-                      : format(new Date(post.createdAt), "MMM d, yyyy")}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2 bg-accent/50 px-3 py-1 rounded-full">
-                  <Clock className="h-3 w-3" />
-                  <span>{Math.ceil(post.content.split(" ").length / 200)} min read</span>
-                </div>
-              </div>
-              {(() => {
-                const keywords: string[] = (() => {
-                  try {
-                    return JSON.parse(post.keywords)
-                  } catch {
-                    return []
-                  }
-                })()
-                return keywords.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {keywords.slice(0, 5).map((keyword) => (
-                      <Badge
-                        key={keyword}
-                        variant="outline"
-                        className="text-xs bg-primary/5 border-primary/20 text-primary hover:bg-primary/10 transition-colors"
-                      >
-                        {keyword}
-                      </Badge>
-                    ))}
-                    {keywords.length > 5 && (
-                      <Badge variant="outline" className="text-xs bg-accent/50">
-                        +{keywords.length - 5} more
-                      </Badge>
-                    )}
-                  </div>
-                ) : null
-              })()}
-            </CardContent>
-          </Card>
-        ))}
+            </article>
+          )
+        })}
       </div>
 
       {totalPages > 1 && (
@@ -253,7 +231,7 @@ export default async function BlogPage(props: { searchParams: Promise<BlogPageSe
   const isAdmin = session?.user?.id ? await isUserAdmin(session.user.id) : false
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
+    <div className="container mx-auto max-w-4xl px-4 py-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-y-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Blog</h1>

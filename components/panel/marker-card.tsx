@@ -13,7 +13,7 @@ import type { PanelMarker, Species } from "./types"
 import { SPECIES_LABELS } from "./types"
 
 type AntibodyResult = {
-  id: number
+  id: string
   name: string
   rrid: string | null
   vendorName: string | null
@@ -30,9 +30,9 @@ type AntibodyResult = {
 
 interface MarkerCardProps {
   marker: PanelMarker
-  panelId: number
+  panelId: string
   species?: Species | null
-  onRemove?: (id: number) => void
+  onRemove?: (id: string) => void
   onMarkerUpdated?: () => void
   isDragging?: boolean
 }
@@ -129,7 +129,7 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
       <div className="flex justify-between items-start">
         <div className="flex items-start gap-3">
           <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-zinc-300 cursor-grab active:cursor-grabbing touch-none" />
-          <div className="mt-1 h-3 w-3 rounded-full shadow-sm shrink-0 bg-primary/40" />
+          <div className="mt-1 h-3 w-3 rounded-full shadow-xs shrink-0 bg-primary/40" />
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               {marker.protein ? (

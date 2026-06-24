@@ -6,7 +6,7 @@ export const searchParamsSchema = z
     species: z.string().optional(),
     proteinId: z.string().optional(),
     limit: z.coerce.number().min(1).max(100).default(20),
-    cursor: z.coerce.number().optional(),
+    cursor: z.string().optional(),
   })
   .strict()
 

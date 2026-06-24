@@ -1,7 +1,7 @@
 import "server-only"
 
+import type { MultiplexMethod, Species, ValidationStatus } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import type { MultiplexMethod, Species, ValidationStatus } from "@prisma/client"
 
 const userProfileSelect = {
   id: true,
@@ -100,13 +100,13 @@ const recentReportSelect = {
 } as const
 
 export type RecentReportRow = {
-  id: number
+  id: string
   method: MultiplexMethod | null
   species: Species | null
   status: ValidationStatus
   createdAt: Date
   antibody: {
-    id: number
+    id: string
     name: string
     rrid: string | null
     targetName: string | null
@@ -118,7 +118,7 @@ export type RecentReportRow = {
   } | null
 }
 
-export async function getUserRecentReports(userId: string, limit = 10): Promise<RecentReportRow[]> {
+export async function getUserRecentReports(userId: string, limit = 20): Promise<RecentReportRow[]> {
   return prisma.experimentalReport.findMany({
     where: { submitterId: userId, isPublic: true },
     select: recentReportSelect,

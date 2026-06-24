@@ -1,10 +1,10 @@
 import "server-only"
 
+import type { Clonality, Prisma, SourceOrganism, ValidationStatus } from "@/lib/generated/prisma/client"
 import { lookupAntibodyByRrid, searchAntibodyRegistry } from "@/lib/integrations/antibody-registry"
 import { searchCellOntology, searchDiseaseOntology, searchGoCellularComponent } from "@/lib/ontology"
 import { prisma } from "@/lib/prisma"
-import type { Clonality, Prisma, SourceOrganism, ValidationStatus } from "@prisma/client"
-import type { CreateReportData } from "./schema"
+import type { CreateReportBatchData, CreateReportData } from "./schema"
 
 export type ReportQueryParams = {
   q?: string
@@ -12,7 +12,7 @@ export type ReportQueryParams = {
   fixation?: string
   species?: string
   limit?: number
-  cursor?: number
+  cursor?: string
 }
 
 const reportSelect = {
@@ -125,14 +125,14 @@ export async function getAllReports(params: ReportQueryParams): Promise<ReportRo
   })
 }
 
-export async function getReportById(id: number): Promise<ReportRow | null> {
+export async function getReportById(id: string): Promise<ReportRow | null> {
   return prisma.experimentalReport.findUnique({
     where: { id },
     select: reportSelect,
   })
 }
 
-export async function getReportsForAntibody(antibodyId: number): Promise<ReportRow[]> {
+export async function getReportsForAntibody(antibodyId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
     where: { antibodyId, isPublic: true, status: "PUBLISHED" },
@@ -225,7 +225,7 @@ async function resolveAntibody(
   tx: TxClient,
   data: CreateReportData,
   proteinId: string | undefined,
-): Promise<number | undefined> {
+): Promise<string | undefined> {
   if (data.antibodyId) {
     const existing = await tx.antibody.findUnique({ where: { id: data.antibodyId } })
     if (existing) return existing.id
@@ -405,6 +405,64 @@ export async function resolveAndCreateReport(data: CreateReportData, submitterId
   })
 }
 
+export type BatchReportResult = {
+  created: ReportRow[]
+  failed: { index: number; markerName: string; error: string }[]
+}
+
+export async function resolveAndCreateReports(
+  batch: CreateReportBatchData,
+  submitterId: string,
+): Promise<BatchReportResult> {
+  const { context, antibodies } = batch
+  const created: ReportRow[] = []
+  const failed: BatchReportResult["failed"] = []
+
+  for (let index = 0; index < antibodies.length; index++) {
+    const item = antibodies[index]
+    const reportData: CreateReportData = {
+      species: context.species,
+      tissueType: context.tissueType,
+      fixation: context.fixation,
+      method: context.method,
+      antigenRetrieval: context.antigenRetrieval,
+      condition: context.condition ?? null,
+      markerName: item.markerName,
+      rrid: item.rrid,
+      antibodyVendor: item.antibodyVendor,
+      catalogNumber: item.catalogNumber,
+      cloneId: item.cloneId,
+      hostSpecies: item.hostSpecies,
+      cellTypes: item.cellTypes,
+      dilution: item.dilution,
+      fluorophore: item.fluorophore,
+      metalTag: item.metalTag,
+      cycleNumber: item.cycleNumber,
+      works: item.works,
+      signalQuality: item.signalQuality,
+      specificity: item.specificity,
+      subcellularLocation: item.subcellularLocation,
+      notes: item.notes,
+      imageUrls: item.imageUrls,
+      antibodyData: item.antibodyData,
+      proteinData: item.proteinData,
+      isPublic: true,
+    }
+
+    try {
+      created.push(await resolveAndCreateReport(reportData, submitterId))
+    } catch (error) {
+      failed.push({
+        index,
+        markerName: item.markerName,
+        error: error instanceof Error ? error.message : "Failed to create report",
+      })
+    }
+  }
+
+  return { created, failed }
+}
+
 export async function createReport(data: CreateReportData, submitterId: string): Promise<ReportRow> {
   const {
     antibodyData: _ab,
@@ -439,7 +497,7 @@ export async function getPendingReports(): Promise<ReportRow[]> {
   })
 }
 
-export async function updateReportStatus(id: number, status: ValidationStatus): Promise<ReportRow> {
+export async function updateReportStatus(id: string, status: ValidationStatus): Promise<ReportRow> {
   return prisma.experimentalReport.update({
     where: { id },
     data: { status },

@@ -5,13 +5,12 @@ import { NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const numericId = parseInt(id, 10)
 
-    if (isNaN(numericId)) {
+    if (!id) {
       return NextResponse.json({ error: "Invalid report ID" }, { status: 400 })
     }
 
-    const report = await getReportById(numericId)
+    const report = await getReportById(id)
 
     if (!report) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 })

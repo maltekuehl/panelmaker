@@ -1,16 +1,24 @@
 import { auth } from "@/auth"
 import { AIAssistantFloating } from "@/components/ai-assistant-floating"
+import { AppSidebar } from "@/components/app-sidebar"
 import { CookieNotice } from "@/components/cookie/cookie-notice"
-import Footer from "@/components/footer"
-import Header from "@/components/header"
 import { PanelDrawer } from "@/components/panel/panel-drawer"
 import Providers from "@/components/providers"
+import { SiteHeader } from "@/components/site-header"
 import { ThemeProvider } from "@/components/theme-provider"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import UserButton from "@/components/user-button"
 import { env } from "@/lib/env"
+import { cn } from "@/lib/utils"
 import type { Metadata, Viewport } from "next"
+import { DM_Sans, Outfit } from "next/font/google"
 import localFont from "next/font/local"
 import { Suspense } from "react"
 import "./globals.css"
+
+const outfitHeading = Outfit({ subsets: ["latin"], variable: "--font-heading" })
+
+const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" })
 
 const inter = localFont({
   src: [
@@ -76,12 +84,12 @@ export const viewport: Viewport = {
   userScalable: true,
   viewportFit: "cover",
   themeColor: "#000000",
-  colorScheme: "dark",
+  colorScheme: "light",
 }
 
 export default async function RootLayout({ children }: React.PropsWithChildren) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", dmSans.variable, outfitHeading.variable)}>
       <head>
         <link rel="apple-touch-icon" sizes="57x57" href="/apple-icon-57x57.png" />
         <link rel="apple-touch-icon" sizes="60x60" href="/apple-icon-60x60.png" />
@@ -104,7 +112,7 @@ export default async function RootLayout({ children }: React.PropsWithChildren) 
         <base href={env.NEXT_PUBLIC_BASE_URL || "https://panelmaker.ai"} />
       </head>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <Suspense fallback={null}>
             <SessionProvider>{children}</SessionProvider>
           </Suspense>
@@ -133,14 +141,18 @@ async function SessionProvider({ children }: React.PropsWithChildren) {
 
   return (
     <Providers session={clientSession}>
-      <div className="flex h-full min-h-screen w-full flex-col justify-between bg-zinc-50">
-        <Header className="sticky top-0 z-50" />
-        <main className="w-full flex-auto">{children}</main>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <SiteHeader>
+            <UserButton />
+          </SiteHeader>
+          <div className="flex-1">{children}</div>
+        </SidebarInset>
         <PanelDrawer />
         <AIAssistantFloating />
-        <Footer />
         <CookieNotice />
-      </div>
+      </SidebarProvider>
     </Providers>
   )
 }

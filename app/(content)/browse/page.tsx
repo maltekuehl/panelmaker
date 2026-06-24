@@ -1,6 +1,5 @@
 import { columns } from "@/components/browse/columns"
 import { DataTable } from "@/components/browse/data-table"
-import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { aggregateMarkerEntries, getAllReports } from "@/models/experimental-report"
 import type { Metadata } from "next"
@@ -53,22 +52,18 @@ async function MarkerTable({ q }: { q?: string }) {
   const reports = await getAllReports({ limit: 100, q })
   const markers = aggregateMarkerEntries(reports)
 
-  return (
-    <Card className="p-4 pb-1">
-      <DataTable columns={columns} data={markers} />
-    </Card>
-  )
+  return <DataTable columns={columns} data={markers} />
 }
 
 function MarkerTableSkeleton() {
   return (
-    <Card className="p-4">
-      <Skeleton className="h-10 w-full mb-2" />
-      <Skeleton className="h-10 w-full mb-2" />
-      <Skeleton className="h-10 w-full mb-2" />
-      <Skeleton className="h-10 w-full mb-2" />
+    <div className="space-y-2">
       <Skeleton className="h-10 w-full" />
-    </Card>
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+    </div>
   )
 }
 
@@ -80,9 +75,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Marker Database</h1>
         <p className="text-muted-foreground mt-1">
-          {q
-            ? `Showing results for &quot;${q}&quot;`
-            : "Browse validated cell type markers to inform your panel design."}
+          {q ? `Showing results for “${q}”` : "Browse validated cell type markers to inform your panel design."}
         </p>
       </div>
       <Suspense fallback={<MarkerTableSkeleton />}>

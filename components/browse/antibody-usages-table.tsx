@@ -31,7 +31,7 @@ function QualityBadge({ label }: { label: string | null }) {
   if (!label) return null
   const styles: Record<string, string> = {
     EXCELLENT: "bg-green-100 text-green-700",
-    GOOD: "bg-blue-100 text-blue-700",
+    GOOD: "bg-primary/10 text-primary",
     MODERATE: "bg-amber-100 text-amber-700",
     POOR: "bg-red-100 text-red-700",
     HIGH: "bg-green-100 text-green-700",

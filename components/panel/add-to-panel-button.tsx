@@ -18,9 +18,9 @@ import { toast } from "sonner"
 import { PanelForm, type CreatePanelFormData } from "./panel-form"
 
 type PanelOption = {
-  id: number
+  id: string
   name: string
-  cycles: { id: number; name: string }[]
+  cycles: { id: string; name: string }[]
 }
 
 interface AddToPanelButtonProps {
@@ -28,7 +28,7 @@ interface AddToPanelButtonProps {
   proteinLabel?: string
   geneSymbol?: string
   ensemblGeneId?: string
-  antibodyId?: number
+  antibodyId?: string
   label: string
   variant?: "default" | "outline" | "secondary" | "ghost"
   size?: "default" | "sm" | "icon"
@@ -55,7 +55,7 @@ export function AddToPanelButton({
   const [isAdding, setIsAdding] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [selectedCycleId, setSelectedCycleId] = useState<number | null>(null)
+  const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null)
   const [fluorophore, setFluorophore] = useState("")
   const [metalTag, setMetalTag] = useState("")
 

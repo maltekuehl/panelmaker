@@ -8,9 +8,9 @@ interface SortableMarkerCardProps {
   marker: PanelMarker
   index: number
   column: string
-  panelId: number
+  panelId: string
   species?: Species | null
-  onRemove?: (id: number) => void
+  onRemove?: (id: string) => void
   onMarkerUpdated?: () => void
 }
 

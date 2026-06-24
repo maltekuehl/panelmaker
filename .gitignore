@@ -31,3 +31,6 @@ test-results
 
 *.db
 *.db-journal
+
+# Prisma generated client (run `prisma generate`)
+lib/generated

@@ -1,9 +1,8 @@
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { prisma } from "@/lib/prisma"
-import { Bot, Database, Layers, Microscope, Search, ShieldCheck, Users } from "lucide-react"
+import { ArrowRight, BookOpen, Layers, Plus, Search } from "lucide-react"
 import type { Metadata } from "next"
 import { cacheLife } from "next/cache"
 import Link from "next/link"
@@ -45,30 +44,30 @@ async function HomeStats() {
     prisma.experimentalReport.count({ where: { isPublic: true } }),
   ])
 
+  const stats = [
+    { label: "Proteins", value: formatCount(proteinCount) },
+    { label: "Antibodies", value: formatCount(antibodyCount) },
+    { label: "Validated Reports", value: formatCount(reportCount) },
+  ]
+
   return (
-    <div className="grid grid-cols-3 gap-8 md:gap-16 pt-12">
-      <div className="text-center">
-        <div className="text-3xl font-bold text-primary">{formatCount(proteinCount)}</div>
-        <div className="text-sm text-muted-foreground">Proteins</div>
-      </div>
-      <div className="text-center">
-        <div className="text-3xl font-bold text-primary">{formatCount(antibodyCount)}</div>
-        <div className="text-sm text-muted-foreground">Antibodies</div>
-      </div>
-      <div className="text-center">
-        <div className="text-3xl font-bold text-primary">{formatCount(reportCount)}</div>
-        <div className="text-sm text-muted-foreground">Validated Reports</div>
-      </div>
+    <div className="grid grid-cols-3 gap-4 sm:gap-8">
+      {stats.map((s) => (
+        <div key={s.label} className="text-center">
+          <div className="text-2xl font-bold text-primary sm:text-3xl">{s.value}</div>
+          <div className="text-sm text-muted-foreground">{s.label}</div>
+        </div>
+      ))}
     </div>
   )
 }
 
 function HomeStatsSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-8 md:gap-16 pt-12">
+    <div className="grid grid-cols-3 gap-4 sm:gap-8">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="text-center flex flex-col items-center gap-2">
-          <Skeleton className="h-9 w-16" />
+        <div key={i} className="flex flex-col items-center gap-2 text-center">
+          <Skeleton className="h-8 w-16" />
           <Skeleton className="h-4 w-24" />
         </div>
       ))}
@@ -76,122 +75,74 @@ function HomeStatsSkeleton() {
   )
 }
 
-export default async function HomePage() {
-  return (
-    <div className="flex flex-col min-h-[calc(100vh-4rem)]">
-      {/* Hero Section */}
-      <section className="flex-1 flex flex-col items-center justify-center py-20 md:py-32 text-center space-y-8 container mx-auto px-4">
-        <div>
-          <Badge
-            variant="secondary"
-            className="rounded-full px-4 py-1.5 text-sm mb-6 font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
-          >
-            Community-Driven Spatial Biology
-          </Badge>
-        </div>
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tighter max-w-5xl">
-          The Database for <span className="text-primary whitespace-nowrap">Spatial Proteomics</span> Markers
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed text-balance">
-          Discover experimentally validated antibodies for PathoPlex, CODEX, MIBI-ToF, IMC, and CyCIF.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-center pt-4">
-          <Button asChild size="lg" className="h-12 px-8 text-base rounded-full">
-            <Link href="/browse">
-              <Search className="mr-2 h-4 w-4" /> Search Markers
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="h-12 px-8 text-base rounded-full">
-            <Link href="/panel">
-              <Layers className="mr-2 h-4 w-4" /> Design Panel
-            </Link>
-          </Button>
-        </div>
+const destinations = [
+  {
+    href: "/browse",
+    icon: Search,
+    title: "Browse Markers",
+    description: "Search experimentally validated antibodies and cell type markers across the database.",
+  },
+  {
+    href: "/panel",
+    icon: Layers,
+    title: "Design a Panel",
+    description: "Build multiplex panels with compatibility checks and AI-assisted marker suggestions.",
+  },
+  {
+    href: "/submit",
+    icon: Plus,
+    title: "Submit a Marker",
+    description: "Contribute your validated markers and staining protocols to the community atlas.",
+  },
+  {
+    href: "/docs",
+    icon: BookOpen,
+    title: "Documentation",
+    description: "Learn how PanelMaker works and how to get the most out of the database and tools.",
+  },
+]
 
-        {/* Quick Stats */}
+export default function HomePage() {
+  return (
+    <div className="container mx-auto flex flex-col gap-10 px-4 py-10 md:py-16">
+      <section className="flex flex-col items-start gap-5">
+        <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs font-medium">
+          Community-Driven Spatial Biology
+        </Badge>
+        <h1 className="max-w-3xl text-3xl font-bold tracking-tight md:text-5xl">
+          The database for <span className="text-primary">spatial proteomics</span> markers
+        </h1>
+        <p className="max-w-2xl text-balance text-lg text-muted-foreground">
+          Discover experimentally validated antibodies for PathoPlex, CODEX, MIBI-ToF, IMC, and CyCIF — then design and
+          share your panels.
+        </p>
         <Suspense fallback={<HomeStatsSkeleton />}>
-          <HomeStats />
+          <div className="w-full max-w-md pt-2">
+            <HomeStats />
+          </div>
         </Suspense>
       </section>
 
-      {/* Features Grid */}
-      <section className="bg-muted/30 py-24 border-y">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16 space-y-4">
-            <h2 className="text-3xl font-bold tracking-tight">From Transcriptomics to Proteomics</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-              PanelMaker provides the tools and data needed to translate gene expression signatures into validated
-              staining protocols.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <FeatureCard
-              icon={<ShieldCheck className="h-8 w-8 text-primary" />}
-              title="Validated Antibodies"
-              description="Access a curated database of antibodies with experimental evidence, validation scores (0-3), and detailed protocols."
-            />
-            <FeatureCard
-              icon={<Layers className="h-8 w-8 text-primary" />}
-              title="Panel Designer"
-              description="Interactive tool to build multiplex panels. Select targets and get AI suggestions for compatible marker combinations."
-            />
-            <FeatureCard
-              icon={<Database className="h-8 w-8 text-primary" />}
-              title="Rich Metadata"
-              description="Complete info on species, tissue specificity, antigen retrieval, and cross-reactivity for every marker."
-            />
-            <FeatureCard
-              icon={<Users className="h-8 w-8 text-primary" />}
-              title="Community Driven"
-              description="Submit your own validated markers and protocols. Peer review system ensures high-quality data standards."
-            />
-            <FeatureCard
-              icon={<Microscope className="h-8 w-8 text-primary" />}
-              title="Imaging Focused"
-              description="Visual database with high-quality examples from IF, MIBI, CODEX, and IMC to verify subcellular localization."
-            />
-            <FeatureCard
-              icon={<Bot className="h-8 w-8 text-primary" />}
-              title="AI Assistant"
-              description="Integrated chatbot to help find markers for specific cell types or troubleshoot staining protocols."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24 container mx-auto px-4 text-center">
-        <div className="bg-primary/5 rounded-3xl p-12 md:p-24 border border-primary/10">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6 tracking-tight">Contribute to the Atlas</h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Join the consortium of immunologists and spatial biologists building the definitive resource for spatial
-            proteomics markers.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" className="rounded-full px-8">
-              <Link href="/submit">Submit a Marker</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="rounded-full px-8">
-              <Link href="/browse">Browse Database</Link>
-            </Button>
-          </div>
-        </div>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {destinations.map((d) => (
+          <Link key={d.href} href={d.href} className="group">
+            <Card className="h-full transition-colors hover:border-primary/40 hover:bg-accent/40">
+              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <d.icon className="size-5" />
+                </div>
+                <CardTitle className="flex flex-1 items-center justify-between text-lg">
+                  {d.title}
+                  <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm leading-relaxed text-muted-foreground">{d.description}</p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </section>
     </div>
-  )
-}
-
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
-  return (
-    <Card className="bg-background border-muted/60 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-      <CardHeader>
-        <div className="mb-4 p-3 bg-primary/10 w-fit rounded-xl">{icon}</div>
-        <CardTitle className="text-xl">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground leading-relaxed">{description}</p>
-      </CardContent>
-    </Card>
   )
 }

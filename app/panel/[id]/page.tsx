@@ -2,10 +2,10 @@ import { auth } from "@/auth"
 import { PanelExportMenu } from "@/components/panel/panel-export-menu"
 import { FIXATION_LABELS, SPECIES_LABELS } from "@/components/panel/types"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getPanelById } from "@/models/panel"
 import { Edit, Layers } from "lucide-react"
 import type { Metadata } from "next"
@@ -18,9 +18,8 @@ interface PanelDetailPageProps {
 
 export async function generateMetadata({ params }: PanelDetailPageProps): Promise<Metadata> {
   const { id } = await params
-  const numericId = parseInt(id, 10)
-  if (isNaN(numericId)) return { title: "Panel Not Found | PanelMaker" }
-  const panel = await getPanelById(numericId)
+  if (!id) return { title: "Panel Not Found | PanelMaker" }
+  const panel = await getPanelById(id)
   if (!panel) return { title: "Panel Not Found | PanelMaker" }
   return {
     title: `${panel.name} | PanelMaker`,
@@ -30,13 +29,12 @@ export async function generateMetadata({ params }: PanelDetailPageProps): Promis
 
 export default async function PanelDetailPage({ params }: PanelDetailPageProps) {
   const { id } = await params
-  const numericId = parseInt(id, 10)
 
-  if (isNaN(numericId)) {
+  if (!id) {
     notFound()
   }
 
-  const [panel, session] = await Promise.all([getPanelById(numericId), auth()])
+  const [panel, session] = await Promise.all([getPanelById(id), auth()])
 
   if (!panel) {
     notFound()
@@ -59,7 +57,17 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{panel.name}</h1>
           {panel.description && <p className="text-muted-foreground max-w-2xl">{panel.description}</p>}
-          {panel.owner?.name && <p className="text-sm text-muted-foreground">By {panel.owner.name}</p>}
+          {panel.owner?.name && (
+            <p className="text-sm text-muted-foreground">
+              By{" "}
+              <Link
+                href={`/profile/${panel.ownerId}`}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline"
+              >
+                {panel.owner.name}
+              </Link>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <PanelExportMenu panelId={panel.id} />
@@ -87,75 +95,123 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
         </Badge>
       </div>
 
-      <div className="space-y-4">
-        {panel.cycles.map((cycle) => (
-          <Card key={cycle.id}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Layers className="h-4 w-4 text-muted-foreground" />
-                {cycle.name}
-              </CardTitle>
-              {cycle.notes && <p className="text-sm text-muted-foreground">{cycle.notes}</p>}
-            </CardHeader>
-            {cycle.markers.length > 0 && (
-              <CardContent>
-                <Separator className="mb-4" />
-                <div className="space-y-3">
-                  {cycle.markers.map((marker) => (
-                    <div key={marker.id} className="flex items-start justify-between gap-4 p-3 bg-muted/30 rounded-lg">
-                      <div className="space-y-0.5 min-w-0">
-                        <p className="font-medium text-sm">
-                          {marker.protein?.label ?? marker.antibody?.name ?? "Unknown marker"}
-                        </p>
-                        {marker.protein?.geneSymbol && (
-                          <p className="text-xs text-muted-foreground font-mono">{marker.protein.geneSymbol}</p>
-                        )}
-                        {marker.antibody && (
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            {marker.antibody.cloneId && <span className="block">Clone: {marker.antibody.cloneId}</span>}
-                            {marker.antibody.vendorName && (
-                              <span className="block">
-                                {marker.antibody.vendorName}
-                                {marker.antibody.catalogNumber && ` — ${marker.antibody.catalogNumber}`}
-                              </span>
-                            )}
-                            {marker.antibody.rrid && (
-                              <span className="block font-mono">RRID: {marker.antibody.rrid}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 shrink-0">
-                        {marker.fluorophore && (
-                          <Badge variant="outline" className="text-xs">
-                            {marker.fluorophore}
-                          </Badge>
-                        )}
-                        {marker.metalTag && (
-                          <Badge variant="secondary" className="text-xs">
-                            {marker.metalTag}
-                          </Badge>
-                        )}
-                      </div>
+      {panel.cycles.length === 0 ? (
+        <p className="rounded-md border py-8 text-center text-muted-foreground">This panel has no cycles yet.</p>
+      ) : (
+        <Accordion type="multiple" className="rounded-md border">
+          {panel.cycles.map((cycle) => {
+            const markerNames = cycle.markers.map(
+              (m) => m.protein?.geneSymbol ?? m.protein?.label ?? m.antibody?.name ?? "Unknown",
+            )
+            return (
+              <AccordionItem key={cycle.id} value={String(cycle.id)} className="px-4 last:border-b-0">
+                <AccordionTrigger className="gap-3 hover:no-underline">
+                  <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                    <Layers className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="shrink-0 font-medium">{cycle.name}</span>
+                    <Badge variant="secondary" className="shrink-0 tabular-nums">
+                      {cycle.markers.length}
+                    </Badge>
+                    <span className="min-w-0 flex-1 truncate text-sm font-normal text-muted-foreground">
+                      {markerNames.length > 0 ? markerNames.join(", ") : "No markers"}
+                    </span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  {cycle.notes && <p className="mb-3 text-sm text-muted-foreground">{cycle.notes}</p>}
+                  {cycle.markers.length > 0 ? (
+                    <div className="overflow-x-auto rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="h-8 py-1 text-xs">Marker</TableHead>
+                            <TableHead className="h-8 py-1 text-xs">Clone</TableHead>
+                            <TableHead className="h-8 py-1 text-xs">Vendor</TableHead>
+                            <TableHead className="h-8 py-1 text-xs">RRID</TableHead>
+                            <TableHead className="h-8 py-1 text-xs">Label / Tag</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {cycle.markers.map((marker) => (
+                            <TableRow key={marker.id}>
+                              <TableCell className="py-2">
+                                <div className="font-medium">
+                                  {marker.protein ? (
+                                    <Link
+                                      href={`/marker/${marker.protein.id}`}
+                                      className="text-primary hover:underline"
+                                    >
+                                      {marker.protein.label}
+                                    </Link>
+                                  ) : (
+                                    (marker.antibody?.name ?? "Unknown marker")
+                                  )}
+                                </div>
+                                {marker.protein?.geneSymbol && (
+                                  <div className="font-mono text-xs text-muted-foreground">
+                                    {marker.protein.geneSymbol}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 text-muted-foreground">
+                                {marker.antibody?.cloneId ?? "—"}
+                              </TableCell>
+                              <TableCell className="py-2 text-muted-foreground">
+                                {marker.antibody?.vendorName ? (
+                                  <>
+                                    <span className="text-foreground">{marker.antibody.vendorName}</span>
+                                    {marker.antibody.catalogNumber && (
+                                      <span className="block text-xs">{marker.antibody.catalogNumber}</span>
+                                    )}
+                                  </>
+                                ) : (
+                                  "—"
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2 font-mono text-xs">
+                                {marker.antibody?.rrid ? (
+                                  <Link
+                                    href={`/antibody/${marker.antibody.rrid.replace(/^RRID:/, "")}`}
+                                    className="text-primary hover:underline"
+                                  >
+                                    {marker.antibody.rrid}
+                                  </Link>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-2">
+                                {marker.fluorophore || marker.metalTag ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {marker.fluorophore && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {marker.fluorophore}
+                                      </Badge>
+                                    )}
+                                    {marker.metalTag && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        {marker.metalTag}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            )}
-            {cycle.markers.length === 0 && (
-              <CardContent>
-                <p className="text-sm text-muted-foreground italic">No markers in this cycle.</p>
-              </CardContent>
-            )}
-          </Card>
-        ))}
-
-        {panel.cycles.length === 0 && (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">This panel has no cycles yet.</CardContent>
-          </Card>
-        )}
-      </div>
+                  ) : (
+                    <p className="text-sm italic text-muted-foreground">No markers in this cycle.</p>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            )
+          })}
+        </Accordion>
+      )}
     </div>
   )
 }

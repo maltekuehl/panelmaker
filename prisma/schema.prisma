@@ -1,10 +1,10 @@
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────
@@ -253,7 +253,7 @@ model Review {
   author             User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId           String
   experimentalReport ExperimentalReport @relation(fields: [experimentalReportId], references: [id], onDelete: Cascade)
-  experimentalReportId Int
+  experimentalReportId String
   approvedByUser     User?              @relation("ReviewApprovals", fields: [approvedBy], references: [id], onDelete: SetNull)
 
   @@unique([authorId, experimentalReportId])
@@ -339,7 +339,7 @@ model CellTypeMarker {
 // ─── Spatial Proteomics: Antibody ─────────────────────────────────────
 
 model Antibody {
-  id              Int     @id @default(autoincrement())
+  id              String  @id @default(cuid())
   rrid            String? @unique
   name            String
   catalogNumber   String?
@@ -367,8 +367,8 @@ model Antibody {
 // ─── Spatial Proteomics: Experimental Report ──────────────────────────
 
 model ExperimentalReport {
-  id               Int      @id @default(autoincrement())
-  antibodyId       Int?
+  id               String   @id @default(cuid())
+  antibodyId       String?
   cellTypeId       String?
   structureId      String?
   species          Species?
@@ -413,7 +413,7 @@ model ExperimentalReport {
 // ─── Spatial Proteomics: Panel Builder ────────────────────────────────
 
 model Panel {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(cuid())
   name        String
   description String?
   species     Species?
@@ -435,8 +435,8 @@ model Panel {
 }
 
 model PanelCycle {
-  id        Int     @id @default(autoincrement())
-  panelId   Int
+  id        String  @id @default(cuid())
+  panelId   String
   name      String
   notes     String?
   sortOrder Int     @default(0)
@@ -448,10 +448,10 @@ model PanelCycle {
 }
 
 model PanelMarker {
-  id          Int     @id @default(autoincrement())
-  cycleId     Int
+  id          String  @id @default(cuid())
+  cycleId     String
   proteinId   String?
-  antibodyId  Int?
+  antibodyId  String?
   fluorophore String?
   metalTag    String?
   sortOrder   Int     @default(0)

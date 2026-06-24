@@ -1,5 +1,5 @@
 import type { MarkerEntry } from "@/components/browse/columns"
-import { FIXATION_LABELS, SPECIES_LABELS } from "@/lib/constants"
+import { FIXATION_LABELS, METHOD_LABELS, SPECIES_LABELS } from "@/lib/constants"
 import { parseJsonArray } from "@/lib/transforms"
 import type { ReportRow } from "./queries"
 
@@ -35,7 +35,7 @@ export type ReportUsage = {
   submitterId: string | null
   submitterInstitution: string | null
   antibodyId: string
-  antibodyDbId: number | null
+  antibodyDbId: string | null
   antibodyName: string
   antibodyVendor: string
   catalogNumber: string | null
@@ -136,6 +136,14 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
       tissue: tissues.join(", ") || "Unknown",
       validatedMethods: methods,
       reportCount: group.reports.length,
+      reports: group.reports.map((r) => ({
+        id: String(r.id),
+        submitter: r.submitter?.name ?? "Anonymous",
+        submitterId: r.submitter?.id ?? null,
+        method: r.method ? (METHOD_LABELS[r.method] ?? r.method) : "Unknown",
+        species: r.species ? (SPECIES_LABELS[r.species] ?? r.species) : "Unknown",
+        works: r.works,
+      })),
     }
   })
 }

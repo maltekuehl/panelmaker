@@ -6,10 +6,9 @@ import { z } from "zod"
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
-    const panelId = parseInt(id, 10)
+    const { id: panelId } = await params
 
-    if (isNaN(panelId)) {
+    if (!panelId) {
       return NextResponse.json({ error: "Invalid panel ID" }, { status: 400 })
     }
 

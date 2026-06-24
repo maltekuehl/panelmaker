@@ -5,13 +5,12 @@ import { NextRequest, NextResponse } from "next/server"
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const numericId = parseInt(id, 10)
 
-    if (isNaN(numericId)) {
+    if (!id) {
       return NextResponse.json({ error: "Invalid antibody ID" }, { status: 400 })
     }
 
-    const antibody = await getAntibodyById(numericId)
+    const antibody = await getAntibodyById(id)
 
     if (!antibody) {
       return NextResponse.json({ error: "Antibody not found" }, { status: 404 })

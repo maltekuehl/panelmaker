@@ -22,8 +22,8 @@ export default async function SubmitPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Submit Experimental Report</h1>
         <p className="text-muted-foreground max-w-2xl">
-          Share your validated antibody protocols with the community. All submissions undergo peer review before being
-          added to the public database.
+          Set your experiment context once, then add every antibody from the run below. Each one is submitted as its own
+          report. All submissions undergo peer review before being added to the public database.
         </p>
       </div>
 

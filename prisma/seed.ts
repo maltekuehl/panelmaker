@@ -1,6 +1,9 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaPg } from "@prisma/adapter-pg"
+import "dotenv/config"
+import { PrismaClient } from "../lib/generated/prisma/client"
 
-const prisma = new PrismaClient()
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+const prisma = new PrismaClient({ adapter })
 
 const PLACEHOLDER_IMAGES = [
   "https://placehold.co/800x600/1a1a2e/e0e0e0?text=IF+CD3+FITC",
@@ -964,7 +967,7 @@ type ReportInput = {
   notes?: string
 }
 
-async function seedExperimentalReports(antibodyMap: Record<string, number>) {
+async function seedExperimentalReports(antibodyMap: Record<string, string>) {
   const reports: ReportInput[] = [
     // --- Garry Nolan (heavy contributor, CODEX specialist) ---
     {
@@ -1893,15 +1896,15 @@ async function seedExperimentalReports(antibodyMap: Record<string, number>) {
   return reports.length
 }
 
-async function seedPanels(antibodyMap: Record<string, number>) {
+async function seedPanels(antibodyMap: Record<string, string>) {
   const nolanId = "seed_user_nolan_garry"
   const linId = "seed_user_lin_jia"
 
   const panel1 = await prisma.panel.upsert({
-    where: { id: 1 },
+    where: { id: "1" },
     update: {},
     create: {
-      id: 1,
+      id: "1",
       name: "Immune Cell Profiling - Spleen (CODEX)",
       description:
         "Multi-cycle CODEX panel for comprehensive immune cell typing in human spleen. Covers T cells, B cells, myeloid and structural markers across 3 imaging cycles.",
@@ -1913,10 +1916,10 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   })
 
   const p1c1 = await prisma.panelCycle.upsert({
-    where: { id: 1 },
+    where: { id: "1" },
     update: {},
     create: {
-      id: 1,
+      id: "1",
       panelId: panel1.id,
       name: "Cycle 1",
       notes: "T cell lineage markers — CD3, CD4, CD8 for T cell subset identification",
@@ -1925,10 +1928,10 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   })
 
   const p1c2 = await prisma.panelCycle.upsert({
-    where: { id: 2 },
+    where: { id: "2" },
     update: {},
     create: {
-      id: 2,
+      id: "2",
       panelId: panel1.id,
       name: "Cycle 2",
       notes: "B cell and myeloid markers — CD20, CD68, HLA-DR for antigen-presenting cells",
@@ -1937,10 +1940,10 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   })
 
   const p1c3 = await prisma.panelCycle.upsert({
-    where: { id: 3 },
+    where: { id: "3" },
     update: {},
     create: {
-      id: 3,
+      id: "3",
       panelId: panel1.id,
       name: "Cycle 3",
       notes: "Activation and adhesion markers — CD2 for co-stimulation readout",
@@ -2022,10 +2025,10 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   }
 
   const panel2 = await prisma.panel.upsert({
-    where: { id: 2 },
+    where: { id: "2" },
     update: {},
     create: {
-      id: 2,
+      id: "2",
       name: "Tumor Microenvironment - CyCIF Core Panel",
       description:
         "4-cycle CyCIF panel for comprehensive TME characterization in FFPE. Covers epithelial, immune, stromal, and checkpoint markers across iterative staining rounds.",
@@ -2037,10 +2040,10 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   })
 
   const p2c1 = await prisma.panelCycle.upsert({
-    where: { id: 4 },
+    where: { id: "4" },
     update: {},
     create: {
-      id: 4,
+      id: "4",
       panelId: panel2.id,
       name: "Cycle 1",
       notes: "Epithelial and structural markers — pan-CK for tumor cells, SMA for stroma",
@@ -2049,10 +2052,10 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   })
 
   const p2c2 = await prisma.panelCycle.upsert({
-    where: { id: 5 },
+    where: { id: "5" },
     update: {},
     create: {
-      id: 5,
+      id: "5",
       panelId: panel2.id,
       name: "Cycle 2",
       notes: "Immune cell identification — CD31 for vasculature, PCAM for endothelial cells",
@@ -2061,10 +2064,10 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   })
 
   const p2c3 = await prisma.panelCycle.upsert({
-    where: { id: 6 },
+    where: { id: "6" },
     update: {},
     create: {
-      id: 6,
+      id: "6",
       panelId: panel2.id,
       name: "Cycle 3",
       notes: "Immune checkpoint markers — PD-L1 and Notch1 for immune evasion assessment",
@@ -2073,10 +2076,10 @@ async function seedPanels(antibodyMap: Record<string, number>) {
   })
 
   const p2c4 = await prisma.panelCycle.upsert({
-    where: { id: 7 },
+    where: { id: "7" },
     update: {},
     create: {
-      id: 7,
+      id: "7",
       panelId: panel2.id,
       name: "Cycle 4",
       notes: "DNA damage and repair — LIG4 for double-strand break repair capacity",
@@ -2267,7 +2270,7 @@ async function main() {
   await seedCellTypeMarkers()
   const antibodies = await seedAntibodies()
 
-  const antibodyMap: Record<string, number> = {}
+  const antibodyMap: Record<string, string> = {}
   for (const ab of antibodies) {
     if (ab.rrid) {
       antibodyMap[ab.rrid] = ab.id

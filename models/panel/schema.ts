@@ -1,4 +1,4 @@
-import { Fixation, Species } from "@prisma/client"
+import { Fixation, Species } from "@/lib/generated/prisma/enums"
 import { z } from "zod"
 
 export const createPanelSchema = z
@@ -53,7 +53,7 @@ export const addMarkerSchema = z
     proteinLabel: z.string().max(255).optional(),
     geneSymbol: z.string().max(100).optional(),
     ensemblGeneId: z.string().max(100).optional(),
-    antibodyId: z.number().int().positive().optional(),
+    antibodyId: z.string().optional(),
     fluorophore: z.string().max(100).optional(),
     metalTag: z.string().max(100).optional(),
     sortOrder: z.number().int().min(0).optional(),
@@ -65,7 +65,7 @@ export type AddMarkerData = z.infer<typeof addMarkerSchema>
 export const panelQueryParamsSchema = z
   .object({
     limit: z.coerce.number().min(1).max(100).default(20),
-    cursor: z.coerce.number().optional(),
+    cursor: z.string().optional(),
   })
   .strict()
 
@@ -76,8 +76,8 @@ export const reorderMarkersSchema = z
     items: z
       .array(
         z.object({
-          markerId: z.number().int().positive(),
-          cycleId: z.number().int().positive(),
+          markerId: z.string(),
+          cycleId: z.string(),
           sortOrder: z.number().int().min(0),
         }),
       )

@@ -117,7 +117,7 @@ export default function TeamPage() {
               <div className="flex justify-center mb-4">
                 <Avatar className="h-24 w-24 ring-4 ring-background shadow-lg group-hover:ring-primary/20 transition-all duration-300">
                   <AvatarImage src={member.avatar} alt={member.name} className="object-cover" />
-                  <AvatarFallback className="text-lg font-semibold bg-gradient-to-br from-primary/20 to-secondary/20">
+                  <AvatarFallback className="text-lg font-semibold bg-linear-to-br from-primary/20 to-secondary/20">
                     {member.name
                       .split(" ")
                       .map((n) => n[0])
@@ -164,7 +164,7 @@ export default function TeamPage() {
       </div>
 
       {/* Call to Action Section */}
-      <div className="mt-20 text-center bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg p-8 border border-border/50">
+      <div className="mt-20 text-center bg-linear-to-r from-primary/5 to-secondary/5 rounded-lg p-8 border border-border/50">
         <h2 className="text-2xl font-bold mb-4">Join Our Mission</h2>
         <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
           Interested in contributing to PanelMaker? We&apos;re always looking for passionate researchers, developers,

@@ -180,7 +180,7 @@ const MessageCard = ({
             className="text-xs h-6 py-1 px-2 flex gap-1 mt-1"
             aria-label="Copy message to clipboard"
           >
-            {copied ? <Check className="!size-3" /> : <Copy className="!size-3" />}
+            {copied ? <Check className="size-3!" /> : <Copy className="size-3!" />}
             {copied && <span className="sr-only">Copied!</span>}
             <span>Copy message</span>
           </Button>
@@ -288,7 +288,7 @@ const ToolInvocationCard = ({
               <AccordionItem value={output.listId} className="border-none">
                 <AccordionTrigger className="text-start overflow-hidden">
                   <div className="flex items-start gap-2 w-full min-w-0">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                    <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground text-left">
                         TODO: {output.title || "Untitled"} ({completedCount}/{totalCount})
@@ -305,7 +305,7 @@ const ToolInvocationCard = ({
                     ) : (
                       output.items.map((item: any, idx: number) => (
                         <div key={item.id} className="flex items-start gap-2 px-1 py-1">
-                          <div className="flex-shrink-0 mt-0.5">
+                          <div className="shrink-0 mt-0.5">
                             {item.completed ? (
                               <div className="w-4 h-4 rounded bg-primary flex items-center justify-center">
                                 <Check className="h-3 w-3 text-primary-foreground" />
@@ -338,7 +338,7 @@ const ToolInvocationCard = ({
               <AccordionItem value={output.listId} className="border-none">
                 <AccordionTrigger className="text-start overflow-hidden">
                   <div className="flex items-start gap-2 w-full min-w-0">
-                    <Check className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                    <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground text-left">
                         {output.message || `${toolName} executed successfully`}
@@ -429,14 +429,14 @@ const ToolInvocationCard = ({
           <AccordionTrigger className="text-start overflow-hidden">
             <div className="flex items-center justify-between gap-2 pe-1 w-full min-w-0">
               <div className="text-sm font-mono font-semibold text-primary truncate min-w-0 flex-1">{toolName}</div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 {onDelete && (
                   <Button
                     asChild
                     variant="ghost"
                     size="sm"
                     onClick={handleDelete}
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive flex-shrink-0"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive shrink-0"
                     aria-label="Delete tool call"
                     role="button"
                   >
@@ -450,7 +450,7 @@ const ToolInvocationCard = ({
                   variant="ghost"
                   size="sm"
                   onClick={handleCopy}
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground flex-shrink-0"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground shrink-0"
                   aria-label="Copy tool call to clipboard"
                   role="button"
                 >
@@ -554,19 +554,19 @@ const ReasoningCard = ({
             <div className="flex items-center justify-between gap-2 pe-1 w-full min-w-0">
               <div className="flex items-center gap-2 min-w-0">
                 {isStreaming ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
                 ) : (
-                  <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                  <Check className="h-4 w-4 text-primary shrink-0" />
                 )}
                 <div className="text-sm font-medium text-muted-foreground truncate">Reasoning</div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 <Button
                   asChild
                   variant="ghost"
                   size="sm"
                   onClick={handleCopy}
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground flex-shrink-0"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground shrink-0"
                   aria-label="Copy reasoning to clipboard"
                   role="button"
                 >
@@ -827,7 +827,7 @@ export default function Chat({ name: name }: { name?: string }) {
   const isStreaming = ["submitted", "streaming"].includes(status)
 
   return (
-    <div className="flex h-[calc(100vh-theme(spacing.20))]">
+    <div className="flex h-[calc(100vh-(--spacing(20)))]">
       <ChatSidebarDesktop isStreaming={isStreaming} />
       <div className="flex-1 flex flex-col relative w-full">
         <div className="lg:hidden border-b bg-background px-4 py-2">
@@ -933,10 +933,10 @@ export default function Chat({ name: name }: { name?: string }) {
             </div>
           </div>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 w-full h-40 bg-gradient-to-t from-background via-background to-transparent pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 right-0 w-full h-40 bg-linear-to-t from-background via-background to-transparent pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 right-0 w-full px-4 lg:px-8 pb-4">
           <div className="max-w-5xl mx-auto">
-            <Card className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-border shadow-lg overflow-hidden">
+            <Card className="bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60 border-border shadow-lg overflow-hidden">
               <div className="flex items-center justify-between p-2 gap-2 border-b">
                 <ModelPicker setMessages={setAiMessages} />
                 <div className="flex items-center gap-1">
@@ -962,7 +962,7 @@ export default function Chat({ name: name }: { name?: string }) {
                     minLength={3}
                     maxLength={2048}
                     autoFocus
-                    className="py-2 lg:py-4 pl-2 lg:pl-6 pr-12 lg:pr-16 text-sm resize-none w-full h-full rounded-lg border-0 bg-transparent text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus:outline-none"
+                    className="py-2 lg:py-4 pl-2 lg:pl-6 pr-12 lg:pr-16 text-sm resize-none w-full h-full rounded-lg border-0 bg-transparent text-foreground placeholder:text-muted-foreground focus-visible:outline-hidden focus:outline-hidden"
                     placeholder="E.g., which proteins interact with human SYNPO according to STRING?"
                   />
                   {["ready", "error"].includes(status) && (

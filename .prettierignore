@@ -5,3 +5,6 @@ node_modules
 !**/*.ts
 !**/*.tsx
 !**/*.mdx
+
+# Prisma generated client (do not format)
+lib/generated

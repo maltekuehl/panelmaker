@@ -21,20 +21,19 @@ const MAX_HEIGHT = 800
 const CARD_HEIGHT_MINIMIZED = 48
 const EDGE_MARGIN = 16
 
-function getDefaultPosition(width: number, height: number) {
-  if (typeof window === "undefined") return { x: 0, y: 0 }
-  return {
-    x: window.innerWidth - width - EDGE_MARGIN,
-    y: window.innerHeight - height - EDGE_MARGIN,
-  }
-}
+// The card is anchored by its bottom-right corner (CSS `right`/`bottom` offsets
+// from the viewport edges), matching the FAB origin. With this anchor, minimizing
+// collapses straight down and resizing from the top-left corner grows up/left —
+// both for free, without recomputing the position.
+const DEFAULT_OFFSET = { right: EDGE_MARGIN, bottom: EDGE_MARGIN }
 
-function clampPosition(x: number, y: number, width: number) {
-  const maxX = Math.max(0, window.innerWidth - width)
-  const maxY = Math.max(0, window.innerHeight - CARD_HEIGHT_MINIMIZED)
+// Clamp the bottom-right offsets so the card stays fully on screen.
+function clampOffset(right: number, bottom: number, width: number, height: number) {
+  const maxRight = Math.max(0, window.innerWidth - width)
+  const maxBottom = Math.max(0, window.innerHeight - height)
   return {
-    x: Math.max(0, Math.min(x, maxX)),
-    y: Math.max(0, Math.min(y, maxY)),
+    right: Math.max(0, Math.min(right, maxRight)),
+    bottom: Math.max(0, Math.min(bottom, maxBottom)),
   }
 }
 
@@ -44,23 +43,22 @@ export function AIAssistantFloating() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [input, setInput] = useState("")
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
+  const [offset, setOffset] = useState(DEFAULT_OFFSET)
   const [isDragging, setIsDragging] = useState(false)
   const [dimensions, setDimensions] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT })
   const [isResizing, setIsResizing] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const dragStartPointer = useRef<{ x: number; y: number } | null>(null)
-  const dragStartPosition = useRef<{ x: number; y: number } | null>(null)
+  const dragStartOffset = useRef<{ right: number; bottom: number } | null>(null)
   const hasDragged = useRef(false)
   const cardRef = useRef<HTMLDivElement>(null)
+  const offsetRef = useRef(offset)
   const resizeStart = useRef<{
     x: number
     y: number
     width: number
     height: number
-    posX: number
-    posY: number
   } | null>(null)
 
   const { data: session } = useSession()
@@ -74,104 +72,98 @@ export function AIAssistantFloating() {
   const isLoading = status === "submitted" || status === "streaming"
 
   useEffect(() => {
-    if (position === null && typeof window !== "undefined") {
-      const h = isMinimized ? CARD_HEIGHT_MINIMIZED : dimensions.height
-      setPosition(getDefaultPosition(dimensions.width, h))
-    }
-  }, [position, isMinimized, dimensions])
+    offsetRef.current = offset
+  }, [offset])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isLoading])
 
   // --- Drag handlers ---
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!dragStartPointer.current || !dragStartPosition.current) return
+  // Dragging moves the card by adjusting its bottom-right offsets: a rightward
+  // pointer move decreases the `right` offset, a downward move decreases `bottom`.
+  const applyDrag = useCallback((clientX: number, clientY: number) => {
+    if (!dragStartPointer.current || !dragStartOffset.current) return false
+    const dx = clientX - dragStartPointer.current.x
+    const dy = clientY - dragStartPointer.current.y
 
-    const dx = e.clientX - dragStartPointer.current.x
-    const dy = e.clientY - dragStartPointer.current.y
-
-    if (!hasDragged.current && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+    if (!hasDragged.current && Math.abs(dx) < 4 && Math.abs(dy) < 4) return false
     hasDragged.current = true
 
-    const newX = dragStartPosition.current.x + dx
-    const newY = dragStartPosition.current.y + dy
+    const w = cardRef.current?.offsetWidth ?? DEFAULT_WIDTH
+    const h = cardRef.current?.offsetHeight ?? DEFAULT_HEIGHT
+    setOffset(clampOffset(dragStartOffset.current.right - dx, dragStartOffset.current.bottom - dy, w, h))
+    return true
+  }, [])
 
-    setPosition((prev) => {
-      const w = cardRef.current?.offsetWidth ?? DEFAULT_WIDTH
-      return clampPosition(newX, newY, w)
-    })
+  const onMouseMove = useCallback(
+    (e: MouseEvent) => {
+      applyDrag(e.clientX, e.clientY)
+    },
+    [applyDrag],
+  )
+
+  const onTouchMove = useCallback(
+    (e: TouchEvent) => {
+      const touch = e.touches[0]
+      if (applyDrag(touch.clientX, touch.clientY)) e.preventDefault()
+    },
+    [applyDrag],
+  )
+
+  const startDrag = useCallback((clientX: number, clientY: number) => {
+    hasDragged.current = false
+    dragStartPointer.current = { x: clientX, y: clientY }
+    dragStartOffset.current = { ...offsetRef.current }
+    setIsDragging(true)
   }, [])
 
   const onHeaderMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if ((e.target as HTMLElement).closest("button")) return
       e.preventDefault()
-      hasDragged.current = false
-      const h = isMinimized ? CARD_HEIGHT_MINIMIZED : dimensions.height
-      dragStartPointer.current = { x: e.clientX, y: e.clientY }
-      dragStartPosition.current = position ?? getDefaultPosition(dimensions.width, h)
-      setIsDragging(true)
+      startDrag(e.clientX, e.clientY)
       const handleMouseUp = () => {
         setIsDragging(false)
         dragStartPointer.current = null
-        dragStartPosition.current = null
+        dragStartOffset.current = null
         window.removeEventListener("mousemove", onMouseMove)
         window.removeEventListener("mouseup", handleMouseUp)
       }
       window.addEventListener("mousemove", onMouseMove)
       window.addEventListener("mouseup", handleMouseUp)
     },
-    [position, isMinimized, dimensions, onMouseMove],
+    [startDrag, onMouseMove],
   )
-
-  const onTouchMove = useCallback((e: TouchEvent) => {
-    if (!dragStartPointer.current || !dragStartPosition.current) return
-    const touch = e.touches[0]
-    const dx = touch.clientX - dragStartPointer.current.x
-    const dy = touch.clientY - dragStartPointer.current.y
-
-    if (!hasDragged.current && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
-    hasDragged.current = true
-    e.preventDefault()
-
-    const newX = dragStartPosition.current.x + dx
-    const newY = dragStartPosition.current.y + dy
-
-    setPosition((prev) => {
-      const w = cardRef.current?.offsetWidth ?? DEFAULT_WIDTH
-      return clampPosition(newX, newY, w)
-    })
-  }, [])
 
   const onHeaderTouchStart = useCallback(
     (e: React.TouchEvent<HTMLDivElement>) => {
       if ((e.target as HTMLElement).closest("button")) return
-      hasDragged.current = false
       const touch = e.touches[0]
-      const h = isMinimized ? CARD_HEIGHT_MINIMIZED : dimensions.height
-      dragStartPointer.current = { x: touch.clientX, y: touch.clientY }
-      dragStartPosition.current = position ?? getDefaultPosition(dimensions.width, h)
-      setIsDragging(true)
+      startDrag(touch.clientX, touch.clientY)
       const handleTouchEnd = () => {
         setIsDragging(false)
         dragStartPointer.current = null
-        dragStartPosition.current = null
+        dragStartOffset.current = null
         window.removeEventListener("touchmove", onTouchMove)
         window.removeEventListener("touchend", handleTouchEnd)
       }
       window.addEventListener("touchmove", onTouchMove, { passive: false })
       window.addEventListener("touchend", handleTouchEnd)
     },
-    [position, isMinimized, dimensions, onTouchMove],
+    [startDrag, onTouchMove],
   )
 
+  // Minimizing/expanding only toggles height. The bottom-right anchor keeps the
+  // bottom edge fixed, so the card collapses straight down toward its origin.
   const handleHeaderClick = useCallback(() => {
     if (hasDragged.current) return
     setIsMinimized((prev) => !prev)
   }, [])
 
   // --- Resize handlers (top-left corner) ---
+  // The bottom-right anchor is fixed, so resizing is purely a dimension change:
+  // dragging the top-left corner up/left grows the card up/left.
   const onResizeMove = useCallback((e: MouseEvent) => {
     if (!resizeStart.current) return
     const dx = resizeStart.current.x - e.clientX
@@ -180,25 +172,18 @@ export function AIAssistantFloating() {
     const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, resizeStart.current.width + dx))
     const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, resizeStart.current.height + dy))
 
-    const actualDx = newWidth - resizeStart.current.width
-    const actualDy = newHeight - resizeStart.current.height
-
     setDimensions({ width: newWidth, height: newHeight })
-    setPosition(clampPosition(resizeStart.current.posX - actualDx, resizeStart.current.posY - actualDy, newWidth))
   }, [])
 
   const onResizeMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
-      const pos = position ?? getDefaultPosition(dimensions.width, dimensions.height)
       resizeStart.current = {
         x: e.clientX,
         y: e.clientY,
         width: dimensions.width,
         height: dimensions.height,
-        posX: pos.x,
-        posY: pos.y,
       }
       setIsResizing(true)
       const handleResizeUp = () => {
@@ -210,7 +195,7 @@ export function AIAssistantFloating() {
       window.addEventListener("mousemove", onResizeMove)
       window.addEventListener("mouseup", handleResizeUp)
     },
-    [position, dimensions, onResizeMove],
+    [dimensions, onResizeMove],
   )
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -230,7 +215,7 @@ export function AIAssistantFloating() {
         className="fixed bottom-4 right-4 h-12 rounded-full shadow-lg z-50 gap-2 pl-3 pr-4"
         onClick={() => setIsOpen(true)}
       >
-        <div className="bg-white/20 p-1 rounded-full">
+        <div className="bg-primary-foreground/20 p-1 rounded-full">
           <Sparkles className="h-4 w-4" />
         </div>
         AI Assistant
@@ -238,37 +223,34 @@ export function AIAssistantFloating() {
     )
   }
 
-  const posX = position?.x ?? 0
-  const posY = position?.y ?? 0
-
   return (
     <Card
       ref={cardRef}
-      className="fixed bg-white shadow-xl z-50 flex flex-col overflow-hidden border-zinc-200 p-0"
+      className="fixed bg-background shadow-xl z-50 flex flex-col overflow-hidden border-border p-0"
       style={{
-        left: posX,
-        top: posY,
-        width: isMinimized ? DEFAULT_WIDTH : dimensions.width,
+        right: offset.right,
+        bottom: offset.bottom,
+        width: dimensions.width,
         height: isMinimized ? CARD_HEIGHT_MINIMIZED : dimensions.height,
-        transition: isDragging || isResizing ? "none" : "width 200ms ease-in-out, height 200ms ease-in-out",
+        transition: isDragging || isResizing ? "none" : "height 200ms ease-in-out",
       }}
     >
       {/* Resize handle — top-left corner */}
       {!isMinimized && (
         <div
-          className="absolute top-0 left-0 z-10 flex items-center justify-center w-5 h-5 cursor-nw-resize text-zinc-300 hover:text-zinc-500 transition-colors"
+          className="absolute top-0 left-0 z-10 flex items-center justify-center w-5 h-5 cursor-nw-resize text-muted-foreground/40 hover:text-muted-foreground transition-colors"
           onMouseDown={onResizeMouseDown}
           title="Resize"
         >
-          <GripHorizontal className="h-3 w-3 rotate-[-45deg]" />
+          <GripHorizontal className="h-3 w-3 -rotate-45" />
         </div>
       )}
 
       {/* Header — drag handle */}
       <div
         className={cn(
-          "p-3 border-b bg-zinc-50/80 backdrop-blur flex justify-between items-center select-none",
-          "hover:bg-zinc-100/80 transition-colors",
+          "p-3 border-b bg-muted/50 backdrop-blur-sm flex justify-between items-center select-none",
+          "hover:bg-muted transition-colors",
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
         onMouseDown={onHeaderMouseDown}
@@ -276,7 +258,7 @@ export function AIAssistantFloating() {
         onClick={handleHeaderClick}
       >
         <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-purple-600" />
+          <Sparkles className="h-4 w-4 text-primary" />
           AI Assistant
           <div className="text-xs text-muted-foreground font-normal" style={{ marginLeft: 4 }}>
             powered by <strong className="font-semibold">BioContextAI</strong>
@@ -311,11 +293,11 @@ export function AIAssistantFloating() {
       {/* Content */}
       {!isMinimized && (
         <>
-          <div className="flex-1 p-4 space-y-4 overflow-y-auto text-sm bg-white">
+          <div className="flex-1 p-4 space-y-4 overflow-y-auto text-sm bg-background">
             {messages.length === 0 && (
               <div className="flex gap-3">
-                <div className="h-6 w-6 rounded bg-purple-100 flex items-center justify-center shrink-0">
-                  <Bot className="h-3 w-3 text-purple-700" />
+                <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                  <Bot className="h-3 w-3 text-primary" />
                 </div>
                 <div className="bg-muted p-3 rounded-md rounded-tl-none">
                   <p>
@@ -335,8 +317,8 @@ export function AIAssistantFloating() {
 
                 return (
                   <div key={message.id} className="flex gap-3 flex-row-reverse">
-                    <div className="h-6 w-6 rounded bg-zinc-200 flex items-center justify-center shrink-0">
-                      <User className="h-3 w-3 text-zinc-700" />
+                    <div className="h-6 w-6 rounded bg-muted flex items-center justify-center shrink-0">
+                      <User className="h-3 w-3 text-muted-foreground" />
                     </div>
                     <div className="bg-primary text-primary-foreground p-3 rounded-md rounded-tr-none">
                       <p>{textContent}</p>
@@ -347,8 +329,8 @@ export function AIAssistantFloating() {
 
               return (
                 <div key={message.id} className="flex gap-3">
-                  <div className="h-6 w-6 rounded bg-purple-100 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="h-3 w-3 text-purple-700" />
+                  <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <Bot className="h-3 w-3 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0 space-y-2">
                     {message.parts.map((part, i) => {
@@ -376,11 +358,11 @@ export function AIAssistantFloating() {
 
             {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
               <div className="flex gap-3">
-                <div className="h-6 w-6 rounded bg-purple-100 flex items-center justify-center shrink-0">
-                  <Bot className="h-3 w-3 text-purple-700" />
+                <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                  <Bot className="h-3 w-3 text-primary" />
                 </div>
                 <div className="bg-muted p-3 rounded-md rounded-tl-none">
-                  <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 </div>
               </div>
             )}
@@ -393,7 +375,7 @@ export function AIAssistantFloating() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 gap-1.5"
+                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
                 onClick={() => setMessages([])}
               >
                 <RotateCcw className="h-3 w-3" />

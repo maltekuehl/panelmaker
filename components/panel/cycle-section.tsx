@@ -14,10 +14,10 @@ import { PanelCycle } from "./types"
 
 interface CycleSectionProps {
   cycle: PanelCycle
-  panelId: number
+  panelId: string
   species?: Species | null
-  onRemoveMarker?: (cycleId: number, markerId: number) => void
-  onRemoveCycle?: (cycleId: number) => void
+  onRemoveMarker?: (cycleId: string, markerId: string) => void
+  onRemoveCycle?: (cycleId: string) => void
   onMarkerAdded?: () => void
   onCycleUpdated?: () => void
 }
@@ -81,7 +81,7 @@ export function CycleSection({
 
   return (
     <div className="relative pl-4 border-l-2 border-zinc-200 pb-6 last:border-l-0 last:pb-0">
-      <div className="absolute -left-[9px] top-0 h-4 w-4 rounded-full bg-zinc-200 border-2 border-white" />
+      <div className="absolute left-[-9px] top-0 h-4 w-4 rounded-full bg-zinc-200 border-2 border-white" />
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{cycle.name}</h4>
         <div className="flex items-center gap-1">

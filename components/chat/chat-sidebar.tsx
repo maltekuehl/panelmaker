@@ -90,16 +90,16 @@ const ConversationItem = ({
             autoFocus
             className="h-7 text-sm flex-1"
           />
-          <Button variant="ghost" size="sm" onClick={handleSaveTitle} className="h-7 w-7 p-0 flex-shrink-0">
+          <Button variant="ghost" size="sm" onClick={handleSaveTitle} className="h-7 w-7 p-0 shrink-0">
             <Check className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="h-7 w-7 p-0 flex-shrink-0">
+          <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="h-7 w-7 p-0 shrink-0">
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       ) : (
         <div className="w-full pr-16">
-          <div className="font-medium text-sm break-words">{conversation.title}</div>
+          <div className="font-medium text-sm wrap-break-word">{conversation.title}</div>
           <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
             <span>{formatDate(conversation.createdAt)}</span>
             <span>•</span>

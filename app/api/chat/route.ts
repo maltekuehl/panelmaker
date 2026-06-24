@@ -12,7 +12,7 @@ export interface Message {
   content: string
 }
 
-const MODEL_NAME = "gemini-2.5-flash"
+const MODEL_NAME = "gemini-3.5-flash"
 
 const chatErrorResponse = (message: string) => {
   const schemaErrorStream = new ReadableStream({
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         seed: 3407,
         maxOutputTokens: 10000,
         temperature: 0.2,
-        messages: convertToModelMessages(messages),
+        messages: await convertToModelMessages(messages),
         tools: chatTools,
         stopWhen: stepCountIs(15),
         onFinish: async ({ steps, totalUsage }) => {

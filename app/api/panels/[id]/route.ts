@@ -4,10 +4,9 @@ import { deletePanel, getPanelById, toPanelResponse, updatePanel, updatePanelSch
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
-async function resolvePanelId(params: Promise<{ id: string }>): Promise<number | null> {
+async function resolvePanelId(params: Promise<{ id: string }>): Promise<string | null> {
   const { id } = await params
-  const numericId = parseInt(id, 10)
-  return isNaN(numericId) ? null : numericId
+  return id || null
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

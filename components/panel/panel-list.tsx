@@ -11,22 +11,22 @@ import type { PanelMarker, Species } from "./types"
 import { PanelCycle } from "./types"
 
 interface PanelListProps {
-  panelId: number
+  panelId: string
   cycles: PanelCycle[]
   species?: Species | null
   onCyclesChange: (cycles: PanelCycle[]) => void
 }
 
-function cyclesToRecord(cycles: PanelCycle[]): Record<string, number[]> {
-  const record: Record<string, number[]> = {}
+function cyclesToRecord(cycles: PanelCycle[]): Record<string, string[]> {
+  const record: Record<string, string[]> = {}
   for (const cycle of cycles) {
     record[`cycle-${cycle.id}`] = cycle.markers.map((m) => m.id)
   }
   return record
 }
 
-function applyRecord(cycles: PanelCycle[], record: Record<string, number[]>): PanelCycle[] {
-  const allMarkers = new Map<number, PanelMarker>()
+function applyRecord(cycles: PanelCycle[], record: Record<string, string[]>): PanelCycle[] {
+  const allMarkers = new Map<string, PanelMarker>()
   for (const cycle of cycles) {
     for (const marker of cycle.markers) {
       allMarkers.set(marker.id, marker)
@@ -69,7 +69,6 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
     }
   }, [cycles])
 
-   
   const handleDragOver = (event: any) => {
     const { source } = event.operation
     if (source?.type === "column") return
@@ -81,7 +80,6 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
     })
   }
 
-   
   const handleDragEnd = async (event: any) => {
     if (event.canceled) {
       syncFromProps(previousCycles.current)
@@ -92,7 +90,7 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
     const finalCycles = applyRecord(cycles, itemsRef.current)
     onCyclesChange(finalCycles)
 
-    const apiItems: { markerId: number; cycleId: number; sortOrder: number }[] = []
+    const apiItems: { markerId: string; cycleId: string; sortOrder: number }[] = []
     for (const cycle of finalCycles) {
       cycle.markers.forEach((marker, idx) => {
         apiItems.push({ markerId: marker.id, cycleId: cycle.id, sortOrder: idx })
@@ -122,7 +120,7 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
     }
   }
 
-  const handleRemoveMarker = async (cycleId: number, markerId: number) => {
+  const handleRemoveMarker = async (cycleId: string, markerId: string) => {
     const res = await fetch(`/api/panels/${panelId}/markers`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -164,7 +162,7 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
     onCyclesChange([...cycles, json.data?.cycle ?? json.cycle])
   }
 
-  const handleRemoveCycle = async (cycleId: number) => {
+  const handleRemoveCycle = async (cycleId: string) => {
     const res = await fetch(`/api/panels/${panelId}/cycles/${cycleId}`, {
       method: "DELETE",
     })

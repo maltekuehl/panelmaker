@@ -14,6 +14,9 @@ const compat = new FlatCompat({
 })
 
 const config = [
+  {
+    ignores: ["lib/generated/**"],
+  },
   ...nextPlugin,
   // MDX: apply recommended MDX linting and parser for .mdx files
   ...compat.config({

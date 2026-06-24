@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 100)
     const cursorParam = searchParams.get("cursor")
-    const cursor = cursorParam ? parseInt(cursorParam, 10) : undefined
+    const cursor = cursorParam ?? undefined
 
     const panels = await getPublicPanels({ limit, cursor })
 

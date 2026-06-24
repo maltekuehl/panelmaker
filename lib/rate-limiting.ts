@@ -80,7 +80,7 @@ export async function getClientIp(request: NextRequest): Promise<string> {
 /**
  * Check rate limit for authenticated users (user ID based)
  */
-export async function checkUserRateLimit(userId: string, config: RateLimitConfig): Promise<RateLimitResult> {
+export async function checkUserRateLimit(userId: string, config: RateLimitConfig, count = 1): Promise<RateLimitResult> {
   const now = new Date()
   const windowStart = new Date(now.getTime() - config.windowMs)
 
@@ -100,16 +100,16 @@ export async function checkUserRateLimit(userId: string, config: RateLimitConfig
       data: {
         userId: userId,
         resourceType: config.resourceType,
-        requestCount: 1,
+        requestCount: count,
         windowStartTime: now,
         lastRequestTime: now,
       },
     })
     return {
       allowed: true,
-      remaining: config.maxRequests - 1,
+      remaining: config.maxRequests - count,
       resetTime: new Date(now.getTime() + config.windowMs),
-      totalRequests: 1,
+      totalRequests: count,
     }
   }
 
@@ -124,21 +124,21 @@ export async function checkUserRateLimit(userId: string, config: RateLimitConfig
         },
       },
       data: {
-        requestCount: 1,
+        requestCount: count,
         windowStartTime: now,
         lastRequestTime: now,
       },
     })
     return {
       allowed: true,
-      remaining: config.maxRequests - 1,
+      remaining: config.maxRequests - count,
       resetTime: new Date(now.getTime() + config.windowMs),
-      totalRequests: 1,
+      totalRequests: count,
     }
   }
 
   // Check if user has exceeded the limit
-  if (rateLimit.requestCount >= config.maxRequests) {
+  if (rateLimit.requestCount + count > config.maxRequests) {
     const resetTime = new Date(rateLimit.windowStartTime.getTime() + config.windowMs)
     return {
       allowed: false,
@@ -157,7 +157,7 @@ export async function checkUserRateLimit(userId: string, config: RateLimitConfig
       },
     },
     data: {
-      requestCount: rateLimit.requestCount + 1,
+      requestCount: rateLimit.requestCount + count,
       lastRequestTime: now,
     },
   })

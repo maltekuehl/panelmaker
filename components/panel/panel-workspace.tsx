@@ -19,7 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { AlertTriangle, Download, Globe, Lock, Palette, Plus, Trash2 } from "lucide-react"
-import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { CreatePanelFormData } from "./panel-form"
@@ -30,14 +29,14 @@ import { FIXATION_LABELS, Panel, PanelCycle, SPECIES_LABELS } from "./types"
 type PanelWarning = {
   type: string
   severity: "info" | "warning" | "error"
-  cycleId?: number
-  markers?: number[]
+  cycleId?: string
+  markers?: string[]
   message: string
 }
 
-export function PanelWorkspace() {
+export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
   const [panels, setPanels] = useState<Panel[]>([])
-  const [activePanelId, setActivePanelId] = useState<number | null>(null)
+  const [activePanelId, setActivePanelId] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
@@ -77,7 +76,7 @@ export function PanelWorkspace() {
     fetchPanels()
   }, [])
 
-  const fetchValidation = async (panelId: number) => {
+  const fetchValidation = async (panelId: string) => {
     try {
       const res = await fetch(`/api/panels/${panelId}/validate`)
       if (!res.ok) return
@@ -128,12 +127,12 @@ export function PanelWorkspace() {
     toast.success("Panel created")
   }
 
-  const handleCyclesChange = (panelId: number, newCycles: PanelCycle[]) => {
+  const handleCyclesChange = (panelId: string, newCycles: PanelCycle[]) => {
     setPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, cycles: newCycles } : p)))
     fetchValidation(panelId)
   }
 
-  const handleDeletePanel = (panelId: number) => {
+  const handleDeletePanel = (panelId: string) => {
     const panel = panels.find((p) => p.id === panelId)
     if (!panel) return
     setPanelToDelete(panel)
@@ -156,7 +155,7 @@ export function PanelWorkspace() {
     toast.success("Panel deleted")
   }
 
-  const handleExport = async (panelId: number, format: "csv" | "order" | "json") => {
+  const handleExport = async (panelId: string, format: "csv" | "order" | "json") => {
     try {
       const res = await fetch(`/api/panels/${panelId}/export?format=${format}`)
       if (!res.ok) {
@@ -182,7 +181,7 @@ export function PanelWorkspace() {
     }
   }
 
-  const handleTogglePublic = async (panelId: number, currentIsPublic: boolean) => {
+  const handleTogglePublic = async (panelId: string, currentIsPublic: boolean) => {
     const nextValue = !currentIsPublic
 
     setPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, isPublic: nextValue } : p)))
@@ -204,28 +203,27 @@ export function PanelWorkspace() {
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? panels[0] ?? null
 
+  const Wrapper = flat ? "div" : Card
+
   if (isLoading) {
     return (
-      <Card className="flex flex-col h-full p-4 gap-4">
+      <Wrapper className="flex h-full flex-col gap-4 p-4">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-16 w-full" />
         <Skeleton className="h-32 w-full" />
-      </Card>
+      </Wrapper>
     )
   }
 
   return (
-    <Card className="flex flex-col h-full p-0 overflow-hidden">
+    <Wrapper className="flex h-full flex-col overflow-hidden p-0">
       <div className="p-4 pb-0 space-y-4">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
             <Palette className="h-5 w-5 text-primary" />
           </div>
           {panels.length > 0 ? (
-            <Select
-              value={activePanelId !== null ? String(activePanelId) : undefined}
-              onValueChange={(val) => setActivePanelId(parseInt(val, 10))}
-            >
+            <Select value={activePanelId ?? undefined} onValueChange={(val) => setActivePanelId(val)}>
               <SelectTrigger className="h-10 flex-1 font-medium">
                 <SelectValue placeholder="Select panel" />
               </SelectTrigger>
@@ -271,34 +269,22 @@ export function PanelWorkspace() {
         {activePanel && (
           <div className="bg-zinc-50 p-3 rounded-lg border space-y-1">
             <div className="flex items-start justify-between">
-              <div className="space-y-1 flex-1">
+              <div className="space-y-1 flex-1 mt-1">
                 <p className="text-xs text-muted-foreground">{activePanel.description ?? "No description."}</p>
                 {activePanel.condition && (
                   <p className="text-xs text-zinc-500 font-medium">Condition: {activePanel.condition.label}</p>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <div className="flex items-center gap-1.5">
-                  {activePanel.isPublic ? (
-                    <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
+                <div className="flex items-center gap-1">
+                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
                   <Switch
                     checked={activePanel.isPublic}
                     onCheckedChange={() => handleTogglePublic(activePanel.id, activePanel.isPublic)}
                     aria-label="Toggle public visibility"
-                    className="scale-75 origin-right"
                   />
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
-                {activePanel.isPublic && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600" asChild>
-                    <Link href={`/panel/${activePanel.id}`} title="View public panel page">
-                      <Globe className="h-3.5 w-3.5" />
-                      <span className="sr-only">View public page</span>
-                    </Link>
-                  </Button>
-                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600">
@@ -345,7 +331,7 @@ export function PanelWorkspace() {
                     ? "bg-red-50 text-red-700 border border-red-200"
                     : w.severity === "warning"
                       ? "bg-amber-50 text-amber-700 border border-amber-200"
-                      : "bg-blue-50 text-blue-700 border border-blue-200",
+                      : "bg-primary/10 text-primary border border-primary/20",
                 )}
               >
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -389,6 +375,6 @@ export function PanelWorkspace() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </Wrapper>
   )
 }

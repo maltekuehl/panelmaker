@@ -2,7 +2,6 @@ import Orcid from "@/components/icons/orcid"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { SPECIES_LABELS } from "@/lib/constants"
@@ -72,218 +71,196 @@ async function ProfileContent({ id }: { id: string }) {
 
   return (
     <div className="space-y-8" itemScope itemType="https://schema.org/ProfilePage">
-      <Card>
-        <CardContent className="pt-6">
-          <div
-            className="flex flex-col sm:flex-row items-start sm:items-center gap-6"
-            itemScope
-            itemType="https://schema.org/Person"
-            itemProp="mainEntity"
-          >
-            <Avatar className="h-20 w-20 text-2xl">
-              <AvatarImage src={user.image ?? undefined} alt={user.name ?? "User"} itemProp="image" />
-              <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 space-y-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl font-bold" itemProp="name">
-                  {user.name ?? "Unnamed User"}
-                </h1>
-                <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${tier.color}`}>{tier.label}</span>
-                {displayRank && (
-                  <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700">
-                    #{displayRank} overall
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                {user.institution && (
-                  <span
-                    className="flex items-center gap-1.5"
-                    itemProp="affiliation"
-                    itemScope
-                    itemType="https://schema.org/Organization"
-                  >
-                    <Building2 className="h-3.5 w-3.5" />
-                    {user.institutionId ? (
-                      <a
-                        href={`https://ror.org/${user.institutionId.replace(/^ror:/, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline hover:text-foreground"
-                        itemProp="url"
-                      >
-                        <span itemProp="name">{user.institution}</span>
-                      </a>
-                    ) : (
-                      <span itemProp="name">{user.institution}</span>
-                    )}
-                    {user.institutionId && (
-                      <meta
-                        itemProp="identifier"
-                        content={`https://ror.org/${user.institutionId.replace(/^ror:/, "")}`}
-                      />
-                    )}
-                  </span>
-                )}
-                {user.orcid && (
+      <div
+        className="flex flex-col sm:flex-row items-start sm:items-center gap-6"
+        itemScope
+        itemType="https://schema.org/Person"
+        itemProp="mainEntity"
+      >
+        <Avatar className="h-20 w-20 text-2xl">
+          <AvatarImage src={user.image ?? undefined} alt={user.name ?? "User"} itemProp="image" />
+          <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold" itemProp="name">
+              {user.name ?? "Unnamed User"}
+            </h1>
+            <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${tier.color}`}>{tier.label}</span>
+            {displayRank && (
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700">
+                #{displayRank} overall
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            {user.institution && (
+              <span
+                className="flex items-center gap-1.5"
+                itemProp="affiliation"
+                itemScope
+                itemType="https://schema.org/Organization"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                {user.institutionId ? (
                   <a
-                    href={`https://orcid.org/${user.orcid}`}
+                    href={`https://ror.org/${user.institutionId.replace(/^ror:/, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 hover:underline hover:text-foreground"
-                    itemProp="identifier"
+                    className="hover:underline hover:text-foreground"
+                    itemProp="url"
                   >
-                    <Orcid className="h-3.5 w-3.5 text-[#a6ce39]" />
-                    {user.orcid}
+                    <span itemProp="name">{user.institution}</span>
                   </a>
+                ) : (
+                  <span itemProp="name">{user.institution}</span>
                 )}
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Member since{" "}
-                  {new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                </span>
-              </div>
-            </div>
+                {user.institutionId && (
+                  <meta itemProp="identifier" content={`https://ror.org/${user.institutionId.replace(/^ror:/, "")}`} />
+                )}
+              </span>
+            )}
+            {user.orcid && (
+              <a
+                href={`https://orcid.org/${user.orcid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 hover:underline hover:text-foreground"
+                itemProp="identifier"
+              >
+                <Orcid className="h-3.5 w-3.5 text-[#a6ce39]" />
+                {user.orcid}
+              </a>
+            )}
+            <span className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" />
+              Member since {new Date(user.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            </span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold">{stats.totalReports}</div>
-            <div className="text-sm text-muted-foreground mt-1">Total Reports</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-green-600">{stats.publishedReports}</div>
-            <div className="text-sm text-muted-foreground mt-1">Published</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-blue-600">{stats.publicPanels}</div>
-            <div className="text-sm text-muted-foreground mt-1">Panels</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-zinc-600">{displayRank ? `#${displayRank}` : "—"}</div>
-            <div className="text-sm text-muted-foreground mt-1">Rank</div>
-          </CardContent>
-        </Card>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 border-t pt-4 text-sm">
+        <span>
+          <span className="text-lg font-semibold tabular-nums">{stats.totalReports}</span>{" "}
+          <span className="text-muted-foreground">Total reports</span>
+        </span>
+        <span>
+          <span className="text-lg font-semibold tabular-nums text-green-600">{stats.publishedReports}</span>{" "}
+          <span className="text-muted-foreground">Published</span>
+        </span>
+        <span>
+          <span className="text-lg font-semibold tabular-nums text-primary">{stats.publicPanels}</span>{" "}
+          <span className="text-muted-foreground">Panels</span>
+        </span>
+        <span>
+          <span className="text-lg font-semibold tabular-nums">{displayRank ? `#${displayRank}` : "—"}</span>{" "}
+          <span className="text-muted-foreground">Rank</span>
+        </span>
       </div>
 
       {(stats.methods.length > 0 || stats.species.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <FlaskConical className="h-4 w-4" />
-              Contributions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {stats.methods.length > 0 && (
-              <div>
-                <span className="text-xs font-medium text-muted-foreground block mb-2">Methods</span>
-                <div className="flex flex-wrap gap-2">
-                  {stats.methods.map((method) => (
-                    <Badge key={method} variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-                      {method}
-                    </Badge>
-                  ))}
-                </div>
+        <div className="space-y-3 border-t pt-6">
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <FlaskConical className="h-4 w-4" />
+            Contributions
+          </h2>
+          {stats.methods.length > 0 && (
+            <div>
+              <span className="mb-2 block text-xs font-medium text-muted-foreground">Methods</span>
+              <div className="flex flex-wrap gap-2">
+                {stats.methods.map((method) => (
+                  <Badge key={method} variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                    {method}
+                  </Badge>
+                ))}
               </div>
-            )}
-            {stats.species.length > 0 && (
-              <div>
-                <span className="text-xs font-medium text-muted-foreground block mb-2">Species</span>
-                <div className="flex flex-wrap gap-2">
-                  {stats.species.map((sp) => (
-                    <Badge key={sp} variant="outline">
-                      {SPECIES_LABELS[sp] ?? sp}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Submissions</CardTitle>
-          <CardDescription>Latest public experimental reports from this contributor.</CardDescription>
-        </CardHeader>
-        <CardContent className="px-6 pb-6">
-          {summaries.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No public reports yet.</p>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="h-8 py-1 text-xs">Marker</TableHead>
-                    <TableHead className="h-8 py-1 text-xs">Antibody</TableHead>
-                    <TableHead className="h-8 py-1 text-xs">Cell Type</TableHead>
-                    <TableHead className="h-8 py-1 text-xs">Method</TableHead>
-                    <TableHead className="h-8 py-1 text-xs">Species</TableHead>
-                    <TableHead className="h-8 py-1 text-xs">Status</TableHead>
-                    <TableHead className="h-8 py-1 text-xs">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {summaries.map((report) => (
-                    <TableRow key={report.id} className="text-xs">
-                      <TableCell className="py-2 font-medium">
-                        {report.proteinId ? (
-                          <Link href={`/marker/${report.proteinId}`} className="text-primary hover:underline">
-                            {report.markerName}
-                          </Link>
-                        ) : (
-                          report.markerName
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2 font-mono text-muted-foreground">
-                        {report.antibodyRrid ? (
-                          <Link
-                            href={`/antibody/${report.antibodyRrid.replace(/^RRID:/i, "")}`}
-                            className="text-primary hover:underline"
-                          >
-                            {report.antibodyRrid}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell className="py-2 text-muted-foreground">{report.cellType ?? "—"}</TableCell>
-                      <TableCell className="py-2">{report.method ?? "—"}</TableCell>
-                      <TableCell className="py-2">{report.species ?? "—"}</TableCell>
-                      <TableCell className="py-2">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[report.status] ?? "bg-zinc-100 text-zinc-700"}`}
-                        >
-                          {report.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-2 text-muted-foreground">
-                        {new Date(report.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+          {stats.species.length > 0 && (
+            <div>
+              <span className="mb-2 block text-xs font-medium text-muted-foreground">Species</span>
+              <div className="flex flex-wrap gap-2">
+                {stats.species.map((sp) => (
+                  <Badge key={sp} variant="outline">
+                    {SPECIES_LABELS[sp] ?? sp}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-4 border-t pt-6">
+        <div>
+          <h2 className="text-base font-semibold">Recent Submissions</h2>
+          <p className="text-sm text-muted-foreground">Latest public experimental reports from this contributor.</p>
+        </div>
+        {summaries.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">No public reports yet.</p>
+        ) : (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="h-8 py-1 text-xs">Marker</TableHead>
+                  <TableHead className="h-8 py-1 text-xs">Antibody</TableHead>
+                  <TableHead className="h-8 py-1 text-xs">Cell Type</TableHead>
+                  <TableHead className="h-8 py-1 text-xs">Method</TableHead>
+                  <TableHead className="h-8 py-1 text-xs">Species</TableHead>
+                  <TableHead className="h-8 py-1 text-xs">Status</TableHead>
+                  <TableHead className="h-8 py-1 text-xs">Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {summaries.map((report) => (
+                  <TableRow key={report.id} className="text-xs">
+                    <TableCell className="py-2 font-medium">
+                      {report.proteinId ? (
+                        <Link href={`/marker/${report.proteinId}`} className="text-primary hover:underline">
+                          {report.markerName}
+                        </Link>
+                      ) : (
+                        report.markerName
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2 font-mono text-muted-foreground">
+                      {report.antibodyRrid ? (
+                        <Link
+                          href={`/antibody/${report.antibodyRrid.replace(/^RRID:/i, "")}`}
+                          className="text-primary hover:underline"
+                        >
+                          {report.antibodyRrid}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{report.cellType ?? "—"}</TableCell>
+                    <TableCell className="py-2">{report.method ?? "—"}</TableCell>
+                    <TableCell className="py-2">{report.species ?? "—"}</TableCell>
+                    <TableCell className="py-2">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[report.status] ?? "bg-zinc-100 text-zinc-700"}`}
+                      >
+                        {report.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-2 text-muted-foreground">
+                      {new Date(report.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -291,20 +268,16 @@ async function ProfileContent({ id }: { id: string }) {
 function ProfileContentSkeleton() {
   return (
     <div className="space-y-8">
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-6">
-            <Skeleton className="h-20 w-20 rounded-full" />
-            <div className="space-y-2 flex-1">
-              <Skeleton className="h-7 w-48" />
-              <Skeleton className="h-4 w-64" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="flex items-center gap-6">
+        <Skeleton className="h-20 w-20 rounded-full" />
+        <div className="space-y-2 flex-1">
+          <Skeleton className="h-7 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-x-6 gap-y-2 border-t pt-4">
         {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-24" />
+          <Skeleton key={i} className="h-6 w-28" />
         ))}
       </div>
       <Skeleton className="h-32 w-full" />

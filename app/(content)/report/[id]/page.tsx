@@ -2,7 +2,6 @@ import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getReportById, toReportResponse, toReportUsage } from "@/models/experimental-report"
 import { CheckCircle2, ExternalLink, HelpCircle, XCircle } from "lucide-react"
@@ -18,9 +17,7 @@ interface ReportPageProps {
 
 export async function generateMetadata({ params }: ReportPageProps): Promise<Metadata> {
   const { id } = await params
-  const reportId = Number(id)
-  if (Number.isNaN(reportId)) return { title: "Report Not Found | PanelMaker" }
-  const report = await getReportById(reportId)
+  const report = await getReportById(id)
   if (!report) return { title: "Report Not Found | PanelMaker" }
   const marker = report.antibody?.targetName ?? report.antibody?.name ?? "Unknown"
   return {
@@ -33,7 +30,7 @@ function QualityBadge({ label }: { label: string | null }) {
   if (!label) return <span className="text-muted-foreground">N/A</span>
   const styles: Record<string, string> = {
     EXCELLENT: "bg-green-100 text-green-700 border-green-200",
-    GOOD: "bg-blue-100 text-blue-700 border-blue-200",
+    GOOD: "bg-primary/10 text-primary border-primary/20",
     MODERATE: "bg-amber-100 text-amber-700 border-amber-200",
     POOR: "bg-red-100 text-red-700 border-red-200",
     HIGH: "bg-green-100 text-green-700 border-green-200",
@@ -96,14 +93,14 @@ function WorksIndicator({ works }: { works: boolean | null }) {
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="p-3 bg-zinc-50 rounded-lg border">
-      <span className="text-xs font-medium text-muted-foreground block mb-1">{label}</span>
+    <div className="space-y-0.5">
+      <span className="block text-xs font-medium text-muted-foreground">{label}</span>
       <div className="text-sm font-medium">{children}</div>
     </div>
   )
 }
 
-async function ReportContent({ id }: { id: number }) {
+async function ReportContent({ id }: { id: string }) {
   "use cache"
   cacheLife("hours")
 
@@ -140,101 +137,89 @@ async function ReportContent({ id }: { id: number }) {
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Target &amp; Antibody</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <DetailRow label="Marker / Target">
-                {usage.proteinId ? (
-                  <Link href={`/marker/${usage.proteinId}`} className="text-primary hover:underline">
-                    {usage.markerName ?? "Unknown"}
-                  </Link>
-                ) : (
-                  (usage.markerName ?? "Unknown")
-                )}
-              </DetailRow>
-              <DetailRow label="Antibody">
-                <Link
-                  href={`/antibody/${usage.antibodyId.replace(/^RRID:/, "")}`}
-                  className="text-primary hover:underline"
-                >
-                  {usage.antibodyName}
+        <div className="space-y-3 border-t pt-6">
+          <h2 className="text-lg font-semibold">Target &amp; Antibody</h2>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+            <DetailRow label="Marker / Target">
+              {usage.proteinId ? (
+                <Link href={`/marker/${usage.proteinId}`} className="text-primary hover:underline">
+                  {usage.markerName ?? "Unknown"}
+                </Link>
+              ) : (
+                (usage.markerName ?? "Unknown")
+              )}
+            </DetailRow>
+            <DetailRow label="Antibody">
+              <Link
+                href={`/antibody/${usage.antibodyId.replace(/^RRID:/, "")}`}
+                className="text-primary hover:underline"
+              >
+                {usage.antibodyName}
+              </Link>
+            </DetailRow>
+            <DetailRow label="RRID">
+              <span className="font-mono">{usage.antibodyId}</span>
+            </DetailRow>
+            <DetailRow label="Clone">{usage.clone}</DetailRow>
+            <DetailRow label="Vendor">{usage.antibodyVendor}</DetailRow>
+            <DetailRow label="Catalog #">{usage.catalogNumber ?? "N/A"}</DetailRow>
+            <DetailRow label="Host Species">{usage.hostSpecies ?? "N/A"}</DetailRow>
+            <DetailRow label="Conjugate">{usage.conjugate ?? "Unconjugated"}</DetailRow>
+          </div>
+        </div>
+
+        <div className="space-y-3 border-t pt-6">
+          <h2 className="text-lg font-semibold">Sample &amp; Protocol</h2>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+            <DetailRow label="Species">{usage.species}</DetailRow>
+            <DetailRow label="Tissue Type">{usage.tissueType}</DetailRow>
+            <DetailRow label="Fixation">{usage.fixation}</DetailRow>
+            <DetailRow label="Method">{usage.method}</DetailRow>
+            <DetailRow label="Dilution">{usage.dilution}</DetailRow>
+            <DetailRow label="Antigen Retrieval">{usage.antigenRetrieval}</DetailRow>
+            {usage.fluorophore && <DetailRow label="Fluorophore">{usage.fluorophore}</DetailRow>}
+            {usage.metalTag && <DetailRow label="Metal Tag">{usage.metalTag}</DetailRow>}
+            {usage.cycleNumber !== null && <DetailRow label="Cycle Number">{usage.cycleNumber}</DetailRow>}
+          </div>
+        </div>
+
+        <div className="space-y-3 border-t pt-6">
+          <h2 className="text-lg font-semibold">Results</h2>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
+            <DetailRow label="Works">
+              <WorksIndicator works={usage.works} />
+            </DetailRow>
+            <DetailRow label="Signal Quality">
+              <QualityBadge label={usage.signalQuality} />
+            </DetailRow>
+            <DetailRow label="Specificity">
+              <QualityBadge label={usage.specificity} />
+            </DetailRow>
+            {usage.cellTypeId && (
+              <DetailRow label="Cell Type">
+                <Link href={`/celltype/${usage.cellTypeId}`} className="text-primary hover:underline">
+                  {usage.cellTypeLabel}
                 </Link>
               </DetailRow>
-              <DetailRow label="RRID">
-                <span className="font-mono">{usage.antibodyId}</span>
-              </DetailRow>
-              <DetailRow label="Clone">{usage.clone}</DetailRow>
-              <DetailRow label="Vendor">{usage.antibodyVendor}</DetailRow>
-              <DetailRow label="Catalog #">{usage.catalogNumber ?? "N/A"}</DetailRow>
-              <DetailRow label="Host Species">{usage.hostSpecies ?? "N/A"}</DetailRow>
-              <DetailRow label="Conjugate">{usage.conjugate ?? "Unconjugated"}</DetailRow>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Sample &amp; Protocol</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <DetailRow label="Species">{usage.species}</DetailRow>
-              <DetailRow label="Tissue Type">{usage.tissueType}</DetailRow>
-              <DetailRow label="Fixation">{usage.fixation}</DetailRow>
-              <DetailRow label="Method">{usage.method}</DetailRow>
-              <DetailRow label="Dilution">{usage.dilution}</DetailRow>
-              <DetailRow label="Antigen Retrieval">{usage.antigenRetrieval}</DetailRow>
-              {usage.fluorophore && <DetailRow label="Fluorophore">{usage.fluorophore}</DetailRow>}
-              {usage.metalTag && <DetailRow label="Metal Tag">{usage.metalTag}</DetailRow>}
-              {usage.cycleNumber !== null && <DetailRow label="Cycle Number">{usage.cycleNumber}</DetailRow>}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Results</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <DetailRow label="Works">
-                <WorksIndicator works={usage.works} />
-              </DetailRow>
-              <DetailRow label="Signal Quality">
-                <QualityBadge label={usage.signalQuality} />
-              </DetailRow>
-              <DetailRow label="Specificity">
-                <QualityBadge label={usage.specificity} />
-              </DetailRow>
-              {usage.cellTypeId && (
-                <DetailRow label="Cell Type">
-                  <Link href={`/celltype/${usage.cellTypeId}`} className="text-primary hover:underline">
-                    {usage.cellTypeLabel}
-                  </Link>
-                </DetailRow>
-              )}
-              {usage.structureId && (
-                <DetailRow label="Anatomical Structure">{usage.structureLabel ?? usage.structureId}</DetailRow>
-              )}
-              {usage.conditionId && (
-                <DetailRow label="Condition">
-                  <Link href={`/condition/${usage.conditionId}`} className="text-primary hover:underline">
-                    {usage.conditionLabel ?? usage.conditionId}
-                  </Link>
-                </DetailRow>
-              )}
-            </div>
-            {usage.notes && (
-              <div className="mt-4 p-4 bg-zinc-50 rounded-lg border">
-                <span className="text-xs font-medium text-muted-foreground block mb-2">Notes</span>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{usage.notes}</p>
-              </div>
             )}
-          </CardContent>
-        </Card>
+            {usage.structureId && (
+              <DetailRow label="Anatomical Structure">{usage.structureLabel ?? usage.structureId}</DetailRow>
+            )}
+            {usage.conditionId && (
+              <DetailRow label="Condition">
+                <Link href={`/condition/${usage.conditionId}`} className="text-primary hover:underline">
+                  {usage.conditionLabel ?? usage.conditionId}
+                </Link>
+              </DetailRow>
+            )}
+          </div>
+          {usage.notes && (
+            <div className="mt-4 space-y-1">
+              <span className="block text-xs font-medium text-muted-foreground">Notes</span>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{usage.notes}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -245,81 +230,73 @@ async function ReportContent({ id }: { id: number }) {
           </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Submission Info</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div>
-              <span className="text-muted-foreground block text-xs mb-0.5">Submitted by</span>
-              {usage.submitterId ? (
-                <Link href={`/profile/${usage.submitterId}`} className="font-medium text-primary hover:underline">
-                  {usage.submitter}
-                </Link>
-              ) : (
-                <span className="font-medium">{usage.submitter}</span>
-              )}
-            </div>
-            {usage.submitterInstitution && (
-              <div>
-                <span className="text-muted-foreground block text-xs mb-0.5">Institution</span>
-                <span className="font-medium">{usage.submitterInstitution}</span>
-              </div>
-            )}
-            <div>
-              <span className="text-muted-foreground block text-xs mb-0.5">Date</span>
-              <span className="font-medium">
-                {new Date(usage.createdAt).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Related Pages</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {usage.proteinId && (
-              <Link
-                href={`/marker/${usage.proteinId}`}
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View Marker: {usage.markerName}
+        <div className="space-y-3 border-t pt-6 text-sm">
+          <h3 className="font-semibold">Submission Info</h3>
+          <div>
+            <span className="text-muted-foreground block text-xs mb-0.5">Submitted by</span>
+            {usage.submitterId ? (
+              <Link href={`/profile/${usage.submitterId}`} className="font-medium text-primary hover:underline">
+                {usage.submitter}
               </Link>
+            ) : (
+              <span className="font-medium">{usage.submitter}</span>
             )}
+          </div>
+          {usage.submitterInstitution && (
+            <div>
+              <span className="text-muted-foreground block text-xs mb-0.5">Institution</span>
+              <span className="font-medium">{usage.submitterInstitution}</span>
+            </div>
+          )}
+          <div>
+            <span className="text-muted-foreground block text-xs mb-0.5">Date</span>
+            <span className="font-medium">
+              {new Date(usage.createdAt).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-2 border-t pt-6">
+          <h3 className="font-semibold">Related Pages</h3>
+          {usage.proteinId && (
             <Link
-              href={`/antibody/${usage.antibodyId.replace(/^RRID:/, "")}`}
+              href={`/marker/${usage.proteinId}`}
               className="flex items-center gap-2 text-sm text-primary hover:underline"
             >
               <ExternalLink className="h-4 w-4" />
-              View Antibody: {usage.antibodyId}
+              View Marker: {usage.markerName}
             </Link>
-            {usage.cellTypeId && (
-              <Link
-                href={`/celltype/${usage.cellTypeId}`}
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View Cell Type: {usage.cellTypeLabel}
-              </Link>
-            )}
-            {usage.conditionId && (
-              <Link
-                href={`/condition/${usage.conditionId}`}
-                className="flex items-center gap-2 text-sm text-primary hover:underline"
-              >
-                <ExternalLink className="h-4 w-4" />
-                View Condition: {usage.conditionLabel}
-              </Link>
-            )}
-          </CardContent>
-        </Card>
+          )}
+          <Link
+            href={`/antibody/${usage.antibodyId.replace(/^RRID:/, "")}`}
+            className="flex items-center gap-2 text-sm text-primary hover:underline"
+          >
+            <ExternalLink className="h-4 w-4" />
+            View Antibody: {usage.antibodyId}
+          </Link>
+          {usage.cellTypeId && (
+            <Link
+              href={`/celltype/${usage.cellTypeId}`}
+              className="flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" />
+              View Cell Type: {usage.cellTypeLabel}
+            </Link>
+          )}
+          {usage.conditionId && (
+            <Link
+              href={`/condition/${usage.conditionId}`}
+              className="flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" />
+              View Condition: {usage.conditionLabel}
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -351,17 +328,12 @@ function ReportContentSkeleton() {
 
 export default async function ReportPage({ params }: ReportPageProps) {
   const { id } = await params
-  const reportId = Number(id)
-
-  if (Number.isNaN(reportId)) {
-    notFound()
-  }
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      <CustomBreadcrumbs items={[{ label: "Reports", href: "/browse" }, { label: `Report #${reportId}` }]} />
+      <CustomBreadcrumbs items={[{ label: "Reports", href: "/browse" }, { label: `Report #${id}` }]} />
       <Suspense fallback={<ReportContentSkeleton />}>
-        <ReportContent id={reportId} />
+        <ReportContent id={id} />
       </Suspense>
     </div>
   )

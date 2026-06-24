@@ -12,14 +12,13 @@ import {
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
-const removeMarkerSchema = z.object({ markerId: z.number().int().positive() }).strict()
+const removeMarkerSchema = z.object({ markerId: z.string().min(1) }).strict()
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
-    const panelId = parseInt(id, 10)
+    const { id: panelId } = await params
 
-    if (isNaN(panelId)) {
+    if (!panelId) {
       return NextResponse.json({ error: "Invalid panel ID" }, { status: 400 })
     }
 
@@ -36,7 +35,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const body = await request.json()
 
-    const cycleIdSchema = z.object({ cycleId: z.number().int().positive() })
+    const cycleIdSchema = z.object({ cycleId: z.string().min(1) })
     const { cycleId } = cycleIdSchema.parse(body)
 
     const validCycle = panel.cycles.find((c) => c.id === cycleId)
@@ -78,10 +77,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
-    const panelId = parseInt(id, 10)
+    const { id: panelId } = await params
 
-    if (isNaN(panelId)) {
+    if (!panelId) {
       return NextResponse.json({ error: "Invalid panel ID" }, { status: 400 })
     }
 
@@ -120,8 +118,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
 const updateMarkerSchema = z
   .object({
-    markerId: z.number().int().positive(),
-    antibodyId: z.number().int().positive().nullable().optional(),
+    markerId: z.string().min(1),
+    antibodyId: z.string().min(1).nullable().optional(),
     fluorophore: z.string().max(100).nullable().optional(),
     metalTag: z.string().max(100).nullable().optional(),
   })
@@ -129,10 +127,9 @@ const updateMarkerSchema = z
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = await params
-    const panelId = parseInt(id, 10)
+    const { id: panelId } = await params
 
-    if (isNaN(panelId)) {
+    if (!panelId) {
       return NextResponse.json({ error: "Invalid panel ID" }, { status: 400 })
     }
 

@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
+import { UserRole, UserStatus } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
-import { UserRole, UserStatus } from "@prisma/client"
 import { NextRequest, NextResponse } from "next/server"
 
 export interface AuthenticatedUser {
@@ -187,7 +187,7 @@ export async function deleteUser(userId: string): Promise<void> {
 }
 
 // Get all users with pagination (admin only)
-export async function getAllUsers(page: number = 1, pageSize: number = 10, search?: string) {
+export async function getAllUsers(page: number = 1, pageSize: number = 20, search?: string) {
   const skip = (page - 1) * pageSize
 
   // Build where clause for search

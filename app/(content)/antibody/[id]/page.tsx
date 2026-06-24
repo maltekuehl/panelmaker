@@ -3,13 +3,13 @@ import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { lookupByRrid } from "@/models/antibody"
 import { getReportsForAntibody, toReportUsage } from "@/models/experimental-report"
 import { ExternalLink } from "lucide-react"
 import type { Metadata } from "next"
 import { cacheLife } from "next/cache"
+import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
 
@@ -73,39 +73,40 @@ async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: s
             {antibody.sourceOrganism && <Badge variant="outline">Host: {antibody.sourceOrganism}</Badge>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="p-3 bg-zinc-50 rounded-lg border">
-              <span className="text-xs font-medium text-muted-foreground block mb-1">Clone ID</span>
-              <span className="text-sm font-medium">{antibody.cloneId ?? "N/A"}</span>
-            </div>
-            <div className="p-3 bg-zinc-50 rounded-lg border">
-              <span className="text-xs font-medium text-muted-foreground block mb-1">Conjugate</span>
-              <span className="text-sm font-medium">{antibody.conjugate ?? "Unconjugated"}</span>
-            </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
+            <span>
+              <span className="text-muted-foreground">Clone ID: </span>
+              <span className="font-medium">{antibody.cloneId ?? "N/A"}</span>
+            </span>
+            <span>
+              <span className="text-muted-foreground">Conjugate: </span>
+              <span className="font-medium">{antibody.conjugate ?? "Unconjugated"}</span>
+            </span>
             {antibody.targetProtein && (
-              <div className="p-3 bg-zinc-50 rounded-lg border">
-                <span className="text-xs font-medium text-muted-foreground block mb-1">Target Protein</span>
-                <span className="text-sm font-medium">
+              <span>
+                <span className="text-muted-foreground">Target: </span>
+                <Link
+                  href={`/marker/${antibody.targetProtein.id}`}
+                  className="font-medium text-primary hover:underline"
+                >
                   {antibody.targetProtein.label} ({antibody.targetProtein.geneSymbol})
-                </span>
-              </div>
+                </Link>
+              </span>
             )}
-            <div className="p-3 bg-zinc-50 rounded-lg border">
-              <span className="text-xs font-medium text-muted-foreground block mb-1">Citations</span>
-              <span className="text-sm font-medium">{antibody.citationCount ?? 0}</span>
-            </div>
+            <span>
+              <span className="text-muted-foreground">Citations: </span>
+              <span className="font-medium tabular-nums">{antibody.citationCount ?? 0}</span>
+            </span>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Experimental Reports</CardTitle>
-            <CardDescription>Documented usage of this antibody in various experiments.</CardDescription>
-          </CardHeader>
-          <CardContent className="px-6 pb-6">
-            <AntibodyUsagesTable data={usages} />
-          </CardContent>
-        </Card>
+        <div className="space-y-4 border-t pt-6">
+          <div>
+            <h2 className="text-lg font-semibold">Experimental Reports</h2>
+            <p className="text-sm text-muted-foreground">Documented usage of this antibody in various experiments.</p>
+          </div>
+          <AntibodyUsagesTable data={usages} />
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -116,41 +117,37 @@ async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: s
           </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>External Resources</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="space-y-3 border-t pt-6">
+          <h3 className="font-semibold">External Resources</h3>
+          <a
+            href={`https://scicrunch.org/resolver/${displayId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
+          >
+            <div className="space-y-1">
+              <div className="font-medium transition-colors group-hover:text-primary">Antibody Registry</div>
+              <div className="text-xs text-muted-foreground">View full record on SciCrunch</div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground" />
+          </a>
+          {antibody.vendorUrl && (
             <a
-              href={`https://scicrunch.org/resolver/${displayId}`}
+              href={antibody.vendorUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors group"
+              className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
             >
               <div className="space-y-1">
-                <div className="font-medium group-hover:text-primary transition-colors">Antibody Registry</div>
-                <div className="text-xs text-muted-foreground">View full record on SciCrunch</div>
+                <div className="font-medium transition-colors group-hover:text-primary">
+                  {antibody.vendorName ?? "Vendor"}
+                </div>
+                <div className="text-xs text-muted-foreground">View on vendor website</div>
               </div>
               <ExternalLink className="h-4 w-4 text-muted-foreground" />
             </a>
-            {antibody.vendorUrl && (
-              <a
-                href={antibody.vendorUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted transition-colors group"
-              >
-                <div className="space-y-1">
-                  <div className="font-medium group-hover:text-primary transition-colors">
-                    {antibody.vendorName ?? "Vendor"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">View on vendor website</div>
-                </div>
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-              </a>
-            )}
-          </CardContent>
-        </Card>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -167,11 +164,11 @@ function AntibodyContentSkeleton() {
             <Skeleton className="h-6 w-28" />
             <Skeleton className="h-6 w-20" />
           </div>
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
-            <Skeleton className="h-16" />
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+            <Skeleton className="h-5 w-28" />
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-5 w-24" />
           </div>
         </div>
         <Skeleton className="h-48 w-full" />

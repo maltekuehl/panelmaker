@@ -1,6 +1,5 @@
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getLeaderboard } from "@/models/user"
@@ -47,64 +46,57 @@ async function LeaderboardContent() {
   const contributors = await getLeaderboard(50)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Top Contributors</CardTitle>
-        <CardDescription>Ranked by total public experimental reports submitted.</CardDescription>
-      </CardHeader>
-      <CardContent className="px-6 pb-6">
-        {contributors.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">No contributors yet.</p>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-9 py-2 text-xs w-12">Rank</TableHead>
-                  <TableHead className="h-9 py-2 text-xs">Contributor</TableHead>
-                  <TableHead className="h-9 py-2 text-xs">Institution</TableHead>
-                  <TableHead className="h-9 py-2 text-xs text-right">Reports</TableHead>
-                  <TableHead className="h-9 py-2 text-xs text-right">Published</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {contributors.map((entry, index) => {
-                  const rank = index + 1
-                  return (
-                    <TableRow key={entry.userId} className={rankRowClass(rank)}>
-                      <TableCell className="py-3 pl-4">
-                        <div className="flex items-center justify-center w-6">
-                          <RankIcon rank={rank} />
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <Link
-                          href={`/profile/${entry.userId}`}
-                          className="flex items-center gap-3 hover:underline group"
-                        >
-                          <Avatar className="h-8 w-8 text-xs">
-                            <AvatarImage src={entry.image ?? undefined} alt={entry.name ?? "User"} />
-                            <AvatarFallback>{getInitials(entry.name)}</AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium group-hover:text-primary text-sm">
-                            {entry.name ?? "Anonymous"}
-                          </span>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="py-3 text-sm text-muted-foreground">{entry.institution ?? "—"}</TableCell>
-                      <TableCell className="py-3 text-right font-semibold">{entry.reportCount}</TableCell>
-                      <TableCell className="py-3 text-right text-green-600 font-medium">
-                        {entry.publishedCount}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold">Top Contributors</h2>
+        <p className="text-sm text-muted-foreground">Ranked by total public experimental reports submitted.</p>
+      </div>
+      {contributors.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">No contributors yet.</p>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-9 w-12 py-2 text-xs">Rank</TableHead>
+                <TableHead className="h-9 py-2 text-xs">Contributor</TableHead>
+                <TableHead className="h-9 py-2 text-xs">Institution</TableHead>
+                <TableHead className="h-9 py-2 text-right text-xs">Reports</TableHead>
+                <TableHead className="h-9 py-2 text-right text-xs">Published</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contributors.map((entry, index) => {
+                const rank = index + 1
+                return (
+                  <TableRow key={entry.userId} className={rankRowClass(rank)}>
+                    <TableCell className="py-3 pl-4">
+                      <div className="flex w-6 items-center justify-center">
+                        <RankIcon rank={rank} />
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <Link href={`/profile/${entry.userId}`} className="group flex items-center gap-3 hover:underline">
+                        <Avatar className="h-8 w-8 text-xs">
+                          <AvatarImage src={entry.image ?? undefined} alt={entry.name ?? "User"} />
+                          <AvatarFallback>{getInitials(entry.name)}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium group-hover:text-primary">
+                          {entry.name ?? "Anonymous"}
+                        </span>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="py-3 text-sm text-muted-foreground">{entry.institution ?? "—"}</TableCell>
+                    <TableCell className="py-3 text-right font-semibold">{entry.reportCount}</TableCell>
+                    <TableCell className="py-3 text-right font-medium text-green-600">{entry.publishedCount}</TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   )
 }
 

@@ -6,7 +6,7 @@ import { Download } from "lucide-react"
 import { toast } from "sonner"
 
 interface PanelExportMenuProps {
-  panelId: number
+  panelId: string
 }
 
 export function PanelExportMenu({ panelId }: PanelExportMenuProps) {

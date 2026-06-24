@@ -71,7 +71,7 @@ export type AntibodyRegistryResult = {
   url: string
 }
 
-export async function searchAntibodyRegistry(query: string, limit = 10): Promise<AntibodyRegistryResult[]> {
+export async function searchAntibodyRegistry(query: string, limit = 20): Promise<AntibodyRegistryResult[]> {
   try {
     const response = await fetch(
       `https://www.antibodyregistry.org/api/fts-antibodies?q=${encodeURIComponent(query)}&page=1&size=${limit}`,
@@ -103,7 +103,7 @@ export async function searchAntibodyRegistry(query: string, limit = 10): Promise
   }
 }
 
-export async function searchAntibodyRegistryByTarget(uniprotId: string, limit = 10): Promise<AntibodyRegistryResult[]> {
+export async function searchAntibodyRegistryByTarget(uniprotId: string, limit = 20): Promise<AntibodyRegistryResult[]> {
   try {
     const response = await fetch("https://www.antibodyregistry.org/api/search/antibodies", {
       method: "POST",

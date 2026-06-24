@@ -1,6 +1,6 @@
-import type { Fixation, Species } from "@prisma/client"
+import type { Fixation, Species } from "@/lib/generated/prisma/client"
 export { FIXATION_LABELS, SPECIES_LABELS } from "@/lib/constants"
-export type { Fixation, Species } from "@prisma/client"
+export type { Fixation, Species } from "@/lib/generated/prisma/client"
 
 export const SPECIES_ORGANISM_IDS: Record<Species, number | null> = {
   HUMAN: 9606,
@@ -14,10 +14,10 @@ export const SPECIES_ORGANISM_IDS: Record<Species, number | null> = {
 }
 
 export interface PanelMarker {
-  id: number
-  cycleId: number
+  id: string
+  cycleId: string
   proteinId: string | null
-  antibodyId: number | null
+  antibodyId: string | null
   fluorophore: string | null
   metalTag: string | null
   sortOrder: number
@@ -27,7 +27,7 @@ export interface PanelMarker {
     geneSymbol: string | null
   } | null
   antibody: {
-    id: number
+    id: string
     rrid: string | null
     name: string
     conjugate: string | null
@@ -39,8 +39,8 @@ export interface PanelMarker {
 }
 
 export interface PanelCycle {
-  id: number
-  panelId: number
+  id: string
+  panelId: string
   name: string
   notes: string | null
   sortOrder: number
@@ -48,7 +48,7 @@ export interface PanelCycle {
 }
 
 export interface Panel {
-  id: number
+  id: string
   name: string
   description: string | null
   species: Species | null

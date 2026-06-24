@@ -1,4 +1,5 @@
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import type { Clonality, SourceOrganism } from "@/lib/generated/prisma/client"
 import {
   type AntibodyRegistryResult,
   searchAntibodyRegistry,
@@ -12,7 +13,6 @@ import {
   searchParamsSchema,
   toAntibodyResponse,
 } from "@/models/antibody"
-import type { Clonality, SourceOrganism } from "@prisma/client"
 import { NextRequest } from "next/server"
 import { z } from "zod"
 
@@ -49,7 +49,7 @@ function mapSourceOrganism(raw: string): SourceOrganism | null {
 }
 
 async function upsertRegistryResults(registryResults: AntibodyRegistryResult[]) {
-  const upsertedIds: number[] = []
+  const upsertedIds: string[] = []
 
   for (const r of registryResults) {
     if (!r.citation) continue

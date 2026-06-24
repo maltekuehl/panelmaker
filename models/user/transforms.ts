@@ -4,7 +4,7 @@ import type { LeaderboardEntry, RecentReportRow, UserProfileRow, UserStats } fro
 export type { LeaderboardEntry, UserProfileRow, UserStats }
 
 export type RecentReportSummary = {
-  id: number
+  id: string
   markerName: string
   proteinId: string | null
   antibodyRrid: string | null
