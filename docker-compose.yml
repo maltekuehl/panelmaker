@@ -1,3 +1,13 @@
+# Production stack: Postgres + one-shot migrations + the standalone Next.js
+# app, all behind an nginx reverse proxy. nginx terminates client traffic,
+# serves uploaded images straight off the shared volume, and forwards
+# everything else to the app. Bring it up with:
+#   docker compose up -d --build
+#
+# Runtime secrets come from .env (DATABASE_URL there is overridden below to
+# point at the bundled Postgres service). NEXT_PUBLIC_* values are baked at
+# build time, so set NEXT_PUBLIC_BASE_URL before building if it differs.
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -7,8 +17,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-panelmaker}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-panelmaker}
       POSTGRES_DB: ${POSTGRES_DB:-panelmaker}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    # Not published to the host by default: only reachable on the compose
+    # network. Uncomment to expose for debugging.
+    # ports:
+    #   - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,6 +28,52 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    image: panelmaker-migrate
+    container_name: panelmaker-migrate
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:-panelmaker}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+      args:
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:8080}
+    image: panelmaker-app
+    container_name: panelmaker-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:-panelmaker}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
+      UPLOADS_DIR: /app/data/uploads
+    expose:
+      - "3000"
+    volumes:
+      - uploads_data:/app/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   nginx:
     image: nginx:alpine
@@ -25,13 +83,12 @@ services:
       - "${NGINX_PORT:-8080}:80"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      # Shared uploads volume: the app (UPLOADS_DIR=./data/uploads) writes here, nginx serves it read-only.
-      - ./data/uploads:/srv/uploads:ro
-      # When the app is containerized, switch the line above to the named volume below
-      # (also mount `uploads_data:/app/data/uploads` on the app service) and enable the
-      # commented reverse-proxy block in docker/nginx/nginx.conf.
-      # - uploads_data:/srv/uploads:ro
+      # nginx serves uploads read-only straight from the shared app volume.
+      - uploads_data:/srv/uploads:ro
+    depends_on:
+      app:
+        condition: service_healthy
 
 volumes:
   postgres_data:
-  # uploads_data:
+  uploads_data:

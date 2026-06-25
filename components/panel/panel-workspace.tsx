@@ -44,6 +44,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
   const [warnings, setWarnings] = useState<PanelWarning[]>([])
   const [panelToDelete, setPanelToDelete] = useState<Panel | null>(null)
   const panelsVersion = usePanelsSignal((s) => s.version)
+  const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
 
   const fetchPanels = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) setIsLoading(true)
@@ -128,12 +129,14 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
     setPanels((prev) => [newPanel, ...prev])
     setActivePanelId(newPanel.id)
     setIsCreateOpen(false)
+    notifyPanelsChanged()
     toast.success("Panel created")
   }
 
   const handleCyclesChange = (panelId: string, newCycles: PanelCycle[]) => {
     setPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, cycles: newCycles } : p)))
     fetchValidation(panelId)
+    notifyPanelsChanged()
   }
 
   const handleDeletePanel = (panelId: string) => {
@@ -156,6 +159,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
     setPanels(remaining)
     setActivePanelId(remaining.length > 0 ? remaining[0].id : null)
     setPanelToDelete(null)
+    notifyPanelsChanged()
     toast.success("Panel deleted")
   }
 
@@ -202,6 +206,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
       return
     }
 
+    notifyPanelsChanged()
     toast.success(nextValue ? "Panel is now public" : "Panel is now private")
   }
 

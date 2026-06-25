@@ -57,13 +57,15 @@ export function ImageUpload({
   const [maxDisplay, setMaxDisplay] = useState<{ w: number; h: number }>()
   const [minDisplay, setMinDisplay] = useState<{ w: number; h: number }>()
   const [busy, setBusy] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
 
   const atMax = value.length >= max
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ""
-    if (!file) return
+  async function openFile(file: File) {
+    if (!/\.(png|jpe?g|webp|tiff?)$/i.test(file.name) && !/^image\//.test(file.type)) {
+      toast.error("Unsupported file. Supported formats: PNG, JPG, WebP, TIFF.")
+      return
+    }
     try {
       const url = await fileToPreviewUrl(file)
       setCrop(undefined)
@@ -74,6 +76,19 @@ export function ImageUpload({
     } catch {
       toast.error("Could not read that image. Supported formats: PNG, JPG, WebP, TIFF.")
     }
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (file) await openFile(file)
+  }
+
+  async function handleDrop(e: React.DragEvent<HTMLButtonElement>) {
+    e.preventDefault()
+    setDragActive(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) await openFile(file)
   }
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -277,15 +292,24 @@ export function ImageUpload({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragActive(true)
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={handleDrop}
           className={cn(
             "flex w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed py-5 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground",
+            dragActive && "border-primary bg-primary/5 text-foreground",
             invalid && "border-destructive text-destructive",
           )}
         >
           <ImagePlus className="size-5" />
-          <span>Add image{value.length > 0 ? ` (${value.length}/${max})` : ""}</span>
+          <span>
+            {dragActive ? "Drop image to add" : `Add image${value.length > 0 ? ` (${value.length}/${max})` : ""}`}
+          </span>
           <span className="text-xs">
-            PNG, JPG, WebP or TIFF. Crop to {MIN_DIMENSION} to {MAX_DIMENSION}px per side.
+            Drag and drop or click. PNG, JPG, WebP or TIFF. Crop to {MIN_DIMENSION} to {MAX_DIMENSION}px per side.
           </span>
         </button>
       )}

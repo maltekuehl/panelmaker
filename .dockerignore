@@ -1,0 +1,43 @@
+# Dependencies and build output (regenerated inside the image)
+node_modules
+.next
+.open-next
+.vercel
+out
+lib/generated
+
+# VCS and tooling
+.git
+.github
+.husky
+.vscode
+.editorconfig
+
+# Local env and secrets (injected at runtime via env_file, never baked in)
+.env
+.env.*
+.dev.vars
+
+# Local databases and uploads
+*.db
+*.db-journal
+prisma/dev.db
+data/uploads
+
+# Tests and reports
+tests
+playwright-report
+test-results
+*.tsbuildinfo
+
+# Docker / compose (not needed inside the build context)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+run.sh
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
+.eslintcache

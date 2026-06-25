@@ -292,6 +292,14 @@ export function aggregateAntibodyEntries(reports: ReportRow[]): AntibodyEntry[] 
     clone: antibody.cloneId,
     reportCount: rows.length,
     images: collectImages(rows),
+    reports: rows.map((r) => ({
+      id: String(r.id),
+      submitter: r.experiment.submitter?.name ?? "Anonymous",
+      submitterId: r.experiment.submitter?.id ?? null,
+      method: r.experiment.method ? (METHOD_LABELS[r.experiment.method] ?? r.experiment.method) : "Unknown",
+      species: r.experiment.species?.label ?? "Unknown",
+      works: r.works,
+    })),
   }))
 }
 

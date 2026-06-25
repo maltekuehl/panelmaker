@@ -42,6 +42,7 @@ export type AntibodyEntry = {
   vendor: string | null
   clone: string | null
   reportCount: number
+  reports: MarkerReport[]
   images: CarouselImage[]
 }
 
@@ -277,9 +278,11 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
     accessorKey: "reportCount",
     header: () => <DataTableColumnHeader field="reportCount" title="Reports" />,
     cell: ({ row }) => (
-      <Badge variant="secondary">
-        {row.original.reportCount} {row.original.reportCount === 1 ? "report" : "reports"}
-      </Badge>
+      <ReportsDialog
+        marker={row.original.name}
+        cellType={row.original.target ?? "reported cell types"}
+        reports={row.original.reports}
+      />
     ),
   },
   {

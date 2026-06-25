@@ -1,0 +1,55 @@
+# Development stack: containerized `npm run dev` with hot reload, backed by
+# a Postgres service. Spin it up with ./run.sh (or `docker compose -f
+# docker-compose.dev.yml up`). Source is bind-mounted for live reload;
+# node_modules / Prisma client / .next live in named volumes so the host's
+# macOS-built artifacts never leak into the Linux container.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: panelmaker-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-panelmaker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-panelmaker}
+      POSTGRES_DB: ${POSTGRES_DB:-panelmaker}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-panelmaker} -d ${POSTGRES_DB:-panelmaker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      target: dev
+    container_name: panelmaker-app-dev
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      # Talk to the bundled Postgres over the compose network, overriding the
+      # host-oriented DATABASE_URL in .env (which points at localhost).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:-panelmaker}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - prisma_client:/app/lib/generated
+      - next_cache:/app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data_dev:
+  node_modules:
+  prisma_client:
+  next_cache:
