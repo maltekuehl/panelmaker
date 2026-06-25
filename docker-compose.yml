@@ -81,8 +81,15 @@ services:
     restart: unless-stopped
     ports:
       - "${NGINX_PORT:-8080}:80"
+    environment:
+      # Credentials for the site-wide HTTP basic auth gate. Override in .env;
+      # the .htpasswd file is regenerated from these on every container start.
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:-panelmaker}
+      BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-panelmaker}
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Generates /etc/nginx/.htpasswd from the BASIC_AUTH_* env vars at startup.
+      - ./docker/nginx/docker-entrypoint.d/40-basic-auth.sh:/docker-entrypoint.d/40-basic-auth.sh:ro
       # nginx serves uploads read-only straight from the shared app volume.
       - uploads_data:/srv/uploads:ro
     depends_on:
