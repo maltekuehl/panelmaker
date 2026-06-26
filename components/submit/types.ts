@@ -15,6 +15,8 @@ export type ExperimentContext = {
   method: MultiplexMethod | ""
   antigenRetrieval: AntigenRetrieval | ""
   condition: OntologyValue | null
+  visibility: "PRIVATE" | "LAB" | "PUBLIC"
+  sharedLabIds: string[]
 }
 
 export type AntibodyRow = {
@@ -52,6 +54,8 @@ export function emptyContext(): ExperimentContext {
     method: "",
     antigenRetrieval: "",
     condition: null,
+    visibility: "PRIVATE",
+    sharedLabIds: [],
   }
 }
 
@@ -183,6 +187,8 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       method: context.method || undefined,
       antigenRetrieval: context.antigenRetrieval || undefined,
       condition: context.condition ?? undefined,
+      visibility: context.visibility,
+      sharedLabIds: context.sharedLabIds,
     },
     antibodies: rows.map((row) => ({
       antibodyData: row.antibodyRegistry ?? undefined,

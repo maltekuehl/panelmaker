@@ -45,16 +45,16 @@ function buildAntibodyWhere(params: AntibodyQueryParams): Prisma.AntibodyWhereIn
   if (params.q) {
     conditions.push({
       OR: [
-        { name: { contains: params.q } },
-        { rrid: { contains: params.q } },
-        { targetName: { contains: params.q } },
-        { cloneId: { contains: params.q } },
+        { name: { contains: params.q, mode: "insensitive" } },
+        { rrid: { contains: params.q, mode: "insensitive" } },
+        { targetName: { contains: params.q, mode: "insensitive" } },
+        { cloneId: { contains: params.q, mode: "insensitive" } },
       ],
     })
   }
 
   if (params.species) {
-    conditions.push({ targetSpecies: { contains: params.species } })
+    conditions.push({ targetSpecies: { contains: params.species, mode: "insensitive" } })
   }
 
   return conditions.length > 0 ? { AND: conditions } : {}
@@ -84,10 +84,10 @@ export async function searchAntibodies(query: string): Promise<AntibodyRow[]> {
     select: antibodySelect,
     where: {
       OR: [
-        { name: { contains: query } },
-        { rrid: { contains: query } },
-        { targetName: { contains: query } },
-        { cloneId: { contains: query } },
+        { name: { contains: query, mode: "insensitive" } },
+        { rrid: { contains: query, mode: "insensitive" } },
+        { targetName: { contains: query, mode: "insensitive" } },
+        { cloneId: { contains: query, mode: "insensitive" } },
       ],
     },
     take: 20,

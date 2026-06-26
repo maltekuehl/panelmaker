@@ -1,4 +1,5 @@
 import { auth } from "@/auth"
+import { LabLink } from "@/components/lab/lab-link"
 import { PanelExportMenu } from "@/components/panel/panel-export-menu"
 import { FIXATION_LABELS } from "@/components/panel/types"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
@@ -6,6 +7,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { resolveViewerContext } from "@/lib/auth"
+import { canViewPanel } from "@/models/lab"
 import { getPanelById } from "@/models/panel"
 import { Edit, Layers } from "lucide-react"
 import type { Metadata } from "next"
@@ -21,6 +24,10 @@ export async function generateMetadata({ params }: PanelDetailPageProps): Promis
   if (!id) return { title: "Panel Not Found | PanelMaker" }
   const panel = await getPanelById(id)
   if (!panel) return { title: "Panel Not Found | PanelMaker" }
+  // Never expose a non-public panel's name/description in metadata (metadata cannot read auth).
+  if (panel.visibility !== "PUBLIC") {
+    return { title: "Panel | PanelMaker", robots: { index: false, follow: false } }
+  }
   return {
     title: `${panel.name} | PanelMaker`,
     description: panel.description ?? `A spatial proteomics antibody panel with ${panel.cycles.length} cycle(s).`,
@@ -40,7 +47,8 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
     notFound()
   }
 
-  if (!panel.isPublic && panel.ownerId !== session?.user?.id) {
+  const viewer = await resolveViewerContext(session?.user?.id ?? null)
+  if (!canViewPanel(viewer, panel)) {
     notFound()
   }
 
@@ -68,6 +76,11 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
               >
                 {panel.owner.name}
               </Link>
+            </p>
+          )}
+          {panel.owningLab && (
+            <p className="text-sm text-muted-foreground">
+              Lab: <LabLink slug={panel.owningLab.slug} name={panel.owningLab.name} />
             </p>
           )}
         </div>

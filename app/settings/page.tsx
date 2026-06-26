@@ -1,4 +1,5 @@
 import { auth } from "@/auth"
+import { ApiKeysSection } from "@/components/settings/api-keys-section"
 import { isUserAdmin } from "@/lib/auth"
 import { ArrowRight } from "lucide-react"
 import { Metadata } from "next"
@@ -38,6 +39,8 @@ export default async function SettingsPage() {
 
       <div className="space-y-8">
         <ProfileSection name={session.user.name ?? null} email={session.user.email ?? null} />
+
+        <ApiKeysSection endpoint="/api/settings/api-keys" />
 
         <DataExportSection />
 

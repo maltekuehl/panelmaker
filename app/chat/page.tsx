@@ -1,9 +1,8 @@
 import { auth } from "@/auth"
-import Chat from "@/components/chat/chat"
 import ChatSignInRequired from "@/components/chat/chat-signin-required"
-import NoSsr from "@/components/no-ssr"
+import { createConversation, getMostRecentConversationId } from "@/models/chat"
 import type { Metadata } from "next"
-import { Suspense } from "react"
+import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {
   title: "Chat | PanelMaker",
@@ -28,15 +27,11 @@ export const metadata: Metadata = {
 export default async function ChatHome() {
   const session = await auth()
 
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return <ChatSignInRequired />
   }
 
-  return (
-    <Suspense>
-      <NoSsr>
-        <Chat name={session.user.name ?? undefined} />
-      </NoSsr>
-    </Suspense>
-  )
+  const existingId = await getMostRecentConversationId(session.user.id)
+  const id = existingId ?? (await createConversation(session.user.id)).id
+  redirect(`/chat/${id}`)
 }

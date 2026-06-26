@@ -3,10 +3,12 @@ import "server-only"
 import type { ExperimentEntry } from "@/components/browse/columns"
 import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
 import { METHOD_LABELS } from "@/lib/constants"
-import type { BrowseMarkerParams } from "@/lib/data-table"
+import type { BrowseMarkerParams, EntryFilterParams, LabContentParams } from "@/lib/data-table"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { type EntriesPage, paginate } from "@/models/experimental-report/queries"
+import type { ViewerContext } from "@/models/lab/access"
+import { buildExperimentVisibilityWhere } from "@/models/lab/visibility"
 
 const experimentHeaderSelect = {
   id: true,
@@ -15,18 +17,30 @@ const experimentHeaderSelect = {
   fixation: true,
   method: true,
   antigenRetrieval: true,
-  isPublic: true,
+  visibility: true,
   createdAt: true,
   species: { select: { id: true, label: true } },
   tissue: { select: { id: true, label: true } },
   condition: { select: { id: true, label: true } },
   submitter: { select: { id: true, name: true, institution: true } },
+  owningLab: { select: { id: true, name: true, slug: true } },
 } satisfies Prisma.ExperimentSelect
 
 export type ExperimentHeaderRow = Prisma.ExperimentGetPayload<{ select: typeof experimentHeaderSelect }>
 
 export async function getExperimentById(id: string): Promise<ExperimentHeaderRow | null> {
   return prisma.experiment.findUnique({ where: { id }, select: experimentHeaderSelect })
+}
+
+// Private lane: returns the experiment only if the viewer may see it (public, own, or lab-shared).
+export async function getVisibleExperimentById(
+  id: string,
+  viewer: ViewerContext | null,
+): Promise<ExperimentHeaderRow | null> {
+  return prisma.experiment.findFirst({
+    where: { AND: [{ id }, buildExperimentVisibilityWhere(viewer)] },
+    select: experimentHeaderSelect,
+  })
 }
 
 const BROWSE_AGGREGATION_CAP = 2000
@@ -36,6 +50,7 @@ const experimentEntrySelect = {
   name: true,
   method: true,
   createdAt: true,
+  submitter: { select: { id: true, name: true } },
   species: { select: { id: true, label: true } },
   tissue: { select: { id: true, label: true } },
   condition: { select: { id: true, label: true } },
@@ -55,28 +70,41 @@ const MAX_ENTRY_IMAGES = 12
 
 type ExperimentEntryRow = Prisma.ExperimentGetPayload<{ select: typeof experimentEntrySelect }>
 
-function buildExperimentWhere(params: BrowseMarkerParams): Prisma.ExperimentWhereInput {
-  const where: Prisma.ExperimentWhereInput = {
-    isPublic: true,
-    reports: { some: { status: "PUBLISHED" } },
-  }
+const BROWSE_EXPERIMENT_SCOPE: Prisma.ExperimentWhereInput = {
+  visibility: "PUBLIC",
+  reports: { some: { status: "PUBLISHED" } },
+}
 
-  if (params.species.length) where.speciesId = { in: params.species }
-  if (params.tissue.length) where.tissueId = { in: params.tissue }
-  if (params.condition.length) where.conditionId = { in: params.condition }
-  if (params.method.length) where.method = { in: params.method as Prisma.EnumMultiplexMethodNullableFilter["in"] }
-  if (params.fixation.length) where.fixation = { in: params.fixation as Prisma.EnumFixationNullableFilter["in"] }
+function labExperimentScope(labId: string): Prisma.ExperimentWhereInput {
+  return { OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }] }
+}
+
+function buildExperimentWhere(
+  params: EntryFilterParams,
+  base: Prisma.ExperimentWhereInput = BROWSE_EXPERIMENT_SCOPE,
+): Prisma.ExperimentWhereInput {
+  const and: Prisma.ExperimentWhereInput[] = [base]
+
+  if (params.species.length) and.push({ speciesId: { in: params.species } })
+  if (params.tissue.length) and.push({ tissueId: { in: params.tissue } })
+  if (params.condition.length) and.push({ conditionId: { in: params.condition } })
+  if (params.method.length)
+    and.push({ method: { in: params.method as Prisma.EnumMultiplexMethodNullableFilter["in"] } })
+  if (params.fixation.length) and.push({ fixation: { in: params.fixation as Prisma.EnumFixationNullableFilter["in"] } })
+  if (params.lab.length) and.push({ owningLabId: { in: params.lab } })
 
   if (params.q) {
-    where.OR = [
-      { name: { contains: params.q, mode: "insensitive" } },
-      { description: { contains: params.q, mode: "insensitive" } },
-      { species: { label: { contains: params.q, mode: "insensitive" } } },
-      { tissue: { label: { contains: params.q, mode: "insensitive" } } },
-    ]
+    and.push({
+      OR: [
+        { name: { contains: params.q, mode: "insensitive" } },
+        { description: { contains: params.q, mode: "insensitive" } },
+        { species: { label: { contains: params.q, mode: "insensitive" } } },
+        { tissue: { label: { contains: params.q, mode: "insensitive" } } },
+      ],
+    })
   }
 
-  return where
+  return { AND: and }
 }
 
 function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
@@ -116,11 +144,13 @@ function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
     antibodyCount,
     images,
     createdAt: exp.createdAt.toISOString(),
+    submitter: exp.submitter ? { id: exp.submitter.id, name: exp.submitter.name } : null,
   }
 }
 
 const EXPERIMENT_SORT_ACCESSORS: Record<string, (e: ExperimentEntry) => string | number> = {
   name: (e) => (e.name ?? "").toLowerCase(),
+  member: (e) => (e.submitter?.name ?? "").toLowerCase(),
   method: (e) => e.method.toLowerCase(),
   species: (e) => e.species.toLowerCase(),
   tissue: (e) => e.tissue.toLowerCase(),
@@ -145,6 +175,26 @@ function sortExperimentEntries(
     if (av > bv) return direction
     return 0
   })
+}
+
+// Lab-scoped (private lane, member-gated by the page): every experiment owned by or shared with the
+// lab, regardless of visibility, with the same search/filter/sort/paging surface as browse.
+export async function getLabExperimentEntriesPage(
+  labId: string,
+  params: LabContentParams & { pageSize?: number },
+): Promise<EntriesPage<ExperimentEntry>> {
+  const experiments = await prisma.experiment.findMany({
+    select: experimentEntrySelect,
+    where: buildExperimentWhere(params, labExperimentScope(labId)),
+    orderBy: { createdAt: "desc" },
+    take: BROWSE_AGGREGATION_CAP,
+  })
+  const entries = sortExperimentEntries(experiments.map(toExperimentEntry), params.sort, params.order)
+  return paginate(entries, params.page, params.pageSize)
+}
+
+export async function getLabExperimentCount(labId: string): Promise<number> {
+  return prisma.experiment.count({ where: labExperimentScope(labId) })
 }
 
 export async function getExperimentEntriesPage(

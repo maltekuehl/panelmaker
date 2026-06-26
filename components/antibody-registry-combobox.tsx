@@ -19,7 +19,6 @@ export interface AntibodyRegistryValue {
   sourceOrganism: string
   conjugate: string
   isotype: string
-  uniprotId: string
   targetSpecies: string[]
   applications: string[]
   url: string

@@ -1,4 +1,4 @@
-import { antibodyColumns, columns, experimentColumns, reportColumns } from "@/components/browse/columns"
+import { antibodyColumns, columns, experimentColumns, panelColumns, reportColumns } from "@/components/browse/columns"
 import { DataTable } from "@/components/browse/data-table"
 import { MarkerTableToolbar } from "@/components/browse/marker-table-toolbar"
 import { DataTablePagination } from "@/components/data-table/pagination"
@@ -12,6 +12,7 @@ import {
   getReportEntriesPage,
   type BrowseFacets,
 } from "@/models/experimental-report"
+import { getPanelEntriesPage } from "@/models/panel"
 import type { Metadata } from "next"
 import { cacheLife, cacheTag } from "next/cache"
 import { createLoader, type SearchParams } from "nuqs/server"
@@ -102,6 +103,17 @@ async function BrowseTable({ params }: { params: BrowseMarkerParams }) {
     )
   }
 
+  if (params.mode === "panels") {
+    const { rows, total, page, pageCount } = await getPanelEntriesPage(params)
+    return (
+      <DataTable
+        columns={panelColumns}
+        data={rows}
+        pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
+      />
+    )
+  }
+
   const { rows, total, page, pageCount } = await getMarkerEntriesPage(params)
   return (
     <DataTable
@@ -135,7 +147,9 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
         ? "Reports"
         : params.mode === "experiments"
           ? "Experiments"
-          : "Markers"
+          : params.mode === "panels"
+            ? "Panels"
+            : "Markers"
 
   return (
     <div className="container mx-auto space-y-6 px-4 py-6">

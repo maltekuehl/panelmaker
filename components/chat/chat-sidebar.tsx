@@ -3,73 +3,71 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Conversation, useChatStore } from "@/stores/chat"
 import clsx from "clsx"
 import { Check, Edit2, Menu, MessageSquarePlus, Trash2, X } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { useShallow } from "zustand/react/shallow"
+
+// Local mirror of the server ConversationSummary shape (client components never import the model barrel).
+export interface ConversationListItem {
+  id: string
+  title: string | null
+  messageCount: number
+  updatedAt: string
+}
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
   const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
 
-  if (diffDays === 0) {
-    return "Today"
-  } else if (diffDays === 1) {
-    return "Yesterday"
-  } else if (diffDays < 7) {
-    return `${diffDays} days ago`
-  } else {
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
-    })
-  }
+  if (diffDays === 0) return "Today"
+  if (diffDays === 1) return "Yesterday"
+  if (diffDays < 7) return `${diffDays} days ago`
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  })
 }
 
 interface ConversationItemProps {
-  conversation: Conversation
+  conversation: ConversationListItem
   isActive: boolean
+  isDisabled?: boolean
   onSelect: () => void
   onDelete: () => void
-  onUpdateTitle: (title: string) => void
-  isDisabled?: boolean
+  onRename: (title: string) => void
 }
 
 const ConversationItem = ({
   conversation,
   isActive,
+  isDisabled = false,
   onSelect,
   onDelete,
-  onUpdateTitle,
-  isDisabled = false,
+  onRename,
 }: ConversationItemProps) => {
   const [isEditing, setIsEditing] = useState(false)
-  const [editedTitle, setEditedTitle] = useState(conversation.title)
+  const [editedTitle, setEditedTitle] = useState(conversation.title ?? "")
+  const displayTitle = conversation.title?.trim() || "New conversation"
 
   const handleSaveTitle = () => {
-    if (editedTitle.trim() && editedTitle !== conversation.title) {
-      onUpdateTitle(editedTitle.trim())
-    } else {
-      setEditedTitle(conversation.title)
+    const next = editedTitle.trim()
+    if (next && next !== conversation.title) {
+      onRename(next)
     }
     setIsEditing(false)
   }
 
   const handleCancelEdit = () => {
-    setEditedTitle(conversation.title)
+    setEditedTitle(conversation.title ?? "")
     setIsEditing(false)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSaveTitle()
-    } else if (e.key === "Escape") {
-      handleCancelEdit()
-    }
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") handleSaveTitle()
+    else if (event.key === "Escape") handleCancelEdit()
   }
 
   return (
@@ -82,10 +80,10 @@ const ConversationItem = ({
       onClick={isDisabled ? undefined : onSelect}
     >
       {isEditing ? (
-        <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1 w-full" onClick={(event) => event.stopPropagation()}>
           <Input
             value={editedTitle}
-            onChange={(e) => setEditedTitle(e.target.value)}
+            onChange={(event) => setEditedTitle(event.target.value)}
             onKeyDown={handleKeyDown}
             autoFocus
             className="h-7 text-sm flex-1"
@@ -99,20 +97,21 @@ const ConversationItem = ({
         </div>
       ) : (
         <div className="w-full pr-16">
-          <div className="font-medium text-sm wrap-break-word">{conversation.title}</div>
+          <div className="font-medium text-sm wrap-break-word">{displayTitle}</div>
           <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-            <span>{formatDate(conversation.createdAt)}</span>
+            <span>{formatDate(conversation.updatedAt)}</span>
             <span>•</span>
             <span>
-              {conversation.messages.length} {conversation.messages.length === 1 ? "message" : "messages"}
+              {conversation.messageCount} {conversation.messageCount === 1 ? "message" : "messages"}
             </span>
           </div>
           <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               variant="ghost"
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={(event) => {
+                event.stopPropagation()
+                setEditedTitle(conversation.title ?? "")
                 setIsEditing(true)
               }}
               className="h-7 w-7 p-0"
@@ -122,8 +121,8 @@ const ConversationItem = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
+              onClick={(event) => {
+                event.stopPropagation()
                 onDelete()
               }}
               className="h-7 w-7 p-0 text-destructive hover:text-destructive"
@@ -137,90 +136,116 @@ const ConversationItem = ({
   )
 }
 
-interface ChatSidebarContentProps {
-  onClose?: () => void
+interface ChatSidebarProps {
+  conversations: ConversationListItem[]
+  currentConversationId: string
   isStreaming?: boolean
 }
 
-const ChatSidebarContent = ({ onClose, isStreaming = false }: ChatSidebarContentProps) => {
-  const conversations = useChatStore(useShallow((state) => state.conversations))
-  const currentConversationId = useChatStore(useShallow((state) => state.currentConversationId))
-  const createConversation = useChatStore(useShallow((state) => state.createConversation))
-  const deleteConversation = useChatStore(useShallow((state) => state.deleteConversation))
-  const setCurrentConversation = useChatStore(useShallow((state) => state.setCurrentConversation))
-  const updateConversationTitle = useChatStore(useShallow((state) => state.updateConversationTitle))
+const ChatSidebarContent = ({
+  conversations,
+  currentConversationId,
+  isStreaming = false,
+  onClose,
+}: ChatSidebarProps & { onClose?: () => void }) => {
+  const router = useRouter()
+  const [busy, setBusy] = useState(false)
 
-  const sortedConversations = [...conversations].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  )
-
-  const handleCreateNew = () => {
-    if (isStreaming) {
-      alert("Please stop the current response before creating a new conversation.")
-      return
+  const handleCreateNew = async () => {
+    if (isStreaming || busy) return
+    setBusy(true)
+    try {
+      const response = await fetch("/api/chat/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      })
+      const json = await response.json()
+      const id = json?.conversation?.id as string | undefined
+      onClose?.()
+      if (id) router.push(`/chat/${id}`)
+    } finally {
+      setBusy(false)
     }
-    createConversation()
-    onClose?.()
   }
 
-  const handleSelectConversation = (conversationId: string) => {
-    if (isStreaming) {
-      alert("Please stop the current response before switching conversations.")
+  const handleSelect = (id: string) => {
+    if (isStreaming || id === currentConversationId) {
+      onClose?.()
       return
     }
-    setCurrentConversation(conversationId)
     onClose?.()
+    router.push(`/chat/${id}`)
   }
 
-  const handleDeleteConversation = (conversationId: string) => {
-    if (window.confirm("Are you sure you want to delete this conversation? This action cannot be undone.")) {
-      deleteConversation(conversationId)
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Delete this conversation? This cannot be undone.")) return
+    await fetch(`/api/chat/conversations/${id}`, { method: "DELETE" })
+    if (id === currentConversationId) {
+      const next = conversations.find((conversation) => conversation.id !== id)
+      router.push(next ? `/chat/${next.id}` : "/chat")
+    } else {
+      router.refresh()
     }
+  }
+
+  const handleRename = async (id: string, title: string) => {
+    await fetch(`/api/chat/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    })
+    router.refresh()
   }
 
   return (
     <div className="flex h-full flex-col w-full">
       <div className="p-4 border-b">
-        <Button onClick={handleCreateNew} className="w-full" size="sm" disabled={isStreaming}>
-          <MessageSquarePlus className="h-4 w-4 mr-2" />
-          New Conversation
+        <Button onClick={handleCreateNew} className="w-full" size="sm" disabled={isStreaming || busy}>
+          <MessageSquarePlus className="h-4 w-4" />
+          New conversation
         </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-2 flex flex-col gap-1">
-          {sortedConversations.map((conversation) => (
-            <ConversationItem
-              key={conversation.id}
-              conversation={conversation}
-              isActive={conversation.id === currentConversationId}
-              isDisabled={isStreaming && conversation.id !== currentConversationId}
-              onSelect={() => handleSelectConversation(conversation.id)}
-              onDelete={() => handleDeleteConversation(conversation.id)}
-              onUpdateTitle={(title) => updateConversationTitle(conversation.id, title)}
-            />
-          ))}
+          {conversations.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              No conversations yet. Start by sending a message.
+            </p>
+          ) : (
+            conversations.map((conversation) => (
+              <ConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                isActive={conversation.id === currentConversationId}
+                isDisabled={isStreaming && conversation.id !== currentConversationId}
+                onSelect={() => handleSelect(conversation.id)}
+                onDelete={() => handleDelete(conversation.id)}
+                onRename={(title) => handleRename(conversation.id, title)}
+              />
+            ))
+          )}
         </div>
       </div>
 
       <div className="pt-4 px-4 border-t">
         <div className="text-xs text-muted-foreground text-center">
-          {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"} saved locally in your
-          browser.
+          {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"} saved to your account.
         </div>
       </div>
     </div>
   )
 }
 
-export const ChatSidebarMobile = ({ isStreaming = false }: { isStreaming?: boolean }) => {
+export const ChatSidebarMobile = (props: ChatSidebarProps) => {
   const [open, setOpen] = useState(false)
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="sm">
-          <Menu className="h-5 w-5 mr-2" />
+          <Menu className="h-5 w-5" />
           Conversations
         </Button>
       </SheetTrigger>
@@ -228,16 +253,16 @@ export const ChatSidebarMobile = ({ isStreaming = false }: { isStreaming?: boole
         <SheetHeader className="p-4 border-b">
           <SheetTitle>Conversations</SheetTitle>
         </SheetHeader>
-        <ChatSidebarContent onClose={() => setOpen(false)} isStreaming={isStreaming} />
+        <ChatSidebarContent {...props} onClose={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   )
 }
 
-export const ChatSidebarDesktop = ({ isStreaming = false }: { isStreaming?: boolean }) => {
+export const ChatSidebarDesktop = (props: ChatSidebarProps) => {
   return (
     <div className="hidden lg:flex w-80 border-r bg-background">
-      <ChatSidebarContent isStreaming={isStreaming} />
+      <ChatSidebarContent {...props} />
     </div>
   )
 }

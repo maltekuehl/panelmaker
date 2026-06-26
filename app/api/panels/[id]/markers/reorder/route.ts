@@ -1,5 +1,6 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, resolveViewerContext } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { canEditPanel } from "@/models/lab"
 import { getPanelById, reorderMarkers, reorderMarkersSchema } from "@/models/panel"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
@@ -19,7 +20,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    if (panel.ownerId !== user.id) {
+    if (!canEditPanel(await resolveViewerContext(user.id), panel)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

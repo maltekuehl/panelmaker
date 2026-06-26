@@ -1,11 +1,15 @@
 "use client"
 
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
-import { FlaskConical, Loader2, Search, Sparkles } from "lucide-react"
+import { Beaker, Building2, Check, FlaskConical, Loader2, Search, Sparkles, Trash2, X } from "lucide-react"
 import Link from "next/link"
+import { createContext, useContext } from "react"
+
+// The tool input (query) for the result currently being rendered, so ToolAccordion can offer a
+// collapsible JSON view of it without every card having to thread the prop through.
+const ToolQueryContext = createContext<Record<string, unknown> | null>(null)
 
 type ToolState = "input-available" | "output-available" | "error"
 
@@ -17,459 +21,1064 @@ interface ToolPart {
   state?: ToolState
 }
 
-type ProteinResult = {
-  id: string
-  label: string
-  geneSymbol: string | null
-  ensemblGeneId: string | null
-}
-
-type AntibodyResult = {
+interface EvidenceAntibody {
   id: string
   name: string
   rrid: string | null
-  targetName: string | null
-  vendorName: string | null
-  clonality: string | null
-  hostSpecies: string | null
-  targetSpecies: string | null
 }
 
-interface SearchMarkersOutput {
-  proteins?: ProteinResult[]
-  antibodies?: AntibodyResult[]
-  totalProteins?: number
-  totalAntibodies?: number
+interface EvidenceReport {
+  id: string
+  reportUrl: string
+  works: boolean | null
+  signalQuality: string | null
+  specificity: string | null
+  method: string | null
+  species: string | null
+  tissue: string | null
+  fluorophore: string | null
+  antibody: EvidenceAntibody | null
 }
 
-interface SuggestPanelOutput {
-  suggestions?: Array<{
-    antibodyId: string | null
-    antibodyName: string
-    antibodyRrid: string | null
+interface ResolveMarkersOutput {
+  markers?: { id: string; label: string; geneSymbol: string | null }[]
+}
+
+interface ResolveAntibodiesOutput {
+  antibodies?: {
+    id: string
+    name: string
+    rrid: string | null
     targetName: string | null
-    validatedReportCount: number
-    methods: string[]
-    tissues: string[]
-    cellTypes: string[]
-  }>
-  totalValidatedReports?: number
-  filters?: {
-    cellType?: string
-    tissue?: string
-    species?: string
-  }
+    clonality: string | null
+    host: string | null
+    vendor: string | null
+  }[]
+}
+
+interface ResolveCellTypesOutput {
+  matches?: { id: string; label: string }[]
+  expandedIds?: string[]
+}
+
+interface ChipOutput {
+  species?: { id: string; label: string }[]
+  tissues?: { id: string; label: string }[]
 }
 
 interface GetMarkerDetailsOutput {
-  protein?: {
-    id: string
-    label: string
-    geneSymbol: string | null
-    ensemblGeneId: string | null
-  }
-  publishedReports?: Array<{
-    id: string
-    method: string | null
-    species: string | null
-    tissue: string | null
-    fixation: string | null
-    fluorophore: string | null
-    works: boolean
-    signalQuality: string | null
-    specificity: string | null
-    antibodyId: string | undefined
-    antibodyName: string | undefined
-    antibodyRrid: string | undefined
-    cellTypes: string | null
-    subcellular: string | null
-  }>
-  associatedCellTypes?: Array<{
-    id: string
-    label: string
-    parentIds: string[]
-  }>
+  marker?: { id: string; label: string; geneSymbol: string | null }
   reportCount?: number
-  cellTypeCount?: number
+  reports?: EvidenceReport[]
   error?: string
 }
 
-function ProteinResultCard({ protein }: { protein: ProteinResult }) {
+interface GetAntibodyDetailsOutput {
+  antibody?: {
+    id: string
+    name: string
+    rrid: string | null
+    cloneId: string | null
+    clonality: string | null
+    host: string | null
+    vendor: string | null
+    conjugate: string | null
+    targetName: string | null
+  }
+  reportCount?: number
+  reports?: EvidenceReport[]
+  error?: string
+}
+
+interface FindReportsOutput {
+  count?: number
+  reports?: EvidenceReport[]
+}
+
+interface AggregateReportsOutput {
+  groups?: {
+    key: string
+    label: string
+    count: number
+    worksCount: number
+    worksRate: number
+    strongSignalCount: number
+  }[]
+}
+
+interface ListMyLabsOutput {
+  labs?: {
+    id: string
+    name: string
+    slug: string
+    role: string
+    memberCount: number
+    inventoryCount: number
+  }[]
+}
+
+interface GetLabInventoryOutput {
+  count?: number
+  items?: {
+    id: string
+    status: string
+    aliquotsRemaining: number | null
+    storageLocation: string | null
+    markerId: string | null
+    marker: string | null
+    antibody: string
+    rrid: string | null
+    clonality: string | null
+    host: string | null
+    addedBy: string | null
+  }[]
+}
+
+interface GetLabPanelsOutput {
+  panels?: {
+    id: string
+    name: string
+    owner: string | null
+    visibility: string
+    species: string | null
+    markerCount: number
+    markers: { marker: string | null }[]
+  }[]
+  error?: string
+}
+
+interface PanelWarning {
+  type: string
+  severity: "info" | "warning" | "error"
+  message: string
+  markers?: string[]
+  cycleId?: string
+}
+
+interface AnalyzePanelOutput {
+  valid?: boolean
+  warnings?: PanelWarning[]
+  errorCount?: number
+  warningCount?: number
+  error?: string
+}
+
+interface GetPanelLayoutSignalsOutput {
+  signals?: {
+    markerId: string
+    marker: string
+    likelyLabileOrPhospho: boolean
+    hostSpeciesSeen: string[]
+    workedReportCount: number
+    totalReportCount: number
+    bestFluorophores: { fluorophore: string; worksRate: number; strongSignalCount: number }[]
+  }[]
+}
+
+type Recommendation =
+  | { kind: "marker"; reason: string; markerId: string; label: string; sublabel: string | null }
+  | {
+      kind: "antibody"
+      reason: string
+      antibodyId: string
+      rrid: string | null
+      label: string
+      sublabel: string | null
+    }
+
+interface RecommendForPanelOutput {
+  summary?: string
+  recommendations?: Recommendation[]
+}
+
+const TOOL_LABELS: Record<string, string> = {
+  resolveMarkers: "Searching markers...",
+  resolveCellTypes: "Resolving cell types...",
+  resolveSpecies: "Resolving species...",
+  resolveTissues: "Resolving tissues...",
+  resolveAntibodies: "Searching antibodies...",
+  getMarkerDetails: "Loading marker details...",
+  getAntibodyDetails: "Loading antibody details...",
+  findReports: "Finding reports...",
+  aggregateReports: "Aggregating reports...",
+  listMyLabs: "Loading labs...",
+  getLabInventory: "Loading inventory...",
+  getLabPanels: "Loading panels...",
+  analyzePanel: "Analyzing panel...",
+  getPanelLayoutSignals: "Gathering layout signals...",
+  recommendForPanel: "Preparing recommendation...",
+}
+
+function antibodyHref(rrid: string | null): string | null {
+  return rrid ? `/antibody/${rrid.replace(/^RRID:/, "")}` : null
+}
+
+function pct(rate: number): string {
+  return `${Math.round(rate * 100)}%`
+}
+
+function DeleteButton({ onDelete }: { onDelete: () => void }) {
   return (
-    <div className="flex items-start justify-between gap-2 rounded-md border bg-white p-2.5">
-      <div className="min-w-0 flex-1">
-        <Link
-          href={`/marker/${protein.id}`}
-          className="text-xs font-semibold leading-tight truncate block hover:text-primary transition-colors"
-        >
-          {protein.label}
-        </Link>
-        {protein.geneSymbol && <p className="text-[10px] text-muted-foreground mt-0.5">{protein.geneSymbol}</p>}
-      </div>
-      <AddToPanelButton
-        proteinId={protein.id}
-        label={protein.geneSymbol ?? protein.label}
-        variant="outline"
-        size="sm"
-        className="h-6 text-[10px] px-1.5 shrink-0"
-      />
-    </div>
+    <button
+      type="button"
+      onClick={onDelete}
+      aria-label="Delete tool result"
+      className="ml-auto shrink-0 rounded text-muted-foreground transition-colors hover:text-destructive"
+    >
+      <Trash2 className="size-3.5" />
+    </button>
   )
 }
 
-function AntibodyResultCard({ antibody }: { antibody: AntibodyResult }) {
+function ToolAccordion({
+  icon,
+  title,
+  count,
+  onDelete,
+  children,
+}: {
+  icon: React.ReactNode
+  title: string
+  count?: number
+  onDelete?: () => void
+  children: React.ReactNode
+}) {
+  const query = useContext(ToolQueryContext)
+  const hasQuery = query !== null && Object.keys(query).length > 0
   return (
-    <div className="flex items-start justify-between gap-2 rounded-md border bg-white p-2.5">
-      <div className="min-w-0 flex-1">
-        <Link
-          href={`/antibody/${antibody.id}`}
-          className="text-xs font-semibold leading-tight truncate block hover:text-primary transition-colors"
-        >
-          {antibody.name}
-        </Link>
-        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-          {[antibody.rrid, antibody.vendorName].filter(Boolean).join(" · ")}
-        </p>
-        {antibody.targetName && <p className="text-[10px] text-zinc-500 truncate">Target: {antibody.targetName}</p>}
-      </div>
-      <AddToPanelButton
-        antibodyId={antibody.id}
-        label={antibody.name}
-        variant="outline"
-        size="sm"
-        className="h-6 text-[10px] px-1.5 shrink-0"
-      />
-    </div>
-  )
-}
-
-function SearchMarkersCard({ output, isStreaming }: { output: SearchMarkersOutput; isStreaming: boolean }) {
-  const proteins = output.proteins ?? []
-  const antibodies = output.antibodies ?? []
-  const hasResults = proteins.length > 0 || antibodies.length > 0
-
-  if (isStreaming) {
-    return (
-      <div className="flex items-center gap-2 py-1">
-        <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
-        <span className="text-xs text-muted-foreground">Searching markers...</span>
-      </div>
-    )
-  }
-
-  if (!hasResults) {
-    return (
-      <div className="rounded-md bg-zinc-50 border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-        <Search className="h-3 w-3 shrink-0" />
-        No markers found for this query.
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <Search className="h-3 w-3 text-muted-foreground" />
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Search results</span>
-        <Badge variant="secondary" className="text-[10px] h-4 px-1">
-          {proteins.length + antibodies.length}
-        </Badge>
-      </div>
-
-      {proteins.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-[10px] text-muted-foreground font-medium px-0.5">Proteins</p>
-          <div className="space-y-1">
-            {proteins.map((p) => (
-              <ProteinResultCard key={p.id} protein={p} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {antibodies.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-[10px] text-muted-foreground font-medium px-0.5">Antibodies</p>
-          <div className="space-y-1">
-            {antibodies.map((a) => (
-              <AntibodyResultCard key={a.id} antibody={a} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SuggestPanelCard({ output, isStreaming }: { output: SuggestPanelOutput; isStreaming: boolean }) {
-  const suggestions = output.suggestions ?? []
-
-  if (isStreaming) {
-    return (
-      <div className="flex items-center gap-2 py-1">
-        <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
-        <span className="text-xs text-muted-foreground">Finding panel suggestions...</span>
-      </div>
-    )
-  }
-
-  if (suggestions.length === 0) {
-    return (
-      <div className="rounded-md bg-zinc-50 border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-        <Sparkles className="h-3 w-3 shrink-0" />
-        No validated markers found for these filters.
-      </div>
-    )
-  }
-
-  const filters = output.filters
-  const filterParts = [filters?.cellType, filters?.tissue, filters?.species].filter(Boolean)
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <Sparkles className="h-3 w-3 text-purple-500" />
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Panel suggestions</span>
-        {filterParts.length > 0 && (
-          <span className="text-[10px] text-muted-foreground">({filterParts.join(", ")})</span>
-        )}
-      </div>
-
-      <div className="space-y-1">
-        {suggestions.map((s, i) => (
-          <div key={i} className="flex items-start justify-between gap-2 rounded-md border bg-white p-2.5">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                {s.antibodyId ? (
-                  <Link
-                    href={`/antibody/${s.antibodyId}`}
-                    className="text-xs font-semibold leading-tight truncate hover:text-primary transition-colors"
-                  >
-                    {s.antibodyName}
-                  </Link>
-                ) : (
-                  <p className="text-xs font-semibold leading-tight truncate">{s.antibodyName}</p>
-                )}
-                <Badge variant="secondary" className="text-[10px] h-4 px-1 shrink-0">
-                  {s.validatedReportCount} {s.validatedReportCount === 1 ? "report" : "reports"}
-                </Badge>
-              </div>
-              {s.antibodyRrid && <p className="text-[10px] text-muted-foreground mt-0.5">{s.antibodyRrid}</p>}
-              {s.methods.length > 0 && <p className="text-[10px] text-zinc-500 truncate">{s.methods.join(", ")}</p>}
-            </div>
-            <div className="shrink-0">
-              <AddToPanelButton label={s.antibodyName} variant="outline" size="sm" className="h-6 text-[10px] px-1.5" />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {output.totalValidatedReports !== undefined && (
-        <p className="text-[10px] text-muted-foreground px-0.5">
-          Based on {output.totalValidatedReports} validated reports
-        </p>
-      )}
-    </div>
-  )
-}
-
-function GetMarkerDetailsCard({ output, isStreaming }: { output: GetMarkerDetailsOutput; isStreaming: boolean }) {
-  if (isStreaming) {
-    return (
-      <div className="flex items-center gap-2 py-1">
-        <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
-        <span className="text-xs text-muted-foreground">Loading marker details...</span>
-      </div>
-    )
-  }
-
-  if (output.error || !output.protein) {
-    return (
-      <div className="rounded-md bg-zinc-50 border px-3 py-2 text-xs text-muted-foreground">
-        {output.error ?? "Marker not found."}
-      </div>
-    )
-  }
-
-  const { protein, publishedReports = [], associatedCellTypes = [] } = output
-  const workedReports = publishedReports.filter((r) => r.works)
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <FlaskConical className="h-3 w-3 text-muted-foreground" />
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Marker details</span>
-      </div>
-
-      <div className="rounded-md border bg-white p-2.5 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <Link
-              href={`/marker/${protein.id}`}
-              className="text-xs font-semibold block hover:text-primary transition-colors"
+    <Accordion type="single" collapsible>
+      <AccordionItem value="tool" className="border-b-0">
+        <AccordionTrigger className="items-center gap-2 px-3 py-2.5">
+          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            {icon}
+            <span className="truncate text-xs font-medium text-foreground">{title}</span>
+            {count !== undefined && (
+              <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px]">
+                {count}
+              </Badge>
+            )}
+          </span>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              aria-label="Delete tool result"
+              className="shrink-0 rounded text-muted-foreground transition-colors hover:text-destructive"
             >
-              {protein.label}
-            </Link>
-            {protein.geneSymbol && <p className="text-[10px] text-muted-foreground">{protein.geneSymbol}</p>}
-          </div>
-          <AddToPanelButton
-            proteinId={protein.id}
-            label={protein.geneSymbol ?? protein.label}
-            variant="outline"
-            size="sm"
-            className="h-6 text-[10px] px-1.5 shrink-0"
-          />
-        </div>
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
+        </AccordionTrigger>
+        <AccordionContent className="h-auto! pt-0 pb-2">
+          <div className="max-h-72 space-y-1 overflow-y-auto pr-1 pb-1">{children}</div>
+          {hasQuery && (
+            <details className="mt-1.5 border-t pt-1.5">
+              <summary className="cursor-pointer list-none text-[10px] font-medium tracking-wide text-muted-foreground uppercase transition-colors hover:text-foreground">
+                Query
+              </summary>
+              <pre className="mt-1 max-h-48 overflow-auto rounded-md border bg-popover p-2 text-xs whitespace-pre">
+                {JSON.stringify(query, null, 2)}
+              </pre>
+            </details>
+          )}
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
+  )
+}
 
-        <div className="flex gap-3 text-[10px] text-muted-foreground">
-          <span>
-            <span className="font-medium text-foreground">{workedReports.length}</span> validated reports
-          </span>
-          <span>
-            <span className="font-medium text-foreground">{associatedCellTypes.length}</span> cell types
-          </span>
-        </div>
+function EmptyRow({ children }: { children: React.ReactNode }) {
+  return <p className="text-[11px] text-muted-foreground">{children}</p>
+}
 
-        {workedReports.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-[10px] text-muted-foreground font-medium">Reports</p>
-            {workedReports.slice(0, 5).map((r) => (
-              <div key={r.id} className="flex items-center gap-1.5 text-[10px]">
-                <Link href={`/report/${r.id}`} className="text-primary hover:underline font-medium shrink-0">
-                  #{r.id}
+function LoadingCard({ toolName, onDelete }: { toolName: string; onDelete?: () => void }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-2.5 py-2">
+      <Loader2 className="size-3 shrink-0 animate-spin text-primary" />
+      <span className="text-xs text-muted-foreground">{TOOL_LABELS[toolName] ?? `Running ${toolName}...`}</span>
+      {onDelete && <DeleteButton onDelete={onDelete} />}
+    </div>
+  )
+}
+
+function ReportRow({ report }: { report: EvidenceReport }) {
+  const ab = report.antibody
+  const href = antibodyHref(ab?.rrid ?? null)
+  return (
+    <div className="flex items-center gap-1.5 text-[11px]">
+      {report.works === true ? (
+        <Check className="size-3 shrink-0 text-emerald-600 dark:text-emerald-500" />
+      ) : report.works === false ? (
+        <X className="size-3 shrink-0 text-muted-foreground" />
+      ) : null}
+      <Link href={report.reportUrl} className="shrink-0 font-medium text-primary hover:underline">
+        #{report.id.slice(0, 6)}
+      </Link>
+      {ab &&
+        (href ? (
+          <Link href={href} className="truncate text-primary hover:underline">
+            {ab.name}
+          </Link>
+        ) : (
+          <span className="truncate text-muted-foreground">{ab.name}</span>
+        ))}
+      {report.method && (
+        <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px] font-normal">
+          {report.method}
+        </Badge>
+      )}
+      <span className="ml-auto shrink-0 truncate text-[10px] text-muted-foreground">
+        {[report.species, report.tissue].filter(Boolean).join(" · ")}
+      </span>
+    </div>
+  )
+}
+
+function ReportList({ reports, max = 6 }: { reports: EvidenceReport[]; max?: number }) {
+  return (
+    <div className="space-y-1">
+      {reports.slice(0, max).map((r) => (
+        <ReportRow key={r.id} report={r} />
+      ))}
+      {reports.length > max && (
+        <p className="text-[10px] text-muted-foreground">+{reports.length - max} more reports</p>
+      )}
+    </div>
+  )
+}
+
+function ResolveMarkersCard({ output, onDelete }: { output: ResolveMarkersOutput; onDelete?: () => void }) {
+  const markers = output.markers ?? []
+  return (
+    <ToolAccordion
+      icon={<Search className="size-3.5 shrink-0 text-primary" />}
+      title="Markers"
+      count={markers.length}
+      onDelete={onDelete}
+    >
+      {markers.length === 0 ? (
+        <EmptyRow>No markers matched.</EmptyRow>
+      ) : (
+        <div className="space-y-1">
+          {markers.map((m) => (
+            <div
+              key={m.id}
+              className="flex items-center justify-between gap-2 rounded-md border bg-popover px-2 py-1.5"
+            >
+              <div className="min-w-0 flex-1">
+                <Link href={`/marker/${m.id}`} className="block truncate text-xs font-semibold hover:text-primary">
+                  {m.label}
                 </Link>
-                {r.antibodyId && (
-                  <Link href={`/antibody/${r.antibodyId}`} className="text-primary hover:underline truncate">
-                    {r.antibodyName}
+                {m.geneSymbol && <p className="text-[10px] text-muted-foreground">{m.geneSymbol}</p>}
+              </div>
+              <AddToPanelButton
+                proteinId={m.id}
+                geneSymbol={m.geneSymbol ?? undefined}
+                label={m.geneSymbol ?? m.label}
+                variant="outline"
+                size="sm"
+                className="h-6 shrink-0 px-1.5 text-[10px]"
+                iconOnly
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function ResolveAntibodiesCard({ output, onDelete }: { output: ResolveAntibodiesOutput; onDelete?: () => void }) {
+  const antibodies = output.antibodies ?? []
+  return (
+    <ToolAccordion
+      icon={<Search className="size-3.5 shrink-0 text-primary" />}
+      title="Antibodies"
+      count={antibodies.length}
+      onDelete={onDelete}
+    >
+      {antibodies.length === 0 ? (
+        <EmptyRow>No antibodies matched.</EmptyRow>
+      ) : (
+        <div className="space-y-1">
+          {antibodies.map((a) => {
+            const href = antibodyHref(a.rrid)
+            return (
+              <div
+                key={a.id}
+                className="flex items-start justify-between gap-2 rounded-md border bg-popover px-2 py-1.5"
+              >
+                <div className="min-w-0 flex-1">
+                  {href ? (
+                    <Link href={href} className="block truncate text-xs font-semibold hover:text-primary">
+                      {a.name}
+                    </Link>
+                  ) : (
+                    <p className="truncate text-xs font-semibold">{a.name}</p>
+                  )}
+                  <p className="truncate text-[10px] text-muted-foreground">
+                    {[a.rrid, a.vendor, a.host, a.clonality].filter(Boolean).join(" · ")}
+                  </p>
+                  {a.targetName && <p className="truncate text-[10px] text-muted-foreground">Target: {a.targetName}</p>}
+                </div>
+                <AddToPanelButton
+                  antibodyId={a.id}
+                  label={a.name}
+                  variant="outline"
+                  size="sm"
+                  className="h-6 shrink-0 px-1.5 text-[10px]"
+                  iconOnly
+                />
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function ResolveCellTypesCard({ output, onDelete }: { output: ResolveCellTypesOutput; onDelete?: () => void }) {
+  const matches = output.matches ?? []
+  const expanded = output.expandedIds ?? []
+  return (
+    <ToolAccordion
+      icon={<Search className="size-3.5 shrink-0 text-primary" />}
+      title="Cell types"
+      count={matches.length}
+      onDelete={onDelete}
+    >
+      {matches.length === 0 ? (
+        <EmptyRow>No cell types matched.</EmptyRow>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-1">
+            {matches.map((c) => (
+              <Link
+                key={c.id}
+                href={`/celltype/${c.id}`}
+                className="rounded-md border bg-popover px-1.5 py-0.5 text-[11px] hover:text-primary"
+              >
+                {c.label}
+              </Link>
+            ))}
+          </div>
+          {expanded.length > matches.length && (
+            <p className="mt-1.5 text-[10px] text-muted-foreground">
+              Expanded to {expanded.length} ids (incl. descendants)
+            </p>
+          )}
+        </>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function ChipListCard({
+  title,
+  icon,
+  items,
+  onDelete,
+}: {
+  title: string
+  icon: React.ReactNode
+  items: { id: string; label: string }[]
+  onDelete?: () => void
+}) {
+  return (
+    <ToolAccordion icon={icon} title={title} count={items.length} onDelete={onDelete}>
+      {items.length === 0 ? (
+        <EmptyRow>No matches.</EmptyRow>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {items.map((it) => (
+            <Badge key={it.id} variant="secondary" className="h-5 px-1.5 text-[11px] font-normal">
+              {it.label}
+            </Badge>
+          ))}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function GetMarkerDetailsCard({ output, onDelete }: { output: GetMarkerDetailsOutput; onDelete?: () => void }) {
+  if (output.error || !output.marker) {
+    return (
+      <ToolAccordion
+        icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+        title="Marker"
+        onDelete={onDelete}
+      >
+        <EmptyRow>{output.error ?? "Marker not found."}</EmptyRow>
+      </ToolAccordion>
+    )
+  }
+  const { marker } = output
+  const reports = output.reports ?? []
+  return (
+    <ToolAccordion
+      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+      title={`Marker · ${marker.label}`}
+      count={output.reportCount ?? reports.length}
+      onDelete={onDelete}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <Link href={`/marker/${marker.id}`} className="block truncate text-xs font-semibold hover:text-primary">
+            {marker.label}
+          </Link>
+          {marker.geneSymbol && <p className="text-[10px] text-muted-foreground">{marker.geneSymbol}</p>}
+        </div>
+        <AddToPanelButton
+          proteinId={marker.id}
+          geneSymbol={marker.geneSymbol ?? undefined}
+          label={marker.geneSymbol ?? marker.label}
+          variant="outline"
+          size="sm"
+          className="h-6 shrink-0 px-1.5 text-[10px]"
+          iconOnly
+        />
+      </div>
+      {reports.length > 0 && <div className="mt-1.5">{<ReportList reports={reports} />}</div>}
+    </ToolAccordion>
+  )
+}
+
+function GetAntibodyDetailsCard({ output, onDelete }: { output: GetAntibodyDetailsOutput; onDelete?: () => void }) {
+  if (output.error || !output.antibody) {
+    return (
+      <ToolAccordion
+        icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+        title="Antibody"
+        onDelete={onDelete}
+      >
+        <EmptyRow>{output.error ?? "Antibody not found."}</EmptyRow>
+      </ToolAccordion>
+    )
+  }
+  const ab = output.antibody
+  const href = antibodyHref(ab.rrid)
+  const reports = output.reports ?? []
+  return (
+    <ToolAccordion
+      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+      title={`Antibody · ${ab.name}`}
+      count={output.reportCount ?? reports.length}
+      onDelete={onDelete}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {href ? (
+            <Link href={href} className="block truncate text-xs font-semibold hover:text-primary">
+              {ab.name}
+            </Link>
+          ) : (
+            <p className="truncate text-xs font-semibold">{ab.name}</p>
+          )}
+          <p className="truncate text-[10px] text-muted-foreground">
+            {[ab.rrid, ab.vendor, ab.host, ab.clonality, ab.conjugate].filter(Boolean).join(" · ")}
+          </p>
+          {ab.targetName && <p className="truncate text-[10px] text-muted-foreground">Target: {ab.targetName}</p>}
+        </div>
+        <AddToPanelButton
+          antibodyId={ab.id}
+          label={ab.name}
+          variant="outline"
+          size="sm"
+          className="h-6 shrink-0 px-1.5 text-[10px]"
+          iconOnly
+        />
+      </div>
+      {reports.length > 0 && <div className="mt-1.5">{<ReportList reports={reports} />}</div>}
+    </ToolAccordion>
+  )
+}
+
+function FindReportsCard({ output, onDelete }: { output: FindReportsOutput; onDelete?: () => void }) {
+  const reports = output.reports ?? []
+  return (
+    <ToolAccordion
+      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+      title="Reports"
+      count={output.count ?? reports.length}
+      onDelete={onDelete}
+    >
+      {reports.length === 0 ? (
+        <EmptyRow>No reports matched these filters.</EmptyRow>
+      ) : (
+        <ReportList reports={reports} max={8} />
+      )}
+    </ToolAccordion>
+  )
+}
+
+function AggregateReportsCard({ output, onDelete }: { output: AggregateReportsOutput; onDelete?: () => void }) {
+  const groups = output.groups ?? []
+  return (
+    <ToolAccordion
+      icon={<Sparkles className="size-3.5 shrink-0 text-primary" />}
+      title="Ranked reports"
+      count={groups.length}
+      onDelete={onDelete}
+    >
+      {groups.length === 0 ? (
+        <EmptyRow>Nothing to aggregate.</EmptyRow>
+      ) : (
+        <div className="space-y-1">
+          {groups.map((g) => (
+            <div key={g.key} className="flex items-center gap-2 rounded-md border bg-popover px-2 py-1 text-[11px]">
+              <span className="min-w-0 flex-1 truncate font-medium">{g.label}</span>
+              <span className="shrink-0 text-muted-foreground">{g.count}×</span>
+              <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px] font-normal">
+                {pct(g.worksRate)} works
+              </Badge>
+              <span className="shrink-0 text-[10px] text-muted-foreground">{g.strongSignalCount} strong</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function ListMyLabsCard({ output, onDelete }: { output: ListMyLabsOutput; onDelete?: () => void }) {
+  const labs = output.labs ?? []
+  return (
+    <ToolAccordion
+      icon={<Building2 className="size-3.5 shrink-0 text-primary" />}
+      title="Labs"
+      count={labs.length}
+      onDelete={onDelete}
+    >
+      {labs.length === 0 ? (
+        <EmptyRow>You are not a member of any lab.</EmptyRow>
+      ) : (
+        <div className="space-y-1">
+          {labs.map((lab) => (
+            <div key={lab.id} className="flex items-center gap-2 rounded-md border bg-popover px-2 py-1.5">
+              <div className="min-w-0 flex-1">
+                <Link href={`/labs/${lab.slug}`} className="block truncate text-xs font-semibold hover:text-primary">
+                  {lab.name}
+                </Link>
+                <p className="text-[10px] text-muted-foreground">
+                  {[lab.role, `${lab.memberCount} members`, `${lab.inventoryCount} stocked`].join(" · ")}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function GetLabInventoryCard({ output, onDelete }: { output: GetLabInventoryOutput; onDelete?: () => void }) {
+  const items = output.items ?? []
+  return (
+    <ToolAccordion
+      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+      title="Inventory"
+      count={output.count ?? items.length}
+      onDelete={onDelete}
+    >
+      {items.length === 0 ? (
+        <EmptyRow>No matching inventory.</EmptyRow>
+      ) : (
+        <div className="space-y-1">
+          {items.map((it) => {
+            const href = antibodyHref(it.rrid)
+            return (
+              <div key={it.id} className="flex items-center gap-2 rounded-md border bg-popover px-2 py-1.5 text-[11px]">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    {it.markerId ? (
+                      <Link
+                        href={`/marker/${it.markerId}`}
+                        className="shrink-0 font-semibold text-primary hover:underline"
+                      >
+                        {it.marker ?? "Marker"}
+                      </Link>
+                    ) : (
+                      it.marker && <span className="shrink-0 font-semibold">{it.marker}</span>
+                    )}
+                    {href ? (
+                      <Link href={href} className="truncate text-primary hover:underline">
+                        {it.antibody}
+                      </Link>
+                    ) : (
+                      <span className="truncate text-muted-foreground">{it.antibody}</span>
+                    )}
+                  </div>
+                  <p className="truncate text-[10px] text-muted-foreground">
+                    {[it.rrid, it.storageLocation, it.host].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px] font-normal">
+                  {it.status}
+                </Badge>
+                {it.aliquotsRemaining !== null && (
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{it.aliquotsRemaining} left</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function GetLabPanelsCard({ output, onDelete }: { output: GetLabPanelsOutput; onDelete?: () => void }) {
+  if (output.error) {
+    return (
+      <ToolAccordion
+        icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+        title="Panels"
+        onDelete={onDelete}
+      >
+        <EmptyRow>{output.error}</EmptyRow>
+      </ToolAccordion>
+    )
+  }
+  const panels = output.panels ?? []
+  return (
+    <ToolAccordion
+      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+      title="Panels"
+      count={panels.length}
+      onDelete={onDelete}
+    >
+      {panels.length === 0 ? (
+        <EmptyRow>No panels visible.</EmptyRow>
+      ) : (
+        <div className="space-y-1">
+          {panels.map((p) => {
+            const preview = p.markers
+              .map((m) => m.marker)
+              .filter(Boolean)
+              .slice(0, 6)
+              .join(", ")
+            return (
+              <div key={p.id} className="rounded-md border bg-popover px-2 py-1.5">
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/panel/${p.id}`}
+                    className="min-w-0 flex-1 truncate text-xs font-semibold hover:text-primary"
+                  >
+                    {p.name}
                   </Link>
-                )}
-                {!r.antibodyId && r.antibodyName && (
-                  <span className="text-muted-foreground truncate">{r.antibodyName}</span>
-                )}
-                {r.method && (
-                  <Badge variant="secondary" className="text-[9px] h-3.5 px-1 font-normal shrink-0">
-                    {r.method}
+                  <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px] font-normal">
+                    {p.markerCount} markers
+                  </Badge>
+                </div>
+                <p className="truncate text-[10px] text-muted-foreground">
+                  {[p.species, p.visibility.toLowerCase(), p.owner].filter(Boolean).join(" · ")}
+                </p>
+                {preview && <p className="truncate text-[10px] text-muted-foreground">{preview}</p>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function AnalyzePanelCard({ output, onDelete }: { output: AnalyzePanelOutput; onDelete?: () => void }) {
+  if (output.error) {
+    return (
+      <ToolAccordion
+        icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+        title="Panel check"
+        onDelete={onDelete}
+      >
+        <EmptyRow>{output.error}</EmptyRow>
+      </ToolAccordion>
+    )
+  }
+  const warnings = output.warnings ?? []
+  return (
+    <ToolAccordion
+      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
+      title={`Panel check · ${output.valid ? "valid" : `${output.errorCount ?? 0} issue(s)`}`}
+      count={output.warningCount}
+      onDelete={onDelete}
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        <span
+          className={
+            output.valid ? "font-medium text-emerald-600 dark:text-emerald-500" : "font-medium text-destructive"
+          }
+        >
+          {output.valid ? "Valid" : "Invalid"}
+        </span>
+        <span className="text-muted-foreground">
+          <span className="font-medium text-destructive">{output.errorCount ?? 0}</span> errors
+        </span>
+        <span className="text-muted-foreground">
+          <span className="font-medium text-amber-600 dark:text-amber-500">{output.warningCount ?? 0}</span> warnings
+        </span>
+      </div>
+      {warnings.length > 0 && (
+        <div className="mt-1.5 space-y-1">
+          {warnings.map((w, i) => (
+            <p
+              key={i}
+              className={
+                w.severity === "error"
+                  ? "text-[11px] text-destructive"
+                  : w.severity === "warning"
+                    ? "text-[11px] text-amber-600 dark:text-amber-500"
+                    : "text-[11px] text-muted-foreground"
+              }
+            >
+              {w.message}
+              {w.markers && w.markers.length > 0 && (
+                <span className="text-muted-foreground"> ({w.markers.join(", ")})</span>
+              )}
+            </p>
+          ))}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function GetPanelLayoutSignalsCard({
+  output,
+  onDelete,
+}: {
+  output: GetPanelLayoutSignalsOutput
+  onDelete?: () => void
+}) {
+  const signals = output.signals ?? []
+  return (
+    <ToolAccordion
+      icon={<Sparkles className="size-3.5 shrink-0 text-primary" />}
+      title="Layout signals"
+      count={signals.length}
+      onDelete={onDelete}
+    >
+      {signals.length === 0 ? (
+        <EmptyRow>No signals.</EmptyRow>
+      ) : (
+        <div className="space-y-1.5">
+          {signals.map((s) => (
+            <div key={s.markerId} className="rounded-md border bg-popover px-2 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <Link href={`/marker/${s.markerId}`} className="text-xs font-semibold text-primary hover:underline">
+                  {s.marker}
+                </Link>
+                {s.likelyLabileOrPhospho && (
+                  <Badge variant="secondary" className="h-4 px-1 text-[10px] font-normal">
+                    labile/phospho
                   </Badge>
                 )}
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  {s.workedReportCount}/{s.totalReportCount} worked
+                </span>
               </div>
-            ))}
-            {workedReports.length > 5 && (
-              <p className="text-[10px] text-muted-foreground">+{workedReports.length - 5} more reports</p>
-            )}
-          </div>
-        )}
-
-        {associatedCellTypes.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {associatedCellTypes.slice(0, 5).map((ct) => (
-              <Badge key={ct.id} variant="secondary" className="text-[10px] h-4 px-1 font-normal">
-                {ct.label}
-              </Badge>
-            ))}
-            {associatedCellTypes.length > 5 && (
-              <Badge variant="secondary" className="text-[10px] h-4 px-1 font-normal text-muted-foreground">
-                +{associatedCellTypes.length - 5} more
-              </Badge>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+              {s.hostSpeciesSeen.length > 0 && (
+                <p className="truncate text-[10px] text-muted-foreground">Hosts: {s.hostSpeciesSeen.join(", ")}</p>
+              )}
+              {s.bestFluorophores.length > 0 && (
+                <p className="truncate text-[10px] text-muted-foreground">
+                  Best: {s.bestFluorophores.map((f) => `${f.fluorophore} (${pct(f.worksRate)})`).join(", ")}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </ToolAccordion>
   )
 }
 
-interface SearchCellTypesOutput {
-  cellTypes?: Array<{ id: string; label: string; parentIds: string[] }>
-  total?: number
-}
-
-function SearchCellTypesCard({ output }: { output: SearchCellTypesOutput }) {
-  const cellTypes = output.cellTypes ?? []
-
-  if (cellTypes.length === 0) {
-    return (
-      <div className="rounded-md bg-zinc-50 border px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
-        <Search className="h-3 w-3 shrink-0" />
-        No cell types found.
-      </div>
-    )
-  }
-
+function RecommendForPanelCard({ output, onDelete }: { output: RecommendForPanelOutput; onDelete?: () => void }) {
+  const recommendations = output.recommendations ?? []
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
       <div className="flex items-center gap-1.5">
-        <Search className="h-3 w-3 text-muted-foreground" />
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Cell types</span>
-        <Badge variant="secondary" className="text-[10px] h-4 px-1">
-          {cellTypes.length}
-        </Badge>
+        <Sparkles className="size-3.5 shrink-0 text-primary" />
+        <span className="text-[10px] font-medium uppercase tracking-wide text-primary">Recommended for your panel</span>
+        {onDelete && <DeleteButton onDelete={onDelete} />}
       </div>
-      <div className="flex flex-wrap gap-1">
-        {cellTypes.slice(0, 10).map((ct) => (
-          <Badge key={ct.id} variant="secondary" className="text-[10px] h-5 px-1.5 font-normal">
-            {ct.label}
-          </Badge>
-        ))}
-        {cellTypes.length > 10 && (
-          <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-normal text-muted-foreground">
-            +{cellTypes.length - 10} more
-          </Badge>
-        )}
-      </div>
+      {output.summary && <p className="text-xs text-muted-foreground">{output.summary}</p>}
+      {recommendations.length === 0 ? (
+        <EmptyRow>No recommendation.</EmptyRow>
+      ) : (
+        <div className="space-y-1">
+          {recommendations.map((rec, i) => {
+            const href = rec.kind === "marker" ? `/marker/${rec.markerId}` : antibodyHref(rec.rrid)
+            return (
+              <div key={i} className="flex items-start justify-between gap-2 rounded-md border bg-popover p-2.5">
+                <div className="min-w-0 flex-1">
+                  {href ? (
+                    <Link href={href} className="block truncate text-xs font-semibold hover:text-primary">
+                      {rec.label}
+                    </Link>
+                  ) : (
+                    <p className="truncate text-xs font-semibold">{rec.label}</p>
+                  )}
+                  {rec.sublabel && <p className="text-[10px] text-muted-foreground">{rec.sublabel}</p>}
+                  {rec.reason && <p className="text-[10px] text-muted-foreground">{rec.reason}</p>}
+                </div>
+                {rec.kind === "marker" ? (
+                  <AddToPanelButton
+                    proteinId={rec.markerId}
+                    label={rec.label}
+                    variant="outline"
+                    size="sm"
+                    className="h-6 shrink-0 px-1.5 text-[10px]"
+                    iconOnly
+                  />
+                ) : (
+                  <AddToPanelButton
+                    antibodyId={rec.antibodyId}
+                    label={rec.label}
+                    variant="outline"
+                    size="sm"
+                    className="h-6 shrink-0 px-1.5 text-[10px]"
+                    iconOnly
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-function LoadingToolCard({ toolName }: { toolName: string }) {
-  const labelMap: Record<string, string> = {
-    searchMarkers: "Searching markers...",
-    getMarkerDetails: "Loading marker details...",
-    suggestPanel: "Finding panel suggestions...",
-    searchCellTypes: "Searching cell types...",
-  }
-
+function GenericFallbackCard({
+  toolName,
+  input,
+  output,
+  onDelete,
+}: {
+  toolName: string
+  input: Record<string, unknown>
+  output: Record<string, unknown>
+  onDelete?: () => void
+}) {
+  const hasOutput = Object.keys(output).length > 0
   return (
-    <div className="flex items-center gap-2 py-1">
-      <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
-      <span className="text-xs text-muted-foreground">{labelMap[toolName] ?? `Running ${toolName}...`}</span>
-    </div>
+    <Accordion type="single" collapsible>
+      <AccordionItem value="tool" className="border-b-0">
+        <AccordionTrigger className="items-center gap-2 px-3 py-2.5">
+          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+            <Beaker className="size-3.5 shrink-0 text-primary" />
+            <span className="truncate font-mono text-xs font-medium text-foreground">{toolName}</span>
+          </span>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              aria-label="Delete tool result"
+              className="shrink-0 rounded text-muted-foreground transition-colors hover:text-destructive"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
+        </AccordionTrigger>
+        <AccordionContent className="pt-0 pb-2">
+          <div className="max-h-72 space-y-2 overflow-y-auto pr-1 pb-1">
+            <div>
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Input</p>
+              <pre className="overflow-auto rounded-md border bg-popover p-2 text-xs whitespace-pre">
+                {JSON.stringify(input, null, 2)}
+              </pre>
+            </div>
+            {hasOutput && (
+              <div>
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Output</p>
+                <pre className="overflow-auto rounded-md border bg-popover p-2 text-xs whitespace-pre">
+                  {JSON.stringify(output, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   )
 }
 
-export function ToolResultCard({ part }: { part: ToolPart }) {
+export function ToolResultCard({ part, onDelete }: { part: ToolPart; onDelete?: () => void }) {
   const toolName =
     part.toolName ??
     (typeof part.type === "string" && part.type.startsWith("tool-") ? part.type.replace("tool-", "") : "")
   const state = part.state ?? "input-available"
   const isStreaming = state !== "output-available"
+  const input = (part.input ?? {}) as Record<string, unknown>
   const output = (part.output ?? {}) as Record<string, unknown>
 
-  const panelMakerTools = ["searchMarkers", "getMarkerDetails", "suggestPanel", "searchCellTypes"]
-
-  if (!panelMakerTools.includes(toolName)) {
-    return null
-  }
-
   if (isStreaming) {
-    return (
-      <Card className={cn("px-3 py-2 bg-purple-50/50 border-purple-100 shadow-none")}>
-        <LoadingToolCard toolName={toolName} />
-      </Card>
-    )
+    return <LoadingCard toolName={toolName} onDelete={onDelete} />
   }
 
-  return (
-    <Card className={cn("px-3 py-2 bg-purple-50/50 border-purple-100 shadow-none")}>
-      {toolName === "searchMarkers" && (
-        <SearchMarkersCard output={output as SearchMarkersOutput} isStreaming={isStreaming} />
-      )}
-      {toolName === "suggestPanel" && (
-        <SuggestPanelCard output={output as SuggestPanelOutput} isStreaming={isStreaming} />
-      )}
-      {toolName === "getMarkerDetails" && (
-        <GetMarkerDetailsCard output={output as GetMarkerDetailsOutput} isStreaming={isStreaming} />
-      )}
-      {toolName === "searchCellTypes" && <SearchCellTypesCard output={output as SearchCellTypesOutput} />}
-    </Card>
-  )
+  const card = (() => {
+    switch (toolName) {
+      case "resolveMarkers":
+        return <ResolveMarkersCard output={output as ResolveMarkersOutput} onDelete={onDelete} />
+      case "resolveAntibodies":
+        return <ResolveAntibodiesCard output={output as ResolveAntibodiesOutput} onDelete={onDelete} />
+      case "resolveCellTypes":
+        return <ResolveCellTypesCard output={output as ResolveCellTypesOutput} onDelete={onDelete} />
+      case "resolveSpecies":
+        return (
+          <ChipListCard
+            title="Species"
+            icon={<Search className="size-3.5 shrink-0 text-primary" />}
+            items={(output as ChipOutput).species ?? []}
+            onDelete={onDelete}
+          />
+        )
+      case "resolveTissues":
+        return (
+          <ChipListCard
+            title="Tissues"
+            icon={<Search className="size-3.5 shrink-0 text-primary" />}
+            items={(output as ChipOutput).tissues ?? []}
+            onDelete={onDelete}
+          />
+        )
+      case "getMarkerDetails":
+        return <GetMarkerDetailsCard output={output as GetMarkerDetailsOutput} onDelete={onDelete} />
+      case "getAntibodyDetails":
+        return <GetAntibodyDetailsCard output={output as GetAntibodyDetailsOutput} onDelete={onDelete} />
+      case "findReports":
+        return <FindReportsCard output={output as FindReportsOutput} onDelete={onDelete} />
+      case "aggregateReports":
+        return <AggregateReportsCard output={output as AggregateReportsOutput} onDelete={onDelete} />
+      case "listMyLabs":
+        return <ListMyLabsCard output={output as ListMyLabsOutput} onDelete={onDelete} />
+      case "getLabInventory":
+        return <GetLabInventoryCard output={output as GetLabInventoryOutput} onDelete={onDelete} />
+      case "getLabPanels":
+        return <GetLabPanelsCard output={output as GetLabPanelsOutput} onDelete={onDelete} />
+      case "analyzePanel":
+        return <AnalyzePanelCard output={output as AnalyzePanelOutput} onDelete={onDelete} />
+      case "getPanelLayoutSignals":
+        return <GetPanelLayoutSignalsCard output={output as GetPanelLayoutSignalsOutput} onDelete={onDelete} />
+      case "recommendForPanel":
+        return <RecommendForPanelCard output={output as RecommendForPanelOutput} onDelete={onDelete} />
+      default:
+        return (
+          <GenericFallbackCard toolName={toolName || "unknown"} input={input} output={output} onDelete={onDelete} />
+        )
+    }
+  })()
+
+  return <ToolQueryContext.Provider value={input}>{card}</ToolQueryContext.Provider>
 }
+
+export type { ToolPart }

@@ -1,6 +1,7 @@
 "use client"
 
 import { OntologyCombobox } from "@/components/ontology-combobox"
+import { VisibilitySelector } from "@/components/shared/visibility-selector"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -24,12 +25,14 @@ export function ExperimentContextSection({
   editing,
   onEdit,
   onDone,
+  labs,
 }: {
   context: ExperimentContext
   onChange: (next: ExperimentContext) => void
   editing: boolean
   onEdit: () => void
   onDone: () => void
+  labs: { id: string; name: string }[]
 }) {
   const collapsed = !editing
 
@@ -175,6 +178,12 @@ export function ExperimentContextSection({
               placeholder="Search disease ontology (e.g. carcinoma, nephropathy)..."
             />
           </div>
+
+          <VisibilitySelector
+            value={{ visibility: context.visibility, sharedLabIds: context.sharedLabIds }}
+            onChange={(next) => onChange({ ...context, visibility: next.visibility, sharedLabIds: next.sharedLabIds })}
+            labs={labs}
+          />
 
           <Button type="button" size="sm" onClick={onDone}>
             <Check className="size-4" />

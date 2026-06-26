@@ -1,5 +1,18 @@
-import { AntigenRetrieval, Fixation, MultiplexMethod, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
+import {
+  AntigenRetrieval,
+  Fixation,
+  MultiplexMethod,
+  SignalQuality,
+  Specificity,
+  Visibility,
+} from "@/lib/generated/prisma/enums"
 import { z } from "zod"
+
+const visibilityFields = {
+  visibility: z.nativeEnum(Visibility).optional(),
+  sharedLabIds: z.array(z.string().min(1)).max(50).optional(),
+  owningLabId: z.string().min(1).nullable().optional(),
+}
 
 const ontologyValueSchema = z.object({
   id: z.string().min(1),
@@ -58,7 +71,7 @@ export const createReportSchema = z.object({
   specificity: z.nativeEnum(Specificity).optional(),
   notes: z.string().max(5000).optional(),
   images: reportImagesSchema.optional(),
-  isPublic: z.boolean().default(true),
+  ...visibilityFields,
   antibodyData: antibodySubmissionSchema.nullable().optional(),
   proteinData: proteinSubmissionSchema.nullable().optional(),
   cellTypes: z.array(ontologyValueSchema).optional(),
@@ -83,6 +96,7 @@ const batchContextSchema = z.object({
   method: z.nativeEnum(MultiplexMethod).optional(),
   antigenRetrieval: z.nativeEnum(AntigenRetrieval).optional(),
   condition: ontologyValueSchema.nullable().optional(),
+  ...visibilityFields,
 })
 
 const batchAntibodySchema = z.object({

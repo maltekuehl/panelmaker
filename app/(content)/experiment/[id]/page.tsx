@@ -1,12 +1,14 @@
+import { auth } from "@/auth"
 import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
 import { MarkerUsagesTable } from "@/components/browse/marker-usages-table"
+import { LabLink } from "@/components/lab/lab-link"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Skeleton } from "@/components/ui/skeleton"
+import { resolveViewerContext } from "@/lib/auth"
 import { ANTIGEN_RETRIEVAL_LABELS, FIXATION_LABELS, METHOD_LABELS } from "@/lib/constants"
-import { getExperimentById } from "@/models/experiment"
-import { getReportsForExperiment, reportUsageImages, toReportUsage } from "@/models/experimental-report"
+import { getExperimentById, getVisibleExperimentById } from "@/models/experiment"
+import { getVisibleReportsForExperiment, reportUsageImages, toReportUsage } from "@/models/experimental-report"
 import type { Metadata } from "next"
-import { cacheLife } from "next/cache"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
@@ -22,7 +24,7 @@ function experimentTitle(name: string | null, id: string): string {
 export async function generateMetadata({ params }: ExperimentPageProps): Promise<Metadata> {
   const { id } = await params
   const experiment = await getExperimentById(decodeURIComponent(id))
-  if (!experiment || !experiment.isPublic) return { title: "Experiment Not Found | PanelMaker" }
+  if (!experiment || experiment.visibility !== "PUBLIC") return { title: "Experiment Not Found | PanelMaker" }
   const title = experimentTitle(experiment.name, experiment.id)
   return {
     title: `${title} — Experiment | PanelMaker`,
@@ -41,16 +43,18 @@ function MetaItem({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
+// Viewer-aware (uncached): renders the whole experiment for anyone who may see it (public, own, or
+// lab-shared), including its unpublished (PENDING) lab stainings. Must not be wrapped in "use cache".
 async function ExperimentContent({ id }: { id: string }) {
-  "use cache"
-  cacheLife("hours")
+  const session = await auth()
+  const viewer = await resolveViewerContext(session?.user?.id ?? null)
 
-  const experiment = await getExperimentById(id)
-  if (!experiment || !experiment.isPublic) {
+  const experiment = await getVisibleExperimentById(id, viewer)
+  if (!experiment) {
     notFound()
   }
 
-  const reports = await getReportsForExperiment(id)
+  const reports = await getVisibleReportsForExperiment(id, viewer)
   const usages = reports.map(toReportUsage)
   const images = usages.flatMap(reportUsageImages)
 
@@ -94,6 +98,11 @@ async function ExperimentContent({ id }: { id: string }) {
                 <Link href={`/profile/${experiment.submitter.id}`} className="text-primary hover:underline">
                   {experiment.submitter.name ?? "Anonymous"}
                 </Link>
+              </MetaItem>
+            )}
+            {experiment.owningLab && (
+              <MetaItem label="Lab">
+                <LabLink slug={experiment.owningLab.slug} name={experiment.owningLab.name} />
               </MetaItem>
             )}
             <MetaItem label="Date">{experiment.createdAt.toLocaleDateString()}</MetaItem>

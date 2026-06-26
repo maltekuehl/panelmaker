@@ -20,7 +20,7 @@ export default function ChatSignInRequired() {
           <div className="flex items-center gap-3 rounded-lg border p-3">
             <MessageCircle className="h-5 w-5 text-muted-foreground" />
             <div>
-              <p className="text-sm font-medium">PanelMaker Chat</p>
+              <p className="text-sm font-medium">PanelMaker AI</p>
               <p className="text-xs text-muted-foreground">
                 Get expert biomedical research assistance with access to specialized databases and tools
               </p>

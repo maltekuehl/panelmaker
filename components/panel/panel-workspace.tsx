@@ -1,5 +1,6 @@
 "use client"
 
+import { VisibilitySelector } from "@/components/shared/visibility-selector"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,16 +17,20 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { usePanelsSignal } from "@/stores/panels"
-import { AlertTriangle, Download, Globe, Lock, Palette, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, Download, Palette, Plus, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { CreatePanelFormData } from "./panel-form"
 import { PanelForm } from "./panel-form"
 import { PanelList } from "./panel-list"
 import { FIXATION_LABELS, Panel, PanelCycle } from "./types"
+
+type VisibilityValue = {
+  visibility: "PRIVATE" | "LAB" | "PUBLIC"
+  sharedLabIds: string[]
+}
 
 type PanelWarning = {
   type: string
@@ -43,6 +48,8 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
   const [isCreating, setIsCreating] = useState(false)
   const [warnings, setWarnings] = useState<PanelWarning[]>([])
   const [panelToDelete, setPanelToDelete] = useState<Panel | null>(null)
+  const [userLabs, setUserLabs] = useState<{ id: string; name: string }[]>([])
+  const [labsLoading, setLabsLoading] = useState(true)
   const panelsVersion = usePanelsSignal((s) => s.version)
   const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
 
@@ -80,6 +87,24 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
     fetchPanels({ silent: true })
   }, [panelsVersion, fetchPanels])
 
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/labs")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (cancelled || !json) return
+        const labs = (json.labs ?? []).map((l: { id: string; name: string }) => ({ id: l.id, name: l.name }))
+        setUserLabs(labs)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLabsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const fetchValidation = async (panelId: string) => {
     try {
       const res = await fetch(`/api/panels/${panelId}/validate`)
@@ -113,7 +138,6 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
         fixation: data.fixation || undefined,
         conditionId: data.conditionId || undefined,
         conditionLabel: data.conditionLabel || undefined,
-        isPublic: false,
       }),
     })
 
@@ -189,25 +213,43 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
     }
   }
 
-  const handleTogglePublic = async (panelId: string, currentIsPublic: boolean) => {
-    const nextValue = !currentIsPublic
-
-    setPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, isPublic: nextValue } : p)))
+  const handleVisibilityChange = async (panelId: string, prev: VisibilityValue, next: VisibilityValue) => {
+    setPanels((ps) =>
+      ps.map((p) =>
+        p.id === panelId
+          ? {
+              ...p,
+              visibility: next.visibility,
+              sharedLabIds: next.sharedLabIds,
+            }
+          : p,
+      ),
+    )
 
     const res = await fetch(`/api/panels/${panelId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isPublic: nextValue }),
+      body: JSON.stringify({ visibility: next.visibility, sharedLabIds: next.sharedLabIds }),
     })
 
     if (!res.ok) {
-      setPanels((prev) => prev.map((p) => (p.id === panelId ? { ...p, isPublic: currentIsPublic } : p)))
+      setPanels((ps) =>
+        ps.map((p) =>
+          p.id === panelId
+            ? {
+                ...p,
+                visibility: prev.visibility,
+                sharedLabIds: prev.sharedLabIds,
+              }
+            : p,
+        ),
+      )
       toast.error("Failed to update panel visibility")
       return
     }
 
     notifyPanelsChanged()
-    toast.success(nextValue ? "Panel is now public" : "Panel is now private")
+    toast.success("Panel visibility updated")
   }
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? panels[0] ?? null
@@ -234,7 +276,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
                 <Palette className="h-5 w-5 text-primary" />
               </div>
               <Select value={activePanelId ?? undefined} onValueChange={(val) => setActivePanelId(val)}>
-                <SelectTrigger className="h-10 flex-1 font-medium">
+                <SelectTrigger className="h-10 min-w-0 flex-1 font-medium">
                   <SelectValue placeholder="Select panel" />
                 </SelectTrigger>
                 <SelectContent>
@@ -280,24 +322,26 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
         </div>
 
         {activePanel && (
-          <div className="bg-zinc-50 p-3 rounded-lg border space-y-1">
-            <div className="flex items-start justify-between">
-              <div className="space-y-1 flex-1 mt-1">
-                <p className="text-xs text-muted-foreground">{activePanel.description ?? "No description."}</p>
-                {activePanel.condition && (
-                  <p className="text-xs text-zinc-500 font-medium">Condition: {activePanel.condition.label}</p>
-                )}
+          <div className="bg-muted/40 p-3 rounded-lg border space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <VisibilitySelector
+                  value={{
+                    visibility: (activePanel.visibility ?? "PRIVATE") as "PRIVATE" | "LAB" | "PUBLIC",
+                    sharedLabIds: activePanel.sharedLabIds ?? [],
+                  }}
+                  onChange={(next) => {
+                    const prev: VisibilityValue = {
+                      visibility: (activePanel.visibility ?? "PRIVATE") as "PRIVATE" | "LAB" | "PUBLIC",
+                      sharedLabIds: activePanel.sharedLabIds ?? [],
+                    }
+                    handleVisibilityChange(activePanel.id, prev, next)
+                  }}
+                  labs={userLabs}
+                  disabled={labsLoading}
+                />
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <div className="flex items-center gap-1">
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <Switch
-                    checked={activePanel.isPublic}
-                    onCheckedChange={() => handleTogglePublic(activePanel.id, activePanel.isPublic)}
-                    aria-label="Toggle public visibility"
-                  />
-                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600">
@@ -328,6 +372,14 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
                 </Button>
               </div>
             </div>
+            {(activePanel.description || activePanel.condition) && (
+              <div className="space-y-1 border-t pt-2">
+                {activePanel.description && <p className="text-xs text-muted-foreground">{activePanel.description}</p>}
+                {activePanel.condition && (
+                  <p className="text-xs text-muted-foreground font-medium">Condition: {activePanel.condition.label}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

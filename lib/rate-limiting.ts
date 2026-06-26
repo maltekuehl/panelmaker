@@ -58,6 +58,21 @@ export const RATE_LIMITS = {
     maxRequests: 200,
     resourceType: "uploads",
   },
+  LABS_CREATE: {
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    maxRequests: 10,
+    resourceType: "labs_create",
+  },
+  LAB_INVITATIONS_SEND: {
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    maxRequests: 50,
+    resourceType: "lab_invitations_send",
+  },
+  INVENTORY_MUTATE: {
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    maxRequests: 300,
+    resourceType: "inventory_mutate",
+  },
 } as const
 
 /**

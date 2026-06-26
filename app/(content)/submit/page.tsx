@@ -2,7 +2,8 @@ import { auth } from "@/auth"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { RequestSubmissionAccess } from "@/components/submit/request-submission-access"
 import { SubmissionForm } from "@/components/submit/submission-form"
-import { getSubmissionAccessState } from "@/lib/auth"
+import { getAccessState } from "@/lib/auth"
+import { getLabsForUser } from "@/models/lab"
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
 
@@ -18,7 +19,12 @@ export default async function SubmitPage() {
     redirect("/signin")
   }
 
-  const { canSubmit, access } = await getSubmissionAccessState(session.user.id)
+  const [{ verified, status }, labsWithRole] = await Promise.all([
+    getAccessState(session.user.id),
+    getLabsForUser(session.user.id),
+  ])
+
+  const labs = labsWithRole.map(({ lab }) => ({ id: lab.id, name: lab.name }))
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -32,7 +38,7 @@ export default async function SubmitPage() {
         </p>
       </div>
 
-      {canSubmit ? <SubmissionForm /> : <RequestSubmissionAccess initialAccess={access} />}
+      {verified ? <SubmissionForm labs={labs} /> : <RequestSubmissionAccess initialAccess={status} />}
     </div>
   )
 }

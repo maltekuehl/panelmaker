@@ -1,5 +1,11 @@
-import { Fixation } from "@/lib/generated/prisma/enums"
+import { Fixation, Visibility } from "@/lib/generated/prisma/enums"
 import { z } from "zod"
+
+const visibilityFields = {
+  visibility: z.nativeEnum(Visibility).optional(),
+  sharedLabIds: z.array(z.string().min(1)).max(50).optional(),
+  owningLabId: z.string().min(1).nullable().optional(),
+}
 
 export const createPanelSchema = z
   .object({
@@ -10,7 +16,7 @@ export const createPanelSchema = z
     fixation: z.nativeEnum(Fixation).optional(),
     conditionId: z.string().max(255).optional(),
     conditionLabel: z.string().max(255).optional(),
-    isPublic: z.boolean().default(false),
+    ...visibilityFields,
   })
   .strict()
 
@@ -25,7 +31,7 @@ export const updatePanelSchema = z
     fixation: z.nativeEnum(Fixation).optional(),
     conditionId: z.string().max(255).optional(),
     conditionLabel: z.string().max(255).optional(),
-    isPublic: z.boolean().optional(),
+    ...visibilityFields,
   })
   .strict()
 

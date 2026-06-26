@@ -18,6 +18,7 @@ import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { ImageUpload } from "./image-upload"
+import { LabInventoryCombobox, type LabInventoryImportItem } from "./lab-inventory-combobox"
 import { ProteinCombobox } from "./protein-combobox"
 import {
   duplicateRow,
@@ -98,13 +99,32 @@ function AntibodyEditor({
   method,
   organismId,
   invalid,
+  hasLabs,
 }: {
   row: AntibodyRow
   onChange: (patch: Partial<AntibodyRow> | ((r: AntibodyRow) => AntibodyRow)) => void
   method: MultiplexMethod | ""
   organismId?: number
   invalid: (field: keyof AntibodyRow) => boolean
+  hasLabs?: boolean
 }) {
+  // Pre-fill the row from an antibody already stocked in one of the user's labs. Resolves by RRID on
+  // submit, so the existing global Antibody (and its captured host species) is reused.
+  function handleImport(item: LabInventoryImportItem) {
+    onChange((r) => ({
+      ...r,
+      rrid: item.rrid || r.rrid,
+      antibodyVendor: item.vendorName || r.antibodyVendor,
+      catalogNumber: item.catalogNumber || r.catalogNumber,
+      cloneId: item.cloneId || r.cloneId,
+      markerName: item.targetName || item.targetProtein?.geneSymbol || r.markerName,
+      markerProtein: item.targetProtein
+        ? { id: item.targetProtein.id, label: item.targetProtein.label, geneSymbol: item.targetProtein.geneSymbol }
+        : r.markerProtein,
+      hostSpecies: item.hostTaxon ? { id: item.hostTaxon.id, label: item.hostTaxon.label } : r.hostSpecies,
+    }))
+  }
+
   async function handleRegistry(value: AntibodyRow["antibodyRegistry"]) {
     if (!value) {
       onChange((r) => ({
@@ -127,10 +147,26 @@ function AntibodyEditor({
       cloneId: value.cloneId || r.cloneId,
       rrid: value.citation || r.rrid,
       markerName: value.target || r.markerName,
-      markerProtein: value.uniprotId
-        ? { id: value.uniprotId, label: value.target || value.name, geneSymbol: value.target || null }
-        : r.markerProtein,
     }))
+
+    // The registry record has no UniProt id. Resolve the target protein only when it maps cleanly to a
+    // single species-correct entry for the experiment organism; otherwise leave it for the user to
+    // pick from the (species-constrained) combobox, rather than guess a wrong-species accession.
+    if (value.target && organismId) {
+      try {
+        const res = await fetch(`/api/proteins?organismId=${organismId}&q=${encodeURIComponent(value.target)}&limit=5`)
+        if (res.ok) {
+          const data = await res.json()
+          const proteins: { id: string; label: string; geneSymbol: string | null }[] = data.proteins ?? []
+          if (proteins.length === 1) {
+            const p = proteins[0]
+            onChange((r) => ({ ...r, markerProtein: { id: p.id, label: p.label, geneSymbol: p.geneSymbol ?? null } }))
+          }
+        }
+      } catch {
+        // best-effort; the user can pick the marker via the species-constrained combobox
+      }
+    }
 
     if (value.sourceOrganism) {
       try {
@@ -151,7 +187,12 @@ function AntibodyEditor({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <AntibodyRegistryCombobox value={row.antibodyRegistry} onChange={handleRegistry} showDetails={false} />
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <AntibodyRegistryCombobox value={row.antibodyRegistry} onChange={handleRegistry} showDetails={false} />
+          </div>
+          {hasLabs && <LabInventoryCombobox onImport={handleImport} />}
+        </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Field label="Vendor">
             <Input value={row.antibodyVendor} onChange={(e) => onChange({ antibodyVendor: e.target.value })} />
@@ -318,12 +359,14 @@ export function AntibodyAccordion({
   method,
   organismId,
   invalid,
+  hasLabs,
 }: {
   rows: AntibodyRow[]
   onChange: (rows: AntibodyRow[]) => void
   method: MultiplexMethod | ""
   organismId?: number
   invalid: (key: string, field: keyof AntibodyRow) => boolean
+  hasLabs?: boolean
 }) {
   const [open, setOpen] = useState<string[]>(() => rows.map((r) => r.key))
 
@@ -451,6 +494,7 @@ export function AntibodyAccordion({
                   method={method}
                   organismId={organismId}
                   invalid={(field) => invalid(row.key, field)}
+                  hasLabs={hasLabs}
                 />
               </AccordionContent>
             </AccordionItem>

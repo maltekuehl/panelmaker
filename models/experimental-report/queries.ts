@@ -3,8 +3,9 @@ import "server-only"
 import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
 import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
 import { CLONALITY_LABELS, FIXATION_LABELS, METHOD_LABELS, SPECIFICITY_LABELS } from "@/lib/constants"
-import { FILTER_KEYS, type BrowseMarkerParams } from "@/lib/data-table"
+import { FILTER_KEYS, type BrowseMarkerParams, type EntryFilterParams, type LabContentParams } from "@/lib/data-table"
 import type { Clonality, Prisma, ValidationStatus } from "@/lib/generated/prisma/client"
+import type { Visibility } from "@/lib/generated/prisma/enums"
 import { lookupAntibodyByRrid, searchAntibodyRegistry } from "@/lib/integrations/antibody-registry"
 import {
   searchCellOntology,
@@ -14,6 +15,9 @@ import {
   searchUberon,
 } from "@/lib/ontology"
 import { prisma } from "@/lib/prisma"
+import type { ViewerContext } from "@/models/lab/access"
+import { resolveResourceVisibility } from "@/models/lab/queries"
+import { buildReportVisibilityWhere } from "@/models/lab/visibility"
 import type { CreateReportBatchData, CreateReportData } from "./schema"
 import {
   aggregateAntibodyEntries,
@@ -67,12 +71,13 @@ const reportSelect = {
       fixation: true,
       method: true,
       antigenRetrieval: true,
-      isPublic: true,
+      visibility: true,
       createdAt: true,
       species: { select: { id: true, label: true } },
       tissue: { select: { id: true, label: true } },
       condition: { select: { id: true, label: true } },
       submitter: { select: { id: true, name: true, institution: true } },
+      owningLab: { select: { id: true, name: true, slug: true } },
     },
   },
   antibody: {
@@ -126,13 +131,24 @@ const WHERE_BUILDERS: Record<string, (values: string[]) => Prisma.ExperimentalRe
   condition: (v) => ({ experiment: { conditionId: { in: v } } }),
   specificity: (v) => ({ specificity: { in: v as Prisma.EnumSpecificityNullableFilter["in"] } }),
   result: (v) => resultWhere(v),
+  lab: (v) => ({ experiment: { owningLabId: { in: v } } }),
+}
+
+const BROWSE_REPORT_SCOPE: Prisma.ExperimentalReportWhereInput = {
+  status: "PUBLISHED",
+  experiment: { visibility: "PUBLIC" },
+}
+
+function labReportScope(labId: string): Prisma.ExperimentalReportWhereInput {
+  return { experiment: { OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }] } }
 }
 
 function buildReportWhere(
   q: string | undefined,
   filters: Record<string, string[]>,
+  base: Prisma.ExperimentalReportWhereInput = BROWSE_REPORT_SCOPE,
 ): Prisma.ExperimentalReportWhereInput {
-  const conditions: Prisma.ExperimentalReportWhereInput[] = [{ status: "PUBLISHED", experiment: { isPublic: true } }]
+  const conditions: Prisma.ExperimentalReportWhereInput[] = [base]
 
   if (q) {
     conditions.push({
@@ -157,10 +173,10 @@ function buildReportWhere(
   return { AND: conditions }
 }
 
-function browseFilters(params: BrowseMarkerParams): Record<string, string[]> {
+function browseFilters(params: EntryFilterParams): Record<string, string[]> {
   const filters: Record<string, string[]> = {}
   for (const key of FILTER_KEYS) {
-    const value = params[key as keyof BrowseMarkerParams]
+    const value = params[key as keyof EntryFilterParams]
     if (Array.isArray(value) && value.length > 0) filters[key] = value as string[]
   }
   return filters
@@ -233,6 +249,26 @@ export async function getReportEntriesPage(params: BrowseQueryParams): Promise<E
   return paginate(sorted, params.page, params.pageSize)
 }
 
+// Lab-scoped (private lane, member-gated by the page): every report on an experiment owned by or
+// shared with the lab, regardless of status/visibility, with the same search/filter/sort/paging surface.
+export async function getLabReportEntriesPage(
+  labId: string,
+  params: LabContentParams & { pageSize?: number },
+): Promise<EntriesPage<ReportEntry>> {
+  const reports = await prisma.experimentalReport.findMany({
+    select: reportSelect,
+    where: buildReportWhere(params.q, browseFilters(params), labReportScope(labId)),
+    orderBy: { createdAt: "desc" },
+    take: BROWSE_AGGREGATION_CAP,
+  })
+  const sorted = sortReportEntries(reports.map(toReportEntry), params.sort, params.order)
+  return paginate(sorted, params.page, params.pageSize)
+}
+
+export async function getLabReportCount(labId: string): Promise<number> {
+  return prisma.experimentalReport.count({ where: labReportScope(labId) })
+}
+
 export type FacetOption = { value: string; label: string; description?: string }
 
 export type BrowseFacets = Record<string, FacetOption[]>
@@ -282,15 +318,11 @@ const FACET_EXTRACTORS: Record<string, FacetExtractor> = {
     r.specificity ? [{ value: r.specificity, label: SPECIFICITY_LABELS[r.specificity] ?? r.specificity }] : [],
   result: (r) =>
     r.works === null ? [] : [{ value: r.works ? "works" : "failed", label: r.works ? "Works" : "Failed" }],
+  lab: (r) =>
+    r.experiment.owningLab ? [{ value: r.experiment.owningLab.id, label: r.experiment.owningLab.name }] : [],
 }
 
-export async function getBrowseFacets(): Promise<BrowseFacets> {
-  const reports = await prisma.experimentalReport.findMany({
-    select: reportSelect,
-    where: { status: "PUBLISHED", experiment: { isPublic: true } },
-    take: BROWSE_AGGREGATION_CAP,
-  })
-
+function buildFacets(reports: ReportRow[]): BrowseFacets {
   const facets: BrowseFacets = {}
   for (const [key, extract] of Object.entries(FACET_EXTRACTORS)) {
     const counts = new Map<string, { label: string; description?: string; count: number }>()
@@ -308,6 +340,55 @@ export async function getBrowseFacets(): Promise<BrowseFacets> {
   return facets
 }
 
+export async function getBrowseFacets(): Promise<BrowseFacets> {
+  const reports = await prisma.experimentalReport.findMany({
+    select: reportSelect,
+    where: BROWSE_REPORT_SCOPE,
+    take: BROWSE_AGGREGATION_CAP,
+  })
+  return buildFacets(reports)
+}
+
+// Lab-scoped facet set: derived from every report on the lab's experiments (all statuses/visibility),
+// mirroring how browse derives a single report-based facet set shared across all of its modes.
+export async function getLabContentFacets(labId: string): Promise<BrowseFacets> {
+  const reports = await prisma.experimentalReport.findMany({
+    select: reportSelect,
+    where: labReportScope(labId),
+    take: BROWSE_AGGREGATION_CAP,
+  })
+  return buildFacets(reports)
+}
+
+// Public lane: only ever returns a PUBLISHED report on a PUBLIC experiment. Used by the cached
+// detail page and by metadata, neither of which can read auth() under cacheComponents.
+export async function getPublicReportById(id: string): Promise<ReportRow | null> {
+  return prisma.experimentalReport.findFirst({
+    where: { id, status: "PUBLISHED", experiment: { visibility: "PUBLIC" } },
+    select: reportSelect,
+  })
+}
+
+// Private lane: returns the report only if the viewer may see it (public, own, or lab-shared).
+export async function getVisibleReportById(id: string, viewer: ViewerContext | null): Promise<ReportRow | null> {
+  return prisma.experimentalReport.findFirst({
+    where: { AND: [{ id }, buildReportVisibilityWhere(viewer)] },
+    select: reportSelect,
+  })
+}
+
+// Private lane: reports for an experiment the viewer can see, including unpublished (PENDING) lab work.
+export async function getVisibleReportsForExperiment(
+  experimentId: string,
+  viewer: ViewerContext | null,
+): Promise<ReportRow[]> {
+  return prisma.experimentalReport.findMany({
+    where: { AND: [{ experimentId }, buildReportVisibilityWhere(viewer)] },
+    select: reportSelect,
+    orderBy: { createdAt: "asc" },
+  })
+}
+
 export async function getReportById(id: string): Promise<ReportRow | null> {
   return prisma.experimentalReport.findUnique({
     where: { id },
@@ -318,7 +399,7 @@ export async function getReportById(id: string): Promise<ReportRow | null> {
 export async function getReportsForAntibody(antibodyId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { antibodyId, status: "PUBLISHED", experiment: { isPublic: true } },
+    where: { antibodyId, status: "PUBLISHED", experiment: { visibility: "PUBLIC" } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -326,7 +407,7 @@ export async function getReportsForAntibody(antibodyId: string): Promise<ReportR
 export async function getReportsForCellType(cellTypeId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { cellTypes: { some: { cellTypeId } }, status: "PUBLISHED", experiment: { isPublic: true } },
+    where: { cellTypes: { some: { cellTypeId } }, status: "PUBLISHED", experiment: { visibility: "PUBLIC" } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -335,7 +416,7 @@ export async function getImagesForCellType(cellTypeId: string): Promise<Carousel
   const images = await prisma.reportImage.findMany({
     where: {
       cellTypes: { some: { cellTypeId } },
-      report: { status: "PUBLISHED", experiment: { isPublic: true } },
+      report: { status: "PUBLISHED", experiment: { visibility: "PUBLIC" } },
     },
     select: {
       url: true,
@@ -369,7 +450,7 @@ export async function getConditionById(conditionId: string): Promise<{ id: strin
 export async function getReportsForCondition(conditionId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { status: "PUBLISHED", experiment: { conditionId, isPublic: true } },
+    where: { status: "PUBLISHED", experiment: { conditionId, visibility: "PUBLIC" } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -377,7 +458,7 @@ export async function getReportsForCondition(conditionId: string): Promise<Repor
 export async function getReportsForTissue(tissueId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { status: "PUBLISHED", experiment: { tissueId, isPublic: true } },
+    where: { status: "PUBLISHED", experiment: { tissueId, visibility: "PUBLIC" } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -385,7 +466,7 @@ export async function getReportsForTissue(tissueId: string): Promise<ReportRow[]
 export async function getReportsForSubcellular(subcellularId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { subcellularId, status: "PUBLISHED", experiment: { isPublic: true } },
+    where: { subcellularId, status: "PUBLISHED", experiment: { visibility: "PUBLIC" } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -393,7 +474,7 @@ export async function getReportsForSubcellular(subcellularId: string): Promise<R
 export async function getReportsForTaxon(speciesId: string): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: { status: "PUBLISHED", experiment: { speciesId, isPublic: true } },
+    where: { status: "PUBLISHED", experiment: { speciesId, visibility: "PUBLIC" } },
     orderBy: { createdAt: "desc" },
   })
 }
@@ -401,7 +482,7 @@ export async function getReportsForTaxon(speciesId: string): Promise<ReportRow[]
 export async function getCellTypesFromReports(proteinId: string): Promise<{ id: string; label: string }[]> {
   const links = await prisma.reportCellType.findMany({
     where: {
-      report: { antibody: { targetProteinId: proteinId }, status: "PUBLISHED", experiment: { isPublic: true } },
+      report: { antibody: { targetProteinId: proteinId }, status: "PUBLISHED", experiment: { visibility: "PUBLIC" } },
     },
     select: { cellType: { select: { id: true, label: true } } },
     distinct: ["cellTypeId"],
@@ -424,7 +505,7 @@ export async function getReportsForProtein(proteinId: string): Promise<ReportRow
     where: {
       antibody: { targetProteinId: proteinId },
       status: "PUBLISHED",
-      experiment: { isPublic: true },
+      experiment: { visibility: "PUBLIC" },
     },
     orderBy: { createdAt: "desc" },
   })
@@ -579,13 +660,23 @@ type ExperimentContextInput = {
   fixation?: CreateReportData["fixation"]
   method?: CreateReportData["method"]
   antigenRetrieval?: CreateReportData["antigenRetrieval"]
-  isPublic?: boolean
+  visibility?: Visibility
+  sharedLabIds?: string[]
+  owningLabId?: string | null
 }
 
 export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, submitterId: string): Promise<string> {
   const resolvedSpecies = ctx.species ? await validateAndResolveTaxon(ctx.species) : undefined
   const resolvedTissue = ctx.tissue ? await validateAndResolveTissue(ctx.tissue) : undefined
   const resolvedCondition = ctx.condition ? await validateAndResolveCondition(ctx.condition) : undefined
+  // New submissions default to LAB when the submitter belongs to a lab, otherwise PRIVATE.
+  const access = await resolveResourceVisibility({
+    ownerId: submitterId,
+    defaultVisibility: "LAB",
+    visibility: ctx.visibility,
+    sharedLabIds: ctx.sharedLabIds,
+    owningLabId: ctx.owningLabId,
+  })
 
   return prisma.$transaction(async (tx) => {
     if (resolvedSpecies && !(await tx.taxon.findUnique({ where: { id: resolvedSpecies.id }, select: { id: true } }))) {
@@ -611,11 +702,20 @@ export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, su
         fixation: ctx.fixation ?? null,
         method: ctx.method ?? null,
         antigenRetrieval: ctx.antigenRetrieval ?? null,
-        isPublic: ctx.isPublic ?? true,
+        visibility: access.visibility,
+        owningLabId: access.owningLabId,
         submitterId,
       },
       select: { id: true },
     })
+
+    if (access.sharedLabIds.length > 0) {
+      await tx.experimentLabShare.createMany({
+        data: access.sharedLabIds.map((labId) => ({ experimentId: experiment.id, labId })),
+        skipDuplicates: true,
+      })
+    }
+
     return experiment.id
   })
 }
@@ -723,7 +823,9 @@ export async function resolveAndCreateReports(
       fixation: context.fixation,
       method: context.method,
       antigenRetrieval: context.antigenRetrieval,
-      isPublic: true,
+      visibility: context.visibility,
+      sharedLabIds: context.sharedLabIds,
+      owningLabId: context.owningLabId,
     },
     submitterId,
   )
@@ -751,7 +853,6 @@ export async function resolveAndCreateReports(
       images: item.images,
       antibodyData: item.antibodyData,
       proteinData: item.proteinData,
-      isPublic: true,
     }
 
     try {
@@ -781,7 +882,9 @@ export async function createReport(data: CreateReportData, submitterId: string):
       fixation: data.fixation,
       method: data.method,
       antigenRetrieval: data.antigenRetrieval,
-      isPublic: data.isPublic ?? true,
+      visibility: data.visibility,
+      sharedLabIds: data.sharedLabIds,
+      owningLabId: data.owningLabId,
     },
     submitterId,
   )

@@ -19,9 +19,14 @@ export {
   addMarker,
   createPanel,
   deletePanel,
+  getLabPanelCount,
+  getLabPanelEntriesPage,
   getPanelById,
+  getPanelEntriesPage,
   getPanelsForUser,
   getPublicPanels,
+  getVisiblePanelById,
+  getVisiblePanels,
   removeCycle,
   removeMarker,
   reorderMarkers,
@@ -29,7 +34,13 @@ export {
   updateMarker,
   updatePanel,
 } from "./queries"
-export type { PanelCycleRow, PanelMarkerRow, PanelQueryParams as PanelQueryResult, PanelRow } from "./queries"
+export type {
+  LabPanelEntry,
+  PanelCycleRow,
+  PanelMarkerRow,
+  PanelQueryParams as PanelQueryResult,
+  PanelRow,
+} from "./queries"
 export {
   addCycleSchema,
   addMarkerSchema,

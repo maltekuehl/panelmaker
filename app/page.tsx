@@ -40,7 +40,7 @@ async function HomeStats() {
   const [proteinCount, antibodyCount, reportCount] = await Promise.all([
     prisma.protein.count(),
     prisma.antibody.count(),
-    prisma.experimentalReport.count({ where: { experiment: { isPublic: true } } }),
+    prisma.experimentalReport.count({ where: { experiment: { visibility: "PUBLIC" } } }),
   ])
 
   const stats = [

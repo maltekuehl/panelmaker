@@ -31,6 +31,10 @@ const envSchema = z.object({
   // Cron Jobs
   CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters"),
 
+  // Encryption at rest for stored API credentials (AES-256-GCM key material).
+  // Optional: only required once users start saving their own provider API keys.
+  ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY must be at least 32 characters").optional(),
+
   // Optional
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   NEXT_PUBLIC_TEST_MODE: z.string().optional().default("false"),

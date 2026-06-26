@@ -246,7 +246,7 @@ export function exportPanelJson(panel: PanelRow): object {
     species: panel.species?.label ?? null,
     fixation: panel.fixation,
     condition: panel.condition,
-    isPublic: panel.isPublic,
+    isPublic: panel.visibility === "PUBLIC",
     createdAt: panel.createdAt,
     updatedAt: panel.updatedAt,
     cycles: panel.cycles.map((cycle) => ({

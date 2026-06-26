@@ -1,12 +1,19 @@
+import { auth } from "@/auth"
 import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
+import { LabLink } from "@/components/lab/lab-link"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getReportById, reportUsageImages, toReportUsage } from "@/models/experimental-report"
+import { resolveViewerContext } from "@/lib/auth"
+import {
+  getPublicReportById,
+  getVisibleReportById,
+  reportUsageImages,
+  toReportUsage,
+} from "@/models/experimental-report"
 import { CheckCircle2, ExternalLink, HelpCircle, XCircle } from "lucide-react"
 import type { Metadata } from "next"
-import { cacheLife } from "next/cache"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
@@ -17,8 +24,9 @@ interface ReportPageProps {
 
 export async function generateMetadata({ params }: ReportPageProps): Promise<Metadata> {
   const { id } = await params
-  const report = await getReportById(id)
-  if (!report) return { title: "Report Not Found | PanelMaker" }
+  // Metadata cannot read auth under cacheComponents, so only ever expose public reports here.
+  const report = await getPublicReportById(id)
+  if (!report) return { title: "Experimental Report | PanelMaker", robots: { index: false, follow: false } }
   const marker = report.antibody?.targetName ?? report.antibody?.name ?? "Unknown"
   return {
     title: `${marker}: Experimental Report #${report.id} | PanelMaker`,
@@ -100,11 +108,12 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
   )
 }
 
+// Viewer-aware (uncached): a report is shown only if the viewer may see it (public, own, or
+// lab-shared, including unpublished lab work). Must not be wrapped in "use cache" because it reads auth.
 async function ReportContent({ id }: { id: string }) {
-  "use cache"
-  cacheLife("hours")
-
-  const report = await getReportById(id)
+  const session = await auth()
+  const viewer = await resolveViewerContext(session?.user?.id ?? null)
+  const report = await getVisibleReportById(id, viewer)
   if (!report) notFound()
 
   const usage = toReportUsage(report)
@@ -260,6 +269,16 @@ async function ReportContent({ id }: { id: string }) {
             <div>
               <span className="text-muted-foreground block text-xs mb-0.5">Institution</span>
               <span className="font-medium">{usage.submitterInstitution}</span>
+            </div>
+          )}
+          {report.experiment.owningLab && (
+            <div>
+              <span className="text-muted-foreground block text-xs mb-0.5">Lab</span>
+              <LabLink
+                slug={report.experiment.owningLab.slug}
+                name={report.experiment.owningLab.name}
+                className="font-medium"
+              />
             </div>
           )}
           <div>

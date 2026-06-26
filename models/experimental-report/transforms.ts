@@ -175,6 +175,7 @@ const ANTIBODY_SORT_ACCESSORS: Record<string, SortAccessor<AntibodyEntry>> = {
 
 const REPORT_SORT_ACCESSORS: Record<string, SortAccessor<ReportEntry>> = {
   marker: (entry) => entry.marker.toLowerCase(),
+  member: (entry) => (entry.submitter?.name ?? "").toLowerCase(),
   antibodyName: (entry) => entry.antibodyName.toLowerCase(),
   cellType: (entry) => joinedCellTypes(entry.cellTypes),
   subcellular: (entry) => (entry.subcellular ?? "").toLowerCase(),
@@ -321,5 +322,8 @@ export function toReportEntry(report: ReportRow): ReportEntry {
     specificity: report.specificity,
     works: report.works,
     images: collectImages([report]),
+    submitter: report.experiment.submitter
+      ? { id: report.experiment.submitter.id, name: report.experiment.submitter.name }
+      : null,
   }
 }

@@ -40,8 +40,8 @@ interface User {
   image: string | null
   role: "USER" | "ADMIN"
   status: "ACTIVE" | "BLOCKED"
-  submissionAccess: "NONE" | "REQUESTED" | "VERIFIED"
-  submissionRequestedAt: string | null
+  accessStatus: "NONE" | "REQUESTED" | "VERIFIED"
+  accessRequestedAt: string | null
   createdAt: string
   updatedAt: string
   _count: {
@@ -289,12 +289,12 @@ export default function UserList() {
                   <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>{user.role}</Badge>
                   <Badge variant={user.status === "BLOCKED" ? "destructive" : "outline"}>{user.status}</Badge>
                   {user.role !== "ADMIN" &&
-                    (user.submissionAccess === "VERIFIED" ? (
+                    (user.accessStatus === "VERIFIED" ? (
                       <Badge variant="outline" className="border-green-600/40 text-green-700 dark:text-green-400">
                         <BadgeCheck className="size-3" />
                         Verified
                       </Badge>
-                    ) : user.submissionAccess === "REQUESTED" ? (
+                    ) : user.accessStatus === "REQUESTED" ? (
                       <Badge variant="outline" className="border-amber-600/40 text-amber-700 dark:text-amber-400">
                         <Clock className="size-3" />
                         Requested
@@ -380,7 +380,7 @@ export default function UserList() {
                 )}
 
                 {user.role !== "ADMIN" &&
-                  (user.submissionAccess === "VERIFIED" ? (
+                  (user.accessStatus === "VERIFIED" ? (
                     <Button
                       variant="outline"
                       size="sm"
@@ -392,7 +392,7 @@ export default function UserList() {
                       ) : (
                         <ShieldOff className="h-4 w-4" />
                       )}
-                      Revoke submissions
+                      Revoke access
                     </Button>
                   ) : (
                     <Button
@@ -406,7 +406,7 @@ export default function UserList() {
                       ) : (
                         <ShieldCheck className="h-4 w-4" />
                       )}
-                      {user.submissionAccess === "REQUESTED" ? "Approve submissions" : "Verify submissions"}
+                      {user.accessStatus === "REQUESTED" ? "Approve access" : "Verify user"}
                     </Button>
                   ))}
 

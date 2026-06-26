@@ -19,7 +19,7 @@ enum UserStatus {
   BLOCKED
 }
 
-enum SubmissionAccess {
+enum AccessStatus {
   NONE
   REQUESTED
   VERIFIED
@@ -79,30 +79,79 @@ enum Specificity {
   NON_SPECIFIC
 }
 
+enum LabRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum LabInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+  EXPIRED
+}
+
+enum LabAntibodyStatus {
+  IN_STOCK
+  LOW
+  ORDERED
+  OUT_OF_STOCK
+}
+
+enum Visibility {
+  PRIVATE
+  LAB
+  PUBLIC
+}
+
+enum ChatMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum ApiCredentialScope {
+  USER
+  LAB
+}
+
 // ─── Auth & User Models ───────────────────────────────────────────────
 
 model User {
-  id                  String               @id @default(cuid())
-  name                String?
-  email               String               @unique
-  emailVerified       DateTime?
-  image               String?
-  password            String?
-  role                UserRole             @default(USER)
-  status              UserStatus           @default(ACTIVE)
-  submissionAccess    SubmissionAccess     @default(NONE)
-  submissionRequestedAt DateTime?
-  orcid               String?              @unique
-  institution         String?
-  institutionId       String?
-  accounts            Account[]
-  sessions            Session[]
-  Authenticator       Authenticator[]
-  reviews             Review[]
-  approvedReviews     Review[]             @relation("ReviewApprovals")
-  blogPosts           BlogPost[]
-  experiments         Experiment[]
-  panels              Panel[]
+  id                String          @id @default(cuid())
+  name              String?
+  email             String          @unique
+  emailVerified     DateTime?
+  image             String?
+  password          String?
+  role              UserRole        @default(USER)
+  status            UserStatus      @default(ACTIVE)
+  accessStatus      AccessStatus    @default(NONE)
+  accessRequestedAt DateTime?
+  orcid             String?         @unique
+  institution       String?
+  institutionId     String?
+  accounts          Account[]
+  sessions          Session[]
+  Authenticator     Authenticator[]
+  reviews           Review[]
+  approvedReviews   Review[]        @relation("ReviewApprovals")
+  blogPosts         BlogPost[]
+  experiments       Experiment[]
+  panels            Panel[]
+
+  labsCreated        Lab[]           @relation("LabCreatedBy")
+  labMemberships     LabMembership[] @relation("LabMember")
+  membershipsInvited LabMembership[] @relation("LabMemberInvitedBy")
+  labInvitesSent     LabInvitation[] @relation("LabInviteSender")
+  labInvitesAccepted LabInvitation[] @relation("LabInviteAccepter")
+  labAntibodiesAdded LabAntibody[]   @relation("LabAntibodyAddedBy")
+
+  chatConversations ChatConversation[] @relation("UserChatConversations")
+  apiCredentials    ApiCredential[]    @relation("UserApiCredentials")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -196,6 +245,64 @@ model ChatMessage {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─── Chat Conversations (server-persisted AI chat) ────────────────────
+
+model ChatConversation {
+  id      String  @id @default(cuid())
+  userId  String
+  title   String?
+  model   String?
+  pinned  Boolean @default(false)
+  deleted Boolean @default(false)
+
+  user     User                      @relation("UserChatConversations", fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatConversationMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, deleted, updatedAt])
+}
+
+model ChatConversationMessage {
+  id             String          @id @default(cuid())
+  conversationId String
+  role           ChatMessageRole
+  content        String          @db.Text
+  model          String?
+  inputTokens    Int?
+  outputTokens   Int?
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model ApiCredential {
+  id          String             @id @default(cuid())
+  scope       ApiCredentialScope
+  userId      String?
+  labId       String?
+  provider    String
+  label       String?
+  ciphertext  String             @db.Text
+  last4       String?
+  createdById String?
+
+  user User? @relation("UserApiCredentials", fields: [userId], references: [id], onDelete: Cascade)
+  lab  Lab?  @relation("LabApiCredentials", fields: [labId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
+  @@unique([labId, provider])
+  @@index([userId])
+  @@index([labId])
 }
 
 // ─── Blog ─────────────────────────────────────────────────────────────
@@ -386,6 +493,7 @@ model Antibody {
   hostTaxon           Taxon?               @relation("AntibodyHost", fields: [hostTaxonId], references: [id], onDelete: SetNull)
   experimentalReports ExperimentalReport[]
   panelMarkers        PanelMarker[]
+  labInventory        LabAntibody[]
 
   @@index([name])
   @@index([targetProteinId])
@@ -406,13 +514,16 @@ model Experiment {
   antigenRetrieval AntigenRetrieval?
   conditionId      String?
   submitterId      String?
-  isPublic         Boolean           @default(true)
+  visibility       Visibility        @default(PUBLIC)
+  owningLabId      String?
 
-  species   Taxon?            @relation("ExperimentSpecies", fields: [speciesId], references: [id], onDelete: SetNull)
-  tissue    Tissue?           @relation(fields: [tissueId], references: [id], onDelete: SetNull)
-  condition DiseaseCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
-  submitter User?             @relation(fields: [submitterId], references: [id], onDelete: SetNull)
+  species   Taxon?               @relation("ExperimentSpecies", fields: [speciesId], references: [id], onDelete: SetNull)
+  tissue    Tissue?              @relation(fields: [tissueId], references: [id], onDelete: SetNull)
+  condition DiseaseCondition?    @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  submitter User?                @relation(fields: [submitterId], references: [id], onDelete: SetNull)
+  owningLab Lab?                 @relation("ExperimentOwningLab", fields: [owningLabId], references: [id], onDelete: SetNull)
   reports   ExperimentalReport[]
+  labShares ExperimentLabShare[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -422,7 +533,8 @@ model Experiment {
   @@index([conditionId])
   @@index([submitterId])
   @@index([method])
-  @@index([isPublic])
+  @@index([visibility])
+  @@index([owningLabId])
 }
 
 model ExperimentalReport {
@@ -486,27 +598,31 @@ model ReportImageCellType {
 // ─── Spatial Proteomics: Panel Builder ────────────────────────────────
 
 model Panel {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   name        String
   description String?
   speciesId   String?
   fixation    Fixation?
   conditionId String?
   ownerId     String?
-  isPublic    Boolean   @default(false)
+  visibility  Visibility @default(PRIVATE)
+  owningLabId String?
 
   condition DiseaseCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
   species   Taxon?            @relation(fields: [speciesId], references: [id], onDelete: SetNull)
   owner     User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owningLab Lab?              @relation("PanelOwningLab", fields: [owningLabId], references: [id], onDelete: SetNull)
   cycles    PanelCycle[]
+  labShares PanelLabShare[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId])
-  @@index([isPublic])
   @@index([conditionId])
   @@index([speciesId])
+  @@index([visibility])
+  @@index([owningLabId])
 }
 
 model PanelCycle {
@@ -540,4 +656,130 @@ model PanelMarker {
   @@index([proteinId])
   @@index([antibodyId])
   @@index([fluorophoreId])
+}
+
+// ─── Labs: Teams, Membership, Invitations, Inventory ──────────────────
+
+model Lab {
+  id              String  @id @default(cuid())
+  name            String
+  slug            String  @unique
+  description     String?
+  institution     String?
+  institutionId   String?
+  avatarUrl       String?
+  website         String?
+  isPublicProfile Boolean @default(false)
+  createdById     String?
+
+  createdBy         User?                @relation("LabCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  memberships       LabMembership[]
+  invitations       LabInvitation[]
+  inventory         LabAntibody[]
+  experimentShares  ExperimentLabShare[]
+  panelShares       PanelLabShare[]
+  owningExperiments Experiment[]         @relation("ExperimentOwningLab")
+  owningPanels      Panel[]              @relation("PanelOwningLab")
+  apiCredentials    ApiCredential[]      @relation("LabApiCredentials")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([createdById])
+}
+
+model LabMembership {
+  id          String   @id @default(cuid())
+  userId      String
+  labId       String
+  role        LabRole  @default(MEMBER)
+  invitedById String?
+  joinedAt    DateTime @default(now())
+
+  user      User  @relation("LabMember", fields: [userId], references: [id], onDelete: Cascade)
+  lab       Lab   @relation(fields: [labId], references: [id], onDelete: Cascade)
+  invitedBy User? @relation("LabMemberInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, labId])
+  @@index([userId])
+  @@index([labId])
+}
+
+model LabInvitation {
+  id           String              @id @default(cuid())
+  labId        String
+  email        String?
+  role         LabRole             @default(MEMBER)
+  tokenHash    String              @unique
+  status       LabInvitationStatus @default(PENDING)
+  maxUses      Int?                @default(1)
+  useCount     Int                 @default(0)
+  invitedById  String?
+  acceptedById String?
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+
+  lab        Lab   @relation(fields: [labId], references: [id], onDelete: Cascade)
+  invitedBy  User? @relation("LabInviteSender", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedBy User? @relation("LabInviteAccepter", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([labId])
+  @@index([email])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model LabAntibody {
+  id                String            @id @default(cuid())
+  labId             String
+  antibodyId        String
+  storageLocation   String?
+  freezerLocation   String?
+  lotNumber         String?
+  vendorCatalog     String?
+  aliquotsRemaining Int?
+  status            LabAntibodyStatus @default(IN_STOCK)
+  notes             String?
+  addedById         String?
+  lastValidatedAt   DateTime?
+
+  lab      Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
+  antibody Antibody @relation(fields: [antibodyId], references: [id], onDelete: Cascade)
+  addedBy  User?    @relation("LabAntibodyAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  addedAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([labId, antibodyId])
+  @@index([labId])
+  @@index([antibodyId])
+  @@index([status])
+}
+
+model ExperimentLabShare {
+  experimentId String
+  labId        String
+  createdAt    DateTime @default(now())
+
+  experiment Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  lab        Lab        @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@id([experimentId, labId])
+  @@index([labId])
+}
+
+model PanelLabShare {
+  panelId   String
+  labId     String
+  createdAt DateTime @default(now())
+
+  panel Panel @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  lab   Lab   @relation(fields: [labId], references: [id], onDelete: Cascade)
+
+  @@id([panelId, labId])
+  @@index([labId])
 }

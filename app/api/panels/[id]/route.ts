@@ -1,5 +1,6 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, resolveViewerContext } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { canEditPanel, canViewPanel } from "@/models/lab"
 import { deletePanel, getPanelById, toPanelResponse, updatePanel, updatePanelSchema } from "@/models/panel"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
@@ -24,7 +25,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    if (panel.ownerId !== user.id && !panel.isPublic) {
+    const viewer = await resolveViewerContext(user.id)
+    if (!canViewPanel(viewer, panel)) {
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
@@ -52,7 +54,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    if (panel.ownerId !== user.id) {
+    const viewer = await resolveViewerContext(user.id)
+    if (!canEditPanel(viewer, panel)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -92,7 +95,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    if (panel.ownerId !== user.id) {
+    const viewer = await resolveViewerContext(user.id)
+    if (!canEditPanel(viewer, panel)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

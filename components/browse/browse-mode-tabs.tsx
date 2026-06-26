@@ -10,6 +10,7 @@ const MODES = [
   { value: "antibodies", label: "Antibodies" },
   { value: "reports", label: "Reports" },
   { value: "experiments", label: "Experiments" },
+  { value: "panels", label: "Panels" },
 ] as const
 
 type Mode = (typeof MODES)[number]["value"]

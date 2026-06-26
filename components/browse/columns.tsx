@@ -12,6 +12,8 @@ import Link from "next/link"
 
 export type OntologyRef = { id: string; label: string }
 
+export type MemberRef = { id: string; name: string | null }
+
 export type MarkerReport = {
   id: string
   submitter: string
@@ -61,6 +63,7 @@ export type ReportEntry = {
   specificity: string | null
   works: boolean | null
   images: CarouselImage[]
+  submitter: MemberRef | null
 }
 
 export type ExperimentEntry = {
@@ -75,6 +78,7 @@ export type ExperimentEntry = {
   antibodyCount: number
   images: CarouselImage[]
   createdAt: string
+  submitter: MemberRef | null
 }
 
 function antibodyHref(rrid: string): string {
@@ -384,6 +388,89 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
           />
         </div>
       ) : null,
+  },
+]
+
+export type PanelEntry = {
+  id: string
+  name: string
+  description: string | null
+  ownerId: string | null
+  ownerName: string | null
+  species: string | null
+  visibility: string
+  cycleCount: number
+  markerCount: number
+  updatedAt: string
+}
+
+export const VISIBILITY_LABELS: Record<string, string> = { PRIVATE: "Private", LAB: "Lab", PUBLIC: "Public" }
+
+export function MemberCell({ member }: { member: MemberRef | null }) {
+  if (!member) return <span className="text-muted-foreground/50">N/A</span>
+  return (
+    <Link href={`/profile/${member.id}`} className="text-primary hover:underline">
+      {member.name ?? "Unnamed user"}
+    </Link>
+  )
+}
+
+export function formatEntryDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+}
+
+function panelOwner(panel: PanelEntry): MemberRef | null {
+  return panel.ownerId ? { id: panel.ownerId, name: panel.ownerName } : null
+}
+
+export const panelColumns: ColumnDef<PanelEntry>[] = [
+  {
+    accessorKey: "name",
+    header: () => <DataTableColumnHeader field="name" title="Panel" />,
+    cell: ({ row }) => (
+      <div className="max-w-[320px] space-y-0.5">
+        <Link href={`/panel/${row.original.id}`} className="font-semibold text-primary hover:underline">
+          {row.original.name}
+        </Link>
+        {row.original.description && (
+          <p className="truncate text-xs text-muted-foreground">{row.original.description}</p>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: "member",
+    header: () => <DataTableColumnHeader field="member" title="Creator" />,
+    cell: ({ row }) => <MemberCell member={panelOwner(row.original)} />,
+  },
+  {
+    accessorKey: "species",
+    header: () => <DataTableColumnHeader field="species" title="Species" />,
+    cell: ({ row }) =>
+      row.original.species ? (
+        <span>{row.original.species}</span>
+      ) : (
+        <span className="text-muted-foreground/50">N/A</span>
+      ),
+  },
+  {
+    accessorKey: "markerCount",
+    header: () => <DataTableColumnHeader field="markerCount" title="Antibodies" />,
+    cell: ({ row }) => (
+      <Badge variant="secondary">
+        {row.original.markerCount} {row.original.markerCount === 1 ? "antibody" : "antibodies"}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "cycleCount",
+    header: () => <DataTableColumnHeader field="cycleCount" title="Cycles" />,
+    cell: ({ row }) => <span className="text-muted-foreground">{row.original.cycleCount}</span>,
+  },
+  {
+    accessorKey: "updatedAt",
+    header: () => <DataTableColumnHeader field="updatedAt" title="Updated" />,
+    cell: ({ row }) => <span className="text-muted-foreground">{formatEntryDate(row.original.updatedAt)}</span>,
   },
 ]
 

@@ -1,5 +1,6 @@
-import { getOptionalAuth } from "@/lib/auth"
+import { getOptionalAuth, resolveViewerContext } from "@/lib/auth"
 import { createErrorResponse } from "@/lib/error-handling"
+import { canViewPanel } from "@/models/lab"
 import { getPanelById, validatePanel } from "@/models/panel"
 import { NextRequest, NextResponse } from "next/server"
 
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    if (!panel.isPublic && panel.ownerId !== user?.id) {
+    if (!canViewPanel(await resolveViewerContext(user?.id ?? null), panel)) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 })
     }
 

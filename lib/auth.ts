@@ -1,9 +1,12 @@
 import { auth } from "@/auth"
 import { env } from "@/lib/env"
-import { SubmissionAccess, UserRole, UserStatus } from "@/lib/generated/prisma/enums"
+import { AccessStatus, type LabRole, UserRole, UserStatus } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
+import { ROLE_RANK, type ViewerContext } from "@/models/lab/access"
+import { getSoleOwnerLabIds, getUserLabMemberships, getUserLabRole } from "@/models/lab/queries"
 import { NextRequest, NextResponse } from "next/server"
+import { cache } from "react"
 
 export interface AuthenticatedUser {
   id: string
@@ -121,10 +124,90 @@ export function createAuthHandler<T extends any[]>(
         if (error.message === "Admin access required") {
           return NextResponse.json({ error: "Admin access required" }, { status: 403 })
         }
+        if (error.message === "Lab membership required" || error.message === "Insufficient lab role") {
+          return NextResponse.json({ error: error.message }, { status: 403 })
+        }
+        if (error.message === "Resource not found") {
+          return NextResponse.json({ error: "Resource not found" }, { status: 404 })
+        }
       }
       throw error
     }
   }
+}
+
+// Maps the auth/authorization errors thrown by the require* guards to an HTTP response.
+// Returns null when the error is not a recognized auth error, so callers can fall through.
+export function authErrorResponse(error: unknown): NextResponse | null {
+  if (!(error instanceof Error)) return null
+  switch (error.message) {
+    case "Authentication required":
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    case "Admin access required":
+    case "Lab membership required":
+    case "Insufficient lab role":
+      return NextResponse.json({ error: error.message }, { status: 403 })
+    case "Resource not found":
+      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
+    default:
+      return null
+  }
+}
+
+// Resolves the per-request lab context for a user (memberships, roles, site-admin flag).
+// Memoized per request and intentionally NOT cached in the JWT, so a removed member or a role
+// change takes effect immediately on the next request.
+export const resolveViewerContext = cache(async (userId: string | null): Promise<ViewerContext | null> => {
+  if (!userId) return null
+  const [memberships, admin] = await Promise.all([getUserLabMemberships(userId), isUserAdmin(userId)])
+  const roleByLab: Record<string, LabRole> = {}
+  for (const membership of memberships) {
+    roleByLab[membership.labId] = membership.role
+  }
+  return {
+    userId,
+    labIds: memberships.map((membership) => membership.labId),
+    roleByLab,
+    isAdmin: admin,
+  }
+})
+
+// Requires an authenticated user who is a member of the given lab. Returns the user and their role.
+export async function requireLabMember(
+  request: NextRequest,
+  labId: string,
+): Promise<{ user: AuthenticatedUser; role: LabRole }> {
+  const user = await requireAuth(request)
+  const role = await getUserLabRole(user.id, labId)
+  if (!role) {
+    await logSecurityEventFromRequest(request, SecurityEventType.AUTHZ_FAILURE, {
+      userId: user.id,
+      action: "lab_access",
+      success: false,
+      metadata: { labId },
+    })
+    throw new Error("Lab membership required")
+  }
+  return { user, role }
+}
+
+// Requires an authenticated lab member whose role is at least `minRole`.
+export async function requireLabRole(
+  request: NextRequest,
+  labId: string,
+  minRole: LabRole,
+): Promise<{ user: AuthenticatedUser; role: LabRole }> {
+  const { user, role } = await requireLabMember(request, labId)
+  if (ROLE_RANK[role] < ROLE_RANK[minRole]) {
+    await logSecurityEventFromRequest(request, SecurityEventType.AUTHZ_FAILURE, {
+      userId: user.id,
+      action: "lab_role",
+      success: false,
+      metadata: { labId, requiredRole: minRole, role },
+    })
+    throw new Error("Insufficient lab role")
+  }
+  return { user, role }
 }
 
 // Helper function for optional auth (user might or might not be authenticated)
@@ -166,66 +249,77 @@ export async function unblockUser(userId: string): Promise<void> {
   })
 }
 
-// Submission access is only enforced in production. Elsewhere everyone can submit.
-const SUBMISSION_GATE_ENABLED = env.NODE_ENV === "production"
+// Verified access is only enforced in production. Elsewhere everyone is treated as verified.
+// A single VERIFIED status unlocks both report submission and lab creation.
+const ACCESS_GATE_ENABLED = env.NODE_ENV === "production"
 
-export interface SubmissionAccessState {
-  access: SubmissionAccess
+export interface AccessState {
+  status: AccessStatus
   isAdmin: boolean
   gateEnabled: boolean
-  canSubmit: boolean
+  verified: boolean
 }
 
-export async function getSubmissionAccessState(userId: string): Promise<SubmissionAccessState> {
+export async function getAccessState(userId: string): Promise<AccessState> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { role: true, submissionAccess: true },
+    select: { role: true, accessStatus: true },
   })
 
   const isAdmin = user?.role === UserRole.ADMIN
-  const access = user?.submissionAccess ?? SubmissionAccess.NONE
-  const canSubmit = !SUBMISSION_GATE_ENABLED || isAdmin || access === SubmissionAccess.VERIFIED
+  const status = user?.accessStatus ?? AccessStatus.NONE
+  const verified = !ACCESS_GATE_ENABLED || isAdmin || status === AccessStatus.VERIFIED
 
-  return { access, isAdmin, gateEnabled: SUBMISSION_GATE_ENABLED, canSubmit }
+  return { status, isAdmin, gateEnabled: ACCESS_GATE_ENABLED, verified }
 }
 
-// Whether a user is allowed to create submissions (experimental reports)
+// Whether a user has verified access to extended features (report submission, lab creation)
+export async function isVerified(userId: string): Promise<boolean> {
+  if (!ACCESS_GATE_ENABLED) return true
+  return (await getAccessState(userId)).verified
+}
+
+// Whether a user is allowed to create experimental reports
 export async function canSubmit(userId: string): Promise<boolean> {
-  if (!SUBMISSION_GATE_ENABLED) return true
-  return (await getSubmissionAccessState(userId)).canSubmit
+  return isVerified(userId)
 }
 
-// User requests submission access (idempotent: only NONE → REQUESTED)
-export async function requestSubmissionAccess(userId: string): Promise<SubmissionAccess> {
+// Whether a user is allowed to create labs
+export async function canCreateLab(userId: string): Promise<boolean> {
+  return isVerified(userId)
+}
+
+// User requests verified access (idempotent: only NONE → REQUESTED)
+export async function requestAccess(userId: string): Promise<AccessStatus> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { submissionAccess: true },
+    select: { accessStatus: true },
   })
 
   if (!user) throw new Error("User not found")
-  if (user.submissionAccess !== SubmissionAccess.NONE) return user.submissionAccess
+  if (user.accessStatus !== AccessStatus.NONE) return user.accessStatus
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { submissionAccess: SubmissionAccess.REQUESTED, submissionRequestedAt: new Date() },
-    select: { submissionAccess: true },
+    data: { accessStatus: AccessStatus.REQUESTED, accessRequestedAt: new Date() },
+    select: { accessStatus: true },
   })
-  return updated.submissionAccess
+  return updated.accessStatus
 }
 
-// Admin grants submission access
-export async function grantSubmissionAccess(userId: string): Promise<void> {
+// Admin grants verified access
+export async function grantAccess(userId: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
-    data: { submissionAccess: SubmissionAccess.VERIFIED, submissionRequestedAt: null },
+    data: { accessStatus: AccessStatus.VERIFIED, accessRequestedAt: null },
   })
 }
 
-// Admin revokes submission access
-export async function revokeSubmissionAccess(userId: string): Promise<void> {
+// Admin revokes verified access
+export async function revokeAccess(userId: string): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
-    data: { submissionAccess: SubmissionAccess.NONE, submissionRequestedAt: null },
+    data: { accessStatus: AccessStatus.NONE, accessRequestedAt: null },
   })
 }
 
@@ -238,6 +332,11 @@ export async function deleteUser(userId: string): Promise<void> {
 
   if (user?.role === UserRole.ADMIN) {
     throw new Error("Cannot delete admin users")
+  }
+
+  const soleOwnerLabIds = await getSoleOwnerLabIds(userId)
+  if (soleOwnerLabIds.length > 0) {
+    throw new Error("Cannot delete a user who is the sole owner of a lab. Transfer ownership or delete the lab first.")
   }
 
   await prisma.user.delete({
@@ -282,8 +381,8 @@ export async function getAllUsers(page: number = 1, pageSize: number = 20, searc
         image: true,
         role: true,
         status: true,
-        submissionAccess: true,
-        submissionRequestedAt: true,
+        accessStatus: true,
+        accessRequestedAt: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -295,7 +394,7 @@ export async function getAllUsers(page: number = 1, pageSize: number = 20, searc
           },
         },
       },
-      orderBy: [{ submissionRequestedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+      orderBy: [{ accessRequestedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
       skip,
       take: pageSize,
     }),

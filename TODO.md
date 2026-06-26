@@ -122,7 +122,7 @@ This TODO file is intended to be used across multiple agent sessions to track pr
 
 **Approach: Direct chat with DB tools (no MCP dependency).** The AI calls internal functions directly as tool calls.
 
-- [x] **6.1** Chat route simplified to Gemini 2.5 Flash only (removed Anthropic, OpenAI, Groq providers)
+- [x] **6.1** Chat route simplified to Gemini 2.5 Flash only (removed Anthropic, OpenAI providers)
 - [x] **6.2** Chat tools replaced with domain tools: `searchMarkers`, `getMarkerDetails`, `searchCellTypes`, `suggestPanel` (call `models/` directly)
 - [x] **6.3** MCP server picker removed from chat UI; `stores/chat.ts` rewritten (v6)
 - [x] **6.4** `@ai-sdk/mcp` and `@modelcontextprotocol/sdk` removed

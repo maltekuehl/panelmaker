@@ -2,13 +2,13 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import type { SubmissionAccess } from "@/lib/generated/prisma/enums"
+import type { AccessStatus } from "@/lib/generated/prisma/enums"
 import { CheckCircle2, Clock, Loader2, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
-export function RequestSubmissionAccess({ initialAccess }: { initialAccess: SubmissionAccess }) {
-  const [access, setAccess] = useState<SubmissionAccess>(initialAccess)
+export function RequestSubmissionAccess({ initialAccess }: { initialAccess: AccessStatus }) {
+  const [access, setAccess] = useState<AccessStatus>(initialAccess)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleRequest() {
@@ -16,8 +16,8 @@ export function RequestSubmissionAccess({ initialAccess }: { initialAccess: Subm
     try {
       const response = await fetch("/api/user/submission-access", { method: "POST" })
       if (!response.ok) throw new Error("Request failed")
-      const data: { access: SubmissionAccess } = await response.json()
-      setAccess(data.access)
+      const data: { status: AccessStatus } = await response.json()
+      setAccess(data.status)
       toast.success("Verification requested. An admin will review your account.")
     } catch {
       toast.error("Could not send your request. Please try again.")

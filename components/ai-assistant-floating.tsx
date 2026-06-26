@@ -7,9 +7,21 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
-import { Bot, ChevronDown, ChevronUp, GripHorizontal, Loader2, RotateCcw, Send, Sparkles, User, X } from "lucide-react"
+import { DefaultChatTransport, type UIMessage } from "ai"
+import {
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  GripHorizontal,
+  Loader2,
+  Send,
+  Sparkles,
+  User,
+  X,
+} from "lucide-react"
 import { useSession } from "next-auth/react"
+import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 const DEFAULT_WIDTH = 440
@@ -39,16 +51,144 @@ function clampOffset(right: number, bottom: number, width: number, height: numbe
 
 type ToolPart = Parameters<typeof ToolResultCard>[0]["part"]
 
+// The live conversation surface. Keyed by conversationId so a fresh useChat store and the loaded
+// history mount together. Persists through the same /api/chat route as the full-screen page.
+function FloatingConversation({
+  conversationId,
+  initialMessages,
+}: {
+  conversationId: string
+  initialMessages: UIMessage[]
+}) {
+  const [input, setInput] = useState("")
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const { messages, sendMessage, status } = useChat({
+    id: conversationId,
+    messages: initialMessages,
+    transport: new DefaultChatTransport({ api: "/api/chat", body: { conversationId } }),
+    experimental_throttle: 50,
+  })
+
+  const isLoading = status === "submitted" || status === "streaming"
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages, isLoading])
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
+    sendMessage({ text: input.trim() }, { body: { conversationId } })
+    setInput("")
+  }
+
+  return (
+    <>
+      <div className="flex-1 p-4 space-y-4 overflow-y-auto text-sm bg-background">
+        {messages.length === 0 && (
+          <div className="flex gap-3">
+            <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
+              <Bot className="h-3 w-3 text-primary" />
+            </div>
+            <div className="bg-muted p-3 rounded-md rounded-tl-none">
+              <p>
+                Hello! I can help you design IF panels or find markers. Try asking: &quot;Design a 4-plex panel for
+                human liver.&quot;
+              </p>
+            </div>
+          </div>
+        )}
+
+        {messages.map((message) => {
+          if (message.role === "user") {
+            const textContent = message.parts
+              .filter((part) => part.type === "text")
+              .map((part) => (part as { type: "text"; text: string }).text)
+              .join("")
+
+            return (
+              <div key={message.id} className="flex gap-3 flex-row-reverse">
+                <div className="h-6 w-6 rounded bg-muted flex items-center justify-center shrink-0">
+                  <User className="h-3 w-3 text-muted-foreground" />
+                </div>
+                <div className="bg-primary text-primary-foreground p-3 rounded-md rounded-tr-none">
+                  <p>{textContent}</p>
+                </div>
+              </div>
+            )
+          }
+
+          return (
+            <div key={message.id} className="flex gap-3">
+              <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                <Bot className="h-3 w-3 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0 space-y-2">
+                {message.parts.map((part, i) => {
+                  if (part.type === "text") {
+                    const text = (part as { type: "text"; text: string }).text
+                    if (!text) return null
+                    return (
+                      <div key={i} className="bg-muted p-3 rounded-md rounded-tl-none prose prose-sm max-w-none">
+                        <Markdown>{text}</Markdown>
+                      </div>
+                    )
+                  }
+                  if (
+                    part.type === "dynamic-tool" ||
+                    (typeof part.type === "string" && part.type.startsWith("tool-"))
+                  ) {
+                    return <ToolResultCard key={i} part={part as ToolPart} />
+                  }
+                  return null
+                })}
+              </div>
+            </div>
+          )
+        })}
+
+        {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+          <div className="flex gap-3">
+            <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
+              <Bot className="h-3 w-3 text-primary" />
+            </div>
+            <div className="bg-muted p-3 rounded-md rounded-tl-none">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="p-3 border-t bg-background">
+        <form className="flex w-full items-center space-x-2" onSubmit={handleSubmit}>
+          <Input
+            className="flex-1 h-9 text-sm"
+            placeholder="Ask PanelMaker AI..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isLoading}
+          />
+          <Button type="submit" size="icon" className="h-9 w-9" disabled={isLoading || !input.trim()}>
+            <Send className="h-4 w-4" />
+            <span className="sr-only">Send</span>
+          </Button>
+        </form>
+      </div>
+    </>
+  )
+}
+
 export function AIAssistantFloating() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
-  const [input, setInput] = useState("")
   const [offset, setOffset] = useState(DEFAULT_OFFSET)
   const [isDragging, setIsDragging] = useState(false)
   const [dimensions, setDimensions] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT })
   const [isResizing, setIsResizing] = useState(false)
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const dragStartPointer = useRef<{ x: number; y: number } | null>(null)
   const dragStartOffset = useRef<{ right: number; bottom: number } | null>(null)
   const hasDragged = useRef(false)
@@ -63,21 +203,49 @@ export function AIAssistantFloating() {
 
   const { data: session } = useSession()
 
-  const { messages, sendMessage, status, setMessages } = useChat({
-    id: "floating-assistant",
-    transport: new DefaultChatTransport({ api: "/api/chat" }),
-    experimental_throttle: 50,
-  })
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const [initialMessages, setInitialMessages] = useState<UIMessage[]>([])
+  const loadStartedRef = useRef(false)
 
-  const isLoading = status === "submitted" || status === "streaming"
+  // Load (or create) the user's most-recent conversation the first time the panel is opened, then
+  // hand it to FloatingConversation. The thread is shared with /chat and persisted server-side.
+  // A ref (not state) guards against a double-load so toggling it never re-runs and cancels the effect.
+  useEffect(() => {
+    if (!isOpen || !session?.user?.id || conversationId || loadStartedRef.current) return
+    loadStartedRef.current = true
+    let cancelled = false
+    ;(async () => {
+      try {
+        const listResponse = await fetch("/api/chat/conversations")
+        const listJson = await listResponse.json()
+        let id = listJson?.conversations?.[0]?.id as string | undefined
+        if (!id) {
+          const createResponse = await fetch("/api/chat/conversations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          })
+          id = (await createResponse.json())?.conversation?.id
+        }
+        if (!id) throw new Error("Could not resolve a conversation")
+        const conversationResponse = await fetch(`/api/chat/conversations/${id}`)
+        const conversationJson = await conversationResponse.json()
+        if (cancelled) return
+        setInitialMessages((conversationJson?.conversation?.messages ?? []) as UIMessage[])
+        setConversationId(id)
+      } catch {
+        // Allow a retry on the next open if resolution failed.
+        loadStartedRef.current = false
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, session?.user?.id, conversationId])
 
   useEffect(() => {
     offsetRef.current = offset
   }, [offset])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isLoading])
 
   // --- Drag handlers ---
   // Dragging moves the card by adjusting its bottom-right offsets: a rightward
@@ -198,13 +366,6 @@ export function AIAssistantFloating() {
     [dimensions, onResizeMove],
   )
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!input.trim() || isLoading) return
-    sendMessage({ text: input })
-    setInput("")
-  }
-
   if (!session?.user) {
     return null
   }
@@ -260,11 +421,22 @@ export function AIAssistantFloating() {
         <h3 className="font-semibold text-sm flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
           PanelMaker AI
-          <div className="text-xs text-muted-foreground font-normal" style={{ marginLeft: 4 }}>
-            powered by <strong className="font-semibold">BioContextAI</strong>
-          </div>
         </h3>
         <div className="flex items-center gap-1">
+          {conversationId && (
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={(e) => e.stopPropagation()}
+              title="Open in full page"
+            >
+              <Link href={`/chat/${conversationId}`} aria-label="Open in full page">
+                <ExternalLink className="h-4 w-4" />
+              </Link>
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -291,116 +463,18 @@ export function AIAssistantFloating() {
       </div>
 
       {/* Content */}
-      {!isMinimized && (
-        <>
-          <div className="flex-1 p-4 space-y-4 overflow-y-auto text-sm bg-background">
-            {messages.length === 0 && (
-              <div className="flex gap-3">
-                <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                  <Bot className="h-3 w-3 text-primary" />
-                </div>
-                <div className="bg-muted p-3 rounded-md rounded-tl-none">
-                  <p>
-                    Hello! I can help you design IF panels or find markers. Try asking: &quot;Design a 4-plex panel for
-                    human liver.&quot;
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {messages.map((message) => {
-              if (message.role === "user") {
-                const textContent = message.parts
-                  .filter((part) => part.type === "text")
-                  .map((part) => (part as { type: "text"; text: string }).text)
-                  .join("")
-
-                return (
-                  <div key={message.id} className="flex gap-3 flex-row-reverse">
-                    <div className="h-6 w-6 rounded bg-muted flex items-center justify-center shrink-0">
-                      <User className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                    <div className="bg-primary text-primary-foreground p-3 rounded-md rounded-tr-none">
-                      <p>{textContent}</p>
-                    </div>
-                  </div>
-                )
-              }
-
-              return (
-                <div key={message.id} className="flex gap-3">
-                  <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Bot className="h-3 w-3 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-2">
-                    {message.parts.map((part, i) => {
-                      if (part.type === "text") {
-                        const text = (part as { type: "text"; text: string }).text
-                        if (!text) return null
-                        return (
-                          <div key={i} className="bg-muted p-3 rounded-md rounded-tl-none prose prose-sm max-w-none">
-                            <Markdown>{text}</Markdown>
-                          </div>
-                        )
-                      }
-                      if (
-                        part.type === "dynamic-tool" ||
-                        (typeof part.type === "string" && part.type.startsWith("tool-"))
-                      ) {
-                        return <ToolResultCard key={i} part={part as ToolPart} />
-                      }
-                      return null
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-
-            {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
-              <div className="flex gap-3">
-                <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                  <Bot className="h-3 w-3 text-primary" />
-                </div>
-                <div className="bg-muted p-3 rounded-md rounded-tl-none">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
+      {!isMinimized &&
+        (conversationId ? (
+          <FloatingConversation
+            key={conversationId}
+            conversationId={conversationId}
+            initialMessages={initialMessages}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-background">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-
-          {messages.length > 0 && (
-            <div className="flex justify-center border-t pt-6">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5"
-                onClick={() => setMessages([])}
-              >
-                <RotateCcw className="h-3 w-3" />
-                Clear conversation
-              </Button>
-            </div>
-          )}
-
-          <div className="p-3 border-t bg-background">
-            <form className="flex w-full items-center space-x-2" onSubmit={handleSubmit}>
-              <Input
-                className="flex-1 h-9 text-sm"
-                placeholder="Ask PanelMaker AI..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                disabled={isLoading}
-              />
-              <Button type="submit" size="icon" className="h-9 w-9" disabled={isLoading || !input.trim()}>
-                <Send className="h-4 w-4" />
-                <span className="sr-only">Send</span>
-              </Button>
-            </form>
-          </div>
-        </>
-      )}
+        ))}
     </Card>
   )
 }

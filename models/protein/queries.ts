@@ -26,7 +26,7 @@ export async function getAllProteins(params: ProteinQueryParams): Promise<Protei
     select: proteinSelect,
     where: q
       ? {
-          OR: [{ label: { contains: q } }, { geneSymbol: { contains: q } }],
+          OR: [{ label: { contains: q, mode: "insensitive" } }, { geneSymbol: { contains: q, mode: "insensitive" } }],
         }
       : undefined,
     take: limit,
@@ -46,7 +46,10 @@ export async function searchProteins(query: string): Promise<ProteinRow[]> {
   return prisma.protein.findMany({
     select: proteinSelect,
     where: {
-      OR: [{ label: { contains: query } }, { geneSymbol: { contains: query } }],
+      OR: [
+        { label: { contains: query, mode: "insensitive" } },
+        { geneSymbol: { contains: query, mode: "insensitive" } },
+      ],
     },
     take: 20,
     orderBy: { label: "asc" },

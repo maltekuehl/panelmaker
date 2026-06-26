@@ -1,4 +1,4 @@
-import { createAuthHandler, grantSubmissionAccess, revokeSubmissionAccess } from "@/lib/auth"
+import { createAuthHandler, grantAccess, revokeAccess } from "@/lib/auth"
 import { logger } from "@/lib/monitoring"
 import { NextRequest, NextResponse } from "next/server"
 
@@ -15,11 +15,11 @@ export const PATCH = createAuthHandler(
       const action = body && typeof body === "object" ? (body as { action?: unknown }).action : undefined
 
       if (action === "grant") {
-        await grantSubmissionAccess(userId)
-        return NextResponse.json({ message: "Submission access granted" })
+        await grantAccess(userId)
+        return NextResponse.json({ message: "Verified access granted" })
       } else if (action === "revoke") {
-        await revokeSubmissionAccess(userId)
-        return NextResponse.json({ message: "Submission access revoked" })
+        await revokeAccess(userId)
+        return NextResponse.json({ message: "Verified access revoked" })
       }
 
       return NextResponse.json({ error: "Invalid action. Use 'grant' or 'revoke'" }, { status: 400 })

@@ -48,7 +48,9 @@ export interface Panel {
   fixation: string | null
   condition: { id: string; label: string } | null
   ownerId: string
-  isPublic: boolean
+  visibility: string
+  sharedLabIds: string[]
+  owningLab: { id: string; name: string; slug: string } | null
   createdAt: string
   updatedAt: string
   owner: {

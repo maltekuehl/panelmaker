@@ -1,7 +1,8 @@
-import { requireAuth } from "@/lib/auth"
+import { requireAuth, resolveViewerContext } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { prisma } from "@/lib/prisma"
 import { fluorophoreExists } from "@/models/fluorophore"
+import { canEditPanel } from "@/models/lab"
 import {
   addMarker,
   addMarkerSchema,
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    if (panel.ownerId !== user.id) {
+    if (!canEditPanel(await resolveViewerContext(user.id), panel)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -95,7 +96,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    if (panel.ownerId !== user.id) {
+    if (!canEditPanel(await resolveViewerContext(user.id), panel)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -145,7 +146,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    if (panel.ownerId !== user.id) {
+    if (!canEditPanel(await resolveViewerContext(user.id), panel)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

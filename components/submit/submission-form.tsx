@@ -19,7 +19,7 @@ import {
   type ExperimentContext,
 } from "./types"
 
-export function SubmissionForm() {
+export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] }) {
   const { data: session } = useSession()
 
   const [context, setContext] = useState<ExperimentContext>(emptyContext)
@@ -115,6 +115,7 @@ export function SubmissionForm() {
           editing={editingContext}
           onEdit={() => setEditingContext(true)}
           onDone={() => setEditingContext(false)}
+          labs={labs}
         />
 
         <section className={cn(!contextConfirmed && "opacity-60")}>
@@ -138,6 +139,7 @@ export function SubmissionForm() {
                 method={context.method}
                 organismId={organismId}
                 invalid={invalid}
+                hasLabs={labs.length > 0}
               />
             </div>
           )}

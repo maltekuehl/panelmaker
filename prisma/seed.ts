@@ -85,9 +85,9 @@ function getReportImages(index: number): string[] {
 // Stable user IDs so reports can reference them reliably across re-runs
 const USERS = [
   {
-    id: "seed_user_nolan_garry",
-    name: "Garry Nolan",
-    email: "gnolan@stanford.edu",
+    id: "seed_user_bendall_sean",
+    name: "Sean Bendall",
+    email: "sbendall@stanford.edu",
     institution: "Stanford University",
     institutionId: "ror:00f54p054",
   },
@@ -157,9 +157,79 @@ const USERS = [
   {
     id: "seed_user_puelles_victor",
     name: "Victor Puelles",
-    email: "vpuelles@ukaachen.de",
-    institution: "RWTH Aachen University",
-    institutionId: "ror:04xfq0f34",
+    email: "victor.puelles@clin.au.dk",
+    institution: "Aarhus University",
+    institutionId: "ror:01aj84f44",
+  },
+  {
+    id: "seed_user_puelles_member",
+    name: "Marie Sorensen",
+    email: "marie.sorensen@clin.au.dk",
+    institution: "Aarhus University",
+    institutionId: "ror:01aj84f44",
+  },
+]
+
+// Stable lab IDs. The owner is created with the OWNER role; memberIds become MEMBERs.
+const LABS: {
+  id: string
+  name: string
+  slug: string
+  institution: string
+  institutionId: string
+  description: string
+  website: string | null
+  isPublicProfile: boolean
+  ownerId: string
+  memberIds: string[]
+}[] = [
+  {
+    id: "seed_lab_puelles",
+    name: "Puelles Lab",
+    slug: "puelles-lab",
+    institution: "Aarhus University",
+    institutionId: "ror:01aj84f44",
+    description: "Spatial proteomics of the kidney and complex tissue architecture.",
+    website: "https://www.au.dk/",
+    isPublicProfile: true,
+    ownerId: "seed_user_puelles_victor",
+    memberIds: ["seed_user_puelles_member"],
+  },
+  {
+    id: "seed_lab_stanford",
+    name: "Bendall Lab",
+    slug: "bendall-lab",
+    institution: "Stanford University",
+    institutionId: "ror:00f54p054",
+    description: "Spatial single-cell biology and CODEX multiplexed tissue imaging.",
+    website: "https://www.bendalllab.com/",
+    isPublicProfile: true,
+    ownerId: "seed_user_bendall_sean",
+    memberIds: ["seed_user_angelo_mike", "seed_user_goltsev_yury"],
+  },
+  {
+    id: "seed_lab_hms_lsp",
+    name: "Laboratory of Systems Pharmacology",
+    slug: "lsp-harvard",
+    institution: "Harvard Medical School",
+    institutionId: "ror:03vek6s52",
+    description: "Tissue imaging with CyCIF and tumor microenvironment profiling.",
+    website: "https://labsyspharm.org/",
+    isPublicProfile: true,
+    ownerId: "seed_user_lin_jia",
+    memberIds: ["seed_user_hta_user1", "seed_user_weill_user1"],
+  },
+  {
+    id: "seed_lab_ucsf_krummel",
+    name: "Krummel Lab",
+    slug: "krummel-lab",
+    institution: "University of California, San Francisco",
+    institutionId: "ror:043mz5j54",
+    description: "Immune cell dynamics and the tumor immune microenvironment.",
+    website: null,
+    isPublicProfile: false,
+    ownerId: "seed_user_krummel_matt",
+    memberIds: [],
   },
 ]
 
@@ -804,7 +874,7 @@ When you validate a multi-species panel, record the host species, isotype, and c
       "multiplex",
       "panel compatibility",
     ]),
-    authorId: "seed_user_nolan_garry",
+    authorId: "seed_user_bendall_sean",
   },
   {
     title: "IMC vs CODEX vs CyCIF: Choosing a Multiplexing Platform",
@@ -1247,7 +1317,7 @@ const SPECIES_TO_TAXON: Record<string, string> = {
 
 async function seedExperimentalReports(antibodyMap: Record<string, string>) {
   const reports: ReportInput[] = [
-    // --- Garry Nolan (heavy contributor, CODEX specialist) ---
+    // --- Sean Bendall (heavy contributor, CODEX specialist) ---
     {
       antibodyRrid: "RRID:AB_314056",
       cellTypeId: "CL:0000084",
@@ -1264,7 +1334,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
-      submitterId: "seed_user_nolan_garry",
+      submitterId: "seed_user_bendall_sean",
       notes: "Excellent staining in periarteriolar lymphoid sheath",
     },
     {
@@ -1283,7 +1353,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
-      submitterId: "seed_user_nolan_garry",
+      submitterId: "seed_user_bendall_sean",
     },
     {
       antibodyRrid: "RRID:AB_314126",
@@ -1301,7 +1371,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
-      submitterId: "seed_user_nolan_garry",
+      submitterId: "seed_user_bendall_sean",
     },
     {
       antibodyRrid: "RRID:AB_927185",
@@ -1318,7 +1388,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
-      submitterId: "seed_user_nolan_garry",
+      submitterId: "seed_user_bendall_sean",
     },
     {
       antibodyRrid: "RRID:AB_2074650",
@@ -1335,7 +1405,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
-      submitterId: "seed_user_nolan_garry",
+      submitterId: "seed_user_bendall_sean",
     },
     {
       antibodyRrid: "RRID:AB_2892867",
@@ -1353,7 +1423,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
-      submitterId: "seed_user_nolan_garry",
+      submitterId: "seed_user_bendall_sean",
     },
     {
       antibodyRrid: "RRID:AB_2864622",
@@ -1370,7 +1440,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       works: true,
       signalQuality: "GOOD",
       specificity: "HIGH",
-      submitterId: "seed_user_nolan_garry",
+      submitterId: "seed_user_bendall_sean",
     },
     {
       antibodyRrid: "RRID:AB_2860866",
@@ -1388,7 +1458,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       works: true,
       signalQuality: "EXCELLENT",
       specificity: "HIGH",
-      submitterId: "seed_user_nolan_garry",
+      submitterId: "seed_user_bendall_sean",
     },
 
     // --- Michael Angelo (MIBI specialist) ---
@@ -2171,6 +2241,63 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
       specificity: "HIGH",
       submitterId: "seed_user_puelles_victor",
     },
+    // --- Puelles lab mouse tissue validations (power the lab-scoped AI killer query) ---
+    {
+      antibodyRrid: "RRID:AB_314056",
+      cellTypeId: "CL:0000084",
+      tissueType: "Spleen",
+      species: "MOUSE",
+      targetProteinId: "P07766",
+      fixation: "FFPE",
+      method: "CODEX",
+      fluorophore: "FITC",
+      dilution: "1:200",
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      status: "PUBLISHED",
+      works: true,
+      signalQuality: "EXCELLENT",
+      specificity: "HIGH",
+      submitterId: "seed_user_puelles_victor",
+      notes: "Clean membranous T cell staining on mouse spleen, validated for CODEX panels.",
+    },
+    {
+      antibodyRrid: "RRID:AB_314126",
+      cellTypeId: "CL:0000625",
+      extraCellTypeIds: ["CL:0000084"],
+      tissueType: "Spleen",
+      species: "MOUSE",
+      targetProteinId: "P01732",
+      fixation: "FFPE",
+      method: "CODEX",
+      fluorophore: "AF647",
+      dilution: "1:150",
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      status: "PUBLISHED",
+      works: true,
+      signalQuality: "EXCELLENT",
+      specificity: "HIGH",
+      submitterId: "seed_user_puelles_member",
+      notes: "CD8 cytotoxic T cells clearly resolved in mouse spleen white pulp.",
+    },
+    {
+      antibodyRrid: "RRID:AB_395943",
+      cellTypeId: "CL:0000624",
+      extraCellTypeIds: ["CL:0000084"],
+      tissueType: "Kidney",
+      species: "MOUSE",
+      targetProteinId: "P06139",
+      fixation: "FFPE",
+      method: "CODEX",
+      fluorophore: "AF555",
+      dilution: "1:100",
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      status: "PUBLISHED",
+      works: true,
+      signalQuality: "GOOD",
+      specificity: "HIGH",
+      submitterId: "seed_user_puelles_member",
+      notes: "CD4 helper T cells in mouse kidney interstitium, used in nephritis models.",
+    },
     // --- General QC / ubiquitous / structural markers with NO cell type assignment ---
     {
       antibodyRrid: "RRID:AB_2864622",
@@ -2285,7 +2412,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
         method: context.method,
         antigenRetrieval: context.antigenRetrieval ?? null,
         submitterId: context.submitterId,
-        isPublic: true,
+        visibility: "PUBLIC",
       },
     })
 
@@ -2350,7 +2477,7 @@ async function seedExperimentalReports(antibodyMap: Record<string, string>) {
 }
 
 async function seedPanels(antibodyMap: Record<string, string>) {
-  const nolanId = "seed_user_nolan_garry"
+  const bendallId = "seed_user_bendall_sean"
   const linId = "seed_user_lin_jia"
 
   const panel1 = await prisma.panel.upsert({
@@ -2363,8 +2490,8 @@ async function seedPanels(antibodyMap: Record<string, string>) {
         "Multi-cycle CODEX panel for comprehensive immune cell typing in human spleen. Covers T cells, B cells, myeloid and structural markers across 3 imaging cycles.",
       speciesId: "NCBI:txid9606",
       fixation: "FFPE",
-      ownerId: nolanId,
-      isPublic: true,
+      ownerId: bendallId,
+      visibility: "PUBLIC",
     },
   })
 
@@ -2488,7 +2615,7 @@ async function seedPanels(antibodyMap: Record<string, string>) {
       speciesId: "NCBI:txid9606",
       fixation: "FFPE",
       ownerId: linId,
-      isPublic: true,
+      visibility: "PUBLIC",
     },
   })
 
@@ -2688,8 +2815,137 @@ async function seedDiseaseConditions() {
   return conditions
 }
 
+async function seedLabs() {
+  const MOUSE_TAXON = "NCBI:txid10090"
+  // T-cell and macrophage markers (CD3 epsilon, CD8 alpha, CD68).
+  const STOCKED_PROTEIN_IDS = ["P07766", "P01732", "P31996"]
+
+  for (const lab of LABS) {
+    await prisma.lab.upsert({
+      where: { id: lab.id },
+      update: {
+        name: lab.name,
+        slug: lab.slug,
+        institution: lab.institution,
+        institutionId: lab.institutionId,
+        description: lab.description,
+        website: lab.website,
+        isPublicProfile: lab.isPublicProfile,
+        createdById: lab.ownerId,
+      },
+      create: {
+        id: lab.id,
+        name: lab.name,
+        slug: lab.slug,
+        institution: lab.institution,
+        institutionId: lab.institutionId,
+        description: lab.description,
+        website: lab.website,
+        isPublicProfile: lab.isPublicProfile,
+        createdById: lab.ownerId,
+      },
+    })
+
+    const memberships = [
+      { userId: lab.ownerId, role: "OWNER" as const, invitedById: null as string | null },
+      ...lab.memberIds.map((userId) => ({
+        userId,
+        role: "MEMBER" as const,
+        invitedById: lab.ownerId as string | null,
+      })),
+    ]
+    for (const m of memberships) {
+      await prisma.labMembership.upsert({
+        where: { userId_labId: { userId: m.userId, labId: lab.id } },
+        update: { role: m.role },
+        create: { userId: m.userId, labId: lab.id, role: m.role, invitedById: m.invitedById },
+      })
+    }
+  }
+
+  // Attribute a few of the home lab's mouse experiments to the lab as LAB-visible,
+  // make one unpublished but successful (to demonstrate that members see in-progress work),
+  // and stock the antibodies those experiments used so the lab-scoped AI query has data.
+  const homeLab = LABS[0]
+  const homeLabMemberIds = [homeLab.ownerId, ...homeLab.memberIds]
+  const labExperiments = await prisma.experiment.findMany({
+    where: { submitterId: { in: homeLabMemberIds }, speciesId: MOUSE_TAXON },
+    select: { id: true },
+    take: 3,
+  })
+
+  const antibodyIdsToStock = new Set<string>()
+  for (const [i, exp] of labExperiments.entries()) {
+    await prisma.experiment.update({
+      where: { id: exp.id },
+      data: { visibility: "LAB", owningLabId: homeLab.id },
+    })
+    await prisma.experimentLabShare.upsert({
+      where: { experimentId_labId: { experimentId: exp.id, labId: homeLab.id } },
+      update: {},
+      create: { experimentId: exp.id, labId: homeLab.id },
+    })
+    if (i === 0) {
+      await prisma.experimentalReport.updateMany({
+        where: { experimentId: exp.id },
+        data: { status: "PENDING", works: true },
+      })
+    }
+    const reports = await prisma.experimentalReport.findMany({
+      where: { experimentId: exp.id, works: true, antibodyId: { not: null } },
+      select: { antibodyId: true },
+    })
+    for (const r of reports) if (r.antibodyId) antibodyIdsToStock.add(r.antibodyId)
+  }
+
+  // Attribute one PUBLIC experiment to the lab too, so the public /browse "Lab" facet has data
+  // (public content attributed to a lab) without exposing any private content.
+  const publicExp = await prisma.experiment.findFirst({
+    where: { submitterId: { in: homeLabMemberIds }, visibility: "PUBLIC", owningLabId: null },
+    select: { id: true },
+  })
+  if (publicExp) {
+    await prisma.experiment.update({ where: { id: publicExp.id }, data: { owningLabId: homeLab.id } })
+  }
+
+  // Always stock the canonical T-cell/macrophage markers so the inventory is populated
+  // even if the attributed experiments did not use them.
+  const markerAntibodies = await prisma.antibody.findMany({
+    where: { targetProteinId: { in: STOCKED_PROTEIN_IDS } },
+    select: { id: true },
+    take: 6,
+  })
+  for (const a of markerAntibodies) antibodyIdsToStock.add(a.id)
+
+  let i = 0
+  for (const antibodyId of antibodyIdsToStock) {
+    await prisma.labAntibody.upsert({
+      where: { labId_antibodyId: { labId: homeLab.id, antibodyId } },
+      update: {},
+      create: {
+        labId: homeLab.id,
+        antibodyId,
+        storageLocation: i % 2 === 0 ? "-20C freezer A" : "4C fridge B",
+        freezerLocation: `Box ${1 + (i % 4)}, slot ${1 + i}`,
+        lotNumber: `LOT-${1000 + i}`,
+        status: i % 5 === 0 ? "LOW" : "IN_STOCK",
+        addedById: homeLab.ownerId,
+      },
+    })
+    i++
+  }
+
+  return { labs: LABS.length, labExperiments: labExperiments.length, inventory: antibodyIdsToStock.size }
+}
+
 async function resetDatabase() {
   console.log("Resetting database...")
+  await prisma.experimentLabShare.deleteMany()
+  await prisma.panelLabShare.deleteMany()
+  await prisma.labAntibody.deleteMany()
+  await prisma.labInvitation.deleteMany()
+  await prisma.labMembership.deleteMany()
+  await prisma.lab.deleteMany()
   await prisma.panelMarker.deleteMany()
   await prisma.panelCycle.deleteMany()
   await prisma.panel.deleteMany()
@@ -2740,6 +2996,7 @@ async function main() {
   const reportCount = await seedExperimentalReports(antibodyMap)
   const panelCount = await seedPanels(antibodyMap)
   const blogPosts = await seedBlogPosts()
+  const labStats = await seedLabs()
 
   console.log("Seed data created successfully")
   console.log(`  ${users.length} users`)
@@ -2755,6 +3012,9 @@ async function main() {
   console.log(`  ${reportCount} experimental reports`)
   console.log(`  ${panelCount} panels with cycles and markers`)
   console.log(`  ${blogPosts.length} blog posts`)
+  console.log(
+    `  ${labStats.labs} labs (${labStats.labExperiments} lab-visible experiments, ${labStats.inventory} inventory items)`,
+  )
 }
 
 main()

@@ -6,5 +6,6 @@
   },
   "editor.rulers": [120],
   "prisma.fileWatcher": true,
-  "editor.wordWrap": "on"
+  "editor.wordWrap": "on",
+  "terminal.integrated.gpuAcceleration": "off"
 }

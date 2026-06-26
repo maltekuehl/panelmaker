@@ -1,10 +1,6 @@
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import type { Clonality } from "@/lib/generated/prisma/client"
-import {
-  type AntibodyRegistryResult,
-  searchAntibodyRegistry,
-  searchAntibodyRegistryByTarget,
-} from "@/lib/integrations/antibody-registry"
+import { type AntibodyRegistryResult, searchAntibodyRegistry } from "@/lib/integrations/antibody-registry"
 import { prisma } from "@/lib/prisma"
 import {
   getAllAntibodies,
@@ -13,6 +9,7 @@ import {
   searchParamsSchema,
   toAntibodyResponse,
 } from "@/models/antibody"
+import { getProteinById } from "@/models/protein"
 import { resolveTaxonByName } from "@/models/taxon"
 import { NextRequest } from "next/server"
 import { z } from "zod"
@@ -28,21 +25,15 @@ function mapClonality(raw: string): Clonality | null {
   return CLONALITY_MAP[raw.toLowerCase()] ?? null
 }
 
-async function upsertRegistryResults(registryResults: AntibodyRegistryResult[]) {
+// SciCrunch antibody records carry no UniProt, so we never create a Protein from the registry. The
+// target protein is linked only when the caller already knows it (the ?proteinId= branch, where we
+// searched the registry by that protein's own gene name); otherwise it stays unlinked, keeping just
+// the target name for the user to resolve later.
+async function upsertRegistryResults(registryResults: AntibodyRegistryResult[], targetProteinId: string | null = null) {
   const upsertedIds: string[] = []
 
   for (const r of registryResults) {
     if (!r.citation) continue
-
-    let targetProteinId: string | null = null
-    if (r.uniprotId) {
-      await prisma.protein.upsert({
-        where: { id: r.uniprotId },
-        update: {},
-        create: { id: r.uniprotId, label: r.target || r.uniprotId, geneSymbol: null },
-      })
-      targetProteinId = r.uniprotId
-    }
 
     const hostTaxonId = r.sourceOrganism ? await resolveTaxonByName(r.sourceOrganism) : null
 
@@ -63,6 +54,7 @@ async function upsertRegistryResults(registryResults: AntibodyRegistryResult[]) 
         conjugate: r.conjugate || null,
         vendorName: r.vendor !== "Unknown" ? r.vendor : null,
         vendorUrl: r.url || null,
+        citationCount: r.citationCount,
       },
       select: { id: true },
     })
@@ -84,10 +76,16 @@ export async function GET(request: NextRequest) {
         return createSuccessResponse({ antibodies: local.map(toAntibodyResponse) })
       }
 
-      const registryResults = await searchAntibodyRegistryByTarget(validated.proteinId, validated.limit)
-      if (registryResults.length > 0) {
-        const results = await upsertRegistryResults(registryResults)
-        return createSuccessResponse({ antibodies: results, source: "antibody_registry" })
+      // SciCrunch has no UniProt-keyed search, so look up the protein's own gene name/label and
+      // search the registry by target name. Results link back to this known protein.
+      const protein = await getProteinById(validated.proteinId)
+      const term = protein?.geneSymbol || protein?.label
+      if (term) {
+        const registryResults = await searchAntibodyRegistry(term, validated.limit)
+        if (registryResults.length > 0) {
+          const results = await upsertRegistryResults(registryResults, validated.proteinId)
+          return createSuccessResponse({ antibodies: results, source: "antibody_registry" })
+        }
       }
 
       return createSuccessResponse({ antibodies: [] })

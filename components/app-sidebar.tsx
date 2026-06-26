@@ -14,14 +14,26 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { BookOpen, Boxes, Layers, Microscope, Newspaper, Search, Users } from "lucide-react"
+import {
+  BookOpen,
+  Boxes,
+  FlaskConical,
+  Layers,
+  MessageSquare,
+  Microscope,
+  Newspaper,
+  Search,
+  Users,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as React from "react"
 
 const navItems = [
   { href: "/browse", title: "Browse", icon: Search },
-  { href: "/panel", title: "Panels", icon: Layers },
+  { href: "/panel", title: "Panel Designer", icon: Layers },
+  { href: "/chat", title: "AI Assistant", icon: MessageSquare },
+  { href: "/labs", title: "Labs", icon: FlaskConical },
   { href: "/docs", title: "Documentation", icon: BookOpen },
   { href: "/leaderboard", title: "Community", icon: Users },
   { href: "/blog", title: "Blog", icon: Newspaper },

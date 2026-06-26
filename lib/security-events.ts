@@ -18,6 +18,13 @@ export enum SecurityEventType {
   USER_DELETED = "user_deleted",
   INVALID_URL = "invalid_url",
   CRON_AUTH_FAILURE = "cron_auth_failure",
+  LAB_INVITE_CREATED = "lab_invite_created",
+  LAB_INVITE_ACCEPTED = "lab_invite_accepted",
+  LAB_INVITE_REVOKED = "lab_invite_revoked",
+  LAB_ROLE_CHANGED = "lab_role_changed",
+  LAB_MEMBER_REMOVED = "lab_member_removed",
+  LAB_DELETED = "lab_deleted",
+  VISIBILITY_DOWNGRADE = "visibility_downgrade",
 }
 
 /**
@@ -64,6 +71,13 @@ function getEventSeverity(type: SecurityEventType): SecurityEventSeverity {
     [SecurityEventType.USER_DELETED]: SecurityEventSeverity.MEDIUM,
     [SecurityEventType.INVALID_URL]: SecurityEventSeverity.MEDIUM,
     [SecurityEventType.CRON_AUTH_FAILURE]: SecurityEventSeverity.HIGH,
+    [SecurityEventType.LAB_INVITE_CREATED]: SecurityEventSeverity.LOW,
+    [SecurityEventType.LAB_INVITE_ACCEPTED]: SecurityEventSeverity.LOW,
+    [SecurityEventType.LAB_INVITE_REVOKED]: SecurityEventSeverity.MEDIUM,
+    [SecurityEventType.LAB_ROLE_CHANGED]: SecurityEventSeverity.HIGH,
+    [SecurityEventType.LAB_MEMBER_REMOVED]: SecurityEventSeverity.HIGH,
+    [SecurityEventType.LAB_DELETED]: SecurityEventSeverity.HIGH,
+    [SecurityEventType.VISIBILITY_DOWNGRADE]: SecurityEventSeverity.HIGH,
   }
 
   return severityMap[type] || SecurityEventSeverity.LOW

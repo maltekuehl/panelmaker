@@ -14,10 +14,14 @@
     "build:test": "dotenv -e .env.test -- next build",
     "start:test": "dotenv -e .env.test -- next start",
     "test": "dotenv -e .env.test -- playwright test",
+    "test:unit": "tsx tests/unit/lab-access.ts && tsx tests/unit/chat.ts",
+    "seed:demo-user": "tsx scripts/create-demo-user.ts",
     "test:headed": "dotenv -e .env.test -- playwright test --headed",
     "test:ui": "dotenv -e .env.test -- playwright test --ui",
     "test:debug": "dotenv -e .env.test -- playwright test --debug",
-    "test:report": "dotenv -e .env.test -- playwright show-report"
+    "test:report": "dotenv -e .env.test -- playwright show-report",
+    "pathoplex:lookup": "tsx scripts/lookup-pathoplex-antibodies.ts",
+    "pathoplex:seed": "tsx scripts/seed-pathoplex-inventory.ts"
   },
   "husky": {
     "hooks": {
