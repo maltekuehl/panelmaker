@@ -1,13 +1,16 @@
 import { auth } from "@/auth"
 import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
 import { MarkerUsagesTable } from "@/components/browse/marker-usages-table"
+import { EditExperimentDialog } from "@/components/experiment/edit-experiment-dialog"
 import { LabLink } from "@/components/lab/lab-link"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { resolveViewerContext } from "@/lib/auth"
 import { ANTIGEN_RETRIEVAL_LABELS, FIXATION_LABELS, METHOD_LABELS } from "@/lib/constants"
+import { doiUrl, hasPublication, pubmedUrl } from "@/lib/publication"
 import { getExperimentById, getVisibleExperimentById } from "@/models/experiment"
 import { getVisibleReportsForExperiment, reportUsageImages, toReportUsage } from "@/models/experimental-report"
+import { canEditExperiment } from "@/models/lab"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -62,6 +65,8 @@ async function ExperimentContent({ id }: { id: string }) {
   const antibodyCount = new Set(usages.map((u) => u.antibodyId).filter(Boolean)).size
   const cellTypeCount = new Set(usages.flatMap((u) => u.cellTypes.map((c) => c.id))).size
 
+  const canEdit = canEditExperiment(viewer, experiment)
+
   const method = experiment.method ? (METHOD_LABELS[experiment.method] ?? experiment.method) : null
   const fixation = experiment.fixation ? (FIXATION_LABELS[experiment.fixation] ?? experiment.fixation) : null
   const antigenRetrieval = experiment.antigenRetrieval
@@ -79,7 +84,20 @@ async function ExperimentContent({ id }: { id: string }) {
     <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
       <div className="space-y-6 md:col-span-2">
         <div>
-          <h1 className="mb-2 text-3xl font-bold tracking-tight">{experimentTitle(experiment.name, experiment.id)}</h1>
+          <div className="mb-2 flex items-start justify-between gap-4">
+            <h1 className="text-3xl font-bold tracking-tight">{experimentTitle(experiment.name, experiment.id)}</h1>
+            <EditExperimentDialog
+              canEdit={canEdit}
+              experiment={{
+                id: experiment.id,
+                name: experiment.name,
+                description: experiment.description,
+                citation: experiment.citation,
+                pmid: experiment.pmid,
+                doi: experiment.doi,
+              }}
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
             {method && <MetaItem label="Method">{method}</MetaItem>}
             {experiment.species && <MetaItem label="Species">{experiment.species.label}</MetaItem>}
@@ -112,6 +130,39 @@ async function ExperimentContent({ id }: { id: string }) {
         {experiment.description && (
           <div className="border-t pt-6">
             <p className="text-sm text-muted-foreground">{experiment.description}</p>
+          </div>
+        )}
+
+        {hasPublication(experiment) && (
+          <div className="space-y-2 border-t pt-6">
+            <h2 className="text-lg font-semibold">Publication</h2>
+            {experiment.citation && <p className="text-sm text-muted-foreground">{experiment.citation}</p>}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
+              {experiment.pmid && (
+                <MetaItem label="PMID">
+                  <a
+                    href={pubmedUrl(experiment.pmid)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {experiment.pmid}
+                  </a>
+                </MetaItem>
+              )}
+              {experiment.doi && (
+                <MetaItem label="DOI">
+                  <a
+                    href={doiUrl(experiment.doi)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {experiment.doi}
+                  </a>
+                </MetaItem>
+              )}
+            </div>
           </div>
         )}
 

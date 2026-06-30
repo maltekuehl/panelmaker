@@ -7,7 +7,8 @@ import { useSession } from "next-auth/react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { AntibodyAccordion } from "./antibody-accordion"
-import { ExperimentContextSection } from "./experiment-context-section"
+import { ExperimentDetailsSection } from "./experiment-details-section"
+import { ExperimentMethodSection } from "./experiment-method-section"
 import { StepBadge } from "./step-badge"
 import {
   buildBatchPayload,
@@ -23,13 +24,22 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
   const { data: session } = useSession()
 
   const [context, setContext] = useState<ExperimentContext>(emptyContext)
-  const [editingContext, setEditingContext] = useState(true)
+  const [step, setStep] = useState(1)
+  const [furthest, setFurthest] = useState(1)
   const [rows, setRows] = useState<AntibodyRow[]>(() => [emptyRow()])
   const [showErrors, setShowErrors] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const contextConfirmed = !editingContext
+  const antibodiesReached = furthest >= 3
   const organismId = context.species ? extractOrganismId(context.species.id) : undefined
+
+  const sectionState = (n: number): "active" | "done" | "disabled" =>
+    step === n ? "active" : furthest >= n ? "done" : "disabled"
+
+  const advanceTo = (n: number) => {
+    setStep(n)
+    setFurthest((f) => Math.max(f, n))
+  }
 
   const rowErrors = useMemo(() => validateRows(rows), [rows])
   const invalidSet = useMemo(() => new Set(rowErrors.map((e) => `${e.key}:${e.field}`)), [rowErrors])
@@ -109,29 +119,37 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
   return (
     <div className="space-y-6 pb-24">
       <div className="divide-y overflow-hidden rounded-xl border">
-        <ExperimentContextSection
+        <ExperimentDetailsSection
           context={context}
           onChange={handleContextChange}
-          editing={editingContext}
-          onEdit={() => setEditingContext(true)}
-          onDone={() => setEditingContext(false)}
+          state={sectionState(1)}
+          onEdit={() => setStep(1)}
+          onDone={() => advanceTo(2)}
           labs={labs}
         />
 
-        <section className={cn(!contextConfirmed && "opacity-60")}>
+        <ExperimentMethodSection
+          context={context}
+          onChange={handleContextChange}
+          state={sectionState(2)}
+          onEdit={() => setStep(2)}
+          onDone={() => advanceTo(3)}
+        />
+
+        <section className={cn(!antibodiesReached && "opacity-60")}>
           <div className="flex items-center gap-3 px-4 py-3">
-            <StepBadge n={2} state={contextConfirmed ? "active" : "disabled"} />
+            <StepBadge n={3} state={antibodiesReached ? "active" : "disabled"} />
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold">Antibodies{contextConfirmed ? ` (${rows.length})` : ""}</h2>
+              <h2 className="text-sm font-semibold">Antibodies{antibodiesReached ? ` (${rows.length})` : ""}</h2>
               <p className="text-xs text-muted-foreground">
-                {contextConfirmed
+                {antibodiesReached
                   ? "Pick from the registry to auto-fill, or type details in. Each antibody needs at least one image."
-                  : "Complete the experiment context to start adding antibodies."}
+                  : "Complete the steps above to start adding antibodies."}
               </p>
             </div>
           </div>
 
-          {contextConfirmed && (
+          {antibodiesReached && (
             <div className="px-4 pb-4">
               <AntibodyAccordion
                 rows={rows}
@@ -149,14 +167,14 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
       <div className="sticky bottom-0 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="container mx-auto flex items-center justify-between gap-4 px-0">
           <p className="text-sm text-muted-foreground">
-            {contextConfirmed
+            {antibodiesReached
               ? `${rows.length} antibod${rows.length === 1 ? "y" : "ies"} · shared context applied to all`
-              : "Set the experiment context to begin"}
+              : "Complete the steps above to begin"}
           </p>
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || !session?.user || !contextConfirmed}
+            disabled={isSubmitting || !session?.user || !antibodiesReached}
             className="min-w-[160px]"
           >
             {isSubmitting ? (
@@ -166,7 +184,7 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
               </>
             ) : !session?.user ? (
               "Sign in to submit"
-            ) : !contextConfirmed ? (
+            ) : !antibodiesReached ? (
               "Submit reports"
             ) : (
               <>

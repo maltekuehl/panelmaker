@@ -9,16 +9,23 @@ import { prisma } from "@/lib/prisma"
 import { type EntriesPage, paginate } from "@/models/experimental-report/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { buildExperimentVisibilityWhere } from "@/models/lab/visibility"
+import type { UpdateExperimentData } from "./schema"
 
 const experimentHeaderSelect = {
   id: true,
   name: true,
   description: true,
+  citation: true,
+  pmid: true,
+  doi: true,
   fixation: true,
   method: true,
   antigenRetrieval: true,
   visibility: true,
   createdAt: true,
+  submitterId: true,
+  owningLabId: true,
+  labShares: { select: { labId: true } },
   species: { select: { id: true, label: true } },
   tissue: { select: { id: true, label: true } },
   condition: { select: { id: true, label: true } },
@@ -27,6 +34,20 @@ const experimentHeaderSelect = {
 } satisfies Prisma.ExperimentSelect
 
 export type ExperimentHeaderRow = Prisma.ExperimentGetPayload<{ select: typeof experimentHeaderSelect }>
+
+const experimentAccessSelect = {
+  id: true,
+  submitterId: true,
+  visibility: true,
+  owningLabId: true,
+  labShares: { select: { labId: true } },
+} satisfies Prisma.ExperimentSelect
+
+export type ExperimentAccessRow = Prisma.ExperimentGetPayload<{ select: typeof experimentAccessSelect }>
+
+export async function getExperimentAccessById(id: string): Promise<ExperimentAccessRow | null> {
+  return prisma.experiment.findUnique({ where: { id }, select: experimentAccessSelect })
+}
 
 export async function getExperimentById(id: string): Promise<ExperimentHeaderRow | null> {
   return prisma.experiment.findUnique({ where: { id }, select: experimentHeaderSelect })
@@ -43,11 +64,28 @@ export async function getVisibleExperimentById(
   })
 }
 
+export async function updateExperiment(id: string, data: UpdateExperimentData): Promise<ExperimentHeaderRow> {
+  return prisma.experiment.update({
+    where: { id },
+    data: {
+      name: data.name,
+      description: data.description ?? null,
+      citation: data.citation ?? null,
+      pmid: data.pmid ?? null,
+      doi: data.doi ?? null,
+    },
+    select: experimentHeaderSelect,
+  })
+}
+
 const BROWSE_AGGREGATION_CAP = 2000
 
 const experimentEntrySelect = {
   id: true,
   name: true,
+  citation: true,
+  pmid: true,
+  doi: true,
   method: true,
   createdAt: true,
   submitter: { select: { id: true, name: true } },
@@ -135,6 +173,9 @@ function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
   return {
     id: exp.id,
     name: exp.name ?? null,
+    citation: exp.citation ?? null,
+    pmid: exp.pmid ?? null,
+    doi: exp.doi ?? null,
     method: exp.method ? (METHOD_LABELS[exp.method] ?? exp.method) : "Unknown",
     species: exp.species?.label ?? "Unknown",
     tissue: exp.tissue?.label ?? "Unknown",

@@ -6,6 +6,7 @@ import {
   Specificity,
   Visibility,
 } from "@/lib/generated/prisma/enums"
+import { citationFields, experimentNameSchema } from "@/models/experiment/schema"
 import { z } from "zod"
 
 const visibilityFields = {
@@ -72,6 +73,7 @@ export const createReportSchema = z.object({
   notes: z.string().max(5000).optional(),
   images: reportImagesSchema.optional(),
   ...visibilityFields,
+  ...citationFields,
   antibodyData: antibodySubmissionSchema.nullable().optional(),
   proteinData: proteinSubmissionSchema.nullable().optional(),
   cellTypes: z.array(ontologyValueSchema).optional(),
@@ -88,8 +90,9 @@ export const createReportSchema = z.object({
 export type CreateReportData = z.infer<typeof createReportSchema>
 
 const batchContextSchema = z.object({
-  name: z.string().max(255).optional(),
+  name: experimentNameSchema,
   description: z.string().max(5000).optional(),
+  ...citationFields,
   species: ontologyValueSchema.nullable().optional(),
   tissue: ontologyValueSchema.nullable().optional(),
   fixation: z.nativeEnum(Fixation).optional(),

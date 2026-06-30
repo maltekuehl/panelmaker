@@ -411,7 +411,7 @@ export default function Chat({
                 const rawContent = extractRawContent(m)
                 const isUserMessage = m.role === "user"
                 return (
-                  <Fragment key={m.id}>
+                  <Fragment key={m.id || `message-${index}`}>
                     <MessageCard
                       key={index}
                       user={isUserMessage ? (name ? name : "You") : "PanelMaker AI"}

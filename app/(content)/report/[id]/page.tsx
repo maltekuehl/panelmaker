@@ -6,6 +6,7 @@ import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { resolveViewerContext } from "@/lib/auth"
+import { doiUrl, hasPublication, pubmedUrl } from "@/lib/publication"
 import {
   getPublicReportById,
   getVisibleReportById,
@@ -291,6 +292,36 @@ async function ReportContent({ id }: { id: string }) {
               })}
             </span>
           </div>
+          {hasPublication(report.experiment) && (
+            <div>
+              <span className="text-muted-foreground block text-xs mb-0.5">Publication</span>
+              {report.experiment.citation && (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.experiment.citation}</p>
+              )}
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                {report.experiment.pmid && (
+                  <a
+                    href={pubmedUrl(report.experiment.pmid)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    PMID {report.experiment.pmid}
+                  </a>
+                )}
+                {report.experiment.doi && (
+                  <a
+                    href={doiUrl(report.experiment.doi)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    DOI
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2 border-t pt-6">

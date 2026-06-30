@@ -9,6 +9,9 @@ export type ReportImageInput = { url: string; cellTypeIds: string[] }
 export type ExperimentContext = {
   name: string
   description: string
+  citation: string
+  pmid: string
+  doi: string
   species: OntologyValue | null
   tissue: OntologyValue | null
   fixation: string
@@ -48,6 +51,9 @@ export function emptyContext(): ExperimentContext {
   return {
     name: "",
     description: "",
+    citation: "",
+    pmid: "",
+    doi: "",
     species: null,
     tissue: null,
     fixation: "FFPE",
@@ -128,8 +134,8 @@ export function extractOrganismId(speciesId: string): number | undefined {
   return undefined
 }
 
-export function isContextComplete(_context: ExperimentContext): boolean {
-  return true
+export function isContextComplete(context: ExperimentContext): boolean {
+  return context.name.trim().length > 0
 }
 
 export const FIXATION_OPTIONS: { value: string; label: string }[] = [
@@ -179,8 +185,11 @@ export function validateRows(rows: AntibodyRow[]): RowValidationError[] {
 export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[]) {
   return {
     context: {
-      name: context.name.trim() || undefined,
+      name: context.name.trim(),
       description: context.description.trim() || undefined,
+      citation: context.citation.trim() || undefined,
+      pmid: context.pmid.trim() || undefined,
+      doi: context.doi.trim() || undefined,
       species: context.species ?? undefined,
       tissue: context.tissue ?? undefined,
       fixation: context.fixation || undefined,

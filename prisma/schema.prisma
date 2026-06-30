@@ -507,6 +507,9 @@ model Experiment {
   id               String            @id @default(cuid())
   name             String?
   description      String?
+  citation         String?           @db.Text
+  pmid             String?
+  doi              String?
   speciesId        String?
   tissueId         String?
   fixation         Fixation?

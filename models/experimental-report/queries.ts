@@ -68,6 +68,9 @@ const reportSelect = {
     select: {
       id: true,
       name: true,
+      citation: true,
+      pmid: true,
+      doi: true,
       fixation: true,
       method: true,
       antigenRetrieval: true,
@@ -654,6 +657,9 @@ async function validateAntibody(data: CreateReportData): Promise<void> {
 type ExperimentContextInput = {
   name?: string | null
   description?: string | null
+  citation?: string | null
+  pmid?: string | null
+  doi?: string | null
   species?: OntologyValue | null
   tissue?: OntologyValue | null
   condition?: OntologyValue | null
@@ -696,6 +702,9 @@ export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, su
       data: {
         name: ctx.name ?? null,
         description: ctx.description ?? null,
+        citation: ctx.citation ?? null,
+        pmid: ctx.pmid ?? null,
+        doi: ctx.doi ?? null,
         speciesId: resolvedSpecies?.id ?? null,
         tissueId: resolvedTissue?.id ?? null,
         conditionId: resolvedCondition?.id ?? null,
@@ -817,6 +826,9 @@ export async function resolveAndCreateReports(
     {
       name: context.name ?? null,
       description: context.description ?? null,
+      citation: context.citation ?? null,
+      pmid: context.pmid ?? null,
+      doi: context.doi ?? null,
       species: context.species ?? null,
       tissue: context.tissue ?? null,
       condition: context.condition ?? null,
@@ -876,6 +888,9 @@ export async function resolveAndCreateReports(
 export async function createReport(data: CreateReportData, submitterId: string): Promise<ReportRow> {
   const experimentId = await resolveAndCreateExperiment(
     {
+      citation: data.citation ?? null,
+      pmid: data.pmid ?? null,
+      doi: data.doi ?? null,
       species: data.species ?? null,
       tissue: data.tissue ?? null,
       condition: data.condition ?? null,

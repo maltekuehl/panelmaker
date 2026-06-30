@@ -6,6 +6,7 @@ import { DataTableColumnHeader } from "@/components/data-table/column-header"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { Badge } from "@/components/ui/badge"
 import { SPECIFICITY_LABELS } from "@/lib/constants"
+import { doiUrl, pubmedUrl } from "@/lib/publication"
 import { ColumnDef } from "@tanstack/react-table"
 import { ImageIcon } from "lucide-react"
 import Link from "next/link"
@@ -69,6 +70,9 @@ export type ReportEntry = {
 export type ExperimentEntry = {
   id: string
   name: string | null
+  citation: string | null
+  pmid: string | null
+  doi: string | null
   method: string
   species: string
   tissue: string
@@ -474,6 +478,27 @@ export const panelColumns: ColumnDef<PanelEntry>[] = [
   },
 ]
 
+function PublicationCell({ entry }: { entry: ExperimentEntry }) {
+  if (entry.doi) {
+    return (
+      <a href={doiUrl(entry.doi)} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+        DOI
+      </a>
+    )
+  }
+  if (entry.pmid) {
+    return (
+      <a href={pubmedUrl(entry.pmid)} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+        PMID {entry.pmid}
+      </a>
+    )
+  }
+  if (entry.citation) {
+    return <span className="text-muted-foreground">Cited</span>
+  }
+  return <span className="text-muted-foreground">None</span>
+}
+
 export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
   {
     accessorKey: "name",
@@ -503,6 +528,11 @@ export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
     accessorKey: "condition",
     header: () => <DataTableColumnHeader field="condition" title="Condition" />,
     cell: ({ row }) => <span className="text-muted-foreground">{row.original.condition ?? "N/A"}</span>,
+  },
+  {
+    id: "publication",
+    header: "Publication",
+    cell: ({ row }) => <PublicationCell entry={row.original} />,
   },
   {
     accessorKey: "stainingCount",

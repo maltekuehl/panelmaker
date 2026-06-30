@@ -1,12 +1,9 @@
 "use client"
 
 import { OntologyCombobox } from "@/components/ontology-combobox"
-import { VisibilitySelector } from "@/components/shared/visibility-selector"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { AntigenRetrieval, MultiplexMethod } from "@/lib/generated/prisma/enums"
 import { Check, Pencil } from "lucide-react"
 import { StepBadge } from "./step-badge"
@@ -19,25 +16,22 @@ import {
   type ExperimentContext,
 } from "./types"
 
-export function ExperimentContextSection({
+export function ExperimentMethodSection({
   context,
   onChange,
-  editing,
+  state,
   onEdit,
   onDone,
-  labs,
 }: {
   context: ExperimentContext
   onChange: (next: ExperimentContext) => void
-  editing: boolean
+  state: "active" | "done" | "disabled"
   onEdit: () => void
   onDone: () => void
-  labs: { id: string; name: string }[]
 }) {
-  const collapsed = !editing
+  const collapsed = state !== "active"
 
   const summary = [
-    context.name,
     context.species?.label,
     context.tissue?.label,
     fixationLabel(context.fixation),
@@ -50,17 +44,19 @@ export function ExperimentContextSection({
     <section className={collapsed ? "bg-muted/30" : undefined}>
       <div className="flex items-center justify-between gap-4 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <StepBadge n={1} state={collapsed ? "done" : "active"} />
+          <StepBadge n={2} state={state} />
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold">Experiment context</h2>
-            {collapsed ? (
-              <p className="truncate text-xs text-muted-foreground">{summary.join(" · ")}</p>
-            ) : (
+            <h2 className="text-sm font-semibold">Sample &amp; method</h2>
+            {state === "active" ? (
               <p className="text-xs text-muted-foreground">Applies to every antibody you add.</p>
+            ) : state === "done" ? (
+              <p className="truncate text-xs text-muted-foreground">{summary.join(" · ") || "No details set"}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Set the experiment details first.</p>
             )}
           </div>
         </div>
-        {collapsed && (
+        {state === "done" && (
           <Button variant="ghost" size="sm" onClick={onEdit}>
             <Pencil className="size-3.5" />
             Edit
@@ -68,27 +64,8 @@ export function ExperimentContextSection({
         )}
       </div>
 
-      {!collapsed && (
+      {state === "active" && (
         <div className="space-y-4 px-4 pb-4">
-          <div className="space-y-1.5">
-            <Label>Experiment name (optional)</Label>
-            <Input
-              value={context.name}
-              onChange={(event) => onChange({ ...context, name: event.target.value })}
-              placeholder="e.g. Tonsil CODEX immune panel"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Description (optional)</Label>
-            <Textarea
-              value={context.description}
-              onChange={(event) => onChange({ ...context, description: event.target.value })}
-              placeholder="Briefly describe this experiment so it can be cited from a publication."
-              rows={2}
-            />
-          </div>
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Target Species</Label>
@@ -178,12 +155,6 @@ export function ExperimentContextSection({
               placeholder="Search disease ontology (e.g. carcinoma, nephropathy)..."
             />
           </div>
-
-          <VisibilitySelector
-            value={{ visibility: context.visibility, sharedLabIds: context.sharedLabIds }}
-            onChange={(next) => onChange({ ...context, visibility: next.visibility, sharedLabIds: next.sharedLabIds })}
-            labs={labs}
-          />
 
           <Button type="button" size="sm" onClick={onDone}>
             <Check className="size-4" />

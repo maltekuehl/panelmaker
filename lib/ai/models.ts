@@ -26,9 +26,8 @@ export interface ModelOption {
 export const BUILTIN_MODELS: ModelOption[] = [
   { id: "google:gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite", provider: "google" },
   { id: "google:gemini-3.5-flash", label: "Gemini 3.5 Flash", provider: "google" },
-  { id: "openai:gpt-5.1", label: "GPT-5.1", provider: "openai" },
+  { id: "openai:gpt-5.5", label: "GPT-5.5", provider: "openai" },
   { id: "anthropic:claude-sonnet-4-6", label: "Claude Sonnet 4.6", provider: "anthropic" },
-  { id: "groq:llama-3.3-70b-versatile", label: "Llama 3.3 70B", provider: "groq" },
 ]
 
 export function parseModelId(modelId: string): { provider: ProviderId; model: string } {

@@ -1,12 +1,28 @@
 import "server-only"
 
-import type { LabRole } from "@/lib/generated/prisma/enums"
+import { Fixation, type LabRole } from "@/lib/generated/prisma/enums"
+import { prisma } from "@/lib/prisma"
+import { checkUserRateLimit, RATE_LIMITS } from "@/lib/rate-limiting"
 import { getAntibodyById, lookupByRrid, searchAntibodies } from "@/models/antibody"
 import { getCellTypeDescendantIds, searchCellTypes } from "@/models/cell-type"
 import { aggregateReports, type EvidenceFilter, type EvidenceGroupBy, findReports } from "@/models/evidence"
-import { getInventoryForLabs, getLabsForUser } from "@/models/lab"
+import { fluorophoreExists, searchFluorophores } from "@/models/fluorophore"
+import { canEditPanel, getInventoryForLabs, getLabsForUser } from "@/models/lab"
 import type { ViewerContext } from "@/models/lab/access"
-import { getVisiblePanelById, getVisiblePanels, type PanelRow, validatePanel } from "@/models/panel"
+import {
+  addCycle,
+  addMarker,
+  createPanel,
+  getPanelById,
+  getPanelsForUser,
+  getVisiblePanelById,
+  getVisiblePanels,
+  type PanelRow,
+  removeCycle,
+  removeMarker,
+  reorderMarkers,
+  validatePanel,
+} from "@/models/panel"
 import { getProteinById, searchProteins } from "@/models/protein"
 import { searchTaxa } from "@/models/taxon"
 import { searchTissues } from "@/models/tissue"
@@ -82,6 +98,29 @@ function mapPanel(panel: PanelRow) {
     species: panel.species?.label ?? null,
     markerCount: markers.length,
     markers,
+  }
+}
+
+// Editing view: exposes the cycle and marker ids the panel-editing tools need to target.
+function mapPanelForEditing(panel: PanelRow) {
+  return {
+    id: panel.id,
+    name: panel.name,
+    visibility: panel.visibility,
+    species: panel.species?.label ?? null,
+    cycles: panel.cycles.map((cycle) => ({
+      cycleId: cycle.id,
+      name: cycle.name,
+      sortOrder: cycle.sortOrder,
+      markers: cycle.markers.map((marker) => ({
+        markerId: marker.id,
+        marker: marker.protein?.geneSymbol ?? marker.protein?.label ?? null,
+        antibody: marker.antibody?.name ?? null,
+        rrid: marker.antibody?.rrid ?? null,
+        fluorophore: marker.fluorophore?.name ?? null,
+        sortOrder: marker.sortOrder,
+      })),
+    })),
   }
 }
 
@@ -291,6 +330,7 @@ export function createChatTools(viewer: ViewerContext) {
           storageLocation: item.storageLocation,
           markerId: item.antibody.targetProtein?.id ?? null,
           marker: item.antibody.targetProtein?.geneSymbol ?? item.antibody.targetName ?? null,
+          antibodyId: item.antibody.id,
           antibody: item.antibody.name,
           rrid: item.antibody.rrid,
           clonality: item.antibody.clonality,
@@ -418,12 +458,212 @@ export function createChatTools(viewer: ViewerContext) {
     },
   })
 
+  // --- Panel editing ---------------------------------------------------------
+  // Every mutation tool runs through this choke point: load the panel and confirm the viewer may
+  // edit it (owner or lab ADMIN, enforced exactly like the REST routes). Errors are returned as
+  // data, never thrown, so the model can relay them.
+  async function loadEditablePanel(panelId: string): Promise<{ panel: PanelRow } | { error: string }> {
+    const panel = await getPanelById(panelId)
+    if (!panel) return { error: `Panel ${panelId} not found` }
+    if (!canEditPanel(viewer, panel)) return { error: "You do not have permission to edit this panel" }
+    return { panel }
+  }
+
+  // Re-fetch the panel after a write so the model always sees fresh cycle/marker ids.
+  async function panelResult(panelId: string, message: string) {
+    const refreshed = await getPanelById(panelId)
+    return { message, panel: refreshed ? mapPanelForEditing(refreshed) : null }
+  }
+
+  const resolveFluorophores = tool({
+    description:
+      "Resolve a fluorophore/conjugate name (e.g. 'Alexa Fluor 647', 'AF488', 'DAPI') to ids used when adding markers to a panel.",
+    inputSchema: z.object({ query: z.string() }),
+    execute: async ({ query }) => ({
+      fluorophores: (await searchFluorophores(query)).map((f) => ({ id: f.id, name: f.name })),
+    }),
+  })
+
+  const listMyPanels = tool({
+    description:
+      "List the panels you can edit (your own panels and panels your lab-admin role covers), or, given a panelId, return that panel's full editable structure. Use this to obtain the panelId / cycleId / markerId values the other panel-editing tools require. Without panelId you get lightweight summaries; with panelId you get every cycle and marker with their ids.",
+    inputSchema: z.object({ panelId: z.string().optional() }),
+    execute: async ({ panelId }) => {
+      if (panelId) {
+        const loaded = await loadEditablePanel(panelId)
+        if ("error" in loaded) return loaded
+        return { panel: mapPanelForEditing(loaded.panel) }
+      }
+      const panels = await getPanelsForUser(viewer.userId)
+      return {
+        panels: panels
+          .filter((p) => canEditPanel(viewer, p))
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            visibility: p.visibility,
+            species: p.species?.label ?? null,
+            cycleCount: p.cycles.length,
+            markerCount: p.cycles.reduce((sum, c) => sum + c.markers.length, 0),
+          })),
+      }
+    },
+  })
+
+  const createPanelTool = tool({
+    description:
+      "Create a NEW, empty panel owned by you. It starts PRIVATE with an initial 'Cycle 1'. Only call this when the user clearly asks to create a panel. Returns the new panel with its cycle ids so you can immediately add markers.",
+    inputSchema: z.object({
+      name: z.string().min(1).max(255),
+      description: z.string().max(2000).optional(),
+      speciesId: z.string().optional().describe("Taxon id from resolveSpecies, if known"),
+      speciesLabel: z.string().optional().describe("Species display name, e.g. 'Homo sapiens'"),
+      fixation: z.nativeEnum(Fixation).optional(),
+      conditionId: z.string().optional(),
+      conditionLabel: z.string().optional(),
+    }),
+    execute: async (input) => {
+      const limit = await checkUserRateLimit(viewer.userId, RATE_LIMITS.PANELS_CREATE)
+      if (!limit.allowed) {
+        return { error: `Panel creation limit reached. Try again after ${limit.resetTime.toLocaleString()}.` }
+      }
+      const panel = await createPanel(input, viewer.userId)
+      return { message: `Created panel "${panel.name}".`, panel: mapPanelForEditing(panel) }
+    },
+  })
+
+  const addCycleTool = tool({
+    description: "Add a new cycle to a panel. Only call when the user clearly asks to add a cycle.",
+    inputSchema: z.object({
+      panelId: z.string(),
+      name: z.string().min(1).max(255),
+      notes: z.string().max(500).optional(),
+    }),
+    execute: async ({ panelId, name, notes }) => {
+      const loaded = await loadEditablePanel(panelId)
+      if ("error" in loaded) return loaded
+      const nextOrder = loaded.panel.cycles.reduce((max, c) => Math.max(max, c.sortOrder), -1) + 1
+      await addCycle(panelId, { name, notes, sortOrder: nextOrder })
+      return panelResult(panelId, `Added cycle "${name}".`)
+    },
+  })
+
+  const deleteCycleTool = tool({
+    description:
+      "Delete a cycle and every marker inside it. Only call when the user EXPLICITLY asks to delete the cycle. This cannot be undone.",
+    inputSchema: z.object({ panelId: z.string(), cycleId: z.string() }),
+    execute: async ({ panelId, cycleId }) => {
+      const loaded = await loadEditablePanel(panelId)
+      if ("error" in loaded) return loaded
+      const cycle = loaded.panel.cycles.find((c) => c.id === cycleId)
+      if (!cycle) return { error: "Cycle not found in this panel" }
+      await removeCycle(cycleId)
+      return panelResult(panelId, `Deleted cycle "${cycle.name}".`)
+    },
+  })
+
+  const addAntibodyToCycleTool = tool({
+    description:
+      "Add a marker/antibody to a cycle. Resolve names to ids first: marker via resolveMarkers (proteinId), antibody via resolveAntibodies or getLabInventory (antibodyId, or its RRID), fluorophore via resolveFluorophores (fluorophoreId). Get the panelId and cycleId from listMyPanels. proteinId and antibodyId can be provided together (a panel marker is a target protein stained by a specific antibody). For a recognizable label, include proteinId whenever you know the target; from getLabInventory pass its markerId as proteinId and its antibodyId. Only call when the user clearly asks to add it.",
+    inputSchema: z.object({
+      panelId: z.string(),
+      cycleId: z.string(),
+      proteinId: z.string().optional(),
+      proteinLabel: z.string().optional(),
+      geneSymbol: z.string().optional(),
+      ensemblGeneId: z.string().optional(),
+      antibodyId: z.string().optional().describe("Antibody id or RRID from resolveAntibodies / getLabInventory"),
+      fluorophoreId: z.string().optional(),
+      metalTag: z.string().optional(),
+    }),
+    execute: async ({ panelId, cycleId, antibodyId, ...marker }) => {
+      const loaded = await loadEditablePanel(panelId)
+      if ("error" in loaded) return loaded
+      const cycle = loaded.panel.cycles.find((c) => c.id === cycleId)
+      if (!cycle) return { error: "Cycle not found in this panel" }
+      if (marker.fluorophoreId && !(await fluorophoreExists(marker.fluorophoreId))) {
+        return { error: "Unknown fluorophore id; resolve it with resolveFluorophores first" }
+      }
+      // The model may pass a real antibody id, an RRID, or (mistakenly) an inventory id; resolve it
+      // to a real Antibody record so we never trip the FK constraint.
+      let resolvedAntibodyId: string | undefined
+      if (antibodyId) {
+        const antibody = await resolveAntibodyFlexible(antibodyId)
+        if (!antibody) {
+          return { error: `Antibody ${antibodyId} not found; resolve it with resolveAntibodies first` }
+        }
+        resolvedAntibodyId = antibody.id
+      }
+      if (marker.proteinId) {
+        await prisma.protein.upsert({
+          where: { id: marker.proteinId },
+          update: { ...(marker.ensemblGeneId ? { ensemblGeneId: marker.ensemblGeneId } : {}) },
+          create: {
+            id: marker.proteinId,
+            label: marker.proteinLabel ?? marker.proteinId,
+            geneSymbol: marker.geneSymbol ?? null,
+            ensemblGeneId: marker.ensemblGeneId ?? null,
+          },
+        })
+      }
+      const nextOrder = cycle.markers.reduce((max, m) => Math.max(max, m.sortOrder), -1) + 1
+      await addMarker(cycleId, { ...marker, antibodyId: resolvedAntibodyId, sortOrder: nextOrder })
+      return panelResult(panelId, `Added marker to "${cycle.name}".`)
+    },
+  })
+
+  const moveMarkerTool = tool({
+    description:
+      "Move a marker to another cycle (and/or reposition it). Call listMyPanels with the panelId first to get the ids. markerId is the marker's OWN id (the `markerId` field on a marker in listMyPanels) - NOT the antibody id, RRID, or protein id. toCycleId is the DESTINATION cycle's `cycleId` from the same panel in listMyPanels. sortOrder sets the position within the destination cycle; omit it to append to the end. Only call when the user clearly asks to move or reorder a marker.",
+    inputSchema: z.object({
+      panelId: z.string(),
+      markerId: z
+        .string()
+        .describe("The marker's own id (markerId field from listMyPanels), not the antibody/protein id"),
+      toCycleId: z.string().describe("Destination cycle's cycleId from listMyPanels (must be in the same panel)"),
+      sortOrder: z.number().int().min(0).optional(),
+    }),
+    execute: async ({ panelId, markerId, toCycleId, sortOrder }) => {
+      const loaded = await loadEditablePanel(panelId)
+      if ("error" in loaded) return loaded
+      const targetCycle = loaded.panel.cycles.find((c) => c.id === toCycleId)
+      if (!targetCycle) return { error: "Target cycle not found in this panel" }
+      if (!loaded.panel.cycles.some((c) => c.markers.some((m) => m.id === markerId))) {
+        return { error: "Marker not found in this panel" }
+      }
+      const order = sortOrder ?? targetCycle.markers.reduce((max, m) => Math.max(max, m.sortOrder), -1) + 1
+      await reorderMarkers([{ markerId, cycleId: toCycleId, sortOrder: order }])
+      return panelResult(panelId, `Moved marker to "${targetCycle.name}".`)
+    },
+  })
+
+  const removeMarkerTool = tool({
+    description:
+      "Remove a marker/antibody from a panel. markerId is the marker's OWN id (the `markerId` field from listMyPanels), not the antibody/protein id. Only call when the user EXPLICITLY asks to delete it. This cannot be undone.",
+    inputSchema: z.object({
+      panelId: z.string(),
+      markerId: z
+        .string()
+        .describe("The marker's own id (markerId field from listMyPanels), not the antibody/protein id"),
+    }),
+    execute: async ({ panelId, markerId }) => {
+      const loaded = await loadEditablePanel(panelId)
+      if ("error" in loaded) return loaded
+      if (!loaded.panel.cycles.some((c) => c.markers.some((m) => m.id === markerId))) {
+        return { error: "Marker not found in this panel" }
+      }
+      await removeMarker(markerId)
+      return panelResult(panelId, "Removed marker.")
+    },
+  })
+
   return {
     resolveMarkers,
     resolveCellTypes,
     resolveSpecies,
     resolveTissues,
     resolveAntibodies,
+    resolveFluorophores,
     getMarkerDetails,
     getAntibodyDetails,
     findReports: findReportsTool,
@@ -434,5 +674,12 @@ export function createChatTools(viewer: ViewerContext) {
     analyzePanel,
     getPanelLayoutSignals,
     recommendForPanel,
+    listMyPanels,
+    createPanel: createPanelTool,
+    addCycle: addCycleTool,
+    deleteCycle: deleteCycleTool,
+    addAntibodyToCycle: addAntibodyToCycleTool,
+    moveMarker: moveMarkerTool,
+    removeMarker: removeMarkerTool,
   }
 }

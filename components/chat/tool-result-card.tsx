@@ -3,9 +3,10 @@
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
-import { Beaker, Building2, Check, FlaskConical, Loader2, Search, Sparkles, Trash2, X } from "lucide-react"
+import { usePanelsSignal } from "@/stores/panels"
+import { Beaker, Building2, Check, FlaskConical, Layers, Loader2, Search, Sparkles, Trash2, X } from "lucide-react"
 import Link from "next/link"
-import { createContext, useContext } from "react"
+import { createContext, useContext, useEffect, useRef } from "react"
 
 // The tool input (query) for the result currently being rendered, so ToolAccordion can offer a
 // collapsible JSON view of it without every card having to thread the prop through.
@@ -191,6 +192,38 @@ interface RecommendForPanelOutput {
   recommendations?: Recommendation[]
 }
 
+interface EditablePanel {
+  id: string
+  name: string
+  visibility: string
+  species: string | null
+  cycles: {
+    cycleId: string
+    name: string
+    sortOrder: number
+    markers: { markerId: string; marker: string | null; antibody: string | null; fluorophore: string | null }[]
+  }[]
+}
+
+interface ListMyPanelsOutput {
+  panels?: {
+    id: string
+    name: string
+    visibility: string
+    species: string | null
+    cycleCount: number
+    markerCount: number
+  }[]
+  panel?: EditablePanel
+  error?: string
+}
+
+interface PanelEditOutput {
+  message?: string
+  panel?: EditablePanel | null
+  error?: string
+}
+
 const TOOL_LABELS: Record<string, string> = {
   resolveMarkers: "Searching markers...",
   resolveCellTypes: "Resolving cell types...",
@@ -207,6 +240,14 @@ const TOOL_LABELS: Record<string, string> = {
   analyzePanel: "Analyzing panel...",
   getPanelLayoutSignals: "Gathering layout signals...",
   recommendForPanel: "Preparing recommendation...",
+  resolveFluorophores: "Resolving fluorophores...",
+  listMyPanels: "Loading your panels...",
+  createPanel: "Creating panel...",
+  addCycle: "Adding cycle...",
+  deleteCycle: "Deleting cycle...",
+  addAntibodyToCycle: "Adding marker...",
+  moveMarker: "Moving marker...",
+  removeMarker: "Removing marker...",
 }
 
 function antibodyHref(rrid: string | null): string | null {
@@ -955,6 +996,114 @@ function RecommendForPanelCard({ output, onDelete }: { output: RecommendForPanel
   )
 }
 
+function ListMyPanelsCard({ output, onDelete }: { output: ListMyPanelsOutput; onDelete?: () => void }) {
+  if (output.error) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-2">
+        <X className="size-3.5 shrink-0 text-destructive" />
+        <span className="text-xs text-destructive">{output.error}</span>
+        {onDelete && <DeleteButton onDelete={onDelete} />}
+      </div>
+    )
+  }
+  if (output.panel) {
+    const p = output.panel
+    return (
+      <ToolAccordion
+        icon={<Layers className="size-3.5 shrink-0 text-primary" />}
+        title={p.name}
+        count={p.cycles.length}
+        onDelete={onDelete}
+      >
+        {p.cycles.length === 0 ? (
+          <EmptyRow>No cycles yet.</EmptyRow>
+        ) : (
+          <div className="space-y-1.5">
+            {p.cycles.map((c) => (
+              <div key={c.cycleId} className="rounded-md border bg-popover px-2 py-1.5">
+                <p className="text-[11px] font-medium text-foreground">
+                  {c.name} <span className="text-muted-foreground">({c.markers.length})</span>
+                </p>
+                {c.markers.length > 0 && (
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    {c.markers.map((m) => m.marker ?? m.antibody ?? "marker").join(", ")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </ToolAccordion>
+    )
+  }
+  const panels = output.panels ?? []
+  return (
+    <ToolAccordion
+      icon={<Layers className="size-3.5 shrink-0 text-primary" />}
+      title="Your panels"
+      count={panels.length}
+      onDelete={onDelete}
+    >
+      {panels.length === 0 ? (
+        <EmptyRow>You have no editable panels yet.</EmptyRow>
+      ) : (
+        <div className="space-y-1">
+          {panels.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center justify-between gap-2 rounded-md border bg-popover px-2 py-1.5"
+            >
+              <Link
+                href={`/panel/${p.id}`}
+                className="min-w-0 flex-1 truncate text-xs font-medium text-primary hover:underline"
+              >
+                {p.name}
+              </Link>
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                {p.cycleCount} cycles · {p.markerCount} markers
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </ToolAccordion>
+  )
+}
+
+function PanelEditCard({ output, onDelete }: { output: PanelEditOutput; onDelete?: () => void }) {
+  const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
+  const notified = useRef(false)
+  const success = !output.error && (output.message != null || output.panel != null)
+  useEffect(() => {
+    if (success && !notified.current) {
+      notified.current = true
+      notifyPanelsChanged()
+    }
+  }, [success, notifyPanelsChanged])
+
+  if (output.error) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-2">
+        <X className="size-3.5 shrink-0 text-destructive" />
+        <span className="min-w-0 flex-1 text-xs text-destructive">{output.error}</span>
+        {onDelete && <DeleteButton onDelete={onDelete} />}
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-2">
+      <Check className="size-3.5 shrink-0 text-primary" />
+      <span className="min-w-0 flex-1 truncate text-xs text-foreground">{output.message ?? "Panel updated."}</span>
+      {output.panel && (
+        <Link href={`/panel/${output.panel.id}`} className="shrink-0 text-[10px] text-primary hover:underline">
+          View panel
+        </Link>
+      )}
+      {onDelete && <DeleteButton onDelete={onDelete} />}
+    </div>
+  )
+}
+
 function GenericFallbackCard({
   toolName,
   input,
@@ -1071,6 +1220,27 @@ export function ToolResultCard({ part, onDelete }: { part: ToolPart; onDelete?: 
         return <GetPanelLayoutSignalsCard output={output as GetPanelLayoutSignalsOutput} onDelete={onDelete} />
       case "recommendForPanel":
         return <RecommendForPanelCard output={output as RecommendForPanelOutput} onDelete={onDelete} />
+      case "resolveFluorophores":
+        return (
+          <ChipListCard
+            title="Fluorophores"
+            icon={<Search className="size-3.5 shrink-0 text-primary" />}
+            items={((output as { fluorophores?: { id: string; name: string }[] }).fluorophores ?? []).map((f) => ({
+              id: f.id,
+              label: f.name,
+            }))}
+            onDelete={onDelete}
+          />
+        )
+      case "listMyPanels":
+        return <ListMyPanelsCard output={output as ListMyPanelsOutput} onDelete={onDelete} />
+      case "createPanel":
+      case "addCycle":
+      case "deleteCycle":
+      case "addAntibodyToCycle":
+      case "moveMarker":
+      case "removeMarker":
+        return <PanelEditCard output={output as PanelEditOutput} onDelete={onDelete} />
       default:
         return (
           <GenericFallbackCard toolName={toolName || "unknown"} input={input} output={output} onDelete={onDelete} />
