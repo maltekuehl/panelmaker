@@ -1,9 +1,5 @@
-import { getSessionUser } from "@/lib/auth"
-import { signInUrl } from "@/lib/routes"
-import { Loader2 } from "lucide-react"
+import { AdminPage } from "@/components/admin/admin-page"
 import { Metadata } from "next"
-import { redirect } from "next/navigation"
-import { Suspense } from "react"
 import UserList from "./UserList"
 
 export const metadata: Metadata = {
@@ -11,33 +7,14 @@ export const metadata: Metadata = {
   description: "Manage community members and their access",
 }
 
-export default async function AdminUserPage() {
-  const user = await getSessionUser()
-
-  if (!user) {
-    redirect(signInUrl("/admin/user"))
-  }
-
-  if (!user.isAdmin) {
-    redirect("/")
-  }
-
+export default function AdminUserPage() {
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">User Management</h1>
-        <p className="text-muted-foreground">Manage community members, their roles, and access permissions.</p>
-      </div>
-
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        }
-      >
-        <UserList />
-      </Suspense>
-    </div>
+    <AdminPage
+      path="/admin/user"
+      title="User Management"
+      description="Manage community members, their roles, and access permissions."
+    >
+      <UserList />
+    </AdminPage>
   )
 }

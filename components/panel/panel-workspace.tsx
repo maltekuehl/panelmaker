@@ -13,14 +13,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { Visibility } from "@/lib/generated/prisma/enums"
 import { cn } from "@/lib/utils"
 import { usePanelsSignal } from "@/stores/panels"
-import { AlertTriangle, Download, Info, Palette, Plus, Trash2, XCircle } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { AlertTriangle, Download, Info, Palette, Pencil, Plus, Trash2, XCircle } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { PanelExportMenu } from "./panel-export-menu"
 import type { CreatePanelFormData } from "./panel-form"
@@ -58,6 +59,8 @@ export function PanelWorkspace() {
   const [panelToDelete, setPanelToDelete] = useState<Panel | null>(null)
   const [userLabs, setUserLabs] = useState<{ id: string; name: string }[]>([])
   const [labsLoading, setLabsLoading] = useState(true)
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const renameCancelledRef = useRef(false)
   const { imagingMethods } = useImagingMethods()
   const panelsVersion = usePanelsSignal((s) => s.version)
   const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
@@ -203,6 +206,35 @@ export function PanelWorkspace() {
     }
   }
 
+  const commitRename = async (panelId: string) => {
+    if (nameDraft === null || renameCancelledRef.current) return
+    const nextName = nameDraft.trim()
+    setNameDraft(null)
+    const previousName = panels.find((p) => p.id === panelId)?.name
+    if (!nextName || nextName === previousName) return
+
+    const applyName = (name: string | undefined) =>
+      setPanels((ps) => ps.map((p) => (p.id === panelId && name !== undefined ? { ...p, name } : p)))
+
+    applyName(nextName)
+
+    try {
+      const res = await fetch(`/api/panels/${panelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: nextName }),
+      })
+
+      if (!res.ok) throw new Error("Request failed")
+
+      notifyPanelsChanged()
+      toast.success("Panel renamed")
+    } catch {
+      applyName(previousName)
+      toast.error("Failed to rename panel")
+    }
+  }
+
   const handleImagingMethodChange = async (panelId: string, next: string | null) => {
     const previous = panels.find((p) => p.id === panelId) ?? null
     const method = next ? (imagingMethods.find((m) => m.id === next) ?? null) : null
@@ -301,30 +333,67 @@ export function PanelWorkspace() {
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                 <Palette className="h-5 w-5 text-primary" />
               </div>
-              <Select value={activePanelId ?? undefined} onValueChange={(val) => setActivePanelId(val)}>
-                <SelectTrigger className="h-10 min-w-0 flex-1 font-medium">
-                  <SelectValue placeholder="Select panel" />
-                </SelectTrigger>
-                <SelectContent>
-                  {panels.map((panel) => {
-                    const pSpecies = panel.species?.label ?? null
-                    const pFixation = panel.fixation
-                      ? (FIXATION_LABELS[panel.fixation as keyof typeof FIXATION_LABELS] ?? panel.fixation)
-                      : null
-                    return (
-                      <SelectItem key={panel.id} value={String(panel.id)}>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{panel.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {[pSpecies, pFixation, panel.imagingMethod?.shortLabel].filter(Boolean).join(", ") ||
-                              "No species, fixation or method set"}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              {activePanel && nameDraft !== null ? (
+                <Input
+                  autoFocus
+                  aria-label="Panel name"
+                  value={nameDraft}
+                  maxLength={255}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onBlur={() => commitRename(activePanel.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      e.currentTarget.blur()
+                    } else if (e.key === "Escape") {
+                      e.preventDefault()
+                      renameCancelledRef.current = true
+                      setNameDraft(null)
+                    }
+                  }}
+                  className="h-10 min-w-0 flex-1 font-medium"
+                />
+              ) : (
+                <Select value={activePanelId ?? undefined} onValueChange={(val) => setActivePanelId(val)}>
+                  <SelectTrigger className="h-10 min-w-0 flex-1 font-medium">
+                    <SelectValue placeholder="Select panel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {panels.map((panel) => {
+                      const pSpecies = panel.species?.label ?? null
+                      const pFixation = panel.fixation
+                        ? (FIXATION_LABELS[panel.fixation as keyof typeof FIXATION_LABELS] ?? panel.fixation)
+                        : null
+                      return (
+                        <SelectItem key={panel.id} value={String(panel.id)}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{panel.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {[pSpecies, pFixation, panel.imagingMethod?.shortLabel].filter(Boolean).join(", ") ||
+                                "No species, fixation or method set"}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
+              {activePanel && nameDraft === null && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-10 shrink-0"
+                  onClick={() => {
+                    renameCancelledRef.current = false
+                    setNameDraft(activePanel.name)
+                  }}
+                >
+                  <Pencil className="size-4" />
+                  <span className="sr-only">Rename panel</span>
+                </Button>
+              )}
             </>
           ) : (
             <div></div>

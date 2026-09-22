@@ -13,6 +13,7 @@ import { Fragment, useState } from "react"
 export interface ReportUsagesTableProps {
   data: ReportUsage[]
   lead: "antibody" | "marker"
+  actions?: (usage: ReportUsage) => React.ReactNode
 }
 
 function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
@@ -77,7 +78,7 @@ function QualityOrNotAvailable({ label }: { label: string | null }) {
   return <QualityBadge label={label} />
 }
 
-export function ReportUsagesTable({ data, lead }: ReportUsagesTableProps) {
+export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   const toggleRow = (id: string) => {
@@ -113,6 +114,7 @@ export function ReportUsagesTable({ data, lead }: ReportUsagesTableProps) {
             <TableHead className="h-8 py-1 text-xs">Result</TableHead>
             <TableHead className="h-8 py-1 text-xs">Submitter</TableHead>
             <TableHead className="h-8 py-1 text-xs"></TableHead>
+            {actions && <TableHead className="h-8 py-1 text-xs"></TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -202,10 +204,15 @@ export function ReportUsagesTable({ data, lead }: ReportUsagesTableProps) {
                       <span className="sr-only">View full report</span>
                     </Link>
                   </TableCell>
+                  {actions && (
+                    <TableCell className="py-1.5" onClick={(e) => e.stopPropagation()}>
+                      {actions(usage)}
+                    </TableCell>
+                  )}
                 </TableRow>
                 {expanded && (
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
-                    <TableCell colSpan={8} className="p-0 whitespace-normal">
+                    <TableCell colSpan={actions ? 9 : 8} className="p-0 whitespace-normal">
                       <div className="space-y-3 p-4 text-xs">
                         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                           {lead === "antibody" && (
