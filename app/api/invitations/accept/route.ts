@@ -3,7 +3,6 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { acceptInvitation, acceptInvitationSchema } from "@/models/lab"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 function invitationError(error: unknown): NextResponse | null {
   if (!(error instanceof Error)) return null
@@ -44,9 +43,6 @@ export async function POST(request: NextRequest) {
       role: result.role,
     })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     return (
       invitationError(error) ?? authErrorResponse(error) ?? createErrorResponse(error, "Failed to accept invitation")
     )

@@ -1,13 +1,13 @@
 "use client"
 
-import { ToolResultCard } from "@/components/chat/tool-result-card"
-import Markdown from "@/components/markdown"
+import { MessageParts } from "@/components/chat/message-parts"
+import { useConversation } from "@/components/chat/use-conversation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport, type UIMessage } from "ai"
+import { extractMessageText } from "@/models/chat/transforms"
+import type { UIMessage } from "ai"
 import {
   Bot,
   ChevronDown,
@@ -17,11 +17,13 @@ import {
   Loader2,
   Send,
   Sparkles,
+  StopCircle,
   User,
   X,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 const DEFAULT_WIDTH = 440
@@ -35,7 +37,7 @@ const EDGE_MARGIN = 16
 
 // The card is anchored by its bottom-right corner (CSS `right`/`bottom` offsets
 // from the viewport edges), matching the FAB origin. With this anchor, minimizing
-// collapses straight down and resizing from the top-left corner grows up/left —
+// collapses straight down and resizing from the top-left corner grows up/left,
 // both for free, without recomputing the position.
 const DEFAULT_OFFSET = { right: EDGE_MARGIN, bottom: EDGE_MARGIN }
 
@@ -49,8 +51,6 @@ function clampOffset(right: number, bottom: number, width: number, height: numbe
   }
 }
 
-type ToolPart = Parameters<typeof ToolResultCard>[0]["part"]
-
 // The live conversation surface. Keyed by conversationId so a fresh useChat store and the loaded
 // history mount together. Persists through the same /api/chat route as the full-screen page.
 function FloatingConversation({
@@ -60,38 +60,47 @@ function FloatingConversation({
   conversationId: string
   initialMessages: UIMessage[]
 }) {
-  const [input, setInput] = useState("")
+  const scrollRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const stickToBottom = useRef(true)
 
-  const { messages, sendMessage, status } = useChat({
-    id: conversationId,
-    messages: initialMessages,
-    transport: new DefaultChatTransport({ api: "/api/chat", body: { conversationId } }),
-    experimental_throttle: 50,
+  const { messages, error, isStreaming, stop, input, setInput, submit } = useConversation({
+    conversationId,
+    initialMessages,
   })
 
-  const isLoading = status === "submitted" || status === "streaming"
-
+  // Auto-scroll only while the user is already at the bottom, so reading an earlier tool card is not
+  // undone by the next streamed chunk.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isLoading])
+    if (!stickToBottom.current) return
+    messagesEndRef.current?.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" })
+  }, [messages, isStreaming])
+
+  const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+  }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
-    sendMessage({ text: input.trim() }, { body: { conversationId } })
-    setInput("")
+    stickToBottom.current = true
+    submit()
   }
 
   return (
     <>
-      <div className="flex-1 p-4 space-y-4 overflow-y-auto text-sm bg-background">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 space-y-4 overflow-y-auto bg-background p-4 text-sm"
+      >
         {messages.length === 0 && (
           <div className="flex gap-3">
-            <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
-              <Bot className="h-3 w-3 text-primary" />
+            <div className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/10">
+              <Bot className="size-3 text-primary" />
             </div>
-            <div className="bg-muted p-3 rounded-md rounded-tl-none">
+            <div className="rounded-md rounded-tl-none bg-muted p-3">
               <p>
                 Hello! I can help you design IF panels or find markers. Try asking: &quot;Design a 4-plex panel for
                 human liver.&quot;
@@ -100,81 +109,66 @@ function FloatingConversation({
           </div>
         )}
 
-        {messages.map((message) => {
-          if (message.role === "user") {
-            const textContent = message.parts
-              .filter((part) => part.type === "text")
-              .map((part) => (part as { type: "text"; text: string }).text)
-              .join("")
-
-            return (
-              <div key={message.id} className="flex gap-3 flex-row-reverse">
-                <div className="h-6 w-6 rounded bg-muted flex items-center justify-center shrink-0">
-                  <User className="h-3 w-3 text-muted-foreground" />
-                </div>
-                <div className="bg-primary text-primary-foreground p-3 rounded-md rounded-tr-none">
-                  <p>{textContent}</p>
-                </div>
+        {messages.map((message) =>
+          message.role === "user" ? (
+            <div key={message.id} className="flex flex-row-reverse gap-3">
+              <div className="flex size-6 shrink-0 items-center justify-center rounded bg-muted">
+                <User className="size-3 text-muted-foreground" />
               </div>
-            )
-          }
-
-          return (
+              <div className="rounded-md rounded-tr-none bg-primary p-3 text-primary-foreground">
+                <p className="whitespace-pre-wrap">{extractMessageText(message)}</p>
+              </div>
+            </div>
+          ) : (
             <div key={message.id} className="flex gap-3">
-              <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                <Bot className="h-3 w-3 text-primary" />
+              <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded bg-primary/10">
+                <Bot className="size-3 text-primary" />
               </div>
-              <div className="flex-1 min-w-0 space-y-2">
-                {message.parts.map((part, i) => {
-                  if (part.type === "text") {
-                    const text = (part as { type: "text"; text: string }).text
-                    if (!text) return null
-                    return (
-                      <div key={i} className="bg-muted p-3 rounded-md rounded-tl-none prose prose-sm max-w-none">
-                        <Markdown>{text}</Markdown>
-                      </div>
-                    )
-                  }
-                  if (
-                    part.type === "dynamic-tool" ||
-                    (typeof part.type === "string" && part.type.startsWith("tool-"))
-                  ) {
-                    return <ToolResultCard key={i} part={part as ToolPart} />
-                  }
-                  return null
-                })}
+              <div className="min-w-0 flex-1 space-y-2">
+                <MessageParts message={message} isStreaming={isStreaming} compact />
               </div>
             </div>
-          )
-        })}
+          ),
+        )}
 
-        {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+        {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
           <div className="flex gap-3">
-            <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center shrink-0">
-              <Bot className="h-3 w-3 text-primary" />
+            <div className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/10">
+              <Bot className="size-3 text-primary" />
             </div>
-            <div className="bg-muted p-3 rounded-md rounded-tl-none">
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <div className="rounded-md rounded-tl-none bg-muted p-3">
+              <Loader2 className="size-4 animate-spin text-primary" />
             </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            {error.message}
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-3 border-t bg-background">
+      <div className="border-t bg-background p-3">
         <form className="flex w-full items-center space-x-2" onSubmit={handleSubmit}>
           <Input
-            className="flex-1 h-9 text-sm"
-            placeholder="Ask PanelMaker AI..."
+            className="h-9 flex-1 text-sm"
+            placeholder="Ask PanelMaker AI…"
+            aria-label="Ask PanelMaker AI"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading}
           />
-          <Button type="submit" size="icon" className="h-9 w-9" disabled={isLoading || !input.trim()}>
-            <Send className="h-4 w-4" />
-            <span className="sr-only">Send</span>
-          </Button>
+          {isStreaming ? (
+            <Button type="button" size="icon" className="size-9" onClick={() => stop()} aria-label="Stop generating">
+              <StopCircle className="size-4" />
+            </Button>
+          ) : (
+            <Button type="submit" size="icon" className="size-9" disabled={!input.trim()} aria-label="Send message">
+              <Send className="size-4" />
+            </Button>
+          )}
         </form>
       </div>
     </>
@@ -202,14 +196,15 @@ export function AIAssistantFloating() {
   } | null>(null)
 
   const { data: session } = useSession()
+  const pathname = usePathname()
 
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([])
   const loadStartedRef = useRef(false)
 
-  // Load (or create) the user's most-recent conversation the first time the panel is opened, then
-  // hand it to FloatingConversation. The thread is shared with /chat and persisted server-side.
-  // A ref (not state) guards against a double-load so toggling it never re-runs and cancels the effect.
+  // Load the user's most-recent conversation each time the panel is opened, then hand it to
+  // FloatingConversation. The thread is shared with /chat and persisted server-side, so re-reading it
+  // on open is what keeps the widget from showing a stale copy.
   useEffect(() => {
     if (!isOpen || !session?.user?.id || conversationId || loadStartedRef.current) return
     loadStartedRef.current = true
@@ -218,7 +213,9 @@ export function AIAssistantFloating() {
       try {
         const listResponse = await fetch("/api/chat/conversations")
         const listJson = await listResponse.json()
-        let id = listJson?.conversations?.[0]?.id as string | undefined
+        const conversations = (listJson?.conversations ?? []) as { id: string; updatedAt: string }[]
+        const mostRecent = [...conversations].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
+        let id = mostRecent?.id
         if (!id) {
           const createResponse = await fetch("/api/chat/conversations", {
             method: "POST",
@@ -246,6 +243,31 @@ export function AIAssistantFloating() {
   useEffect(() => {
     offsetRef.current = offset
   }, [offset])
+
+  // A viewport that shrinks under the card would otherwise strand it outside the visible area.
+  useEffect(() => {
+    if (!isOpen) return
+    const onViewportResize = () =>
+      setOffset((current) =>
+        clampOffset(
+          current.right,
+          current.bottom,
+          cardRef.current?.offsetWidth ?? DEFAULT_WIDTH,
+          cardRef.current?.offsetHeight ?? DEFAULT_HEIGHT,
+        ),
+      )
+    window.addEventListener("resize", onViewportResize)
+    return () => window.removeEventListener("resize", onViewportResize)
+  }, [isOpen])
+
+  // Closing drops the loaded thread so the next open refetches it instead of replaying a snapshot
+  // that the /chat page may have moved on from. Minimizing deliberately keeps it mounted.
+  const handleClose = useCallback(() => {
+    setIsOpen(false)
+    setConversationId(null)
+    setInitialMessages([])
+    loadStartedRef.current = false
+  }, [])
 
   // --- Drag handlers ---
   // Dragging moves the card by adjusting its bottom-right offsets: a rightward
@@ -322,12 +344,16 @@ export function AIAssistantFloating() {
     [startDrag, onTouchMove],
   )
 
-  // Minimizing/expanding only toggles height. The bottom-right anchor keeps the
-  // bottom edge fixed, so the card collapses straight down toward its origin.
+  // Minimizing/expanding only toggles height. The bottom-right anchor keeps the bottom edge fixed,
+  // so the card collapses straight down toward its origin and grows back up on expand. A card parked
+  // near the top of the viewport would grow its header (the only drag and toggle affordance) off
+  // screen, so the offset is re-clamped against the height it is about to have.
   const handleHeaderClick = useCallback(() => {
     if (hasDragged.current) return
-    setIsMinimized((prev) => !prev)
-  }, [])
+    const nextHeight = isMinimized ? dimensions.height : CARD_HEIGHT_MINIMIZED
+    setOffset((current) => clampOffset(current.right, current.bottom, dimensions.width, nextHeight))
+    setIsMinimized(!isMinimized)
+  }, [isMinimized, dimensions.height, dimensions.width])
 
   // --- Resize handlers (top-left corner) ---
   // The bottom-right anchor is fixed, so resizing is purely a dimension change:
@@ -341,6 +367,7 @@ export function AIAssistantFloating() {
     const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, resizeStart.current.height + dy))
 
     setDimensions({ width: newWidth, height: newHeight })
+    setOffset((current) => clampOffset(current.right, current.bottom, newWidth, newHeight))
   }, [])
 
   const onResizeMouseDown = useCallback(
@@ -366,18 +393,19 @@ export function AIAssistantFloating() {
     [dimensions, onResizeMove],
   )
 
-  if (!session?.user) {
+  // The /chat page already owns this conversation; a second live store over it would go stale.
+  if (!session?.user || pathname.startsWith("/chat")) {
     return null
   }
 
   if (!isOpen) {
     return (
       <Button
-        className="fixed bottom-4 right-4 h-12 rounded-full shadow-lg z-50 gap-2 pl-3 pr-4"
+        className="fixed right-4 bottom-4 z-50 h-12 gap-2 rounded-full pr-4 pl-3 shadow-lg"
         onClick={() => setIsOpen(true)}
       >
-        <div className="bg-primary-foreground/20 p-1 rounded-full">
-          <Sparkles className="h-4 w-4" />
+        <div className="rounded-full bg-primary-foreground/20 p-1">
+          <Sparkles className="size-4" />
         </div>
         PanelMaker AI
       </Button>
@@ -387,7 +415,7 @@ export function AIAssistantFloating() {
   return (
     <Card
       ref={cardRef}
-      className="fixed bg-background shadow-xl z-50 flex flex-col overflow-hidden border-border p-0"
+      className="fixed z-50 flex flex-col overflow-hidden border-border bg-background p-0 shadow-xl"
       style={{
         right: offset.right,
         bottom: offset.bottom,
@@ -396,30 +424,30 @@ export function AIAssistantFloating() {
         transition: isDragging || isResizing ? "none" : "height 200ms ease-in-out",
       }}
     >
-      {/* Resize handle — top-left corner */}
+      {/* Resize handle, top-left corner */}
       {!isMinimized && (
         <div
-          className="absolute top-0 left-0 z-10 flex items-center justify-center w-5 h-5 cursor-nw-resize text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+          className="absolute top-0 left-0 z-10 flex size-5 cursor-nw-resize items-center justify-center text-muted-foreground/40 transition-colors hover:text-muted-foreground"
           onMouseDown={onResizeMouseDown}
           title="Resize"
         >
-          <GripHorizontal className="h-3 w-3 -rotate-45" />
+          <GripHorizontal className="size-3 -rotate-45" />
         </div>
       )}
 
-      {/* Header — drag handle */}
+      {/* Header, doubles as the drag handle */}
       <div
         className={cn(
-          "p-3 border-b bg-muted/50 backdrop-blur-sm flex justify-between items-center select-none",
-          "hover:bg-muted transition-colors",
+          "flex items-center justify-between border-b bg-muted/50 p-3 backdrop-blur-sm select-none",
+          "transition-colors hover:bg-muted",
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
         onMouseDown={onHeaderMouseDown}
         onTouchStart={onHeaderTouchStart}
         onClick={handleHeaderClick}
       >
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles className="size-4 text-primary" />
           PanelMaker AI
         </h3>
         <div className="flex items-center gap-1">
@@ -428,53 +456,56 @@ export function AIAssistantFloating() {
               asChild
               variant="ghost"
               size="icon"
-              className="h-6 w-6"
+              className="size-6"
               onClick={(e) => e.stopPropagation()}
               title="Open in full page"
             >
               <Link href={`/chat/${conversationId}`} aria-label="Open in full page">
-                <ExternalLink className="h-4 w-4" />
+                <ExternalLink className="size-4" />
               </Link>
             </Button>
           )}
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="size-6"
+            aria-label={isMinimized ? "Expand assistant" : "Minimize assistant"}
             onClick={(e) => {
               e.stopPropagation()
               setIsMinimized((prev) => !prev)
             }}
           >
-            {isMinimized ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {isMinimized ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6"
+            className="size-6"
+            aria-label="Close assistant"
             onClick={(e) => {
               e.stopPropagation()
-              setIsOpen(false)
+              handleClose()
             }}
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </Button>
         </div>
       </div>
 
-      {/* Content */}
-      {!isMinimized &&
-        (conversationId ? (
+      {/* Content. Kept mounted while minimized so the live stream is not thrown away. */}
+      <div className={cn("flex min-h-0 flex-1 flex-col", isMinimized && "hidden")}>
+        {conversationId ? (
           <FloatingConversation
             key={conversationId}
             conversationId={conversationId}
             initialMessages={initialMessages}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-background">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <div className="flex flex-1 items-center justify-center bg-background">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
           </div>
-        ))}
+        )}
+      </div>
     </Card>
   )
 }

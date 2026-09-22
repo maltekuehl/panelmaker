@@ -2,8 +2,10 @@ import { AntibodyUsagesTable } from "@/components/browse/antibody-usages-table"
 import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
+import { ValueOrNotAvailable } from "@/components/shared/not-available"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { markerHref } from "@/lib/routes"
 import { resolveAntibodyByRrid } from "@/models/antibody"
 import { getReportsForAntibody, reportUsageImages, toReportUsage } from "@/models/experimental-report"
 import { ExternalLink } from "lucide-react"
@@ -63,7 +65,7 @@ async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: s
 
           <div className="flex flex-wrap items-center gap-2 text-muted-foreground mb-4">
             <Badge variant="secondary">{antibody.vendorName ?? "Unknown Vendor"}</Badge>
-            <Badge variant="outline">Cat: {antibody.catalogNumber ?? "N/A"}</Badge>
+            <Badge variant="outline">Cat: {antibody.catalogNumber ?? "Not available"}</Badge>
             {antibody.clonality && <Badge variant="outline">{antibody.clonality}</Badge>}
             {antibody.targetName && <Badge variant="outline">Target: {antibody.targetName}</Badge>}
             {antibody.hostTaxon?.label && <Badge variant="outline">Host: {antibody.hostTaxon.label}</Badge>}
@@ -72,7 +74,7 @@ async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: s
           <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
             <span>
               <span className="text-muted-foreground">Clone ID: </span>
-              <span className="font-medium">{antibody.cloneId ?? "N/A"}</span>
+              <ValueOrNotAvailable value={antibody.cloneId} className="font-medium" />
             </span>
             <span>
               <span className="text-muted-foreground">Conjugate: </span>
@@ -81,10 +83,7 @@ async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: s
             {antibody.targetProtein && (
               <span>
                 <span className="text-muted-foreground">Target: </span>
-                <Link
-                  href={`/marker/${antibody.targetProtein.id}`}
-                  className="font-medium text-primary hover:underline"
-                >
+                <Link href={markerHref(antibody.targetProtein.id)} className="font-medium text-primary hover:underline">
                   {antibody.targetProtein.label} ({antibody.targetProtein.geneSymbol})
                 </Link>
               </span>

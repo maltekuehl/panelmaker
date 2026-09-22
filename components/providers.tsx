@@ -1,12 +1,13 @@
 "use client"
 
 import { Toaster } from "@/components/ui/sonner"
+import type { Session } from "next-auth"
 import { SessionProvider } from "next-auth/react"
 import { NuqsAdapter } from "nuqs/adapters/next/app"
 
 interface ProvidersProps {
   children: React.ReactNode
-  session?: any
+  session?: Session | null
 }
 
 export default function Providers({ children, session }: ProvidersProps) {

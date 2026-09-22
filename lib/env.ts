@@ -16,20 +16,18 @@ const envSchema = z.object({
     .optional()
     .transform((val) => val === "true"),
 
-  // OAuth Providers (optional — email/password is the primary auth method)
+  // OAuth Providers (optional: email/password is the primary auth method)
   AUTH_GITHUB_ID: z.string().optional(),
   AUTH_GITHUB_SECRET: z.string().optional(),
   AUTH_LINKEDIN_ID: z.string().optional(),
   AUTH_LINKEDIN_SECRET: z.string().optional(),
 
-  // External APIs
-  GEMINI_API_KEY: z.string().min(1, "Gemini API key is required"),
+  // External APIs (optional: the app runs without them, the features that need them are disabled)
+  GEMINI_API_KEY: z.string().optional(),
+  SCICRUNCH_API_KEY: z.string().optional(),
 
   // Image storage (local disk, served by nginx from a shared volume)
   UPLOADS_DIR: z.string().default("./data/uploads"),
-
-  // Cron Jobs
-  CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters"),
 
   // Encryption at rest for stored API credentials (AES-256-GCM key material).
   // Optional: only required once users start saving their own provider API keys.
@@ -40,30 +38,32 @@ const envSchema = z.object({
   NEXT_PUBLIC_TEST_MODE: z.string().optional().default("false"),
 })
 
-// Validate environment variables
-export function validateEnvironment() {
-  try {
-    const env = envSchema.parse(process.env)
-    return env
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      console.error("❌ Environment variable validation failed:")
-      error.errors.forEach((err) => {
-        console.error(`  - ${err.path.join(".")}: ${err.message}`)
-      })
+export type Environment = z.infer<typeof envSchema>
 
-      if (process.env.NODE_ENV === "production") {
-        throw new Error("Environment validation failed in production")
-      } else {
-        console.warn("⚠️  Continuing in development mode despite validation errors")
-        return process.env
-      }
-    }
-    throw error
+// Validate environment variables
+export function validateEnvironment(): Environment {
+  const parsed = envSchema.safeParse(process.env)
+  if (parsed.success) return parsed.data
+
+  console.error("❌ Environment variable validation failed:")
+  parsed.error.errors.forEach((err) => {
+    console.error(`  - ${err.path.join(".")}: ${err.message}`)
+  })
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Environment validation failed in production")
   }
+
+  console.warn("⚠️  Continuing in development mode despite validation errors")
+  // Keeps `env` honest about the keys that carry a default or a transform, so callers stay type-safe.
+  return {
+    ...process.env,
+    AUTH_DEBUG: process.env.AUTH_DEBUG === "true",
+    UPLOADS_DIR: process.env.UPLOADS_DIR || "./data/uploads",
+    NODE_ENV: (process.env.NODE_ENV as Environment["NODE_ENV"]) || "development",
+    NEXT_PUBLIC_TEST_MODE: process.env.NEXT_PUBLIC_TEST_MODE || "false",
+  } as Environment
 }
 
 // Type-safe environment access
-export const env = validateEnvironment()
-
-export type Environment = z.infer<typeof envSchema>
+export const env: Environment = validateEnvironment()

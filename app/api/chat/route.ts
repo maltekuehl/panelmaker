@@ -1,47 +1,48 @@
-import { auth } from "@/auth"
-import { DEFAULT_MODEL, resolveLanguageModel } from "@/lib/ai/models"
-import { resolveViewerContext } from "@/lib/auth"
-import { logChatMessage } from "@/lib/chat"
+import { DEFAULT_MODEL, resolveLanguageModel, type ResolvedModel } from "@/lib/ai/models"
+import { getSessionUser, resolveViewerContext } from "@/lib/auth"
 import { createChatTools } from "@/lib/chat-tools"
+import { sanitizeError } from "@/lib/error-handling"
 import { logger } from "@/lib/monitoring"
 import { checkUserRateLimit, RATE_LIMITS } from "@/lib/rate-limiting"
 import {
   chatRequestSchema,
-  conversationBelongsToUser,
-  countMessages,
   createConversation,
+  extractMessageText,
+  getOwnedConversation,
+  logChatUsage,
   saveAssistantMessages,
   saveUserMessage,
   setConversationTitle,
 } from "@/models/chat"
-import { convertToModelMessages, generateText, stepCountIs, streamText, type UIMessage } from "ai"
+import { convertToModelMessages, createIdGenerator, generateText, stepCountIs, streamText, type UIMessage } from "ai"
 import { after, NextRequest, NextResponse } from "next/server"
 
-const chatErrorResponse = (message: string) => {
-  const schemaErrorStream = new ReadableStream({
-    start(controller) {
-      const formattedError = `0:"${message}"\ne:{"finishReason":"stop","usage":{"promptTokens":null,"completionTokens":null},"isContinued":false}\nd:{"finishReason":"stop","usage":{"promptTokens":null,"completionTokens":null}}`
-      formattedError.split("\n").forEach((line) => {
-        controller.enqueue(line + "\n")
-      })
-      controller.close()
-    },
+// Plain-text bodies with a real status code: DefaultChatTransport throws `new Error(await
+// response.text())` for any non-2xx response, which useChat exposes as `error.message`.
+function errorResponse(message: string, status: number, headers: Record<string, string> = {}): NextResponse {
+  return new NextResponse(message, {
+    status,
+    headers: { "Content-Type": "text/plain; charset=utf-8", ...headers },
   })
-  return new NextResponse(schemaErrorStream, { headers: { "Content-Type": "text/plain" } })
 }
 
-function extractUserText(message: UIMessage | undefined): string {
-  if (!message) return ""
-  return (message.parts ?? [])
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
-    .map((part) => part.text)
-    .join(" ")
-    .trim()
+function describeProviderError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+  if (message.includes("API key")) {
+    return "Invalid or missing API key. Please check your configuration and try again."
+  }
+  if (message.includes("rate limit") || message.includes("quota")) {
+    return "API rate limit exceeded. Please try again later."
+  }
+  if (message.includes("model") && message.includes("not found")) {
+    return "The specified model is not available. Please try again later."
+  }
+  return "Your message could not be processed. Please try again."
 }
 
-async function generateConversationTitle(text: string): Promise<string> {
+async function generateConversationTitle(text: string, viewer: Parameters<typeof createChatTools>[0]): Promise<string> {
   try {
-    const model = await resolveLanguageModel(DEFAULT_MODEL, null)
+    const { model } = await resolveLanguageModel(DEFAULT_MODEL, viewer)
     const { text: title } = await generateText({
       model,
       system:
@@ -69,7 +70,7 @@ Resolve (names to ids): **resolveMarkers**, **resolveCellTypes** (set expandDesc
 
 Evidence workhorse: **findReports** (search validation reports by any filter combination - markers, cell types, tissue, species, method, works, clone, host, etc.) and **aggregateReports** (roll up by a dimension with works-rate; groupBy 'antibody'/'clone' to rank antibodies, 'marker' to rank markers for a cell type, 'dilution'/'antigenRetrieval'/'fixation' for protocols, 'fluorophore' for empirical contrast, 'submitter' for experience). Recommendations = aggregateReports sorted by works-rate; flag low works-rate / low specificity inline.
 
-Lab scope: **listMyLabs** (call first for "our lab" questions), **getLabInventory** (what the lab stocks), **getLabPanels** (panels + markers for co-occurrence / reuse / gap analysis), **analyzePanel** (fluorophore overlap + cross-reactivity). Every tool takes a scope: 'public' (published+public), 'mine' (also your own + your labs), or 'labs' (specific labIds).
+Lab scope: **listMyLabs** (call first for "our lab" questions), **getLabInventory** (what the lab stocks), **getLabPanels** (panels + markers for co-occurrence / reuse / gap analysis), **analyzePanel** (fluorophore overlap + cross-reactivity). getMarkerDetails, getAntibodyDetails, findReports, aggregateReports, getLabPanels and getPanelLayoutSignals take a scope: 'public' (published+public), 'mine' (also your own + your labs), or 'labs' (specific labIds, defaulting to all your labs).
 
 Panel layout: **getPanelLayoutSignals** gathers per-marker signals (labile/phospho hint, host species, best-contrast fluorophores). Combine with best practices: put labile/phospho targets in EARLY cycles, robust strong-signal markers in LATER cycles, keep one compatible host species per cycle, and put weak/low-abundance targets on cleaner channels (e.g. less autofluorescence at 647 than 488). Propose the layout, then call analyzePanel to validate it.
 
@@ -77,7 +78,7 @@ ALWAYS resolve a cell type / tissue / species to ids before filtering. Combine t
 
 Surface your pick: when you have identified the best marker(s) or antibody(ies) for the user's panel, call **recommendForPanel** with your top 1-5 picks (real ids you actually retrieved: marker cuid for kind 'marker', the exact RRID string like 'RRID:AB_443427' for kind 'antibody') and a one-line reason each. The app renders these as cards with working "Add to panel" buttons. Therefore, when you call recommendForPanel, your text reply must NOT also list those same items as bullets and must NEVER contain fake buttons such as "[Add X to panel]" - the cards are the buttons. Keep your prose to a short rationale. The non-recommendation result cards are collapsed by default, so do not rely on the user reading them; restate the few facts that matter in your written answer.
 
-Panel editing (writes): **listMyPanels** (your editable panels; pass a panelId to get its cycle + marker ids), **createPanel**, **addCycle**, **deleteCycle**, **addAntibodyToCycle**, **moveMarker**, **removeMarker**. Always get the panelId / cycleId / markerId from listMyPanels first, and resolve any marker/antibody/fluorophore names to ids (resolveMarkers, resolveAntibodies, resolveFluorophores) before adding a marker. These tools follow the rules in <panel_editing>.
+Panel editing (writes): **listMyPanels** (your editable panels; pass a panelId to get its cycle + marker ids), **createPanel**, **addCycle**, **deleteCycle**, **addAntibodyToCycle**, **moveMarker**, **removeMarker**. Always get the panelId / cycleId / markerId from listMyPanels first, and resolve any marker/antibody/fluorophore names to ids (resolveMarkers, resolveAntibodies, resolveFluorophores) before adding a marker. Use **resolveImagingMethods** to look up an imaging method id (the imagingMethodId on createPanel, or the methods evidence filter) instead of guessing one. These tools follow the rules in <panel_editing>.
 </tools_guidance>
 
 <panel_editing>
@@ -116,169 +117,140 @@ Format all responses in clean, organized text with basic Markdown for structure 
 
 <scientific_communication>
 Maintain technical precision concisely. Clearly distinguish between established facts and interpretations. Include units and statistical context for numerical data. Acknowledge limitations in data or methodology when appropriate.
-</scientific_communication>`
-  .replaceAll("\n", "")
-  .replaceAll(/  +/g, " ")
+</scientific_communication>`.replace(/\s*\n\s*/g, " ")
+
+const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 })
 
 export async function POST(req: NextRequest) {
-  const timeout = 60000
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`Request timed out after ${timeout / 1000} seconds`))
-    }, timeout)
-  })
+  try {
+    const sessionUser = await getSessionUser()
+    if (!sessionUser) {
+      return errorResponse("Authentication required to use chat", 401)
+    }
+    const userId = sessionUser.id
 
-  const mainPromise = (async () => {
-    const requestBody = await req.json()
+    const requestBody = await req.json().catch(() => null)
     const parsed = chatRequestSchema.safeParse(requestBody)
     if (!parsed.success) {
-      return chatErrorResponse("Invalid request format")
+      return errorResponse("Invalid request format", 400)
     }
-    const { messages, model: requestedModel } = parsed.data
-
-    const session = await auth()
-
-    if (!session?.user?.id) {
-      return chatErrorResponse("Authentication required to use chat")
-    }
-    const userId = session.user.id
-
-    const rateLimitResult = await checkUserRateLimit(userId, RATE_LIMITS.CHAT_FREE)
-
-    if (!rateLimitResult.allowed) {
-      const resetTimeFormatted = rateLimitResult.resetTime.toLocaleString()
-      return chatErrorResponse(
-        `You have reached the daily limit of ${RATE_LIMITS.CHAT_FREE.maxRequests} free chat requests. ` +
-          `Your limit will reset at ${resetTimeFormatted}.`,
-      )
-    }
+    const messages = parsed.data.messages as unknown as UIMessage[]
+    const requestedModel = parsed.data.model
 
     const viewer = await resolveViewerContext(userId)
     if (!viewer) {
-      return chatErrorResponse("Authentication required to use chat")
+      return errorResponse("Authentication required to use chat", 401)
     }
-    const chatTools = createChatTools(viewer)
 
     // Resolve and ownership-check the conversation this turn belongs to (create one if none was sent).
-    let conversationId = parsed.data.conversationId
-    if (conversationId) {
-      if (!(await conversationBelongsToUser(userId, conversationId))) {
-        return chatErrorResponse("Conversation not found")
-      }
-    } else {
-      conversationId = (await createConversation(userId)).id
+    const conversation = parsed.data.conversationId
+      ? await getOwnedConversation(userId, parsed.data.conversationId)
+      : await createConversation(userId)
+    if (!conversation) {
+      return errorResponse("Conversation not found", 404)
     }
-    const convId = conversationId
+    const convId = conversation.id
 
-    const modelId = requestedModel || DEFAULT_MODEL
-    let model
+    // The widget has no model picker, so it inherits whatever the full page persisted for the thread.
+    let modelId = requestedModel || conversation.model || DEFAULT_MODEL
+    let resolved: ResolvedModel
     try {
-      model = await resolveLanguageModel(modelId, viewer)
+      resolved = await resolveLanguageModel(modelId, viewer)
     } catch (error) {
-      return chatErrorResponse(error instanceof Error ? error.message : "The selected model is unavailable.")
+      // A stored model whose key has since been removed must not lock the user out of the thread.
+      if (requestedModel || modelId === DEFAULT_MODEL) {
+        return errorResponse(error instanceof Error ? error.message : "The selected model is unavailable.", 503)
+      }
+      try {
+        resolved = await resolveLanguageModel(DEFAULT_MODEL, viewer)
+        modelId = DEFAULT_MODEL
+      } catch (fallbackError) {
+        return errorResponse(
+          fallbackError instanceof Error ? fallbackError.message : "The selected model is unavailable.",
+          503,
+        )
+      }
     }
+
+    // The free tier exists to protect the shared community key; a viewer running on their own or
+    // their lab's key is not charged against it.
+    if (resolved.keySource === "community") {
+      const rateLimit = await checkUserRateLimit(userId, RATE_LIMITS.CHAT_FREE)
+      if (!rateLimit.allowed) {
+        const retryAfter = Math.max(1, Math.ceil((rateLimit.resetTime.getTime() - Date.now()) / 1000))
+        return errorResponse(
+          `You have reached the daily limit of ${RATE_LIMITS.CHAT_FREE.maxRequests} free chat requests. ` +
+            `Your limit will reset at ${rateLimit.resetTime.toLocaleString()}.`,
+          429,
+          { "Retry-After": String(retryAfter) },
+        )
+      }
+    }
+
+    const chatTools = createChatTools(viewer)
 
     // Persist the latest user turn before streaming so it survives a dropped connection.
-    const latestMessage = messages[messages.length - 1] as UIMessage | undefined
+    const latestMessage = messages[messages.length - 1]
     if (latestMessage?.role === "user") {
       await saveUserMessage(convId, latestMessage)
     }
 
-    let capturedUsage: { inputTokens?: number; outputTokens?: number } = {}
-
-    let chatbotResult
-    try {
-      chatbotResult = streamText({
-        model,
-        system: SYSTEM_PROMPT,
-        seed: 3407,
-        maxOutputTokens: 10000,
-        temperature: 0.2,
-        messages: await convertToModelMessages(messages),
-        tools: chatTools,
-        stopWhen: stepCountIs(15),
-        onFinish: async ({ steps, totalUsage }) => {
-          capturedUsage = { inputTokens: totalUsage.inputTokens, outputTokens: totalUsage.outputTokens }
-          after(async () => {
-            await logChatMessage(userId, steps, totalUsage, new Map(), modelId)
-          })
-        },
-        onError: async ({ error }) => {
-          logger.error("Stream error", error instanceof Error ? error : new Error(String(error)))
-        },
-        providerOptions: {
-          google: {
-            thinkingConfig: {
-              thinkingBudget: 0,
-              includeThoughts: false,
-            },
+    const chatbotResult = streamText({
+      model: resolved.model,
+      system: SYSTEM_PROMPT,
+      seed: 3407,
+      maxOutputTokens: 10000,
+      temperature: 0.2,
+      messages: await convertToModelMessages(messages),
+      allowSystemInMessages: false,
+      tools: chatTools,
+      stopWhen: stepCountIs(15),
+      onFinish: async ({ totalUsage }) => {
+        after(async () => {
+          await logChatUsage(userId, totalUsage, modelId)
+        })
+      },
+      onError: async ({ error }) => {
+        logger.error("Stream error", error instanceof Error ? error : new Error(String(error)))
+      },
+      providerOptions: {
+        google: {
+          thinkingConfig: {
+            thinkingBudget: 0,
+            includeThoughts: false,
           },
         },
-      })
-    } catch (error: unknown) {
-      const err = error instanceof Error ? error : new Error(String(error))
-      logger.error("API Error in chat", err)
-
-      let errorMessage = "There was an error processing your request."
-
-      if (err.message) {
-        if (err.message.includes("API key")) {
-          errorMessage = "Invalid or missing API key. Please check your configuration and try again."
-        } else if (err.message.includes("rate limit") || err.message.includes("quota")) {
-          errorMessage = "API rate limit exceeded. Please try again later."
-        } else if (err.message.includes("model") && err.message.includes("not found")) {
-          errorMessage = "The specified model is not available. Please try again later."
-        } else {
-          errorMessage = `API Error: ${err.message.slice(0, 200)}${err.message.length > 200 ? "..." : ""}`
-        }
-      }
-
-      return chatErrorResponse(errorMessage)
-    }
+      },
+    })
 
     return chatbotResult.toUIMessageStreamResponse({
       sendReasoning: true,
+      // Without these the response message is persisted with an empty id and per-message delete
+      // breaks after a reload.
+      originalMessages: messages,
+      generateMessageId,
+      messageMetadata: ({ part }) => (part.type === "finish" ? { usage: part.totalUsage } : undefined),
       onFinish: async ({ responseMessage }) => {
         try {
-          await saveAssistantMessages(convId, [responseMessage], capturedUsage, modelId)
-          if ((await countMessages(convId)) === 2) {
-            await setConversationTitle(convId, await generateConversationTitle(extractUserText(latestMessage)))
+          const usage = (responseMessage.metadata as { usage?: { inputTokens?: number; outputTokens?: number } })?.usage
+          await saveAssistantMessages(convId, [responseMessage], usage ?? {}, modelId)
+          if (conversation.title === null) {
+            await setConversationTitle(
+              convId,
+              await generateConversationTitle(extractMessageText(latestMessage ?? responseMessage), viewer),
+            )
           }
         } catch (error) {
           logger.error("Failed to persist chat message", error instanceof Error ? error : new Error(String(error)))
         }
       },
       onError: (error: unknown) => {
-        const err = error instanceof Error ? error : new Error(String(error))
-        logger.error("Stream response error", err)
-
-        if (err.message) {
-          if (err.message.includes("API key")) {
-            return "Invalid or missing API key. Please check your configuration and try again."
-          } else if (err.message.includes("rate limit") || err.message.includes("quota")) {
-            return "API rate limit exceeded. Please try again later."
-          } else if (err.message.includes("model") && err.message.includes("not found")) {
-            return "The specified model is not available. Please try again later."
-          }
-        }
-
-        return "Your message could not be processed. Please try again."
+        logger.error("Stream response error", error instanceof Error ? error : new Error(String(error)))
+        return describeProviderError(error)
       },
     })
-  })()
-
-  try {
-    const result = await Promise.race([mainPromise, timeoutPromise])
-    return result
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error(String(error))
-    logger.error("Unhandled error in chat route", err)
-
-    let errorMessage = "There was an error processing your request."
-    if (err.message.length > 0 && err.message.length < 300) {
-      errorMessage = err.message
-    }
-
-    return chatErrorResponse(errorMessage)
+    logger.error("Unhandled error in chat route", error instanceof Error ? error : new Error(String(error)))
+    return errorResponse(sanitizeError(error), 500)
   }
 }

@@ -7,8 +7,8 @@
 - [ ] Developer documentation
 - [ ] README updates
 - [ ] Code comments
-- [ ] MCP server documentation
-- [ ] Schema.org documentation
+- [ ] Ontology and metadata documentation
+- [ ] Submission and panel guides
 - [ ] Other: 
 
 ## Changes Made
@@ -22,7 +22,7 @@
 - [ ] End users
 - [ ] Developers/Contributors
 - [ ] Researchers
-- [ ] MCP server authors
+- [ ] Lab members and panel designers
 - [ ] System administrators
 
 ## Files Modified

@@ -1,47 +1,51 @@
 "use client"
 
 import ChatAbout from "@/components/chat/chat-about"
-import { ChatSidebarDesktop, ChatSidebarMobile, type ConversationListItem } from "@/components/chat/chat-sidebar"
-import { ToolResultCard } from "@/components/chat/tool-result-card"
-import Markdown from "@/components/markdown"
+import { ChatSidebarDesktop, ChatSidebarMobile } from "@/components/chat/chat-sidebar"
+import { MessageParts } from "@/components/chat/message-parts"
+import { useConversation } from "@/components/chat/use-conversation"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport, UIMessage } from "ai"
+import { Textarea } from "@/components/ui/textarea"
+import { extractMessageText, type ConversationSummary } from "@/models/chat/transforms"
+import type { UIMessage } from "ai"
 import clsx from "clsx"
-import { ArrowUp, Check, Copy, Edit2, Loader2, StopCircle, Trash2, X } from "lucide-react"
+import { ArrowUp, Check, Copy, Edit2, StopCircle, Trash2, X } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Fragment, ReactElement, useEffect, useRef, useState } from "react"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../ui/accordion"
-import { Textarea } from "../ui/textarea"
-
-type ToolPart = Parameters<typeof ToolResultCard>[0]["part"]
-
-export const maxDuration = 50
+import { useEffect, useState, type ReactNode } from "react"
 
 const MessageCard = ({
-  user,
+  role,
+  author,
   message,
   rawContent,
   onDelete,
-  onEdit,
   onRegenerateFromHere,
 }: {
-  user: string
-  message: ReactElement<any>
+  role: "user" | "assistant"
+  author: string
+  message: ReactNode
   rawContent?: string
   onDelete?: () => void
-  onEdit?: (newContent: string) => void
   onRegenerateFromHere?: (newContent: string) => void
 }) => {
-  const isBot = user === "PanelMaker AI"
+  const isBot = role === "assistant"
   const [copied, setCopied] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState("")
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  // Update editedContent when rawContent changes or editing starts
   useEffect(() => {
     if (isEditing && rawContent) {
       setEditedContent(rawContent)
@@ -57,13 +61,6 @@ const MessageCard = ({
     }
   }
 
-  const handleSaveEdit = () => {
-    if (editedContent.trim() && editedContent !== rawContent && onEdit) {
-      onEdit(editedContent.trim())
-    }
-    setIsEditing(false)
-  }
-
   const handleRegenerateFromHere = () => {
     if (editedContent.trim() && onRegenerateFromHere) {
       onRegenerateFromHere(editedContent.trim())
@@ -76,54 +73,49 @@ const MessageCard = ({
     setIsEditing(false)
   }
 
-  const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this message? This action cannot be undone.")) {
-      onDelete?.()
-    }
-  }
+  const deleteButton = onDelete && (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => setConfirmingDelete(true)}
+      className="size-7 p-0 hover:bg-destructive hover:text-destructive-foreground"
+      aria-label="Delete message"
+      title="Delete message"
+    >
+      <Trash2 className="size-3.5" />
+    </Button>
+  )
 
   return (
-    <div className={clsx("flex w-full items-start gap-2 group", isBot ? "justify-start" : "justify-end")}>
-      {/* Action buttons for user messages - on the left */}
+    <div className={clsx("group flex w-full items-start gap-2", isBot ? "justify-start" : "justify-end")}>
       {!isBot && onDelete && (
-        <div
-          className="flex flex-row gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ paddingTop: "1.875rem" }}
-        >
-          {(onEdit || onRegenerateFromHere) && (
+        <div className="flex flex-row gap-1 pt-7.5 opacity-0 transition-opacity group-hover:opacity-100">
+          {onRegenerateFromHere && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsEditing(true)}
-              className="h-7 w-7 p-0 hover:bg-muted"
+              className="size-7 p-0 hover:bg-muted"
+              aria-label="Edit message"
               title="Edit message"
             >
-              <Edit2 className="h-3.5 w-3.5" />
+              <Edit2 className="size-3.5" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            className="h-7 w-7 p-0 hover:bg-destructive hover:text-destructive-foreground"
-            title="Delete message"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {deleteButton}
         </div>
       )}
 
-      {/* Message content */}
-      <div className={clsx("flex flex-col mb-4", isBot ? "w-full items-start" : "max-w-[85%] items-end")}>
-        <span className="text-xs font-medium text-muted-foreground mb-1 px-1">{user}</span>
+      <div className={clsx("mb-4 flex flex-col", isBot ? "w-full items-start" : "max-w-[85%] items-end")}>
+        <span className="mb-1 px-1 text-xs font-medium text-muted-foreground">{author}</span>
         <div
           className={clsx(
-            "w-full max-w-full relative animate-in fade-in duration-300",
+            "relative w-full max-w-full duration-300 animate-in fade-in",
             isBot
               ? "text-foreground"
               : isEditing
                 ? "rounded-2xl bg-muted/40 p-2 text-foreground"
-                : "rounded-2xl px-4 py-3 bg-primary text-primary-foreground rounded-br-md",
+                : "rounded-2xl rounded-br-md bg-primary px-4 py-3 text-primary-foreground",
           )}
         >
           {isEditing ? (
@@ -131,34 +123,22 @@ const MessageCard = ({
               <Textarea
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
-                className="w-full min-h-25 resize-none bg-background text-sm text-foreground"
+                className="min-h-25 w-full resize-none bg-background text-sm text-foreground"
                 autoFocus
               />
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
-                  <X className="h-3.5 w-3.5" />
+                  <X className="size-3.5" />
                   Cancel
                 </Button>
-                <Button size="sm" onClick={handleSaveEdit}>
-                  <Check className="h-3.5 w-3.5" />
-                  Save
+                <Button size="sm" onClick={handleRegenerateFromHere}>
+                  <ArrowUp className="size-3.5" />
+                  Save and regenerate
                 </Button>
-                {onRegenerateFromHere && (
-                  <Button variant="outline" size="sm" onClick={handleRegenerateFromHere}>
-                    <ArrowUp className="h-3.5 w-3.5" />
-                    Save & regenerate
-                  </Button>
-                )}
               </div>
             </div>
           ) : (
-            <div
-              className={clsx(
-                "max-w-none mb-0",
-                isBot ? "prose-zinc dark:prose-invert" : "prose-primary-foreground",
-                "[&_.not-prose]:not-prose [&_.not-prose_*]:not-prose",
-              )}
-            >
+            <div className="mb-0 max-w-none [&_.not-prose]:not-prose [&_.not-prose_*]:not-prose">
               <div className="text-sm leading-6">{message}</div>
             </div>
           )}
@@ -168,96 +148,41 @@ const MessageCard = ({
             variant="ghost"
             size="sm"
             onClick={handleCopy}
-            className="text-xs h-6 py-1 px-2 flex gap-1 mt-1"
+            className="mt-1 h-6 px-2 text-xs"
             aria-label="Copy message to clipboard"
           >
             {copied ? <Check className="size-3!" /> : <Copy className="size-3!" />}
-            {copied && <span className="sr-only">Copied!</span>}
+            {copied && <span className="sr-only">Copied</span>}
             <span>Copy message</span>
           </Button>
         )}
       </div>
 
-      {/* Action buttons for bot messages - on the right */}
       {isBot && onDelete && (
-        <div
-          className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ paddingTop: "1.875rem" }}
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            className="h-7 w-7 p-0 hover:bg-destructive hover:text-destructive-foreground"
-            title="Delete message"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+        <div className="flex flex-col gap-1 pt-7.5 opacity-0 transition-opacity group-hover:opacity-100">
+          {deleteButton}
         </div>
       )}
+
+      {onDelete && (
+        <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+          <AlertDialogContent size="sm">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this message and everything after it?</AlertDialogTitle>
+              <AlertDialogDescription>
+                All later messages in this conversation will also be removed. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={() => onDelete()}>
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
-  )
-}
-
-// Collapsible reasoning display similar to tool invocation card
-const ReasoningCard = ({
-  text,
-  isStreaming,
-  reasoningIndex,
-}: {
-  text: string
-  isStreaming: boolean
-  reasoningIndex: number
-}) => {
-  const [copied, setCopied] = useState(false)
-
-  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation()
-    navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  return (
-    <Card className="relative px-4 py-0 bg-card border-border reasoning-invocation animate-in fade-in duration-300">
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value={`reasoning-${reasoningIndex}`} className="border-none">
-          <AccordionTrigger className="text-start overflow-hidden">
-            <div className="flex items-center justify-between gap-2 pe-1 w-full min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                {isStreaming ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                ) : (
-                  <Check className="h-4 w-4 text-primary shrink-0" />
-                )}
-                <div className="text-sm font-medium text-muted-foreground truncate">Reasoning</div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopy}
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground shrink-0"
-                  aria-label="Copy reasoning to clipboard"
-                  role="button"
-                >
-                  <div>
-                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copied && <span className="sr-only">Copied!</span>}
-                  </div>
-                </Button>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent className="pt-4 pb-4">
-            <div className="prose prose-sm max-w-none">
-              <Markdown>{text}</Markdown>
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </Card>
   )
 }
 
@@ -269,7 +194,7 @@ interface ModelChoice {
 interface ChatProps {
   conversationId: string
   initialMessages: UIMessage[]
-  conversations: ConversationListItem[]
+  conversations: ConversationSummary[]
   name?: string
   availableModels: ModelChoice[]
   currentModel: string
@@ -283,35 +208,19 @@ export default function Chat({
   availableModels,
   currentModel,
 }: ChatProps) {
-  const form = useRef<HTMLFormElement>(null)
   const router = useRouter()
-  const [input, setInput] = useState("")
 
   const initialModel = availableModels.some((model) => model.id === currentModel)
     ? currentModel
     : (availableModels[0]?.id ?? currentModel)
   const [selectedModel, setSelectedModel] = useState(initialModel)
 
-  const {
-    messages,
-    sendMessage,
-    error,
-    setMessages: setAiMessages,
-    stop,
-    status,
-  } = useChat({
-    id: conversationId,
-    messages: initialMessages,
-    transport: new DefaultChatTransport({ api: "/api/chat", body: { conversationId } }),
-    experimental_throttle: 50,
-    onFinish: () => {
-      // The first reply names the conversation server-side; refresh so the sidebar picks it up.
-      router.refresh()
-    },
+  const { messages, setMessages, error, status, isStreaming, stop, input, setInput, send, submit } = useConversation({
+    conversationId,
+    initialMessages,
+    // The first reply names the conversation server-side; refresh so the sidebar picks it up.
+    onFinish: () => router.refresh(),
   })
-
-  // Check if currently streaming
-  const isStreaming = ["submitted", "streaming"].includes(status)
 
   const handleModelChange = (model: string) => {
     setSelectedModel(model)
@@ -323,34 +232,15 @@ export default function Chat({
   }
 
   const handleSubmitAction = (e?: React.FormEvent<HTMLFormElement>) => {
-    if (e) {
-      e.preventDefault()
-    }
-    if (!input.trim()) return
-    if (isStreaming) return
-
-    sendMessage({ text: input.trim() }, { body: { conversationId, model: selectedModel } })
-    setInput("")
-  }
-
-  // Helper function to extract raw text content from message parts
-  const extractRawContent = (message: any): string => {
-    if (!message.parts) {
-      return message.content || ""
-    }
-
-    return message.parts
-      .filter((part: any) => part.type === "text" || part.type === "reasoning")
-      .map((part: any) => part.text || part.reasoningText || "")
-      .join("\n\n")
-      .trim()
+    e?.preventDefault()
+    submit(selectedModel)
   }
 
   // Delete a message and everything after it (server + local), keeping the linear thread consistent.
   const handleDeleteMessage = async (messageId: string) => {
     const index = messages.findIndex((m) => m.id === messageId)
     await fetch(`/api/chat/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" })
-    setAiMessages(index === -1 ? messages : messages.slice(0, index))
+    setMessages(index === -1 ? messages : messages.slice(0, index))
     router.refresh()
   }
 
@@ -360,8 +250,8 @@ export default function Chat({
     if (messageIndex === -1) return
 
     await fetch(`/api/chat/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" })
-    setAiMessages(messages.slice(0, messageIndex))
-    sendMessage({ text: newContent.trim() }, { body: { conversationId, model: selectedModel } })
+    setMessages(messages.slice(0, messageIndex))
+    send(newContent, selectedModel)
   }
 
   const [scrollbarWidth, setScrollbarWidth] = useState(0)
@@ -386,8 +276,8 @@ export default function Chat({
         currentConversationId={conversationId}
         isStreaming={isStreaming}
       />
-      <div className="flex-1 flex flex-col relative w-full">
-        <div className="lg:hidden border-b bg-background px-4 py-2">
+      <div className="relative flex w-full flex-1 flex-col">
+        <div className="border-b bg-background px-4 py-2 lg:hidden">
           <ChatSidebarMobile
             conversations={conversations}
             currentConversationId={conversationId}
@@ -396,87 +286,55 @@ export default function Chat({
         </div>
 
         <div
-          className={`relative flex ${messages.length >= 1 ? "flex-col-reverse pb-56" : "flex-col pb-60"} h-full overflow-y-scroll w-full bg-background`}
+          className={`relative flex ${messages.length >= 1 ? "flex-col-reverse pb-56" : "flex-col pb-60"} h-full w-full overflow-y-scroll bg-background`}
           id="chat"
           style={{
             scrollBehavior: "smooth",
             paddingInlineStart: Math.round(scrollbarWidth),
           }}
         >
-          <div className="w-full mt-8 px-4 lg:px-8">
-            <div className="max-w-5xl mx-auto flex flex-col">
+          <div className="mt-8 w-full px-4 lg:px-8">
+            <div className="mx-auto flex max-w-5xl flex-col">
               {messages.length <= 0 && <ChatAbout />}
 
-              {messages.map((m, index) => {
-                const rawContent = extractRawContent(m)
+              {messages.map((m) => {
                 const isUserMessage = m.role === "user"
                 return (
-                  <Fragment key={m.id || `message-${index}`}>
-                    <MessageCard
-                      key={index}
-                      user={isUserMessage ? (name ? name : "You") : "PanelMaker AI"}
-                      rawContent={rawContent}
-                      onDelete={() => handleDeleteMessage(m.id)}
-                      onRegenerateFromHere={
-                        isUserMessage ? (newContent) => handleRegenerateFromHere(m.id, newContent) : undefined
-                      }
-                      message={
-                        <>
-                          {m.parts?.map((part, partIndex) => (
-                            <Fragment key={partIndex}>
-                              {part.type === "reasoning" && (
-                                <div className="py-1.5">
-                                  <ReasoningCard
-                                    text={part.text}
-                                    isStreaming={
-                                      (status === "submitted" || status === "streaming") &&
-                                      partIndex === (m.parts?.length || 0) - 1
-                                    }
-                                    reasoningIndex={partIndex}
-                                  />
-                                </div>
-                              )}
-                              {(part.type === "dynamic-tool" ||
-                                (typeof part.type === "string" && part.type.startsWith("tool-"))) && (
-                                <div className="py-1.5">
-                                  <ToolResultCard part={part as ToolPart} />
-                                </div>
-                              )}
-                              {part.type === "text" && (
-                                <div className="prose prose-sm animate-in fade-in duration-300">
-                                  <Markdown>{part.text}</Markdown>
-                                </div>
-                              )}
-                            </Fragment>
-                          ))}
-                        </>
-                      }
-                    />
-                  </Fragment>
+                  <MessageCard
+                    key={m.id}
+                    role={isUserMessage ? "user" : "assistant"}
+                    author={isUserMessage ? (name ?? "You") : "PanelMaker AI"}
+                    rawContent={extractMessageText(m, { includeReasoning: true })}
+                    onDelete={() => handleDeleteMessage(m.id)}
+                    onRegenerateFromHere={
+                      isUserMessage ? (newContent) => handleRegenerateFromHere(m.id, newContent) : undefined
+                    }
+                    message={<MessageParts message={m} isStreaming={isStreaming} />}
+                  />
                 )
               })}
               {messages.length > 0 && error !== undefined && (
-                <Fragment key="error">
-                  <MessageCard
-                    user="PanelMaker AI"
-                    message={
-                      <div className="text-destructive animate-in fade-in duration-300">
-                        <strong>Error:</strong> {error.message}
-                      </div>
-                    }
-                  />
-                </Fragment>
+                <MessageCard
+                  key="error"
+                  role="assistant"
+                  author="PanelMaker AI"
+                  message={
+                    <div className="text-destructive duration-300 animate-in fade-in">
+                      <strong>Error:</strong> {error.message}
+                    </div>
+                  }
+                />
               )}
               {status === "submitted" && (
-                <div className="flex w-full items-start gap-2 justify-start mb-4 animate-in fade-in duration-300">
-                  <div className="flex flex-col items-start max-w-[85%]">
-                    <span className="text-xs font-medium text-muted-foreground mb-1 px-1">PanelMaker AI</span>
-                    <div className="rounded-2xl px-4 py-3 bg-muted/50 text-foreground rounded-bl-md">
+                <div className="mb-4 flex w-full items-start justify-start gap-2 duration-300 animate-in fade-in">
+                  <div className="flex max-w-[85%] flex-col items-start">
+                    <span className="mb-1 px-1 text-xs font-medium text-muted-foreground">PanelMaker AI</span>
+                    <div className="rounded-2xl rounded-bl-md bg-muted/50 px-4 py-3 text-foreground">
                       <div className="flex items-center gap-3">
                         <div className="flex gap-1.5">
-                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]"></div>
-                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]"></div>
-                          <div className="w-2 h-2 rounded-full bg-primary animate-bounce"></div>
+                          <div className="size-2 animate-bounce rounded-full bg-primary [animation-delay:-0.3s]"></div>
+                          <div className="size-2 animate-bounce rounded-full bg-primary [animation-delay:-0.15s]"></div>
+                          <div className="size-2 animate-bounce rounded-full bg-primary"></div>
                         </div>
                         <span className="text-sm text-muted-foreground">Processing...</span>
                       </div>
@@ -487,11 +345,11 @@ export default function Chat({
             </div>
           </div>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 w-full h-40 bg-linear-to-t from-background via-background to-transparent pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 right-0 w-full px-4 lg:px-8 pb-4">
-          <div className="max-w-5xl mx-auto">
-            <div className="overflow-hidden rounded-2xl border bg-background/95 shadow-lg backdrop-blur-sm supports-backdrop-filter:bg-background/60 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/40 transition-colors">
-              <form className="flex flex-col" onSubmit={handleSubmitAction} ref={form}>
+        <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-40 w-full bg-linear-to-t from-background via-background to-transparent"></div>
+        <div className="absolute right-0 bottom-0 left-0 w-full px-4 pb-4 lg:px-8">
+          <div className="mx-auto max-w-5xl">
+            <div className="overflow-hidden rounded-2xl border bg-background/95 shadow-lg backdrop-blur-sm transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/40 supports-backdrop-filter:bg-background/60">
+              <form className="flex flex-col" onSubmit={handleSubmitAction}>
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -505,14 +363,16 @@ export default function Chat({
                   maxLength={2048}
                   autoFocus
                   rows={2}
-                  className="w-full min-h-11 max-h-48 resize-none border-0 bg-transparent px-4 pt-4 pb-0 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-hidden focus:outline-hidden"
+                  aria-label="Message PanelMaker AI"
+                  className="max-h-48 min-h-11 w-full resize-none border-0 bg-transparent px-4 pt-4 pb-0 text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden focus-visible:outline-hidden"
                   placeholder="E.g., which markers work for resident memory T cells in human kidney?"
                 />
-                <div className="flex items-center justify-between gap-2 px-4 pb-2.5 pt-1">
+                <div className="flex items-center justify-between gap-2 px-4 pt-1 pb-2.5">
                   {availableModels.length > 1 ? (
                     <Select value={selectedModel} onValueChange={handleModelChange}>
                       <SelectTrigger
                         size="sm"
+                        aria-label="Model"
                         className="-ml-2 h-7 w-auto gap-1 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-muted hover:text-foreground focus-visible:ring-0"
                       >
                         <SelectValue />
@@ -528,7 +388,7 @@ export default function Chat({
                   ) : (
                     <span />
                   )}
-                  {["submitted", "streaming"].includes(status) ? (
+                  {isStreaming ? (
                     <Button type="button" size="sm" onClick={() => stop()} className="size-8 shrink-0 rounded-full p-0">
                       <StopCircle className="size-4" />
                       <span className="sr-only">Stop</span>
@@ -547,23 +407,23 @@ export default function Chat({
                 </div>
               </form>
             </div>
-            <div className="text-center py-2 text-balance text-[0.5rem] text-muted-foreground select-none">
+            <div className="text-balance py-2 text-center text-[10px] text-muted-foreground select-none">
               Information purposes only. No medical advice. Verify responses. Do not submit personal or copyrighted
               data. By using this service, you agree to our{" "}
-              <Link href="/legal/terms" className="underline hover:text-primary transition-colors">
+              <Link href="/legal/terms" className="underline transition-colors hover:text-primary">
                 Terms of Service
               </Link>{" "}
               and confirm that you have read our{" "}
-              <Link href="/legal/privacy" className="underline hover:text-primary transition-colors">
+              <Link href="/legal/privacy" className="underline transition-colors hover:text-primary">
                 Privacy Policy
               </Link>{" "}
               and the{" "}
-              <Link href="/docs/knowledgebase" className="underline hover:text-primary transition-colors">
+              <Link href="/docs/knowledgebase" className="underline transition-colors hover:text-primary">
                 Data Sources and Licensing
               </Link>{" "}
               section.{" "}
-              <Link href="/legal/notice" className="underline hover:text-primary transition-colors">
-                Legal Notice & Disclaimer
+              <Link href="/legal/notice" className="underline transition-colors hover:text-primary">
+                Legal Notice and Disclaimer
               </Link>
               . Logos may be trademarked and remain the property of their respective owner.
             </div>

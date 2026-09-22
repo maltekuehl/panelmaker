@@ -12,14 +12,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
 import { Loader2, Trash2 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { useState } from "react"
+import { toast } from "sonner"
 
 export default function DeleteAccountSection() {
   const [isDeleting, setIsDeleting] = useState(false)
-  const { toast } = useToast()
 
   const handleDeleteAccount = async () => {
     setIsDeleting(true)
@@ -33,18 +32,11 @@ export default function DeleteAccountSection() {
         throw new Error(errorData.error || "Failed to delete account")
       }
 
-      toast({
-        title: "Account deleted",
-        description: "Your account has been permanently deleted",
-      })
+      toast.success("Account deleted", { description: "Your account has been permanently deleted" })
 
       await signOut({ callbackUrl: "/" })
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete account",
-        variant: "destructive",
-      })
+      toast.error("Error", { description: error instanceof Error ? error.message : "Failed to delete account" })
       setIsDeleting(false)
     }
   }
@@ -74,7 +66,8 @@ export default function DeleteAccountSection() {
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete your account and remove all your data from
-                our servers, including: Your profile information, reviews, panels, and blog posts.
+                our servers, including your profile, experiments and reports, panels, lab memberships, chat
+                conversations, and blog posts.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -84,7 +77,7 @@ export default function DeleteAccountSection() {
                 disabled={isDeleting}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Delete My Account
               </AlertDialogAction>
             </AlertDialogFooter>

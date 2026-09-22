@@ -1,13 +1,14 @@
-import { auth } from "@/auth"
 import { JoinInvitation } from "@/components/lab/join-invitation"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getSessionUser } from "@/lib/auth"
+import { signInUrl } from "@/lib/routes"
 import { getInvitationView } from "@/models/lab"
+import { normalizeEmail } from "@/models/user/transforms"
 import type { Metadata } from "next"
-import Link from "next/link"
+import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {
-  title: "Join a lab - PanelMaker",
+  title: "Join a lab | PanelMaker",
   robots: { index: false, follow: false },
 }
 
@@ -27,17 +28,10 @@ function Shell({ title, description, children }: { title: string; description: s
 
 export default async function JoinLabPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
-  const session = await auth()
+  const user = await getSessionUser()
 
-  if (!session?.user?.id) {
-    const callbackUrl = encodeURIComponent(`/lab/join/${token}`)
-    return (
-      <Shell title="Join a lab" description="Sign in to review and accept this invitation.">
-        <Button asChild>
-          <Link href={`/signin?callbackUrl=${callbackUrl}`}>Sign in to continue</Link>
-        </Button>
-      </Shell>
-    )
+  if (!user) {
+    redirect(signInUrl(`/lab/join/${token}`))
   }
 
   const invitation = await getInvitationView(token)
@@ -64,9 +58,7 @@ export default async function JoinLabPage({ params }: { params: Promise<{ token:
   }
 
   const emailMismatch =
-    invitation.email != null &&
-    session.user.email != null &&
-    invitation.email.toLowerCase() !== session.user.email.toLowerCase()
+    invitation.email != null && user.email != null && invitation.email !== normalizeEmail(user.email)
 
   if (emailMismatch) {
     return (

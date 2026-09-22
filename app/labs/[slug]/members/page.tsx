@@ -1,40 +1,32 @@
-import { auth } from "@/auth"
 import { InviteMemberForm } from "@/components/lab/invite-member-form"
 import { LabPageHeader } from "@/components/lab/lab-page-header"
 import { MemberManager } from "@/components/lab/member-manager"
 import {
   getLabBySlug,
   getLabMembers,
-  getUserLabRole,
   listLabInvitations,
   toLabInvitationResponse,
   toLabMemberResponse,
 } from "@/models/lab"
 import { Users } from "lucide-react"
-import { notFound } from "next/navigation"
+import type { Metadata } from "next"
+import { requireLabMember } from "../require-lab-member"
 
 interface MembersPageProps {
   params: Promise<{ slug: string }>
 }
 
+export async function generateMetadata({ params }: MembersPageProps): Promise<Metadata> {
+  const { slug } = await params
+  const lab = await getLabBySlug(slug)
+  if (!lab) return { title: "Lab Not Found | PanelMaker" }
+  return { title: `Members | ${lab.name} | PanelMaker`, robots: { index: false, follow: false } }
+}
+
 export default async function LabMembersPage({ params }: MembersPageProps) {
   const { slug } = await params
 
-  const [lab, session] = await Promise.all([getLabBySlug(slug), auth()])
-
-  if (!lab) {
-    notFound()
-  }
-
-  if (!session?.user?.id) {
-    notFound()
-  }
-
-  const role = await getUserLabRole(session.user.id, lab.id)
-
-  if (!role) {
-    notFound()
-  }
+  const { lab, role, userId } = await requireLabMember(slug, `/labs/${slug}/members`)
 
   const isAdminOrOwner = role === "ADMIN" || role === "OWNER"
 
@@ -61,7 +53,7 @@ export default async function LabMembersPage({ params }: MembersPageProps) {
           </div>
           <MemberManager
             labId={lab.id}
-            currentUserId={session.user.id}
+            currentUserId={userId}
             viewerRole={role}
             members={memberResponses}
             invitations={invitationResponses}

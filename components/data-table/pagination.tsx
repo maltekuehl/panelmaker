@@ -5,15 +5,14 @@ import { sortParsers } from "@/lib/data-table"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useQueryStates } from "nuqs"
 
-interface DataTablePaginationProps {
+interface PaginationControlsProps {
   page: number
   pageCount: number
   total: number
+  onPageChange: (page: number) => void
 }
 
-export function DataTablePagination({ page, pageCount, total }: DataTablePaginationProps) {
-  const [, setParams] = useQueryStates(sortParsers, { shallow: false })
-
+export function PaginationControls({ page, pageCount, total, onPageChange }: PaginationControlsProps) {
   return (
     <div className="flex items-center justify-between">
       <div className="text-sm text-muted-foreground">
@@ -24,21 +23,35 @@ export function DataTablePagination({ page, pageCount, total }: DataTablePaginat
           Page {page} of {pageCount}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setParams({ page: page - 1 })} disabled={page <= 1}>
-            <ChevronLeft className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={() => onPageChange(page - 1)} disabled={page <= 1}>
+            <ChevronLeft className="size-4" />
             Previous
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setParams({ page: page + 1 })}
-            disabled={page >= pageCount}
-          >
+          <Button variant="outline" size="sm" onClick={() => onPageChange(page + 1)} disabled={page >= pageCount}>
             Next
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="size-4" />
           </Button>
         </div>
       </div>
     </div>
+  )
+}
+
+interface DataTablePaginationProps {
+  page: number
+  pageCount: number
+  total: number
+}
+
+export function DataTablePagination({ page, pageCount, total }: DataTablePaginationProps) {
+  const [, setParams] = useQueryStates(sortParsers, { shallow: false })
+
+  return (
+    <PaginationControls
+      page={page}
+      pageCount={pageCount}
+      total={total}
+      onPageChange={(next) => setParams({ page: next })}
+    />
   )
 }

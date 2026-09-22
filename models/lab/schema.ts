@@ -1,4 +1,5 @@
 import { LabAntibodyStatus, LabRole } from "@/lib/generated/prisma/enums"
+import { normalizeRrid } from "@/lib/utils"
 import { z } from "zod"
 
 export const createLabSchema = z
@@ -39,7 +40,7 @@ export const inviteToLabSchema = z
   })
   .strict()
 
-export const acceptInvitationSchema = z.object({ token: z.string().min(1) }).strict()
+export const acceptInvitationSchema = z.object({ token: z.string().min(1).max(128) }).strict()
 
 const labAntibodyStatusSchema = z.enum([
   LabAntibodyStatus.IN_STOCK,
@@ -57,7 +58,7 @@ const proteinRefSchema = ontologyRefSchema.extend({ geneSymbol: z.string().max(1
 // import into a later submission. Per-lab operational metadata (stock, storage, lot) is separate.
 export const addLabAntibodySchema = z
   .object({
-    rrid: z.string().trim().min(1).max(100),
+    rrid: z.string().trim().min(1).max(100).transform(normalizeRrid),
     markerName: z.string().trim().max(200).optional(),
     proteinData: proteinRefSchema.nullable().optional(),
     hostSpecies: ontologyRefSchema.nullable().optional(),

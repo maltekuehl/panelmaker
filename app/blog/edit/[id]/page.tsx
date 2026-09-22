@@ -1,7 +1,7 @@
-import { auth } from "@/auth"
 import BlogForm from "@/components/blog/blog-form"
-import { isUserAdmin } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
 import { getBlogPostById } from "@/lib/blog"
+import { signInUrl } from "@/lib/routes"
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
@@ -22,14 +22,13 @@ interface EditBlogPageProps {
 
 export default async function EditBlogPage({ params }: EditBlogPageProps) {
   const { id } = await params
-  const session = await auth()
+  const user = await getSessionUser()
 
-  if (!session?.user?.id) {
-    redirect("/auth/signin?callbackUrl=/blog/edit/" + id)
+  if (!user) {
+    redirect(signInUrl(`/blog/edit/${id}`))
   }
 
-  const isAdmin = await isUserAdmin(session.user.id)
-  if (!isAdmin) {
+  if (!user.isAdmin) {
     redirect("/blog")
   }
 
@@ -48,14 +47,7 @@ export default async function EditBlogPage({ params }: EditBlogPageProps) {
         published: blogPost.published,
         metaTitle: blogPost.metaTitle || "",
         metaDescription: blogPost.metaDescription || "",
-        keywords: (() => {
-          try {
-            const parsed = JSON.parse(blogPost.keywords)
-            return Array.isArray(parsed) ? parsed : []
-          } catch {
-            return []
-          }
-        })(),
+        keywords: blogPost.keywords,
       }}
       isEditing={true}
     />

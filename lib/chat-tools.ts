@@ -1,18 +1,21 @@
 import "server-only"
 
-import { Fixation, type LabRole } from "@/lib/generated/prisma/enums"
-import { prisma } from "@/lib/prisma"
+import { Clonality, LabAntibodyStatus, type LabRole, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
 import { checkUserRateLimit, RATE_LIMITS } from "@/lib/rate-limiting"
 import { getAntibodyById, lookupByRrid, searchAntibodies } from "@/models/antibody"
 import { getCellTypeDescendantIds, searchCellTypes } from "@/models/cell-type"
 import { aggregateReports, type EvidenceFilter, type EvidenceGroupBy, findReports } from "@/models/evidence"
 import { fluorophoreExists, searchFluorophores } from "@/models/fluorophore"
+import { findImagingMethods } from "@/models/imaging-method"
 import { canEditPanel, getInventoryForLabs, getLabsForUser } from "@/models/lab"
 import type { ViewerContext } from "@/models/lab/access"
 import {
   addCycle,
+  addCycleSchema,
   addMarker,
+  addMarkerSchema,
   createPanel,
+  createPanelSchema,
   getPanelById,
   getPanelsForUser,
   getVisiblePanelById,
@@ -21,7 +24,7 @@ import {
   removeCycle,
   removeMarker,
   reorderMarkers,
-  validatePanel,
+  validatePanelWithSpectra,
 } from "@/models/panel"
 import { getProteinById, searchProteins } from "@/models/protein"
 import { searchTaxa } from "@/models/taxon"
@@ -37,7 +40,9 @@ function scopedViewer(
   labIds?: string[],
 ): ViewerContext | null {
   if (scope === "public") return null
-  if (scope === "mine" || !labIds?.length) return scope === "mine" ? viewer : null
+  if (scope === "mine") return viewer
+  // 'labs' without explicit ids means all of the viewer's labs, never a silent downgrade to public.
+  if (!labIds?.length) return viewer
   const allowed = labIds.filter((id) => viewer.labIds.includes(id))
   const roleByLab: Record<string, LabRole> = {}
   for (const id of allowed) roleByLab[id] = viewer.roleByLab[id]
@@ -47,23 +52,28 @@ function scopedViewer(
 const scopeSchema = z
   .enum(["public", "mine", "labs"])
   .default("public")
-  .describe("public = published+public only; mine = also your own + all your labs' work; labs = only the given labIds")
+  .describe(
+    "public = published+public only; mine = also your own + all your labs' work; labs = only the given labIds (all your labs when labIds is omitted)",
+  )
 
 const evidenceFilterShape = {
   markerIds: z.array(z.string()).optional().describe("Protein/marker ids (from resolveMarkers)"),
   cellTypeIds: z.array(z.string()).optional().describe("Cell type ids; expand with resolveCellTypes first"),
   tissueIds: z.array(z.string()).optional(),
   speciesIds: z.array(z.string()).optional().describe("Taxon ids (from resolveSpecies)"),
-  methods: z.array(z.string()).optional().describe("MultiplexMethod values: CODEX, CYCIF, IMC, MIBI, IBEX, PATHOPLEX"),
+  methods: z
+    .array(z.string())
+    .optional()
+    .describe("Imaging method ids from resolveImagingMethods (e.g. codex, t-cycif, imaging-mass-cytometry)"),
   antibodyIds: z.array(z.string()).optional(),
   rrids: z.array(z.string()).optional(),
   hostTaxonIds: z.array(z.string()).optional(),
-  clonalities: z.array(z.string()).optional().describe("MONOCLONAL, POLYCLONAL, RECOMBINANT, OLIGOCLONAL"),
+  clonalities: z.array(z.nativeEnum(Clonality)).optional().describe("Antibody clonality"),
   conjugates: z.array(z.string()).optional(),
   fluorophoreIds: z.array(z.string()).optional(),
   works: z.boolean().optional().describe("true = only validations that worked; false = only failures"),
-  signalQualityIn: z.array(z.string()).optional().describe("EXCELLENT, GOOD, MODERATE, POOR, NONE"),
-  specificityIn: z.array(z.string()).optional().describe("HIGH, MODERATE, LOW, NON_SPECIFIC"),
+  signalQualityIn: z.array(z.nativeEnum(SignalQuality)).optional().describe("Reported signal quality"),
+  specificityIn: z.array(z.nativeEnum(Specificity)).optional().describe("Reported specificity"),
   submitterIds: z.array(z.string()).optional(),
   conditionIds: z.array(z.string()).optional(),
 }
@@ -248,7 +258,7 @@ export function createChatTools(viewer: ViewerContext) {
       ...evidenceFilterShape,
       scope: scopeSchema,
       labIds: z.array(z.string()).optional(),
-      limit: z.number().int().min(1).max(200).default(50),
+      limit: z.number().int().min(1).max(100).default(50),
     }),
     execute: async (input) => {
       const reports = await findReports(scopedViewer(viewer, input.scope, input.labIds), pickFilter(input), input.limit)
@@ -309,20 +319,23 @@ export function createChatTools(viewer: ViewerContext) {
 
   const getLabInventory = tool({
     description:
-      "Antibodies stocked in your labs (defaults to all your labs). Filter by marker, host species, clonality, RRID, or stock status (IN_STOCK, LOW, ORDERED, OUT_OF_STOCK).",
+      "Antibodies stocked in your labs (defaults to all your labs). Filter by marker, host species, clonality, RRID, or stock status. When the result is truncated, narrow it with markerIds.",
     inputSchema: z.object({
       labIds: z.array(z.string()).optional(),
       markerIds: z.array(z.string()).optional(),
       hostTaxonIds: z.array(z.string()).optional(),
-      clonalities: z.array(z.string()).optional(),
+      clonalities: z.array(z.nativeEnum(Clonality)).optional(),
       rrids: z.array(z.string()).optional(),
-      status: z.array(z.string()).optional(),
+      status: z.array(z.nativeEnum(LabAntibodyStatus)).optional(),
+      limit: z.number().int().min(1).max(500).default(200),
     }),
-    execute: async ({ labIds, ...filter }) => {
+    execute: async ({ labIds, limit, ...filter }) => {
       const allowed = labIds?.length ? labIds.filter((id) => viewer.labIds.includes(id)) : viewer.labIds
-      const items = await getInventoryForLabs(allowed, filter)
+      const all = await getInventoryForLabs(allowed, filter)
+      const items = all.slice(0, limit)
       return {
         count: items.length,
+        truncated: all.length > items.length,
         items: items.map((item) => ({
           id: item.id,
           status: item.status,
@@ -355,8 +368,7 @@ export function createChatTools(viewer: ViewerContext) {
         const panel = await getVisiblePanelById(panelId, viewer)
         return panel ? { panels: [mapPanel(panel)] } : { error: "Panel not found or not visible to you" }
       }
-      const v = scopedViewer(viewer, scope, labIds) ?? viewer
-      const panels = await getVisiblePanels(v, { limit })
+      const panels = await getVisiblePanels(scopedViewer(viewer, scope, labIds) ?? viewer, { limit })
       return { panels: panels.map(mapPanel) }
     },
   })
@@ -368,7 +380,7 @@ export function createChatTools(viewer: ViewerContext) {
     execute: async ({ panelId }) => {
       const panel = await getVisiblePanelById(panelId, viewer)
       if (!panel) return { error: "Panel not found or not visible to you" }
-      return validatePanel(panel)
+      return await validatePanelWithSpectra(panel)
     },
   })
 
@@ -450,7 +462,7 @@ export function createChatTools(viewer: ViewerContext) {
             rrid: antibody.rrid,
             label: antibody.name,
             sublabel:
-              [antibody.targetName, antibody.clonality, antibody.hostTaxon?.label].filter(Boolean).join(" · ") || null,
+              [antibody.targetName, antibody.clonality, antibody.hostTaxon?.label].filter(Boolean).join(", ") || null,
           }
         }),
       )
@@ -484,9 +496,28 @@ export function createChatTools(viewer: ViewerContext) {
     }),
   })
 
+  const resolveImagingMethods = tool({
+    description:
+      "List or search the imaging method catalog (t-CyCIF, IBEX, PhenoCycler, imaging mass cytometry, PathoPlex and so on). Returns the ids used by the `methods` evidence filter and by createPanel's imagingMethodId, plus whether the method detects fluorescence or metal tags and whether it is cyclic. Call this before filtering or setting a method instead of guessing an id.",
+    inputSchema: z.object({
+      query: z.string().optional().describe("Free text such as 'CODEX' or 'mass cytometry'; omit to list every method"),
+    }),
+    execute: async ({ query }) => ({
+      imagingMethods: (await findImagingMethods({ q: query })).map((m) => ({
+        id: m.id,
+        label: m.label,
+        shortLabel: m.shortLabel,
+        efoId: m.efoId,
+        detection: m.detection,
+        cyclic: m.cyclic,
+        aliases: m.aliases,
+      })),
+    }),
+  })
+
   const listMyPanels = tool({
     description:
-      "List the panels you can edit (your own panels and panels your lab-admin role covers), or, given a panelId, return that panel's full editable structure. Use this to obtain the panelId / cycleId / markerId values the other panel-editing tools require. Without panelId you get lightweight summaries; with panelId you get every cycle and marker with their ids.",
+      "List the panels you own, or, given a panelId, return that panel's full editable structure (a panel your lab-admin role covers can be edited once you know its panelId). Use this to obtain the panelId / cycleId / markerId values the other panel-editing tools require. Without panelId you get lightweight summaries; with panelId you get every cycle and marker with their ids.",
     inputSchema: z.object({ panelId: z.string().optional() }),
     execute: async ({ panelId }) => {
       if (panelId) {
@@ -512,16 +543,8 @@ export function createChatTools(viewer: ViewerContext) {
 
   const createPanelTool = tool({
     description:
-      "Create a NEW, empty panel owned by you. It starts PRIVATE with an initial 'Cycle 1'. Only call this when the user clearly asks to create a panel. Returns the new panel with its cycle ids so you can immediately add markers.",
-    inputSchema: z.object({
-      name: z.string().min(1).max(255),
-      description: z.string().max(2000).optional(),
-      speciesId: z.string().optional().describe("Taxon id from resolveSpecies, if known"),
-      speciesLabel: z.string().optional().describe("Species display name, e.g. 'Homo sapiens'"),
-      fixation: z.nativeEnum(Fixation).optional(),
-      conditionId: z.string().optional(),
-      conditionLabel: z.string().optional(),
-    }),
+      "Create a NEW, empty panel owned by you. It starts PRIVATE with an initial 'Cycle 1'. Only call this when the user clearly asks to create a panel. Pass speciesId from resolveSpecies when you know it (or speciesLabel, e.g. 'Homo sapiens'). Returns the new panel with its cycle ids so you can immediately add markers.",
+    inputSchema: createPanelSchema.omit({ visibility: true, sharedLabIds: true, owningLabId: true }),
     execute: async (input) => {
       const limit = await checkUserRateLimit(viewer.userId, RATE_LIMITS.PANELS_CREATE)
       if (!limit.allowed) {
@@ -534,11 +557,7 @@ export function createChatTools(viewer: ViewerContext) {
 
   const addCycleTool = tool({
     description: "Add a new cycle to a panel. Only call when the user clearly asks to add a cycle.",
-    inputSchema: z.object({
-      panelId: z.string(),
-      name: z.string().min(1).max(255),
-      notes: z.string().max(500).optional(),
-    }),
+    inputSchema: addCycleSchema.omit({ sortOrder: true }).extend({ panelId: z.string() }),
     execute: async ({ panelId, name, notes }) => {
       const loaded = await loadEditablePanel(panelId)
       if ("error" in loaded) return loaded
@@ -565,17 +584,9 @@ export function createChatTools(viewer: ViewerContext) {
   const addAntibodyToCycleTool = tool({
     description:
       "Add a marker/antibody to a cycle. Resolve names to ids first: marker via resolveMarkers (proteinId), antibody via resolveAntibodies or getLabInventory (antibodyId, or its RRID), fluorophore via resolveFluorophores (fluorophoreId). Get the panelId and cycleId from listMyPanels. proteinId and antibodyId can be provided together (a panel marker is a target protein stained by a specific antibody). For a recognizable label, include proteinId whenever you know the target; from getLabInventory pass its markerId as proteinId and its antibodyId. Only call when the user clearly asks to add it.",
-    inputSchema: z.object({
-      panelId: z.string(),
-      cycleId: z.string(),
-      proteinId: z.string().optional(),
-      proteinLabel: z.string().optional(),
-      geneSymbol: z.string().optional(),
-      ensemblGeneId: z.string().optional(),
-      antibodyId: z.string().optional().describe("Antibody id or RRID from resolveAntibodies / getLabInventory"),
-      fluorophoreId: z.string().optional(),
-      metalTag: z.string().optional(),
-    }),
+    inputSchema: addMarkerSchema
+      .pick({ proteinId: true, antibodyId: true, fluorophoreId: true, metalTag: true })
+      .extend({ panelId: z.string(), cycleId: z.string() }),
     execute: async ({ panelId, cycleId, antibodyId, ...marker }) => {
       const loaded = await loadEditablePanel(panelId)
       if ("error" in loaded) return loaded
@@ -594,17 +605,10 @@ export function createChatTools(viewer: ViewerContext) {
         }
         resolvedAntibodyId = antibody.id
       }
-      if (marker.proteinId) {
-        await prisma.protein.upsert({
-          where: { id: marker.proteinId },
-          update: { ...(marker.ensemblGeneId ? { ensemblGeneId: marker.ensemblGeneId } : {}) },
-          create: {
-            id: marker.proteinId,
-            label: marker.proteinLabel ?? marker.proteinId,
-            geneSymbol: marker.geneSymbol ?? null,
-            ensemblGeneId: marker.ensemblGeneId ?? null,
-          },
-        })
+      // Only markers that already exist in the catalog: a hallucinated id must never create a shared
+      // Protein row visible to every user at /marker/{id}.
+      if (marker.proteinId && !(await getProteinById(marker.proteinId))) {
+        return { error: `Unknown marker id ${marker.proteinId}; resolve it with resolveMarkers first` }
       }
       const nextOrder = cycle.markers.reduce((max, m) => Math.max(max, m.sortOrder), -1) + 1
       await addMarker(cycleId, { ...marker, antibodyId: resolvedAntibodyId, sortOrder: nextOrder })
@@ -631,8 +635,17 @@ export function createChatTools(viewer: ViewerContext) {
       if (!loaded.panel.cycles.some((c) => c.markers.some((m) => m.id === markerId))) {
         return { error: "Marker not found in this panel" }
       }
-      const order = sortOrder ?? targetCycle.markers.reduce((max, m) => Math.max(max, m.sortOrder), -1) + 1
-      await reorderMarkers([{ markerId, cycleId: toCycleId, sortOrder: order }])
+      const sourceCycle = loaded.panel.cycles.find((c) => c.markers.some((m) => m.id === markerId))
+      const destination = targetCycle.markers.filter((m) => m.id !== markerId).map((m) => m.id)
+      const position = Math.min(sortOrder ?? destination.length, destination.length)
+      destination.splice(position, 0, markerId)
+      const updates = destination.map((id, index) => ({ markerId: id, cycleId: toCycleId, sortOrder: index }))
+      if (sourceCycle && sourceCycle.id !== toCycleId) {
+        sourceCycle.markers
+          .filter((m) => m.id !== markerId)
+          .forEach((m, index) => updates.push({ markerId: m.id, cycleId: sourceCycle.id, sortOrder: index }))
+      }
+      await reorderMarkers(updates)
       return panelResult(panelId, `Moved marker to "${targetCycle.name}".`)
     },
   })
@@ -664,6 +677,7 @@ export function createChatTools(viewer: ViewerContext) {
     resolveTissues,
     resolveAntibodies,
     resolveFluorophores,
+    resolveImagingMethods,
     getMarkerDetails,
     getAntibodyDetails,
     findReports: findReportsTool,

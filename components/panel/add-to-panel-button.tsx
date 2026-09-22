@@ -11,10 +11,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { signInUrl } from "@/lib/routes"
 import { usePanelsSignal } from "@/stores/panels"
 import { Loader2, Plus } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useCallback, useEffect, useState } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { useCallback, useEffect, useState, type ComponentProps } from "react"
 import { toast } from "sonner"
 import { PanelForm, type CreatePanelFormData } from "./panel-form"
 
@@ -24,16 +27,13 @@ type PanelOption = {
   cycles: { id: string; name: string }[]
 }
 
-interface AddToPanelButtonProps {
+type AddToPanelButtonProps = Pick<ComponentProps<typeof Button>, "variant" | "size" | "className"> & {
   proteinId?: string
   proteinLabel?: string
   geneSymbol?: string
   ensemblGeneId?: string
   antibodyId?: string
   label: string
-  variant?: "default" | "outline" | "secondary" | "ghost"
-  size?: "default" | "sm" | "icon"
-  className?: string
   iconOnly?: boolean
 }
 
@@ -49,7 +49,8 @@ export function AddToPanelButton({
   className,
   iconOnly = false,
 }: AddToPanelButtonProps) {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+  const pathname = usePathname()
   const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
   const [open, setOpen] = useState(false)
   const [panels, setPanels] = useState<PanelOption[]>([])
@@ -66,7 +67,7 @@ export function AddToPanelButton({
       const res = await fetch("/api/panels")
       if (!res.ok) return
       const json = await res.json()
-      const panelsList: PanelOption[] = json.data?.panels ?? json.panels ?? []
+      const panelsList: PanelOption[] = json.panels ?? []
       setPanels(panelsList)
       const first = panelsList[0]
       if (first?.cycles?.length > 0) {
@@ -151,7 +152,16 @@ export function AddToPanelButton({
     }
   }
 
-  if (!session?.user) return null
+  if (status !== "authenticated" || !session?.user) {
+    return (
+      <Button asChild variant={variant} size={size} className={className} title="Sign in to add markers to a panel">
+        <Link href={signInUrl(pathname)}>
+          <Plus className="size-4" />
+          {!iconOnly && "Add to Panel"}
+        </Link>
+      </Button>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -162,7 +172,7 @@ export function AddToPanelButton({
           className={className}
           title={iconOnly ? `Add ${label} to panel` : undefined}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="size-4" />
           {!iconOnly && "Add to Panel"}
         </Button>
       </DialogTrigger>
@@ -174,7 +184,7 @@ export function AddToPanelButton({
 
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
           </div>
         ) : showCreateForm ? (
           <PanelForm onSubmit={handleCreatePanel} onCancel={() => setShowCreateForm(false)} isSubmitting={isCreating} />
@@ -182,15 +192,17 @@ export function AddToPanelButton({
           <div className="text-center py-4 space-y-3">
             <p className="text-sm text-muted-foreground">No panels yet. Create one to get started.</p>
             <Button variant="outline" onClick={() => setShowCreateForm(true)}>
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="size-4" />
               Create Panel
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
-            <div>
-              <Label className="text-xs">Panel &amp; Cycle</Label>
-              <div className="border rounded-md max-h-[180px] overflow-y-auto mt-1">
+            <div role="group" aria-labelledby="add-to-panel-cycle-label">
+              <p id="add-to-panel-cycle-label" className="text-sm font-medium">
+                Panel and cycle
+              </p>
+              <div className="mt-1 max-h-[180px] overflow-y-auto rounded-md border">
                 {panels.map((panel) => (
                   <div key={panel.id}>
                     <div className="px-3 py-1.5 bg-muted text-xs font-medium">{panel.name}</div>
@@ -217,18 +229,20 @@ export function AddToPanelButton({
                 className="w-full mt-1 text-xs text-muted-foreground"
                 onClick={() => setShowCreateForm(true)}
               >
-                <Plus className="h-3 w-3 mr-1" />
+                <Plus className="size-3" />
                 New Panel
               </Button>
             </div>
 
             <div>
-              <Label className="text-xs">Fluorophore</Label>
-              <FluorophoreCombobox value={fluorophore} onChange={setFluorophore} />
+              <Label htmlFor="add-to-panel-fluorophore" className="text-xs">
+                Fluorophore
+              </Label>
+              <FluorophoreCombobox id="add-to-panel-fluorophore" value={fluorophore} onChange={setFluorophore} />
             </div>
 
             <Button onClick={handleAdd} disabled={isAdding || !selectedCycleId} className="w-full">
-              {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              {isAdding ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               Add to Cycle
             </Button>
           </div>

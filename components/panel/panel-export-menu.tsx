@@ -3,13 +3,15 @@
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Download } from "lucide-react"
+import type { ReactNode } from "react"
 import { toast } from "sonner"
 
 interface PanelExportMenuProps {
   panelId: string
+  trigger?: ReactNode
 }
 
-export function PanelExportMenu({ panelId }: PanelExportMenuProps) {
+export function PanelExportMenu({ panelId, trigger }: PanelExportMenuProps) {
   const handleExport = async (format: "csv" | "order" | "json") => {
     try {
       const res = await fetch(`/api/panels/${panelId}/export?format=${format}`)
@@ -39,10 +41,12 @@ export function PanelExportMenu({ panelId }: PanelExportMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Download className="h-4 w-4 mr-2" />
-          Export
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" size="sm">
+            <Download className="size-4" />
+            Export
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => handleExport("csv")}>Export Panel (CSV)</DropdownMenuItem>

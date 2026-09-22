@@ -97,7 +97,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
       </aside>
 
       <div className="min-w-0 flex-1 py-8">
-        <details className="mb-6 rounded-lg border p-3 lg:hidden">
+        <details key={pathname} className="mb-6 rounded-lg border p-3 lg:hidden">
           <summary className="cursor-pointer text-sm font-medium">Documentation menu</summary>
           <div className="mt-4">
             <DocsNav pathname={pathname} />

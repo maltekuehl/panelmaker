@@ -32,12 +32,10 @@ export type ResolvedReagent = PathoplexReagent & {
   host: string | null
   clonality: string | null
   cloneId: string | null
-  uniprotId: string | null
   registryName: string | null
   registryTarget: string | null
   registryVendor: string | null
   registryCatalog: string | null
-  registryApplications: string[]
   citationCount: number
 }
 
@@ -156,12 +154,10 @@ async function resolveOne(reagent: PathoplexReagent): Promise<ResolvedReagent> {
     host: null,
     clonality: null,
     cloneId: null,
-    uniprotId: null,
     registryName: null,
     registryTarget: null,
     registryVendor: null,
     registryCatalog: null,
-    registryApplications: [],
     citationCount: 0,
   }
 
@@ -200,12 +196,10 @@ async function resolveOne(reagent: PathoplexReagent): Promise<ResolvedReagent> {
     host: clean(best.hit.organisms?.source?.[0]?.species?.name),
     clonality: clean(primary?.clonality?.name),
     cloneId: clean(primary?.clone?.identifier),
-    uniprotId: null,
     registryName: clean(best.hit.item?.name),
     registryTarget: clean(primary?.targets?.[0]?.name),
     registryVendor: clean(best.vendor.name),
     registryCatalog: clean(best.vendor.catalogNumber),
-    registryApplications: [],
     citationCount: citationCountOf(best.hit),
   }
 }

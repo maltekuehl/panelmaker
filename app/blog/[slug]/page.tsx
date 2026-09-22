@@ -1,4 +1,3 @@
-import { auth } from "@/auth"
 import DeleteBlogPostButton from "@/components/blog/delete-blog-post-button"
 import Markdown from "@/components/markdown"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +11,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { isUserAdmin } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
 import { getBlogPostBySlug, getRelatedBlogPosts } from "@/lib/blog"
 import { format } from "date-fns"
 import { CalendarDays, Clock, Edit, User } from "lucide-react"
@@ -45,8 +44,8 @@ async function getCachedRelatedPosts(postId: string, keywords: string[], limit: 
 
 export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params
-  const session = await auth()
-  const isAdmin = session?.user?.id ? await isUserAdmin(session.user.id) : false
+  const user = await getSessionUser()
+  const isAdmin = user?.isAdmin ?? false
   const post = await getCachedBlogPost(slug, isAdmin)
 
   if (!post) {
@@ -58,14 +57,7 @@ export async function generateMetadata({ params }: BlogPostPageProps): Promise<M
   return {
     title: post.metaTitle || post.title,
     description: post.metaDescription || post.excerpt || undefined,
-    keywords: (() => {
-      try {
-        const parsed = JSON.parse(post.keywords)
-        return Array.isArray(parsed) ? parsed : []
-      } catch {
-        return []
-      }
-    })(),
+    keywords: post.keywords,
     openGraph: {
       title: post.metaTitle || post.title,
       description: post.metaDescription || post.excerpt || undefined,
@@ -100,12 +92,11 @@ async function RelatedPosts({ currentPostId, keywords }: { currentPostId: string
             {post.excerpt && (
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground line-clamp-2">{post.excerpt}</p>
             )}
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <User className="size-3" />
                 {post.author.name || post.author.email}
               </span>
-              <span aria-hidden>·</span>
               <span className="inline-flex items-center gap-1">
                 <CalendarDays className="size-3" />
                 {format(new Date(post.publishedAt ?? post.createdAt), "MMM d, yyyy")}
@@ -120,8 +111,8 @@ async function RelatedPosts({ currentPostId, keywords }: { currentPostId: string
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params
-  const session = await auth()
-  const isAdmin = session?.user?.id ? await isUserAdmin(session.user.id) : false
+  const user = await getSessionUser()
+  const isAdmin = user?.isAdmin ?? false
 
   const post = await getCachedBlogPost(slug, isAdmin)
 
@@ -133,14 +124,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     notFound()
   }
 
-  const parsedKeywords: string[] = (() => {
-    try {
-      const parsed = JSON.parse(post.keywords)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  })()
+  const parsedKeywords = post.keywords
 
   const readingTime = Math.ceil(post.content.split(" ").length / 200)
 
@@ -178,10 +162,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-3xl font-bold leading-tight tracking-tight md:text-4xl">{post.title}</h1>
           {!post.published && (
-            <Badge
-              variant="secondary"
-              className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-            >
+            <Badge variant="secondary" className="bg-warning/10 text-warning">
               Draft
             </Badge>
           )}
@@ -189,17 +170,15 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
         {post.excerpt && <p className="text-lg leading-relaxed text-muted-foreground">{post.excerpt}</p>}
 
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <User className="size-4" />
             {post.author.name || post.author.email}
           </span>
-          <span aria-hidden>·</span>
           <span className="inline-flex items-center gap-1">
             <CalendarDays className="size-4" />
             {format(new Date(post.publishedAt ?? post.createdAt), "MMMM d, yyyy")}
           </span>
-          <span aria-hidden>·</span>
           <span className="inline-flex items-center gap-1">
             <Clock className="size-4" />
             {readingTime} min read
@@ -209,14 +188,14 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
       <Separator className="my-8" />
 
-      <div className="prose prose-gray max-w-none dark:prose-invert prose-headings:scroll-mt-20 prose-headings:font-semibold prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl prose-p:leading-relaxed prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-code:text-sm prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-img:rounded-lg prose-img:shadow-md prose-blockquote:border-l-primary prose-blockquote:bg-accent/20 prose-blockquote:px-4 prose-blockquote:py-2 prose-blockquote:rounded-r-lg">
+      <div className="prose max-w-none">
         <Markdown>{post.content}</Markdown>
       </div>
 
       {parsedKeywords.length > 0 && (
         <p className="mt-8 text-sm text-muted-foreground">
           <span className="font-medium text-foreground">Tags: </span>
-          {parsedKeywords.join(" · ")}
+          {parsedKeywords.join(", ")}
         </p>
       )}
 

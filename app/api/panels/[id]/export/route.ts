@@ -1,20 +1,35 @@
 import { getOptionalAuth, resolveViewerContext } from "@/lib/auth"
 import { createErrorResponse } from "@/lib/error-handling"
 import { canViewPanel } from "@/models/lab"
-import { exportPanelCsv, exportPanelJson, exportPanelOrderCsv, getPanelById } from "@/models/panel"
+import { exportPanelCsv, exportPanelJson, exportPanelOrderCsv, getPanelById, type PanelRow } from "@/models/panel"
 import { NextRequest, NextResponse } from "next/server"
 
-async function resolvePanelId(params: Promise<{ id: string }>): Promise<string | null> {
-  const { id } = await params
-  return id || null
+const EXPORTERS = {
+  csv: { build: exportPanelCsv, contentType: "text/csv; charset=utf-8", suffix: ".csv" },
+  order: { build: exportPanelOrderCsv, contentType: "text/csv; charset=utf-8", suffix: "_order.csv" },
+  json: {
+    build: (panel: PanelRow) => JSON.stringify(exportPanelJson(panel), null, 2),
+    contentType: "application/json; charset=utf-8",
+    suffix: ".json",
+  },
+} as const
+
+type ExportFormat = keyof typeof EXPORTERS
+
+function isExportFormat(value: string): value is ExportFormat {
+  return value in EXPORTERS
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const panelId = await resolvePanelId(params)
+    const { id: panelId } = await params
 
-    if (panelId === null) {
-      return NextResponse.json({ error: "Invalid panel ID" }, { status: 400 })
+    const format = request.nextUrl.searchParams.get("format") ?? "json"
+    if (!isExportFormat(format)) {
+      return NextResponse.json(
+        { error: "Invalid format. Use ?format=csv, ?format=order, or ?format=json" },
+        { status: 400 },
+      )
     }
 
     const user = await getOptionalAuth(request)
@@ -28,49 +43,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Panel not found" }, { status: 404 })
     }
 
-    const { searchParams } = request.nextUrl
-    const format = searchParams.get("format") ?? "json"
+    const exporter = EXPORTERS[format]
+    const safeName = panel.name.replace(/[^a-z0-9_-]/gi, "_")
 
-    if (format === "csv") {
-      const csv = exportPanelCsv(panel)
-      const filename = `${panel.name.replace(/[^a-z0-9_-]/gi, "_")}.csv`
-      return new NextResponse(csv, {
-        status: 200,
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
-      })
-    }
-
-    if (format === "order") {
-      const csv = exportPanelOrderCsv(panel)
-      const filename = `${panel.name.replace(/[^a-z0-9_-]/gi, "_")}_order.csv`
-      return new NextResponse(csv, {
-        status: 200,
-        headers: {
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
-      })
-    }
-
-    if (format === "json") {
-      const data = exportPanelJson(panel)
-      const filename = `${panel.name.replace(/[^a-z0-9_-]/gi, "_")}.json`
-      return new NextResponse(JSON.stringify(data, null, 2), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
-      })
-    }
-
-    return NextResponse.json(
-      { error: "Invalid format. Use ?format=csv, ?format=order, or ?format=json" },
-      { status: 400 },
-    )
+    return new NextResponse(exporter.build(panel), {
+      status: 200,
+      headers: {
+        "Content-Type": exporter.contentType,
+        "Content-Disposition": `attachment; filename="${safeName}${exporter.suffix}"`,
+      },
+    })
   } catch (error) {
     return createErrorResponse(error, "Failed to export panel")
   }

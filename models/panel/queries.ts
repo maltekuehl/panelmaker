@@ -1,13 +1,20 @@
 import "server-only"
 
 import type { BrowseMarkerParams, EntryFilterParams, LabContentParams } from "@/lib/data-table"
+import { BadRequestError, NotFoundError } from "@/lib/error-handling"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import type { Visibility } from "@/lib/generated/prisma/enums"
+import { searchDiseaseOntology, searchSpecies } from "@/lib/ontology"
 import { prisma } from "@/lib/prisma"
 import { type EntriesPage, paginate } from "@/models/experimental-report/queries"
+import { getFluorophoreSpectra } from "@/models/fluorophore/queries"
+import type { FluorophoreSpectraMap } from "@/models/fluorophore/spectra"
+import { resolveImagingMethodId } from "@/models/imaging-method/data"
+import { imagingMethodExists } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { resolveResourceVisibility } from "@/models/lab/queries"
 import { buildPanelVisibilityWhere } from "@/models/lab/visibility"
+import { type PanelValidationResult, validatePanel } from "./intelligence"
 import type { AddCycleData, AddMarkerData, CreatePanelData, UpdatePanelData } from "./schema"
 
 export type PanelQueryParams = {
@@ -24,11 +31,15 @@ const panelMarkerSelect = {
   metalTag: true,
   sortOrder: true,
   fluorophore: {
+    // Spectra are deliberately absent here: panelSelect is also used by the list queries and a stored
+    // curve is a few hundred points. validatePanelWithSpectra loads them for the panel under review.
     select: {
       id: true,
       name: true,
       excitation: true,
       emission: true,
+      extinctionCoefficient: true,
+      quantumYield: true,
     },
   },
   protein: {
@@ -60,7 +71,7 @@ const panelCycleSelect = {
   sortOrder: true,
   markers: {
     select: panelMarkerSelect,
-    orderBy: { sortOrder: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
   },
 } satisfies Prisma.PanelCycleSelect
 
@@ -70,6 +81,8 @@ const panelSelect = {
   description: true,
   species: { select: { id: true, label: true } },
   fixation: true,
+  imagingMethodId: true,
+  imagingMethod: { select: { id: true, label: true, shortLabel: true, efoId: true, detection: true, cyclic: true } },
   ownerId: true,
   visibility: true,
   owningLabId: true,
@@ -91,13 +104,34 @@ const panelSelect = {
   owningLab: { select: { id: true, name: true, slug: true } },
   cycles: {
     select: panelCycleSelect,
-    orderBy: { sortOrder: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
   },
 } satisfies Prisma.PanelSelect
 
 export type PanelRow = Prisma.PanelGetPayload<{ select: typeof panelSelect }>
 export type PanelCycleRow = Prisma.PanelCycleGetPayload<{ select: typeof panelCycleSelect }>
 export type PanelMarkerRow = Prisma.PanelMarkerGetPayload<{ select: typeof panelMarkerSelect }>
+
+function collectFluorophoreIds(panel: PanelRow): string[] {
+  const ids = new Set<string>()
+  for (const cycle of panel.cycles) {
+    for (const marker of cycle.markers) {
+      if (marker.fluorophoreId) ids.add(marker.fluorophoreId)
+    }
+  }
+  return [...ids]
+}
+
+/**
+ * Validate a panel against the stored FPbase spectra. `validatePanel` on its own falls back to the
+ * emission-peak heuristic, so this is the entry point any caller that wants the real overlap integral
+ * should use.
+ */
+export async function validatePanelWithSpectra(panel: PanelRow): Promise<PanelValidationResult> {
+  const ids = collectFluorophoreIds(panel)
+  const spectra: FluorophoreSpectraMap = ids.length > 0 ? await getFluorophoreSpectra(ids) : new Map()
+  return validatePanel(panel, spectra)
+}
 
 export async function getPanelsForUser(userId: string): Promise<PanelRow[]> {
   return prisma.panel.findMany({
@@ -115,7 +149,7 @@ export async function getPublicPanels(params: PanelQueryParams): Promise<PanelRo
     where: { visibility: "PUBLIC" },
     take: limit,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   })
 }
 
@@ -134,6 +168,7 @@ const labPanelEntrySelect = {
   visibility: true,
   updatedAt: true,
   species: { select: { label: true } },
+  imagingMethod: { select: { id: true, label: true, shortLabel: true } },
   owner: { select: { id: true, name: true } },
   _count: { select: { cycles: true } },
   cycles: { select: { _count: { select: { markers: true } } } },
@@ -148,6 +183,7 @@ export interface LabPanelEntry {
   ownerId: string | null
   ownerName: string | null
   species: string | null
+  method: string | null
   visibility: Visibility
   cycleCount: number
   markerCount: number
@@ -162,6 +198,7 @@ function toLabPanelEntry(panel: PanelEntryRow): LabPanelEntry {
     ownerId: panel.owner?.id ?? null,
     ownerName: panel.owner?.name ?? null,
     species: panel.species?.label ?? null,
+    method: panel.imagingMethod?.shortLabel ?? null,
     visibility: panel.visibility,
     cycleCount: panel._count.cycles,
     markerCount: panel.cycles.reduce((sum, cycle) => sum + cycle._count.markers, 0),
@@ -194,7 +231,10 @@ const BROWSE_AGGREGATION_CAP = 2000
 const BROWSE_PANEL_SCOPE: Prisma.PanelWhereInput = { visibility: "PUBLIC" }
 
 function labPanelScope(labId: string): Prisma.PanelWhereInput {
-  return { OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }] }
+  return {
+    visibility: { not: "PRIVATE" },
+    OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }],
+  }
 }
 
 function buildBrowsePanelWhere(
@@ -207,6 +247,11 @@ function buildBrowsePanelWhere(
   if (params.condition.length) and.push({ conditionId: { in: params.condition } })
   if (params.fixation.length) and.push({ fixation: { in: params.fixation as Prisma.EnumFixationNullableFilter["in"] } })
   if (params.lab.length) and.push({ owningLabId: { in: params.lab } })
+  if (params.method.length) {
+    // Filter values arrive either as an ImagingMethod id or as a legacy enum value from an old link.
+    const methodIds = params.method.map((value) => resolveImagingMethodId(value)).filter((id): id is string => !!id)
+    and.push(methodIds.length ? { imagingMethodId: { in: methodIds } } : { id: "__no_match__" })
+  }
 
   if (params.q) {
     and.push({
@@ -214,6 +259,7 @@ function buildBrowsePanelWhere(
         { name: { contains: params.q, mode: "insensitive" } },
         { description: { contains: params.q, mode: "insensitive" } },
         { species: { label: { contains: params.q, mode: "insensitive" } } },
+        { imagingMethod: { label: { contains: params.q, mode: "insensitive" } } },
       ],
     })
   }
@@ -225,6 +271,7 @@ const PANEL_SORT_ACCESSORS: Record<string, (p: LabPanelEntry) => string | number
   name: (p) => p.name.toLowerCase(),
   member: (p) => (p.ownerName ?? "").toLowerCase(),
   species: (p) => (p.species ?? "").toLowerCase(),
+  method: (p) => (p.method ?? "").toLowerCase(),
   markerCount: (p) => p.markerCount,
   cycleCount: (p) => p.cycleCount,
   updatedAt: (p) => p.updatedAt,
@@ -266,7 +313,7 @@ export async function getVisiblePanels(viewer: ViewerContext, params: PanelQuery
     where: buildPanelVisibilityWhere(viewer),
     ...(limit ? { take: limit } : {}),
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
   })
 }
 
@@ -278,14 +325,22 @@ export async function getVisiblePanelById(id: string, viewer: ViewerContext | nu
   })
 }
 
+// Taxon and DiseaseCondition are global tables shown in every facet and filter, so an unknown id is
+// only written after the ontology confirms it, the same rule the report path applies.
 async function resolveCondition(conditionId?: string, conditionLabel?: string): Promise<string | undefined> {
   if (!conditionId) return undefined
 
   const existing = await prisma.diseaseCondition.findUnique({ where: { id: conditionId } })
   if (existing) return existing.id
 
-  await prisma.diseaseCondition.create({ data: { id: conditionId, label: conditionLabel || conditionId } })
-  return conditionId
+  if (!conditionLabel) throw new BadRequestError(`Unknown disease condition ${conditionId}`)
+  const match = (await searchDiseaseOntology(conditionLabel)).find((r) => r.id === conditionId)
+  if (!match) {
+    throw new BadRequestError(`Disease condition ${conditionId} (${conditionLabel}) not found in Disease Ontology`)
+  }
+
+  await prisma.diseaseCondition.create({ data: { id: match.id, label: match.label } })
+  return match.id
 }
 
 async function resolveTaxon(speciesId?: string, speciesLabel?: string): Promise<string | undefined> {
@@ -294,13 +349,29 @@ async function resolveTaxon(speciesId?: string, speciesLabel?: string): Promise<
   const existing = await prisma.taxon.findUnique({ where: { id: speciesId } })
   if (existing) return existing.id
 
-  await prisma.taxon.create({ data: { id: speciesId, label: speciesLabel || speciesId } })
-  return speciesId
+  if (!speciesLabel) throw new BadRequestError(`Unknown species ${speciesId}`)
+  const match = (await searchSpecies(speciesLabel)).find((r) => r.id === speciesId)
+  if (!match) throw new BadRequestError(`Species ${speciesId} (${speciesLabel}) not found in NCBI Taxonomy`)
+
+  await prisma.taxon.create({ data: { id: match.id, label: match.label } })
+  return match.id
+}
+
+// An imaging method id must already exist in the catalog; a panel may not invent one, the same rule
+// the ontology-backed fields follow.
+async function resolveImagingMethod(imagingMethodId?: string | null): Promise<string | null | undefined> {
+  if (imagingMethodId === undefined) return undefined
+  if (imagingMethodId === null) return null
+
+  const resolved = resolveImagingMethodId(imagingMethodId) ?? imagingMethodId
+  if (!(await imagingMethodExists(resolved))) throw new BadRequestError(`Unknown imaging method ${imagingMethodId}`)
+  return resolved
 }
 
 export async function createPanel(data: CreatePanelData, ownerId: string): Promise<PanelRow> {
   const resolvedConditionId = await resolveCondition(data.conditionId, data.conditionLabel)
   const resolvedSpeciesId = await resolveTaxon(data.speciesId, data.speciesLabel)
+  const resolvedImagingMethodId = await resolveImagingMethod(data.imagingMethodId)
   // Panels default to PRIVATE (draft); the owner opts in to sharing or publishing.
   const access = await resolveResourceVisibility({
     ownerId,
@@ -316,6 +387,7 @@ export async function createPanel(data: CreatePanelData, ownerId: string): Promi
       description: data.description,
       speciesId: resolvedSpeciesId,
       fixation: data.fixation,
+      imagingMethodId: resolvedImagingMethodId ?? undefined,
       conditionId: resolvedConditionId,
       visibility: access.visibility,
       owningLabId: access.owningLabId,
@@ -337,6 +409,7 @@ export async function updatePanel(id: string, data: UpdatePanelData): Promise<Pa
     data.conditionId !== undefined ? await resolveCondition(data.conditionId, data.conditionLabel) : undefined
   const resolvedSpeciesId =
     data.speciesId !== undefined ? await resolveTaxon(data.speciesId, data.speciesLabel) : undefined
+  const resolvedImagingMethodId = await resolveImagingMethod(data.imagingMethodId)
 
   const touchesVisibility =
     data.visibility !== undefined || data.sharedLabIds !== undefined || data.owningLabId !== undefined
@@ -344,8 +417,9 @@ export async function updatePanel(id: string, data: UpdatePanelData): Promise<Pa
   let access: Awaited<ReturnType<typeof resolveResourceVisibility>> | null = null
   if (touchesVisibility) {
     const panel = await prisma.panel.findUnique({ where: { id }, select: { ownerId: true } })
+    if (!panel?.ownerId) throw new NotFoundError("Panel not found")
     access = await resolveResourceVisibility({
-      ownerId: panel?.ownerId ?? "",
+      ownerId: panel.ownerId,
       defaultVisibility: "PRIVATE",
       visibility: data.visibility,
       sharedLabIds: data.sharedLabIds,
@@ -369,6 +443,7 @@ export async function updatePanel(id: string, data: UpdatePanelData): Promise<Pa
         ...(data.description !== undefined && { description: data.description }),
         ...(resolvedSpeciesId !== undefined && { speciesId: resolvedSpeciesId }),
         ...(data.fixation !== undefined && { fixation: data.fixation }),
+        ...(resolvedImagingMethodId !== undefined && { imagingMethodId: resolvedImagingMethodId }),
         ...(resolvedConditionId !== undefined && { conditionId: resolvedConditionId }),
         ...(access ? { visibility: access.visibility, owningLabId: access.owningLabId } : {}),
       },
@@ -382,12 +457,14 @@ export async function deletePanel(id: string): Promise<void> {
 }
 
 export async function addCycle(panelId: string, data: AddCycleData): Promise<PanelCycleRow> {
+  const { _max } = await prisma.panelCycle.aggregate({ where: { panelId }, _max: { sortOrder: true } })
+
   return prisma.panelCycle.create({
     data: {
       panelId,
       name: data.name,
       notes: data.notes,
-      sortOrder: data.sortOrder ?? 0,
+      sortOrder: (_max.sortOrder ?? -1) + 1,
     },
     select: panelCycleSelect,
   })
@@ -404,6 +481,8 @@ export async function updateCycle(cycleId: string, data: { notes?: string | null
 }
 
 export async function addMarker(cycleId: string, data: AddMarkerData): Promise<PanelMarkerRow> {
+  const { _max } = await prisma.panelMarker.aggregate({ where: { cycleId }, _max: { sortOrder: true } })
+
   return prisma.panelMarker.create({
     data: {
       cycleId,
@@ -411,7 +490,7 @@ export async function addMarker(cycleId: string, data: AddMarkerData): Promise<P
       antibodyId: data.antibodyId,
       fluorophoreId: data.fluorophoreId,
       metalTag: data.metalTag,
-      sortOrder: data.sortOrder ?? 0,
+      sortOrder: (_max.sortOrder ?? -1) + 1,
     },
     select: panelMarkerSelect,
   })

@@ -38,15 +38,23 @@ export function ApiKeysSection({ endpoint, title = "Model API keys", description
   const [apiKey, setApiKey] = useState("")
   const [label, setLabel] = useState("")
   const [saving, setSaving] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
       const response = await fetch(endpoint)
-      const json = await response.json()
+      const json = await response.json().catch(() => null)
+      if (!response.ok) {
+        setCredentials([])
+        setLoadError(json?.error ?? "Could not load your API keys")
+        return
+      }
       setCredentials(json?.credentials ?? [])
       setEncryptionConfigured(json?.encryptionConfigured ?? true)
+      setLoadError(null)
     } catch {
       setCredentials([])
+      setLoadError("Could not load your API keys")
     }
   }, [endpoint])
 
@@ -80,9 +88,18 @@ export function ApiKeysSection({ endpoint, title = "Model API keys", description
   }
 
   const handleDelete = async (id: string) => {
-    await fetch(`${endpoint}/${id}`, { method: "DELETE" })
-    toast.success("API key removed")
-    await load()
+    try {
+      const response = await fetch(`${endpoint}/${id}`, { method: "DELETE" })
+      if (!response.ok) {
+        const json = await response.json().catch(() => null)
+        toast.error(json?.error ?? "Failed to remove key")
+        return
+      }
+      toast.success("API key removed")
+      await load()
+    } catch {
+      toast.error("Failed to remove key")
+    }
   }
 
   return (
@@ -94,6 +111,8 @@ export function ApiKeysSection({ endpoint, title = "Model API keys", description
             "Add your own provider keys to unlock more models in the assistant. Keys are encrypted at rest and never shown again."}
         </p>
       </div>
+
+      {loadError && <p className="text-sm text-destructive">{loadError}</p>}
 
       {!encryptionConfigured && (
         <p className="text-sm text-destructive">
@@ -107,7 +126,7 @@ export function ApiKeysSection({ endpoint, title = "Model API keys", description
             <li key={credential.id} className="flex items-center justify-between gap-3 px-3 py-2">
               <div className="min-w-0 text-sm">
                 <span className="font-medium">{providerLabel(credential.provider)}</span>
-                {credential.label && <span className="text-muted-foreground"> · {credential.label}</span>}
+                {credential.label && <span className="text-muted-foreground">, {credential.label}</span>}
                 <span className="ml-2 font-mono text-xs text-muted-foreground">••••{credential.last4 ?? ""}</span>
               </div>
               <Button
@@ -126,9 +145,11 @@ export function ApiKeysSection({ endpoint, title = "Model API keys", description
 
       <form onSubmit={handleSave} className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <Label className="text-xs">Provider</Label>
+          <Label htmlFor="api-key-provider" className="text-xs">
+            Provider
+          </Label>
           <Select value={provider} onValueChange={setProvider}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger id="api-key-provider" className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -141,18 +162,24 @@ export function ApiKeysSection({ endpoint, title = "Model API keys", description
           </Select>
         </div>
         <div className="min-w-[200px] flex-1 space-y-1">
-          <Label className="text-xs">API key</Label>
+          <Label htmlFor="api-key-value" className="text-xs">
+            API key
+          </Label>
           <Input
+            id="api-key-value"
             type="password"
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value)}
             placeholder="Paste a provider API key"
-            autoComplete="off"
+            autoComplete="new-password"
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Label (optional)</Label>
+          <Label htmlFor="api-key-label" className="text-xs">
+            Label (optional)
+          </Label>
           <Input
+            id="api-key-label"
             value={label}
             onChange={(event) => setLabel(event.target.value)}
             placeholder="Personal"

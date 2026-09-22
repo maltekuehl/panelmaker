@@ -1,9 +1,8 @@
-import { requireAuth, resolveViewerContext } from "@/lib/auth"
+import { authErrorResponse, requireAuth, resolveViewerContext } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { canEditPanel } from "@/models/lab"
 import { getPanelById, removeCycle, toPanelCycleResponse, updateCycle, updateCycleSchema } from "@/models/panel"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string; cycleId: string }> }) {
   try {
@@ -36,13 +35,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     return createSuccessResponse({ cycle: toPanelCycleResponse(updated) })
   } catch (error) {
-    if (error instanceof Error && error.message === "Authentication required") {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
-    return createErrorResponse(error, "Failed to update cycle")
+    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to update cycle")
   }
 }
 
@@ -74,9 +67,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     return createSuccessResponse({ message: "Cycle removed successfully" })
   } catch (error) {
-    if (error instanceof Error && error.message === "Authentication required") {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-    return createErrorResponse(error, "Failed to remove cycle")
+    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to remove cycle")
   }
 }

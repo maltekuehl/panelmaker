@@ -1,6 +1,7 @@
 "use client"
 
 import type { MarkerReport } from "@/components/browse/columns"
+import { WorksBadge } from "@/components/browse/report-badges"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -11,22 +12,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { profileHref } from "@/lib/routes"
 import { ExternalLink } from "lucide-react"
 import Link from "next/link"
-
-function WorksBadge({ works }: { works: boolean | null }) {
-  if (works === null)
-    return (
-      <Badge variant="outline" className="text-[10px]">
-        Unknown
-      </Badge>
-    )
-  return works ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">Works</Badge>
-  ) : (
-    <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">Failed</Badge>
-  )
-}
 
 interface ReportsDialogProps {
   marker: string
@@ -80,7 +68,7 @@ export function ReportsDialog({ marker, cellType, reports }: ReportsDialogProps)
                 <TableRow key={report.id}>
                   <TableCell>
                     {report.submitterId ? (
-                      <Link href={`/profile/${report.submitterId}`} className="text-primary hover:underline">
+                      <Link href={profileHref(report.submitterId)} className="text-primary hover:underline">
                         {report.submitter}
                       </Link>
                     ) : (

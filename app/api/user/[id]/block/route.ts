@@ -1,24 +1,16 @@
 import { blockUser, createAuthHandler, unblockUser } from "@/lib/auth"
-import { logger } from "@/lib/monitoring"
-import { isBlockUserRequest } from "@/types/api"
+import { createErrorResponse } from "@/lib/error-handling"
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+
+const blockUserSchema = z.object({ action: z.enum(["block", "unblock"]) }).strict()
 
 // PATCH /api/user/[id]/block - Block a user (admin only)
 export const PATCH = createAuthHandler(
   async (request: NextRequest, user, context: { params: Promise<{ id: string }> }) => {
     try {
-      const requestBody = await request.json()
-
-      if (!isBlockUserRequest(requestBody)) {
-        return NextResponse.json({ error: "Invalid request format" }, { status: 400 })
-      }
-
-      const { action } = requestBody
+      const { action } = blockUserSchema.parse(await request.json())
       const userId = (await context.params).id
-
-      if (!userId) {
-        return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-      }
 
       // Prevent admin from blocking themselves
       if (userId === user.id) {
@@ -28,15 +20,12 @@ export const PATCH = createAuthHandler(
       if (action === "block") {
         await blockUser(userId)
         return NextResponse.json({ message: "User blocked successfully" })
-      } else if (action === "unblock") {
-        await unblockUser(userId)
-        return NextResponse.json({ message: "User unblocked successfully" })
-      } else {
-        return NextResponse.json({ error: "Invalid action. Use 'block' or 'unblock'" }, { status: 400 })
       }
+
+      await unblockUser(userId)
+      return NextResponse.json({ message: "User unblocked successfully" })
     } catch (error) {
-      logger.error("Error updating user status", error instanceof Error ? error : new Error(String(error)))
-      return NextResponse.json({ error: "Failed to update user status" }, { status: 500 })
+      return createErrorResponse(error, "Failed to update user status")
     }
   },
   true, // Require admin access

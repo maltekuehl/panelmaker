@@ -34,6 +34,3 @@ All phases (1-8) are done and verified: schema/migrations, access control + RBAC
 - A local demo login: `npm run seed:demo-user` (script `scripts/create-demo-user.ts`) upserts `demo@panelmaker.local` (ADMIN + verified, owner of the seeded Puelles Lab at Aarhus University) and writes the password to the gitignored `DEMO_CREDENTIALS.txt`. Re-run it after a full `npx prisma db seed` (which resets the DB).
 - Unit tests for the access layer: `npm run test:unit` (`tests/unit/lab-access.ts`). See [access-control.md](./access-control.md) for the build-enforced client-import rule.
 
-## Approved plan
-
-Full plan: `~/.claude/plans/see-this-email-i-fluffy-pearl.md`. Execution order: Phases 1-4 (foundation) -> review checkpoint -> Phases 5-8.

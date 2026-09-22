@@ -1,30 +1,24 @@
-import { authErrorResponse, requireAuth, requireLabRole } from "@/lib/auth"
+import { authErrorResponse, requireLabMember, requireLabRole } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import {
   deleteLab,
   getLabById,
   getLabMembers,
-  getUserLabRole,
   toLabMemberResponse,
   toLabResponse,
   updateLab,
   updateLabSchema,
 } from "@/models/lab"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 type Context = { params: Promise<{ id: string }> }
 
-// GET /api/labs/[id] - Lab detail with members. Members only; non-members get 404 (no existence leak).
+// GET /api/labs/[id] - Lab detail with members. Members only; non-members get 403 like every sibling route.
 export async function GET(request: NextRequest, context: Context) {
   try {
     const { id } = await context.params
-    const user = await requireAuth(request)
-    const role = await getUserLabRole(user.id, id)
-    if (!role) {
-      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
-    }
+    const { role } = await requireLabMember(request, id)
     const lab = await getLabById(id)
     if (!lab) {
       return NextResponse.json({ error: "Resource not found" }, { status: 404 })
@@ -49,9 +43,6 @@ export async function PATCH(request: NextRequest, context: Context) {
     const lab = await updateLab(id, data)
     return createSuccessResponse({ lab: toLabResponse(lab) })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to update lab")
   }
 }

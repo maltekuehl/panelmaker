@@ -1,17 +1,12 @@
-import { requireAuth, resolveViewerContext } from "@/lib/auth"
+import { authErrorResponse, requireAuth, resolveViewerContext } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { canEditPanel } from "@/models/lab"
 import { getPanelById, reorderMarkers, reorderMarkersSchema } from "@/models/panel"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: panelId } = await params
-
-    if (!panelId) {
-      return NextResponse.json({ error: "Invalid panel ID" }, { status: 400 })
-    }
 
     const user = await requireAuth(request)
     const panel = await getPanelById(panelId)
@@ -43,12 +38,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     return createSuccessResponse({ message: "Markers reordered successfully" })
   } catch (error) {
-    if (error instanceof Error && error.message === "Authentication required") {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
-    return createErrorResponse(error, "Failed to reorder markers")
+    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to reorder markers")
   }
 }

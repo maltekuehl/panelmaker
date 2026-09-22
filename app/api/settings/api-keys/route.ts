@@ -3,7 +3,6 @@ import { isEncryptionConfigured } from "@/lib/crypto"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getUserApiCredentials, upsertCredentialSchema, upsertUserApiCredential } from "@/models/chat"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 // GET /api/settings/api-keys - List the current user's saved provider keys (masked)
 export async function GET(request: NextRequest) {
@@ -30,9 +29,6 @@ export async function POST(request: NextRequest) {
     await upsertUserApiCredential(user.id, validated)
     return createSuccessResponse({ success: true }, 201)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to save API key")
   }
 }

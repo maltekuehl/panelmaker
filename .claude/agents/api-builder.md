@@ -30,7 +30,7 @@ For `models/panel/`, add `intelligence.ts` (fluorophore overlap, host species ch
 - Import prisma from `@/lib/prisma`
 - Every function is `async`, explicitly typed parameters and return type
 - Use `prisma.model.findMany({ where: {...}, select: {...} })` — always select only needed fields
-- Text search uses `contains` with `mode: "insensitive"` (maps to SQLite LIKE)
+- Text search uses `contains` with `mode: "insensitive"` (maps to SQL ILIKE on PostgreSQL)
 - Never use `any`
 
 **schema.ts rules:**

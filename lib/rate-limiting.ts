@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { headers } from "next/headers"
-import { NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import "server-only"
 
 export interface RateLimitConfig {
@@ -11,6 +11,7 @@ export interface RateLimitConfig {
 
 export interface RateLimitResult {
   allowed: boolean
+  limit: number
   remaining: number
   resetTime: Date
   totalRequests: number
@@ -23,25 +24,10 @@ export const RATE_LIMITS = {
     maxRequests: 30,
     resourceType: "chat",
   },
-  REVIEWS: {
+  CHAT_OWN_KEY: {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    maxRequests: 20,
-    resourceType: "reviews",
-  },
-  PANELS: {
-    windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    maxRequests: 50,
-    resourceType: "panels",
-  },
-  REPORTS_AUTHENTICATED: {
-    windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    maxRequests: 100,
-    resourceType: "reports",
-  },
-  REPORTS_UNAUTHENTICATED: {
-    windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    maxRequests: 50,
-    resourceType: "reports",
+    maxRequests: 500,
+    resourceType: "chat_own_key",
   },
   REPORTS_SUBMIT: {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
@@ -57,6 +43,12 @@ export const RATE_LIMITS = {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
     maxRequests: 200,
     resourceType: "uploads",
+  },
+  // Charged in whole megabytes: pass Math.ceil(file.size / 1_048_576) as the count.
+  UPLOAD_BYTES: {
+    windowMs: 24 * 60 * 60 * 1000, // 24 hours
+    maxRequests: 2048,
+    resourceType: "upload_bytes",
   },
   LABS_CREATE: {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
@@ -75,268 +67,140 @@ export const RATE_LIMITS = {
   },
 } as const
 
+// Kept without callers: the planned read-only public API v1 is unauthenticated, so it will rate limit by IP.
 /**
- * Extract IP address from request headers
- * Checks common headers set by proxies and load balancers
+ * Extract the client IP from the proxy headers.
+ * x-real-ip is set by the reverse proxy itself; x-forwarded-for is appended to, so only its LAST
+ * hop is trustworthy (earlier entries can be supplied by the client).
  */
-export async function getClientIp(request: NextRequest): Promise<string> {
-  // Try to get real IP from various headers
+export async function getClientIp(_request: NextRequest): Promise<string> {
   const requestHeaders = await headers()
+
+  const realIp = requestHeaders.get("x-real-ip")?.trim()
+  if (realIp) return realIp
+
   const forwardedFor = requestHeaders.get("x-forwarded-for")
   if (forwardedFor) {
-    // x-forwarded-for can contain multiple IPs, take the first one
-    return forwardedFor.split(",")[0].trim()
+    const hops = forwardedFor.split(",").map((hop) => hop.trim())
+    const lastHop = hops[hops.length - 1]
+    if (lastHop) return lastHop
   }
 
-  const realIp = requestHeaders.get("x-real-ip")
-  if (realIp) {
-    return realIp
-  }
-
-  // Fallback to connection remote address (may not be available in all environments)
   return "unknown"
+}
+
+type RateLimitSubject = { userId: string } | { ipAddress: string }
+
+/**
+ * Consumes `count` units of a rate-limit budget.
+ *
+ * Every write is a conditional statement evaluated by Postgres under the row lock, so concurrent
+ * requests cannot overshoot the limit and a first-ever request cannot lose an insert race:
+ *   1. INSERT ... ON CONFLICT DO NOTHING creates the counter row if it is missing.
+ *   2. A conditional UPDATE restarts the window when the previous one has expired.
+ *   3. A conditional UPDATE increments only while the budget still has room, so a denied request
+ *      does not consume any of it.
+ */
+async function consumeRateLimit(
+  subject: RateLimitSubject,
+  config: RateLimitConfig,
+  count = 1,
+): Promise<RateLimitResult> {
+  const now = new Date()
+  const windowStart = new Date(now.getTime() - config.windowMs)
+  const where = { ...subject, resourceType: config.resourceType }
+
+  if (count > config.maxRequests) {
+    return {
+      allowed: false,
+      limit: config.maxRequests,
+      remaining: 0,
+      resetTime: new Date(now.getTime() + config.windowMs),
+      totalRequests: 0,
+    }
+  }
+
+  await prisma.rateLimit.createMany({
+    data: [{ ...where, requestCount: 0, windowStartTime: now, lastRequestTime: now }],
+    skipDuplicates: true,
+  })
+
+  const restarted = await prisma.rateLimit.updateMany({
+    where: { ...where, windowStartTime: { lt: windowStart } },
+    data: { requestCount: count, windowStartTime: now, lastRequestTime: now },
+  })
+
+  if (restarted.count > 0) {
+    return {
+      allowed: true,
+      limit: config.maxRequests,
+      remaining: config.maxRequests - count,
+      resetTime: new Date(now.getTime() + config.windowMs),
+      totalRequests: count,
+    }
+  }
+
+  const consumed = await prisma.rateLimit.updateMany({
+    where: { ...where, requestCount: { lte: config.maxRequests - count } },
+    data: { requestCount: { increment: count }, lastRequestTime: now },
+  })
+
+  const row = await prisma.rateLimit.findFirst({
+    where,
+    select: { requestCount: true, windowStartTime: true },
+  })
+
+  const totalRequests = row?.requestCount ?? count
+  const resetTime = new Date((row?.windowStartTime ?? now).getTime() + config.windowMs)
+
+  return {
+    allowed: consumed.count > 0,
+    limit: config.maxRequests,
+    remaining: consumed.count > 0 ? Math.max(config.maxRequests - totalRequests, 0) : 0,
+    resetTime,
+    totalRequests,
+  }
 }
 
 /**
  * Check rate limit for authenticated users (user ID based)
  */
 export async function checkUserRateLimit(userId: string, config: RateLimitConfig, count = 1): Promise<RateLimitResult> {
-  const now = new Date()
-  const windowStart = new Date(now.getTime() - config.windowMs)
-
-  // Find or create rate limit record
-  let rateLimit = await prisma.rateLimit.findUnique({
-    where: {
-      userId_resourceType: {
-        userId: userId,
-        resourceType: config.resourceType,
-      },
-    },
-  })
-
-  // If no record exists, create one
-  if (!rateLimit) {
-    rateLimit = await prisma.rateLimit.create({
-      data: {
-        userId: userId,
-        resourceType: config.resourceType,
-        requestCount: count,
-        windowStartTime: now,
-        lastRequestTime: now,
-      },
-    })
-    return {
-      allowed: true,
-      remaining: config.maxRequests - count,
-      resetTime: new Date(now.getTime() + config.windowMs),
-      totalRequests: count,
-    }
-  }
-
-  // Check if the current window has expired
-  if (rateLimit.windowStartTime < windowStart) {
-    // Reset the window
-    rateLimit = await prisma.rateLimit.update({
-      where: {
-        userId_resourceType: {
-          userId: userId,
-          resourceType: config.resourceType,
-        },
-      },
-      data: {
-        requestCount: count,
-        windowStartTime: now,
-        lastRequestTime: now,
-      },
-    })
-    return {
-      allowed: true,
-      remaining: config.maxRequests - count,
-      resetTime: new Date(now.getTime() + config.windowMs),
-      totalRequests: count,
-    }
-  }
-
-  // Check if user has exceeded the limit
-  if (rateLimit.requestCount + count > config.maxRequests) {
-    const resetTime = new Date(rateLimit.windowStartTime.getTime() + config.windowMs)
-    return {
-      allowed: false,
-      remaining: 0,
-      resetTime,
-      totalRequests: rateLimit.requestCount,
-    }
-  }
-
-  // Increment the request count
-  rateLimit = await prisma.rateLimit.update({
-    where: {
-      userId_resourceType: {
-        userId: userId,
-        resourceType: config.resourceType,
-      },
-    },
-    data: {
-      requestCount: rateLimit.requestCount + count,
-      lastRequestTime: now,
-    },
-  })
-
-  const resetTime = new Date(rateLimit.windowStartTime.getTime() + config.windowMs)
-  return {
-    allowed: true,
-    remaining: config.maxRequests - rateLimit.requestCount,
-    resetTime,
-    totalRequests: rateLimit.requestCount,
-  }
+  return consumeRateLimit({ userId }, config, count)
 }
 
 /**
- * Check rate limit for unauthenticated users (IP based)
+ * Check rate limit for unauthenticated callers (IP based)
  */
-export async function checkIpRateLimit(ipAddress: string, config: RateLimitConfig): Promise<RateLimitResult> {
-  const now = new Date()
-  const windowStart = new Date(now.getTime() - config.windowMs)
-
-  // Find or create rate limit record
-  let rateLimit = await prisma.rateLimit.findUnique({
-    where: {
-      ipAddress_resourceType: {
-        ipAddress: ipAddress,
-        resourceType: config.resourceType,
-      },
-    },
-  })
-
-  // If no record exists, create one
-  if (!rateLimit) {
-    rateLimit = await prisma.rateLimit.create({
-      data: {
-        ipAddress: ipAddress,
-        resourceType: config.resourceType,
-        requestCount: 1,
-        windowStartTime: now,
-        lastRequestTime: now,
-      },
-    })
-    return {
-      allowed: true,
-      remaining: config.maxRequests - 1,
-      resetTime: new Date(now.getTime() + config.windowMs),
-      totalRequests: 1,
-    }
-  }
-
-  // Check if the current window has expired
-  if (rateLimit.windowStartTime < windowStart) {
-    // Reset the window
-    rateLimit = await prisma.rateLimit.update({
-      where: {
-        ipAddress_resourceType: {
-          ipAddress: ipAddress,
-          resourceType: config.resourceType,
-        },
-      },
-      data: {
-        requestCount: 1,
-        windowStartTime: now,
-        lastRequestTime: now,
-      },
-    })
-    return {
-      allowed: true,
-      remaining: config.maxRequests - 1,
-      resetTime: new Date(now.getTime() + config.windowMs),
-      totalRequests: 1,
-    }
-  }
-
-  // Check if IP has exceeded the limit
-  if (rateLimit.requestCount >= config.maxRequests) {
-    const resetTime = new Date(rateLimit.windowStartTime.getTime() + config.windowMs)
-    return {
-      allowed: false,
-      remaining: 0,
-      resetTime,
-      totalRequests: rateLimit.requestCount,
-    }
-  }
-
-  // Increment the request count
-  rateLimit = await prisma.rateLimit.update({
-    where: {
-      ipAddress_resourceType: {
-        ipAddress: ipAddress,
-        resourceType: config.resourceType,
-      },
-    },
-    data: {
-      requestCount: rateLimit.requestCount + 1,
-      lastRequestTime: now,
-    },
-  })
-
-  const resetTime = new Date(rateLimit.windowStartTime.getTime() + config.windowMs)
-  return {
-    allowed: true,
-    remaining: config.maxRequests - rateLimit.requestCount,
-    resetTime,
-    totalRequests: rateLimit.requestCount,
-  }
-}
-
-/**
- * Combined rate limit check - uses user ID if available, falls back to IP
- */
-export async function checkRateLimit(
-  request: NextRequest,
-  userId: string | null,
+export async function checkIpRateLimit(
+  ipAddress: string,
   config: RateLimitConfig,
+  count = 1,
 ): Promise<RateLimitResult> {
-  if (userId) {
-    return checkUserRateLimit(userId, config)
-  }
-
-  const ipAddress = await getClientIp(request)
-  if (ipAddress === "unknown") {
-    // If we can't determine IP, apply stricter limits
-    return {
-      allowed: false,
-      remaining: 0,
-      resetTime: new Date(Date.now() + config.windowMs),
-      totalRequests: config.maxRequests,
-    }
-  }
-
-  return checkIpRateLimit(ipAddress, config)
+  return consumeRateLimit({ ipAddress }, config, count)
 }
 
 /**
  * Create a rate limit error response with appropriate headers
  */
-export function createRateLimitError(result: RateLimitResult) {
-  const resetTimeFormatted = result.resetTime.toLocaleString()
-  const retryAfter = Math.ceil((result.resetTime.getTime() - Date.now()) / 1000) // seconds
+export function createRateLimitError(result: RateLimitResult): NextResponse {
+  const retryAfter = Math.max(Math.ceil((result.resetTime.getTime() - Date.now()) / 1000), 1)
 
-  const response = new Response(
-    JSON.stringify({
+  return NextResponse.json(
+    {
       error: "Rate limit exceeded",
-      message: `Too many requests. Please try again after ${resetTimeFormatted}`,
+      message: "Too many requests. Please try again later.",
       resetTime: result.resetTime.toISOString(),
-      retryAfter: retryAfter,
-    }),
+      retryAfter,
+    },
     {
       status: 429,
       headers: {
-        "Content-Type": "application/json",
         "Retry-After": retryAfter.toString(),
-        "X-RateLimit-Limit": result.totalRequests.toString(),
+        "X-RateLimit-Limit": result.limit.toString(),
         "X-RateLimit-Remaining": result.remaining.toString(),
         "X-RateLimit-Reset": result.resetTime.toISOString(),
       },
     },
   )
-
-  // Return as any to work with both Response and NextResponse contexts
-  return response as any
 }

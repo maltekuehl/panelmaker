@@ -1,185 +1,55 @@
-import { expect, test } from "@playwright/test"
+import { expect, SEEDED, test } from "./test-helpers"
 
-test.describe("Marker/Cell Type Detail Page", () => {
-  test("should navigate to cell type detail from browse page", async ({ page }) => {
-    await page.goto("/browse")
-    await page.waitForLoadState("networkidle")
-
-    // Look for clickable rows or links to detail pages
-    const detailLinks = page.locator('a[href*="/celltype/"], tr[role="row"] a').first()
-
-    if ((await detailLinks.count()) > 0) {
-      const href = await detailLinks.getAttribute("href")
-      if (href && href.includes("/celltype/")) {
-        await detailLinks.click()
-        await page.waitForLoadState("networkidle")
-
-        // Should navigate to a cell type detail page
-        await expect(page).toHaveURL(/\/celltype\//)
-      } else {
-        test.skip()
-      }
-    } else {
-      test.skip()
-    }
+test.describe("Marker detail page", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`/marker/${SEEDED.PROTEIN_ID}`)
   })
 
-  test("should render cell type detail page with heading", async ({ page }) => {
-    // Go to browse first to get a valid cell type ID
-    await page.goto("/browse")
-    await page.waitForLoadState("networkidle")
-
-    // Find first detail link
-    const detailLinks = page.locator('a[href*="/celltype/"]').first()
-
-    if ((await detailLinks.count()) > 0) {
-      await detailLinks.click()
-      await page.waitForLoadState("networkidle")
-
-      // Check main heading
-      const heading = page.locator("h1").first()
-      if ((await heading.count()) > 0) {
-        await expect(heading).toBeVisible()
-      }
-
-      // Check that page has content
-      await expect(page.locator("main, [role='main']").first()).toBeVisible()
-    } else {
-      test.skip()
-    }
+  test("shows the protein header with its UniProt accession", async ({ page }) => {
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect(page.getByText(`UniProt: ${SEEDED.PROTEIN_ID}`)).toBeVisible()
+    await expect(page.getByText("Gene Symbol:")).toBeVisible()
   })
 
-  test("should display cell type information", async ({ page }) => {
-    await page.goto("/browse")
-    await page.waitForLoadState("networkidle")
+  test("shows the report, cell type and external resource sections", async ({ page }) => {
+    await expect(page.getByRole("heading", { level: 2, name: "Experimental Reports" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 2, name: "Associated Cell Types" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 2, name: "External Resources" })).toBeVisible()
 
-    const detailLinks = page.locator('a[href*="/celltype/"]').first()
-
-    if ((await detailLinks.count()) > 0) {
-      await detailLinks.click()
-      await page.waitForLoadState("networkidle")
-
-      // Check for cell type ID (ontology identifier)
-      const cellTypeId = page.locator('span[class*="font-mono"]').first()
-      if ((await cellTypeId.count()) > 0) {
-        await expect(cellTypeId).toBeVisible()
-      }
-
-      // Check for badge showing marker count
-      const markerBadge = page.locator('[class*="badge"]').first()
-      if ((await markerBadge.count()) > 0) {
-        await expect(markerBadge).toBeVisible()
-      }
-    } else {
-      test.skip()
-    }
+    await expect(page.getByRole("link", { name: `View in UniProt (${SEEDED.PROTEIN_ID})` })).toHaveAttribute(
+      "href",
+      `https://www.uniprot.org/uniprotkb/${SEEDED.PROTEIN_ID}/entry`,
+    )
   })
 
-  test("should show related markers table", async ({ page }) => {
-    await page.goto("/browse")
-    await page.waitForLoadState("networkidle")
+  test("breadcrumbs link back to browse", async ({ page }) => {
+    await page.getByRole("navigation", { name: "breadcrumb" }).getByRole("link", { name: "Markers" }).click()
 
-    const detailLinks = page.locator('a[href*="/celltype/"]').first()
+    await expect(page).toHaveURL("/browse")
+  })
+})
 
-    if ((await detailLinks.count()) > 0) {
-      await detailLinks.click()
-      await page.waitForLoadState("networkidle")
-
-      // Check for "Related Markers" section
-      const markersHeading = page.locator("text=/Related Markers|Markers/")
-      if ((await markersHeading.count()) > 0) {
-        await expect(markersHeading).toBeVisible()
-      }
-
-      // Check for markers table
-      const table = page.locator("table, [role='table']").first()
-      if ((await table.count()) > 0) {
-        await expect(table).toBeVisible()
-      }
-    } else {
-      test.skip()
-    }
+test.describe("Cell type detail page", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`/celltype/${SEEDED.CELL_TYPE_ID}`)
   })
 
-  test("should have external links section", async ({ page }) => {
-    await page.goto("/browse")
-    await page.waitForLoadState("networkidle")
-
-    const detailLinks = page.locator('a[href*="/celltype/"]').first()
-
-    if ((await detailLinks.count()) > 0) {
-      await detailLinks.click()
-      await page.waitForLoadState("networkidle")
-
-      // Check for "External Resources" section
-      const externalHeading = page.locator("text=/External Resources|External Links/")
-      if ((await externalHeading.count()) > 0) {
-        await expect(externalHeading).toBeVisible()
-      }
-
-      // Check for OLS (Cell Ontology) link
-      const olsLink = page.locator('a:has-text("Cell Ontology"), a[href*="ebi.ac.uk"]').first()
-      if ((await olsLink.count()) > 0) {
-        await expect(olsLink).toBeVisible()
-        const href = await olsLink.getAttribute("href")
-        expect(href).toContain("ebi.ac.uk")
-      }
-    } else {
-      test.skip()
-    }
+  test("shows the cell type header with its ontology id", async ({ page }) => {
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect(page.getByRole("navigation", { name: "breadcrumb" })).toContainText(SEEDED.CELL_TYPE_ID)
   })
 
-  test("should handle invalid cell type ID with 404", async ({ page }) => {
-    await page.goto("/celltype/INVALID_ID_12345")
+  test("shows the related markers and external resource sections", async ({ page }) => {
+    await expect(page.getByRole("heading", { level: 2, name: "Related Markers" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 2, name: "External Resources" })).toBeVisible()
 
-    // Should show 404 or not found message
-    const notFound = page.locator("text=/404|not found|does not exist/i")
-    if ((await notFound.count()) > 0) {
-      await expect(notFound).toBeVisible()
-    } else {
-      // Page might redirect back
-      await expect(page).not.toHaveURL(/INVALID_ID/)
-    }
+    await expect(page.getByRole("link", { name: "View in Cell Ontology (OLS)" })).toHaveAttribute("href", /ebi\.ac\.uk/)
   })
 
-  test("should be responsive on mobile", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto("/browse")
-    await page.waitForLoadState("networkidle")
+  test("an unknown cell type id renders the not found page", async ({ page }) => {
+    await page.goto("/celltype/CL:9999999")
 
-    const detailLinks = page.locator('a[href*="/celltype/"]').first()
-
-    if ((await detailLinks.count()) > 0) {
-      await detailLinks.click()
-      await page.waitForLoadState("networkidle")
-
-      // Check that heading is visible on mobile
-      await expect(page.locator("h1").first()).toBeVisible()
-
-      // Check that main content is visible
-      await expect(page.locator("main, [role='main']").first()).toBeVisible()
-    } else {
-      test.skip()
-    }
-  })
-
-  test("should have breadcrumb navigation", async ({ page }) => {
-    await page.goto("/browse")
-    await page.waitForLoadState("networkidle")
-
-    const detailLinks = page.locator('a[href*="/celltype/"]').first()
-
-    if ((await detailLinks.count()) > 0) {
-      await detailLinks.click()
-      await page.waitForLoadState("networkidle")
-
-      // Check for breadcrumbs
-      const breadcrumbs = page.locator('[class*="breadcrumb"], nav:has-text("Cell Types"), a[href="/browse"]').first()
-      if ((await breadcrumbs.count()) > 0) {
-        await expect(breadcrumbs).toBeVisible()
-      }
-    } else {
-      test.skip()
-    }
+    await expect(page.getByText("Cell Type Not Found")).toBeVisible()
+    await expect(page.getByRole("link", { name: "Browse All Markers" })).toBeVisible()
   })
 })

@@ -1,10 +1,21 @@
 import { acceptedCategory, acceptedService, type CookieConsentConfig } from "vanilla-cookieconsent"
 
-export const setCookie = (name: string, value: string, days = 1) => {
-  const date = new Date()
-  date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000)
-  const expires = "; expires=" + date.toUTCString()
-  document.cookie = name + "=" + value + expires + "; path=/"
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void
+  }
+}
+
+// The analytics category owns analytics_storage only. Advertising storage is never requested by this
+// banner, so it stays denied, and security_storage is left untouched because it is strictly necessary.
+function applyAnalyticsConsent(granted: boolean) {
+  if (typeof window === "undefined" || typeof window.gtag !== "function") return
+  window.gtag("consent", "update", {
+    analytics_storage: granted ? "granted" : "denied",
+    ad_storage: "denied",
+    ad_user_data: "denied",
+    ad_personalization: "denied",
+  })
 }
 
 const pluginConfig: CookieConsentConfig = {
@@ -30,70 +41,13 @@ const pluginConfig: CookieConsentConfig = {
 
   onFirstConsent: function () {},
 
-  onConsent: function ({ cookie }) {
-    if (acceptedCategory("analytics") && acceptedService("tagmanager", "analytics")) {
-      // @ts-expect-error window is not defined on server
-      if (window.gtag && window.gtag instanceof Function) {
-        // @ts-expect-error window is not defined on server
-        window.gtag("consent", "update", {
-          ad_personalization: "granted",
-          ad_storage: "granted",
-          ad_user_data: "granted",
-          functionality_storage: "granted",
-          personalization_storage: "granted",
-          security_storage: "granted",
-          analytics_storage: "denied",
-        })
-      }
-    } else {
-      // @ts-expect-error window is not defined on server
-      if (window.gtag && window.gtag instanceof Function) {
-        // @ts-expect-error window is not defined on server
-        window.gtag("consent", "update", {
-          ad_storage: "denied",
-          ad_user_data: "denied",
-          ad_personalization: "denied",
-          functionality_storage: "denied",
-          security_storage: "denied",
-          personalization_storage: "denied",
-          analytics_storage: "denied",
-        })
-      }
-    }
+  onConsent: function () {
+    applyAnalyticsConsent(acceptedCategory("analytics") && acceptedService("tagmanager", "analytics"))
   },
 
-  onChange: function ({ changedCategories, cookie }) {
-    if (changedCategories.includes("analytics")) {
-      if (acceptedCategory("analytics") && acceptedService("tagmanager", "analytics")) {
-        // @ts-expect-error window is not defined on server
-        if (window.gtag && window.gtag instanceof Function) {
-          // @ts-expect-error window is not defined on server
-          window.gtag("consent", "update", {
-            ad_personalization: "granted",
-            ad_storage: "granted",
-            ad_user_data: "granted",
-            functionality_storage: "granted",
-            personalization_storage: "granted",
-            security_storage: "granted",
-            analytics_storage: "denied",
-          })
-        }
-      } else {
-        // @ts-expect-error window is not defined on server
-        if (window.gtag && window.gtag instanceof Function) {
-          // @ts-expect-error window is not defined on server
-          window.gtag("consent", "update", {
-            ad_storage: "denied",
-            ad_user_data: "denied",
-            ad_personalization: "denied",
-            functionality_storage: "denied",
-            security_storage: "denied",
-            personalization_storage: "denied",
-            analytics_storage: "denied",
-          })
-        }
-      }
-    }
+  onChange: function ({ changedCategories }) {
+    if (!changedCategories.includes("analytics")) return
+    applyAnalyticsConsent(acceptedCategory("analytics") && acceptedService("tagmanager", "analytics"))
   },
 
   categories: {
@@ -158,13 +112,13 @@ const pluginConfig: CookieConsentConfig = {
             },
             {
               title: "Strictly Necessary Cookies",
-              description: "Description",
+              description: "Required for sign-in, security and remembering your cookie choice.",
               linkedCategory: "necessary",
               cookieTable: {
                 headers: {
                   name: "Name",
                   domain: "Service",
-                  description: "Description",
+                  description: "Required for sign-in, security and remembering your cookie choice.",
                   expiration: "Expiration",
                 },
                 body: [
@@ -190,7 +144,7 @@ const pluginConfig: CookieConsentConfig = {
                 headers: {
                   name: "Name",
                   domain: "Service",
-                  description: "Description",
+                  description: "Required for sign-in, security and remembering your cookie choice.",
                   expiration: "Expiration",
                 },
                 body: [
@@ -198,8 +152,8 @@ const pluginConfig: CookieConsentConfig = {
                     name: "_ga_*, _gid",
                     domain: "Google Tag Manager & Google Analytics",
                     description:
-                      "Web analytics technologies from <a>Google Tag Manager & Google Analytics</a> to collect usage statistics and manage other analytics services.",
-                    expiration: "12 days",
+                      'Web analytics technologies from <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="cc__link">Google Tag Manager and Google Analytics</a> to collect usage statistics and manage other analytics services.',
+                    expiration: "_ga: 2 years, _gid: 24 hours",
                   },
                 ],
               },

@@ -1,9 +1,8 @@
-import { canSubmit, requireAuth } from "@/lib/auth"
+import { authErrorResponse, canSubmit, requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { createReportBatchSchema, resolveAndCreateReports, toReportResponse } from "@/models/experimental-report"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,18 +38,12 @@ export async function POST(request: NextRequest) {
       201,
     )
   } catch (error) {
-    if (error instanceof Error && error.message === "Authentication required") {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     if (
       error instanceof Error &&
       (error.message.includes("not found in") || error.message.includes("not found in Antibody Registry"))
     ) {
       return NextResponse.json({ error: error.message }, { status: 422 })
     }
-    return createErrorResponse(error, "Failed to create reports")
+    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to create reports")
   }
 }

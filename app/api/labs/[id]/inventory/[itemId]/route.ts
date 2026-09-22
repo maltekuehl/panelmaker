@@ -1,8 +1,8 @@
 import { authErrorResponse, requireLabRole } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { removeLabAntibody, toLabAntibodyResponse, updateLabAntibody, updateLabAntibodySchema } from "@/models/lab"
-import { NextRequest } from "next/server"
-import { z } from "zod"
+import { NextRequest, NextResponse } from "next/server"
 
 type Context = { params: Promise<{ id: string; itemId: string }> }
 
@@ -10,15 +10,18 @@ type Context = { params: Promise<{ id: string; itemId: string }> }
 export async function PATCH(request: NextRequest, context: Context) {
   try {
     const { id: labId, itemId } = await context.params
-    await requireLabRole(request, labId, "MEMBER")
+    const { user } = await requireLabRole(request, labId, "MEMBER")
+
+    const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.INVENTORY_MUTATE)
+    if (!rateLimitResult.allowed) {
+      return createRateLimitError(rateLimitResult) as NextResponse
+    }
+
     const body = await request.json()
     const data = updateLabAntibodySchema.parse(body)
     const item = await updateLabAntibody(labId, itemId, data)
     return createSuccessResponse({ item: toLabAntibodyResponse(item) })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to update antibody")
   }
 }
@@ -27,7 +30,13 @@ export async function PATCH(request: NextRequest, context: Context) {
 export async function DELETE(request: NextRequest, context: Context) {
   try {
     const { id: labId, itemId } = await context.params
-    await requireLabRole(request, labId, "MEMBER")
+    const { user } = await requireLabRole(request, labId, "MEMBER")
+
+    const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.INVENTORY_MUTATE)
+    if (!rateLimitResult.allowed) {
+      return createRateLimitError(rateLimitResult) as NextResponse
+    }
+
     await removeLabAntibody(labId, itemId)
     return createSuccessResponse({ success: true })
   } catch (error) {

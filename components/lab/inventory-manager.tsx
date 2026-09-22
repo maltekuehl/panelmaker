@@ -3,6 +3,7 @@
 import { DataTable } from "@/components/browse/data-table"
 import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
 import { DataTablePagination } from "@/components/data-table/pagination"
+import { DebouncedSearchInput } from "@/components/data-table/search-input"
 import { buildInventoryColumns, type InventoryItem } from "@/components/lab/inventory-columns"
 import { InventoryFormDialog } from "@/components/lab/inventory-form-dialog"
 import {
@@ -16,12 +17,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { labInventoryParsers } from "@/lib/data-table"
+import { isInventoryParamsActive, labInventoryParsers } from "@/lib/data-table"
 import { Package, Plus, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useQueryStates } from "nuqs"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 const STATUS_OPTIONS = [
@@ -30,8 +30,6 @@ const STATUS_OPTIONS = [
   { value: "ORDERED", label: "Ordered" },
   { value: "OUT_OF_STOCK", label: "Out of stock" },
 ]
-
-const SEARCH_DEBOUNCE_MS = 300
 
 type FacetOption = { value: string; label: string; description: string }
 
@@ -48,32 +46,13 @@ interface InventoryManagerProps {
 export function InventoryManager({ labId, canManage, items, total, page, pageCount, facets }: InventoryManagerProps) {
   const router = useRouter()
   const [params, setParams] = useQueryStates(labInventoryParsers, { shallow: false })
-  const [search, setSearch] = useState(params.q)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const [addOpen, setAddOpen] = useState(false)
   const [editing, setEditing] = useState<InventoryItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => {
-    setSearch(params.q)
-  }, [params.q])
-
-  const onSearchChange = (value: string) => {
-    setSearch(value)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      setParams({ q: value || null, page: 1 })
-    }, SEARCH_DEBOUNCE_MS)
-  }
-
-  const isFiltered =
-    params.q !== "" ||
-    params.status.length > 0 ||
-    params.host.length > 0 ||
-    params.clonality.length > 0 ||
-    params.sort !== null
+  const isFiltered = isInventoryParamsActive(params)
 
   const columns = useMemo(
     () =>
@@ -139,10 +118,10 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <Input
-              placeholder="Search by antibody, RRID, target, lot..."
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
+            <DebouncedSearchInput
+              placeholder="Search by antibody, RRID, target, lot…"
+              value={params.q}
+              onCommit={(q) => setParams({ q: q || null, page: 1 })}
               className="h-8 w-[200px] lg:w-[280px]"
             />
             <DataTableFacetedFilter
@@ -182,11 +161,8 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
             )}
           </div>
 
-          <DataTable
-            columns={columns}
-            data={items}
-            pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
-          />
+          <DataTable columns={columns} data={items} emptyMessage="No inventory items match these filters." />
+          <DataTablePagination page={page} pageCount={pageCount} total={total} />
         </>
       )}
 

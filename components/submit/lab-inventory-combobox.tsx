@@ -24,8 +24,11 @@ export function LabInventoryCombobox({ onImport }: { onImport: (item: LabInvento
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
-  const fetcher = useCallback((q: string) => fetch(`/api/labs/inventory/mine?q=${encodeURIComponent(q)}`), [])
-  const extractResults = useCallback((data: any) => data.items ?? [], [])
+  const fetcher = useCallback(
+    (q: string, signal: AbortSignal) => fetch(`/api/labs/inventory/mine?q=${encodeURIComponent(q)}`, { signal }),
+    [],
+  )
+  const extractResults = useCallback((data: unknown) => (data as { items?: LabInventoryImportItem[] }).items ?? [], [])
 
   const { results, isLoading } = useDebouncedSearch<LabInventoryImportItem>({
     query,
@@ -42,7 +45,7 @@ export function LabInventoryCombobox({ onImport }: { onImport: (item: LabInvento
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-8">
           <FlaskConical className="size-4" />
@@ -51,7 +54,7 @@ export function LabInventoryCombobox({ onImport }: { onImport: (item: LabInvento
       </PopoverTrigger>
       <PopoverContent className="w-[340px] p-0" align="start">
         <Command shouldFilter={false}>
-          <CommandInput placeholder="Search your lab inventory..." value={query} onValueChange={setQuery} />
+          <CommandInput placeholder="Search your lab inventory…" value={query} onValueChange={setQuery} />
           <CommandList>
             {isLoading && (
               <div className="flex items-center justify-center py-6">
@@ -74,10 +77,12 @@ export function LabInventoryCombobox({ onImport }: { onImport: (item: LabInvento
                         <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">{item.rrid}</span>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                       {[item.labName, item.targetProtein?.geneSymbol ?? item.targetName, item.hostTaxon?.label]
                         .filter(Boolean)
-                        .join(" · ")}
+                        .map((part) => (
+                          <span key={part}>{part}</span>
+                        ))}
                     </div>
                   </CommandItem>
                 ))}

@@ -3,9 +3,10 @@
 Core feature is shipped (Phases 1-7). Remaining and optional work:
 
 ## Deployment / config
-- [ ] Set `ENCRYPTION_KEY` (32+ chars) in every environment before users save provider keys. Until
-      then, `POST /api/settings/api-keys` and the lab equivalent return 503 and the settings UI shows
-      a "Server encryption is not configured" notice. Add it to `.env`, `.env.test`, and prod secrets.
+- [x] `ENCRYPTION_KEY` is listed in `.env.local.example` and set in `.env.test`.
+- [ ] Set a real `ENCRYPTION_KEY` (32+ chars) in `.env` and in prod secrets before users save provider
+      keys. Until then, `POST /api/settings/api-keys` and the lab equivalent return 503 and the settings
+      UI shows a "Server encryption is not configured" notice.
 
 ## Tests
 - [ ] Add authenticated Playwright coverage to `tests/chat.spec.ts`: send a message, reload, assert

@@ -41,13 +41,35 @@ enum Fixation {
   OTHER
 }
 
-enum MultiplexMethod {
-  PATHOPLEX
-  CODEX
-  CYCIF
-  IMC
-  MIBI
-  IBEX
+// Legacy `Fixation` conflates how the specimen was preserved with what it was fixed in. The two are
+// split: `Preservation` is the preservation state (MITI `Preservation method`, OMAP
+// `tissue_preservation`), the fixative chemistry moves to the ChEBI-backed `Fixative` table.
+enum Preservation {
+  FFPE
+  FRESH_FROZEN
+  FIXED_FROZEN
+  FRESH
+  OTHER
+}
+
+enum SampleType {
+  TISSUE
+  CELL_LINE
+  PRIMARY_CELL_CULTURE
+  ORGANOID
+  OTHER
+}
+
+enum DonorSex {
+  MALE
+  FEMALE
+  INTERSEX
+  UNKNOWN
+}
+
+enum DetectionModality {
+  FLUORESCENCE
+  MASS
   OTHER
 }
 
@@ -137,8 +159,6 @@ model User {
   accounts          Account[]
   sessions          Session[]
   Authenticator     Authenticator[]
-  reviews           Review[]
-  approvedReviews   Review[]        @relation("ReviewApprovals")
   blogPosts         BlogPost[]
   experiments       Experiment[]
   panels            Panel[]
@@ -227,8 +247,6 @@ model RateLimit {
 
   @@unique([userId, resourceType])
   @@unique([ipAddress, resourceType])
-  @@index([userId, resourceType])
-  @@index([ipAddress, resourceType])
   @@index([windowStartTime])
 }
 
@@ -270,7 +288,7 @@ model ChatConversationMessage {
   id             String          @id @default(cuid())
   conversationId String
   role           ChatMessageRole
-  content        String          @db.Text
+  content        String
   model          String?
   inputTokens    Int?
   outputTokens   Int?
@@ -289,7 +307,7 @@ model ApiCredential {
   labId       String?
   provider    String
   label       String?
-  ciphertext  String             @db.Text
+  ciphertext  String
   last4       String?
   createdById String?
 
@@ -301,8 +319,6 @@ model ApiCredential {
 
   @@unique([userId, provider])
   @@unique([labId, provider])
-  @@index([userId])
-  @@index([labId])
 }
 
 // ─── Blog ─────────────────────────────────────────────────────────────
@@ -318,7 +334,7 @@ model BlogPost {
 
   metaTitle       String?
   metaDescription String?
-  keywords        String  @default("[]")
+  keywords        String[]
 
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId String
@@ -326,47 +342,18 @@ model BlogPost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([slug])
   @@index([published])
   @@index([publishedAt])
   @@index([authorId])
   @@index([createdAt])
 }
 
-// ─── Reviews ──────────────────────────────────────────────────────────
-
-model Review {
-  id            String   @id @default(cuid())
-  name          String
-  reviewBody    String
-  isHelpful     Boolean
-  datePublished DateTime @default(now())
-
-  isPending  Boolean   @default(true)
-  isApproved Boolean   @default(false)
-  approvedBy String?
-  approvedAt DateTime?
-
-  author               User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId             String
-  experimentalReport   ExperimentalReport @relation(fields: [experimentalReportId], references: [id], onDelete: Cascade)
-  experimentalReportId String
-  approvedByUser       User?              @relation("ReviewApprovals", fields: [approvedBy], references: [id], onDelete: SetNull)
-
-  @@unique([authorId, experimentalReportId])
-  @@index([experimentalReportId])
-  @@index([isHelpful])
-  @@index([datePublished])
-  @@index([isPending])
-  @@index([isApproved])
-}
-
 // ─── Spatial Proteomics: Ontology Models ──────────────────────────────
 
 model CellType {
-  id        String @id
+  id        String   @id
   label     String
-  parentIds String @default("[]")
+  parentIds String[]
 
   markers     CellTypeMarker[]
   reportLinks ReportCellType[]
@@ -387,9 +374,9 @@ model Taxon {
 }
 
 model Tissue {
-  id        String @id
+  id        String   @id
   label     String
-  partOfIds String @default("[]")
+  partOfIds String[]
 
   experiments Experiment[]
 
@@ -397,9 +384,9 @@ model Tissue {
 }
 
 model CellularComponent {
-  id        String @id
+  id        String   @id
   label     String
-  partOfIds String @default("[]")
+  partOfIds String[]
 
   experimentalReports ExperimentalReport[]
 
@@ -416,19 +403,69 @@ model DiseaseCondition {
   @@index([label])
 }
 
+// ChEBI terms for fixative chemistry (CHEBI:16842 formaldehyde, CHEBI:752978 paraformaldehyde,
+// CHEBI:17790 methanol, CHEBI:15347 acetone, CHEBI:64276 glutaraldehyde).
+model Fixative {
+  id    String @id
+  label String
+
+  experiments Experiment[]
+
+  @@index([label])
+}
+
+// HsapDv terms for human donors, MmusDv for mouse; the ontology to search is chosen from the
+// experiment species, which is the CELLxGENE convention.
+model DevelopmentalStage {
+  id    String @id
+  label String
+
+  experiments Experiment[]
+
+  @@index([label])
+}
+
 model Fluorophore {
-  id         String   @id @default(cuid())
-  name       String   @unique
-  excitation Int
-  emission   Int
-  fpbaseId   String?  @unique
-  chebiId    String?
-  aliases    String[]
+  id                    String   @id @default(cuid())
+  name                  String   @unique
+  excitation            Int
+  emission              Int
+  fpbaseId              String?  @unique
+  fpbaseSlug            String?
+  chebiId               String?
+  aliases               String[]
+  extinctionCoefficient Float?
+  quantumYield          Float?
+  excitationSpectrum    Json?
+  emissionSpectrum      Json?
 
   panelMarkers        PanelMarker[]
   experimentalReports ExperimentalReport[]
 
-  @@index([name])
+  @@index([fpbaseSlug])
+}
+
+// Imaging assays, seeded from the EFO `spatial proteomics` branch (EFO:0700000) plus local rows for
+// methods with no ontology term yet. `efoId` is deliberately optional: PathoPlex has no EFO term and
+// must still be a first-class method rather than an "other" fallback.
+model ImagingMethod {
+  id         String            @id
+  label      String
+  shortLabel String
+  efoId      String?           @unique
+  detection  DetectionModality
+  cyclic     Boolean           @default(false)
+  aliases    String[]
+  sortOrder  Int               @default(0)
+
+  experiments Experiment[]
+  panels      Panel[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([detection])
+  @@index([sortOrder])
 }
 
 model ReportCellType {
@@ -480,10 +517,10 @@ model Antibody {
   cloneId         String?
   clonality       Clonality?
   hostTaxonId     String?
-  targetSpecies   String     @default("[]")
+  targetSpecies   String[]
   targetProteinId String?
   targetName      String?
-  applications    String     @default("[]")
+  applications    String[]
   conjugate       String?
   vendorName      String?
   vendorUrl       String?
@@ -507,20 +544,39 @@ model Experiment {
   id               String            @id @default(cuid())
   name             String?
   description      String?
-  citation         String?           @db.Text
+  citation         String?
   pmid             String?
   doi              String?
   speciesId        String?
   tissueId         String?
+  // Superseded by `preservation` + `fixativeId`. Still written on every submission and still read by
+  // browse filters, evidence roll-ups and the chat tools, so it stays until those move over.
   fixation         Fixation?
-  method           MultiplexMethod?
+  imagingMethodId  String?
   antigenRetrieval AntigenRetrieval?
   conditionId      String?
   submitterId      String?
-  visibility       Visibility        @default(PUBLIC)
+  visibility       Visibility        @default(PRIVATE)
   owningLabId      String?
 
-  species   Taxon?               @relation("ExperimentSpecies", fields: [speciesId], references: [id], onDelete: SetNull)
+  preservation          Preservation?
+  preservationText      String?
+  fixativeId            String?
+  fixativeConcentration String?
+  antigenRetrievalText  String?
+  sampleType            SampleType?
+  sectionThicknessUm    Float?
+  donorSex              DonorSex?
+  donorAge              String?
+  developmentalStageId  String?
+  protocolDoi           String?
+
+  species       Taxon?         @relation("ExperimentSpecies", fields: [speciesId], references: [id], onDelete: SetNull)
+  imagingMethod ImagingMethod? @relation(fields: [imagingMethodId], references: [id], onDelete: SetNull)
+
+  fixative           Fixative?           @relation(fields: [fixativeId], references: [id], onDelete: SetNull)
+  developmentalStage DevelopmentalStage? @relation(fields: [developmentalStageId], references: [id], onDelete: SetNull)
+
   tissue    Tissue?              @relation(fields: [tissueId], references: [id], onDelete: SetNull)
   condition DiseaseCondition?    @relation(fields: [conditionId], references: [id], onDelete: SetNull)
   submitter User?                @relation(fields: [submitterId], references: [id], onDelete: SetNull)
@@ -535,9 +591,14 @@ model Experiment {
   @@index([tissueId])
   @@index([conditionId])
   @@index([submitterId])
-  @@index([method])
+  @@index([imagingMethodId])
   @@index([visibility])
   @@index([owningLabId])
+  @@index([createdAt])
+  @@index([preservation])
+  @@index([fixativeId])
+  @@index([developmentalStageId])
+  @@index([sampleType])
 }
 
 model ExperimentalReport {
@@ -557,12 +618,11 @@ model ExperimentalReport {
   notes         String?
 
   experiment  Experiment         @relation(fields: [experimentId], references: [id], onDelete: Cascade)
-  antibody    Antibody?          @relation(fields: [antibodyId], references: [id], onDelete: SetNull)
+  antibody    Antibody?          @relation(fields: [antibodyId], references: [id], onDelete: Restrict)
   subcellular CellularComponent? @relation(fields: [subcellularId], references: [id], onDelete: SetNull)
   fluorophore Fluorophore?       @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
   cellTypes   ReportCellType[]
   images      ReportImage[]
-  reviews     Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -572,12 +632,14 @@ model ExperimentalReport {
   @@index([subcellularId])
   @@index([fluorophoreId])
   @@index([status])
+  @@index([createdAt])
 }
 
 model ReportImage {
   id        String   @id @default(cuid())
   reportId  String
   url       String
+  caption   String?
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
@@ -601,22 +663,24 @@ model ReportImageCellType {
 // ─── Spatial Proteomics: Panel Builder ────────────────────────────────
 
 model Panel {
-  id          String     @id @default(cuid())
-  name        String
-  description String?
-  speciesId   String?
-  fixation    Fixation?
-  conditionId String?
-  ownerId     String?
-  visibility  Visibility @default(PRIVATE)
-  owningLabId String?
+  id              String     @id @default(cuid())
+  name            String
+  description     String?
+  speciesId       String?
+  fixation        Fixation?
+  imagingMethodId String?
+  conditionId     String?
+  ownerId         String?
+  visibility      Visibility @default(PRIVATE)
+  owningLabId     String?
 
-  condition DiseaseCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
-  species   Taxon?            @relation(fields: [speciesId], references: [id], onDelete: SetNull)
-  owner     User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  owningLab Lab?              @relation("PanelOwningLab", fields: [owningLabId], references: [id], onDelete: SetNull)
-  cycles    PanelCycle[]
-  labShares PanelLabShare[]
+  condition     DiseaseCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
+  species       Taxon?            @relation(fields: [speciesId], references: [id], onDelete: SetNull)
+  imagingMethod ImagingMethod?    @relation(fields: [imagingMethodId], references: [id], onDelete: SetNull)
+  owner         User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  owningLab     Lab?              @relation("PanelOwningLab", fields: [owningLabId], references: [id], onDelete: SetNull)
+  cycles        PanelCycle[]
+  labShares     PanelLabShare[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -624,8 +688,10 @@ model Panel {
   @@index([ownerId])
   @@index([conditionId])
   @@index([speciesId])
+  @@index([imagingMethodId])
   @@index([visibility])
   @@index([owningLabId])
+  @@index([updatedAt])
 }
 
 model PanelCycle {
@@ -688,7 +754,6 @@ model Lab {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([slug])
   @@index([createdById])
 }
 
@@ -705,8 +770,8 @@ model LabMembership {
   invitedBy User? @relation("LabMemberInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
 
   @@unique([userId, labId])
-  @@index([userId])
   @@index([labId])
+  @@index([invitedById])
 }
 
 model LabInvitation {
@@ -734,6 +799,8 @@ model LabInvitation {
   @@index([email])
   @@index([status])
   @@index([expiresAt])
+  @@index([invitedById])
+  @@index([acceptedById])
 }
 
 model LabAntibody {
@@ -758,9 +825,10 @@ model LabAntibody {
   updatedAt DateTime @updatedAt
 
   @@unique([labId, antibodyId])
-  @@index([labId])
   @@index([antibodyId])
   @@index([status])
+  @@index([addedAt])
+  @@index([addedById])
 }
 
 model ExperimentLabShare {

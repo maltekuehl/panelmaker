@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { prisma } from "@/lib/prisma"
 import { ArrowRight, BadgeCheck, BookOpen, Dna, FlaskConical, Layers, Plus, Search } from "lucide-react"
 import type { Metadata } from "next"
-import { cacheLife } from "next/cache"
+import { cacheLife, cacheTag } from "next/cache"
 import Link from "next/link"
 import { Suspense } from "react"
 
@@ -36,6 +36,7 @@ function formatCount(count: number): string {
 async function HomeStats() {
   "use cache"
   cacheLife("days")
+  cacheTag("browse")
 
   const [proteinCount, antibodyCount, reportCount] = await Promise.all([
     prisma.protein.count(),

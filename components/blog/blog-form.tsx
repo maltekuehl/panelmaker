@@ -10,13 +10,13 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/hooks/use-toast"
 import { hasBlogPostProperty, hasErrorProperty } from "@/types/api"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { FileText, PlusCircle, Save, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
+import { toast } from "sonner"
 import { z } from "zod"
 
 const blogFormSchema = z.object({
@@ -41,7 +41,6 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
   const [keywordInput, setKeywordInput] = useState("")
   const [activeTab, setActiveTab] = useState("content")
   const router = useRouter()
-  const { toast } = useToast()
 
   const form = useForm<BlogFormValues>({
     resolver: zodResolver(blogFormSchema),
@@ -84,12 +83,7 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
 
       const data = await response.json()
 
-      toast({
-        title: isEditing ? "Blog post updated!" : "Blog post created!",
-        description: isEditing
-          ? "Your blog post has been updated successfully."
-          : "Your blog post has been created successfully.",
-      })
+      toast.success(isEditing ? "Blog post updated" : "Blog post created")
 
       // Redirect to the blog post or blog list
       if (hasBlogPostProperty(data) && data.blogPost?.slug) {
@@ -100,14 +94,11 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
       router.refresh()
     } catch (error) {
       console.error(`Error ${isEditing ? "updating" : "creating"} blog post:`, error)
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : `Failed to ${isEditing ? "update" : "create"} blog post. Please try again.`,
-        variant: "destructive",
-      })
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Failed to ${isEditing ? "update" : "create"} blog post. Please try again.`,
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -128,7 +119,7 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
     )
   }
 
-  const handleKeywordKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeywordKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault()
       addKeyword()
@@ -165,7 +156,7 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
                       <FormItem>
                         <FormLabel>Title</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter blog post title..." {...field} />
+                          <Input placeholder="Enter blog post title…" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -180,7 +171,7 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
                         <FormLabel>Excerpt (Optional)</FormLabel>
                         <FormControl>
                           <Textarea
-                            placeholder="Brief description of the blog post..."
+                            placeholder="Brief description of the blog post…"
                             className="resize-none"
                             rows={3}
                             {...field}
@@ -208,18 +199,18 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
                           <TabsContent value="content" className="mt-4">
                             <FormControl>
                               <Textarea
-                                placeholder="Write your blog post content in Markdown..."
+                                placeholder="Write your blog post content in Markdown…"
                                 className="min-h-[400px] font-mono"
                                 {...field}
                               />
                             </FormControl>
                           </TabsContent>
                           <TabsContent value="preview" className="mt-4">
-                            <div className="min-h-[400px] border rounded-md p-4 prose prose-gray max-w-none dark:prose-invert">
+                            <div className="prose min-h-[400px] max-w-none rounded-md border p-4">
                               {watchedContent ? (
                                 <Markdown>{watchedContent}</Markdown>
                               ) : (
-                                <p className="text-muted-foreground italic">Start writing to see the preview...</p>
+                                <p className="text-muted-foreground italic">Start writing to see the preview…</p>
                               )}
                             </div>
                           </TabsContent>
@@ -263,10 +254,10 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
                   <div className="flex gap-2">
                     <Button type="submit" disabled={isSubmitting} className="flex-1">
                       {isSubmitting ? (
-                        "Saving..."
+                        "Saving…"
                       ) : (
                         <>
-                          <Save className="h-4 w-4 mr-2" />
+                          <Save className="size-4" />
                           {watchedPublished ? "Publish" : "Save Draft"}
                         </>
                       )}
@@ -302,13 +293,14 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
                 <CardContent className="space-y-4">
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Add keyword..."
+                      placeholder="Add keyword…"
                       value={keywordInput}
                       onChange={(e) => setKeywordInput(e.target.value)}
-                      onKeyPress={handleKeywordKeyPress}
+                      onKeyDown={handleKeywordKeyDown}
                     />
                     <Button type="button" variant="outline" size="icon" onClick={addKeyword}>
-                      <PlusCircle className="h-4 w-4" />
+                      <PlusCircle className="size-4" />
+                      <span className="sr-only">Add keyword</span>
                     </Button>
                   </div>
 
@@ -323,6 +315,7 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
                             className="ml-1 hover:text-destructive"
                           >
                             <X className="h-3 w-3" />
+                            <span className="sr-only">Remove {keyword}</span>
                           </button>
                         </Badge>
                       ))}
@@ -345,7 +338,7 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
                       <FormItem>
                         <FormLabel>Meta Title</FormLabel>
                         <FormControl>
-                          <Input placeholder="SEO title..." {...field} />
+                          <Input placeholder="SEO title…" {...field} />
                         </FormControl>
                         <FormDescription>Leave empty to use the post title</FormDescription>
                         <FormMessage />
@@ -360,7 +353,7 @@ export default function BlogForm({ initialData, isEditing = false }: BlogFormPro
                       <FormItem>
                         <FormLabel>Meta Description</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="SEO description..." className="resize-none" rows={3} {...field} />
+                          <Textarea placeholder="SEO description…" className="resize-none" rows={3} {...field} />
                         </FormControl>
                         <FormDescription>Leave empty to use the excerpt</FormDescription>
                         <FormMessage />

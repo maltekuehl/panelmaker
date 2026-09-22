@@ -1,6 +1,14 @@
-export { fluorophoreExists, getAllFluorophores, getFluorophoreById, searchFluorophores } from "./queries"
+export {
+  fluorophoreExists,
+  getAllFluorophores,
+  getFluorophoreById,
+  getFluorophoreSpectra,
+  searchFluorophores,
+} from "./queries"
 export type { FluorophoreRow } from "./queries"
 export { fluorophoreSearchSchema } from "./schema"
 export type { FluorophoreSearchParams } from "./schema"
+export { fluorophoreBrightness, parseSpectrum, spectralOverlap } from "./spectra"
+export type { FluorophoreSpectra, FluorophoreSpectraMap, SpectrumPoint } from "./spectra"
 export { toFluorophoreResponse } from "./transforms"
 export type { FluorophoreResponse } from "./transforms"

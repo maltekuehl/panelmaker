@@ -1,6 +1,6 @@
 "use client"
 
-import { OntologyCombobox } from "@/components/ontology-combobox"
+import { OntologyCombobox, type OntologyValue } from "@/components/ontology-combobox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,8 +10,6 @@ import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
-
-type OntologyValue = { id: string; label: string }
 
 interface LabFormProps {
   mode: "create" | "edit"
@@ -37,15 +35,17 @@ export function LabForm({ mode, initial }: LabFormProps) {
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [verificationError, setVerificationError] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
 
   // On create, omit empty fields (the schema treats them as optional). On edit, send null to clear.
   const emptyValue = mode === "edit" ? null : undefined
 
   async function handleSave() {
     if (!name.trim()) {
-      toast.error("Name is required")
+      setNameError("Name is required")
       return
     }
+    setNameError(null)
     setIsSubmitting(true)
     setVerificationError(false)
     try {
@@ -90,7 +90,13 @@ export function LabForm({ mode, initial }: LabFormProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault()
+        handleSave()
+      }}
+    >
       {verificationError && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Your account must be verified by an admin before you can create a lab. Contact an administrator to get access.
@@ -106,12 +112,21 @@ export function LabForm({ mode, initial }: LabFormProps) {
           placeholder="e.g. Smith Imaging Lab"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          aria-invalid={nameError !== null}
+          aria-describedby={nameError ? "lab-name-error" : undefined}
           className="max-w-md"
         />
+        {nameError && (
+          <p id="lab-name-error" className="mt-1 text-sm text-destructive">
+            {nameError}
+          </p>
+        )}
       </div>
 
       <div>
-        <Label className="text-sm font-medium">Institution</Label>
+        <Label htmlFor="lab-institution" className="text-sm font-medium">
+          Institution
+        </Label>
         <p className="text-xs text-muted-foreground mb-1">
           Search by institution name. Powered by the{" "}
           <a href="https://ror.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
@@ -121,10 +136,11 @@ export function LabForm({ mode, initial }: LabFormProps) {
         </p>
         <div className="max-w-md">
           <OntologyCombobox
+            id="lab-institution"
             ontologyType="ror"
             value={institution}
             onChange={setInstitution}
-            placeholder="Search institution..."
+            placeholder="Search institution…"
           />
         </div>
       </div>
@@ -149,7 +165,7 @@ export function LabForm({ mode, initial }: LabFormProps) {
         </Label>
         <Textarea
           id="lab-description"
-          placeholder="Describe your lab and its research focus..."
+          placeholder="Describe your lab and its research focus…"
           rows={4}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -167,10 +183,10 @@ export function LabForm({ mode, initial }: LabFormProps) {
         <Switch id="lab-public" checked={isPublicProfile} onCheckedChange={setIsPublicProfile} />
       </div>
 
-      <Button onClick={handleSave} disabled={isSubmitting} size="sm">
-        {isSubmitting && <Loader2 className="size-4 animate-spin mr-2" />}
+      <Button type="submit" disabled={isSubmitting} size="sm">
+        {isSubmitting && <Loader2 className="size-4 animate-spin" />}
         {mode === "create" ? "Create lab" : "Save changes"}
       </Button>
-    </div>
+    </form>
   )
 }

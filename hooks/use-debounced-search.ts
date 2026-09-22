@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 
-interface UseDebouncedSearchOptions {
+interface UseDebouncedSearchOptions<T> {
   query: string
   enabled: boolean
   minLength?: number
   debounceMs?: number
-  fetcher: (query: string) => Promise<Response>
-  extractResults: (json: any) => any[]
+  fetcher: (query: string, signal: AbortSignal) => Promise<Response>
+  extractResults: (json: unknown) => T[]
 }
 
 export function useDebouncedSearch<T>({
@@ -16,7 +16,7 @@ export function useDebouncedSearch<T>({
   debounceMs = 300,
   fetcher,
   extractResults,
-}: UseDebouncedSearchOptions) {
+}: UseDebouncedSearchOptions<T>) {
   const [results, setResults] = useState<T[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -33,20 +33,27 @@ export function useDebouncedSearch<T>({
       return
     }
 
+    const controller = new AbortController()
+
     debounceRef.current = setTimeout(async () => {
       setIsLoading(true)
       try {
-        const res = await fetcher(query.trim())
+        const res = await fetcher(query.trim(), controller.signal)
+        if (controller.signal.aborted) return
         if (!res.ok) {
           setResults([])
           return
         }
         const data = await res.json()
+        if (controller.signal.aborted) return
         setResults(extractResults(data))
       } catch {
+        if (controller.signal.aborted) return
         setResults([])
       } finally {
-        setIsLoading(false)
+        if (!controller.signal.aborted) {
+          setIsLoading(false)
+        }
       }
     }, debounceMs)
 
@@ -54,6 +61,7 @@ export function useDebouncedSearch<T>({
       if (debounceRef.current) {
         clearTimeout(debounceRef.current)
       }
+      controller.abort()
     }
   }, [query, enabled, minLength, debounceMs, fetcher, extractResults])
 

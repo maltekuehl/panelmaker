@@ -18,27 +18,26 @@ PanelMaker provides a read-only public REST API for programmatic access to all c
 
 **Base URL:** `https://panelmaker.ai/api`
 
-All responses are JSON. Successful responses follow the shape:
+All responses are JSON. A list endpoint returns its rows under the resource name, plus a cursor when more rows are
+available:
 
 ```json
 {
-  "data": [...],
-  "meta": {
-    "total": 100,
-    "nextCursor": "cursor_abc123"
-  }
+  "proteins": [...],
+  "nextCursor": "prot_01abc"
 }
 ```
 
 ## Pagination
 
-All list endpoints use cursor-based pagination. Pass `cursor=<nextCursor>` from the previous response to fetch the next page. The default page size is 20; the maximum is 100.
+List endpoints use cursor-based pagination. Pass `cursor=<nextCursor>` from the previous response to fetch the next
+page. The default page size is 20; the maximum is 100.
 
 ```
-GET /api/proteins?limit=50&cursor=cursor_abc123
+GET /api/proteins?limit=50&cursor=prot_01abc
 ```
 
-When `nextCursor` is absent from `meta`, you have reached the last page.
+When `nextCursor` is absent, you have reached the last page.
 
 ---
 
@@ -68,19 +67,18 @@ curl "https://panelmaker.ai/api/proteins?q=CD3&limit=10"
 
 ```json
 {
-  "data": [
+  "proteins": [
     {
-      "id": "prot_01abc",
+      "id": "P07766",
       "label": "CD3 epsilon",
       "geneSymbol": "CD3E",
-      "uniprotId": "P07766",
-      "subcellularLocation": "membrane",
-      "createdAt": "2026-01-15T10:00:00Z"
+      "ensemblGeneId": "ENSG00000198851"
     }
-  ],
-  "meta": { "total": 3, "nextCursor": null }
+  ]
 }
 ```
+
+When a query matches nothing locally, the endpoint falls back to UniProt and adds `"source": "uniprot"`.
 
 ### Get a single protein
 
@@ -132,41 +130,40 @@ GET /api/reports
 
 **Query parameters:**
 
-| Parameter  | Type    | Description                                                          |
-| ---------- | ------- | -------------------------------------------------------------------- |
-| `q`        | string  | Text search across notes and antibody fields                         |
-| `species`  | string  | NCBI Taxonomy ID (e.g., `9606` for human)                            |
-| `method`   | string  | Imaging method slug: `codex`, `ibex`, `cycif`, `imc`, `mibi`, `mihc` |
-| `fixation` | string  | `ffpe`, `fresh_frozen`, `pfa`, `other`                               |
-| `limit`    | integer | Results per page (default 20, max 100)                               |
-| `cursor`   | string  | Pagination cursor                                                    |
+| Parameter  | Type    | Description                                                   |
+| ---------- | ------- | ------------------------------------------------------------- |
+| `q`        | string  | Text search across notes and antibody fields                  |
+| `species`  | string  | Species ontology id, e.g. `NCBI:txid9606` for human           |
+| `tissue`   | string  | Tissue ontology id, e.g. `UBERON:0002106`                     |
+| `method`   | string  | `PATHOPLEX`, `CODEX`, `CYCIF`, `IMC`, `MIBI`, `IBEX`, `OTHER` |
+| `fixation` | string  | `FFPE`, `FRESH_FROZEN`, `PFA`, `ACETONE`, `METHANOL`, `OTHER` |
+| `limit`    | integer | Results per page (default 20, max 100)                        |
+| `cursor`   | string  | Pagination cursor                                             |
 
 **Example:**
 
 ```bash
-curl "https://panelmaker.ai/api/reports?species=9606&method=codex&fixation=ffpe"
+curl "https://panelmaker.ai/api/reports?species=NCBI:txid9606&method=CODEX&fixation=FFPE"
 ```
 
 **Response:**
 
 ```json
 {
-  "data": [
+  "reports": [
     {
       "id": "rep_01xyz",
-      "result": "pass",
-      "imagingMethod": "codex",
-      "speciesId": "9606",
-      "speciesLabel": "Homo sapiens",
-      "tissueId": "UBERON:0002106",
-      "tissueLabel": "spleen",
-      "fixation": "ffpe",
-      "workingConcentration": "1:200",
+      "experimentId": "exp_01abc",
       "antibodyId": "ab_01abc",
-      "createdAt": "2026-01-20T14:30:00Z"
+      "status": "PUBLISHED",
+      "works": true,
+      "signalQuality": "EXCELLENT",
+      "dilution": "1:200",
+      "fluorophore": "Alexa Fluor 488",
+      "imageUrls": ["/uploads/6f1c....webp"]
     }
   ],
-  "meta": { "total": 42, "nextCursor": "cursor_next" }
+  "nextCursor": "rep_01xyz"
 }
 ```
 
@@ -209,16 +206,16 @@ Returns the cell type record with associated known markers and validation report
 ### List public panels
 
 ```
-GET /api/panels
+GET /api/panels/public
 ```
 
-Returns panels that have been marked as public by their creators.
+Returns panels that have been marked as public by their creators. `GET /api/panels` is a different, authenticated
+endpoint that lists your own panels.
 
 **Query parameters:**
 
 | Parameter | Type    | Description                            |
 | --------- | ------- | -------------------------------------- |
-| `q`       | string  | Text search by panel name              |
 | `limit`   | integer | Results per page (default 20, max 100) |
 | `cursor`  | string  | Pagination cursor                      |
 
@@ -226,18 +223,17 @@ Returns panels that have been marked as public by their creators.
 
 ## Error responses
 
-| Status | Meaning                                          |
-| ------ | ------------------------------------------------ |
-| `400`  | Bad request — invalid query parameters           |
-| `404`  | Resource not found                               |
-| `429`  | Rate limit exceeded — check `Retry-After` header |
-| `500`  | Internal server error                            |
+| Status | Meaning                                             |
+| ------ | --------------------------------------------------- |
+| `400`  | Bad request: invalid query parameters               |
+| `404`  | Resource not found                                  |
+| `429`  | Rate limit exceeded: check the `Retry-After` header |
+| `500`  | Internal server error                               |
 
-Error responses follow the shape:
+Error responses follow the shape (`details` is present for validation errors):
 
 ```json
 {
-  "error": "Resource not found",
-  "details": null
+  "error": "Resource not found"
 }
 ```

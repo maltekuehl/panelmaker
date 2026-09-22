@@ -1,5 +1,7 @@
 import "server-only"
 
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/integrations/http"
+
 type HPASearchEntry = {
   "Gene": string
   "Reliability (IH)": string
@@ -65,6 +67,7 @@ export async function lookupHPA(geneSymbol: string): Promise<HPAResult | null> {
       `https://www.proteinatlas.org/api/search_download.php?search=${encodeURIComponent(geneSymbol)}&format=json&columns=${columns}&compress=no`,
       {
         next: { revalidate: 86400 },
+        signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
       },
     )
 

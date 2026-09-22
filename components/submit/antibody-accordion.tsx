@@ -2,18 +2,18 @@
 
 import { AntibodyRegistryCombobox } from "@/components/antibody-registry-combobox"
 import { FluorophoreCombobox } from "@/components/fluorophore-combobox"
+import { useImagingMethods, type ImagingMethodOption } from "@/components/imaging-method-select"
 import { OntologyCombobox } from "@/components/ontology-combobox"
 import { OntologyMultiCombobox } from "@/components/ontology-multi-combobox"
+import { Field } from "@/components/shared/field"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { MultiplexMethod } from "@/lib/generated/prisma/enums"
-import { cn } from "@/lib/utils"
+import { antibodyHref } from "@/lib/routes"
 import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
@@ -25,7 +25,7 @@ import {
   emptyRow,
   methodNeedsCycle,
   methodNeedsFluorophore,
-  methodNeedsMetal,
+  methodNeedsMetalTag,
   type AntibodyRow,
 } from "./types"
 
@@ -46,27 +46,6 @@ const SPECIFICITY_OPTIONS = [
   { value: "LOW", label: "Low" },
   { value: "NON_SPECIFIC", label: "Non-specific" },
 ]
-
-function Field({
-  label,
-  required,
-  children,
-  className,
-}: {
-  label: string
-  required?: boolean
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div className={cn("space-y-1", className)}>
-      <Label className="text-xs font-medium text-muted-foreground">
-        {label} {required && <span className="text-destructive">*</span>}
-      </Label>
-      {children}
-    </div>
-  )
-}
 
 function ResultSelect({
   value,
@@ -103,7 +82,7 @@ function AntibodyEditor({
 }: {
   row: AntibodyRow
   onChange: (patch: Partial<AntibodyRow> | ((r: AntibodyRow) => AntibodyRow)) => void
-  method: MultiplexMethod | ""
+  method: ImagingMethodOption | null
   organismId?: number
   invalid: (field: keyof AntibodyRow) => boolean
   hasLabs?: boolean
@@ -189,7 +168,7 @@ function AntibodyEditor({
       <div className="space-y-2">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <AntibodyRegistryCombobox value={row.antibodyRegistry} onChange={handleRegistry} showDetails={false} />
+            <AntibodyRegistryCombobox value={row.antibodyRegistry} onChange={handleRegistry} />
           </div>
           {hasLabs && <LabInventoryCombobox onImport={handleImport} />}
         </div>
@@ -241,7 +220,7 @@ function AntibodyEditor({
             ontologyType="ncbi_taxonomy"
             value={row.hostSpecies}
             onChange={(hostSpecies) => onChange({ hostSpecies })}
-            placeholder="Raised in..."
+            placeholder="Raised in…"
           />
         </Field>
         <Field label="Cell type(s)" className="sm:col-span-3">
@@ -249,7 +228,7 @@ function AntibodyEditor({
             ontologyType="cl"
             values={row.cellTypes}
             onChange={(cellTypes) => onChange({ cellTypes })}
-            placeholder="Search cell types where staining is observed..."
+            placeholder="Search cell types where staining is observed…"
           />
         </Field>
       </div>
@@ -263,7 +242,7 @@ function AntibodyEditor({
             <FluorophoreCombobox value={row.fluorophore} onChange={(fluorophore) => onChange({ fluorophore })} />
           </Field>
         )}
-        {methodNeedsMetal(method) && (
+        {methodNeedsMetalTag(method) && (
           <Field label="Metal tag">
             <Input value={row.metalTag} onChange={(e) => onChange({ metalTag: e.target.value })} placeholder="141Pr" />
           </Field>
@@ -310,7 +289,7 @@ function AntibodyEditor({
             ontologyType="go_cc"
             value={row.subcellularLocation}
             onChange={(subcellularLocation) => onChange({ subcellularLocation })}
-            placeholder="GO component..."
+            placeholder="GO component…"
             disabled={row.locationNotDiscernible}
           />
           <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -341,11 +320,30 @@ function AntibodyEditor({
         <Textarea
           value={row.notes}
           onChange={(e) => onChange({ notes: e.target.value })}
-          placeholder="Blocking buffer, troubleshooting tips, anything else worth noting..."
+          placeholder="Blocking buffer, troubleshooting tips, anything else worth noting…"
           className="min-h-[60px]"
         />
       </Field>
     </div>
+  )
+}
+
+function AntibodyRridButton({ rrid }: { rrid: string }) {
+  const href = antibodyHref(rrid)
+  if (!href) return null
+  return (
+    <Button
+      asChild
+      variant="outline"
+      size="sm"
+      className="h-7 font-mono text-xs font-normal"
+      title="View antibody in database"
+    >
+      <Link href={href} target="_blank" rel="noopener noreferrer">
+        {rrid.trim()}
+        <ExternalLink className="size-3" />
+      </Link>
+    </Button>
   )
 }
 
@@ -356,19 +354,21 @@ function summaryDetection(row: AntibodyRow): string | null {
 export function AntibodyAccordion({
   rows,
   onChange,
-  method,
+  imagingMethodId,
   organismId,
   invalid,
   hasLabs,
 }: {
   rows: AntibodyRow[]
   onChange: (rows: AntibodyRow[]) => void
-  method: MultiplexMethod | ""
+  imagingMethodId: string
   organismId?: number
   invalid: (key: string, field: keyof AntibodyRow) => boolean
   hasLabs?: boolean
 }) {
   const [open, setOpen] = useState<string[]>(() => rows.map((r) => r.key))
+  const { imagingMethods } = useImagingMethods()
+  const method = imagingMethods.find((m) => m.id === imagingMethodId) ?? null
 
   function updateRow(key: string, patch: Partial<AntibodyRow> | ((r: AntibodyRow) => AntibodyRow)) {
     onChange(rows.map((r) => (r.key === key ? (typeof patch === "function" ? patch(r) : { ...r, ...patch }) : r)))
@@ -443,24 +443,7 @@ export function AntibodyAccordion({
                 </div>
 
                 <div className="flex shrink-0 items-center gap-0.5">
-                  {row.rrid.trim() && (
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="h-7 font-mono text-xs font-normal"
-                      title="View antibody in database"
-                    >
-                      <Link
-                        href={`/antibody/${row.rrid.trim().replace(/^RRID:/, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {row.rrid.trim()}
-                        <ExternalLink className="size-3" />
-                      </Link>
-                    </Button>
-                  )}
+                  <AntibodyRridButton rrid={row.rrid} />
                   <Button
                     type="button"
                     variant="ghost"

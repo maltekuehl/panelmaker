@@ -1,9 +1,13 @@
 "use client"
 
 import { DataTableColumnHeader } from "@/components/data-table/column-header"
+import { NotAvailable } from "@/components/shared/not-available"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { CLONALITY_LABELS } from "@/lib/constants"
+import type { Clonality } from "@/lib/generated/prisma/enums"
+import { antibodyHref, markerHref, profileHref } from "@/lib/routes"
 import { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
@@ -41,21 +45,6 @@ const STATUS_META: Record<string, { label: string; variant: "default" | "seconda
   OUT_OF_STOCK: { label: "Out of stock", variant: "destructive" },
 }
 
-const CLONALITY_LABELS: Record<string, string> = {
-  MONOCLONAL: "Monoclonal",
-  POLYCLONAL: "Polyclonal",
-  RECOMBINANT: "Recombinant",
-  OLIGOCLONAL: "Oligoclonal",
-}
-
-function antibodyHref(rrid: string): string {
-  return `/antibody/${rrid.replace(/^RRID:/, "")}`
-}
-
-function NA() {
-  return <span className="text-muted-foreground/50">N/A</span>
-}
-
 interface BuildColumnsOptions {
   canManage: boolean
   onEdit: (item: InventoryItem) => void
@@ -73,13 +62,14 @@ export function buildInventoryColumns({
       header: () => <DataTableColumnHeader field="antibody" title="Antibody" />,
       cell: ({ row }) => {
         const ab = row.original.antibody
-        const clonality = ab.clonality ? (CLONALITY_LABELS[ab.clonality] ?? ab.clonality) : null
+        const href = antibodyHref(ab.rrid)
+        const clonality = ab.clonality ? (CLONALITY_LABELS[ab.clonality as Clonality] ?? ab.clonality) : null
         return (
           <div className="min-w-0">
             <div className="font-medium">{ab.name}</div>
             <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-              {ab.rrid ? (
-                <Link href={antibodyHref(ab.rrid)} className="font-mono text-primary hover:underline">
+              {href ? (
+                <Link href={href} className="font-mono text-primary hover:underline">
                   {ab.rrid}
                 </Link>
               ) : null}
@@ -96,12 +86,12 @@ export function buildInventoryColumns({
         const ab = row.original.antibody
         if (ab.targetProtein) {
           return (
-            <Link href={`/marker/${ab.targetProtein.id}`} className="text-primary hover:underline">
+            <Link href={markerHref(ab.targetProtein.id)} className="text-primary hover:underline">
               {ab.targetProtein.geneSymbol ?? ab.targetProtein.label}
             </Link>
           )
         }
-        return ab.targetName ? <span>{ab.targetName}</span> : <NA />
+        return ab.targetName ? <span>{ab.targetName}</span> : <NotAvailable />
       },
     },
     {
@@ -109,7 +99,7 @@ export function buildInventoryColumns({
       header: () => <DataTableColumnHeader field="host" title="Host" />,
       cell: ({ row }) => {
         const host = row.original.antibody.hostTaxon
-        return host ? <span className="text-sm">{host.label}</span> : <NA />
+        return host ? <span className="text-sm">{host.label}</span> : <NotAvailable />
       },
     },
     {
@@ -126,7 +116,7 @@ export function buildInventoryColumns({
       cell: ({ row }) => {
         const { storageLocation, freezerLocation } = row.original
         const parts = [storageLocation, freezerLocation].filter(Boolean)
-        return parts.length > 0 ? <span className="text-sm">{parts.join(" · ")}</span> : <NA />
+        return parts.length > 0 ? <span className="text-sm">{parts.join(", ")}</span> : <NotAvailable />
       },
     },
     {
@@ -136,23 +126,23 @@ export function buildInventoryColumns({
         row.original.aliquotsRemaining !== null ? (
           <span className="font-mono text-sm">{row.original.aliquotsRemaining}</span>
         ) : (
-          <NA />
+          <NotAvailable />
         ),
     },
     {
       id: "lot",
       header: "Lot #",
       cell: ({ row }) =>
-        row.original.lotNumber ? <span className="font-mono text-sm">{row.original.lotNumber}</span> : <NA />,
+        row.original.lotNumber ? <span className="font-mono text-sm">{row.original.lotNumber}</span> : <NotAvailable />,
     },
     {
       id: "addedBy",
       header: () => <DataTableColumnHeader field="added" title="Added by" />,
       cell: ({ row }) => {
         const addedBy = row.original.addedBy
-        if (!addedBy) return <NA />
+        if (!addedBy) return <NotAvailable />
         return (
-          <Link href={`/profile/${addedBy.id}`} className="text-sm text-primary hover:underline">
+          <Link href={profileHref(addedBy.id)} className="text-sm text-primary hover:underline">
             {addedBy.name ?? "Unnamed user"}
           </Link>
         )

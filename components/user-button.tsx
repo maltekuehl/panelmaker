@@ -1,4 +1,5 @@
 import { isUserAdmin } from "@/lib/auth"
+import { profileHref } from "@/lib/routes"
 import { auth } from "auth"
 import { Settings, User } from "lucide-react"
 import Link from "next/link"
@@ -18,9 +19,9 @@ export default async function UserButton() {
   const session = await auth()
   if (!session?.user)
     return (
-      <Link href="/signin">
-        <Button size="sm">Sign In</Button>
-      </Link>
+      <Button asChild size="sm">
+        <Link href="/signin">Sign In</Link>
+      </Button>
     )
 
   // Check if user is admin
@@ -30,14 +31,15 @@ export default async function UserButton() {
     <div className="flex items-center gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-8 w-8 rounded-full bg-accent">
+          <Button variant="ghost" className="relative size-8 rounded-full bg-accent">
             {session.user.image ? (
-              <Avatar className="h-8 w-8 ">
+              <Avatar className="size-8">
                 <AvatarImage src={session.user.image} alt={session.user.name ?? ""} />
               </Avatar>
             ) : (
-              <User className="h-4 w-4 text-muted-foreground" />
+              <User className="size-4 text-muted-foreground" />
             )}
+            <span className="sr-only">Account menu</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56 p-2" align="end" forceMount>
@@ -49,8 +51,14 @@ export default async function UserButton() {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href="/settings" className="flex items-center gap-2 cursor-pointer">
-              <Settings className="h-4 w-4" />
+            <Link href={profileHref(session.user.id)} className="flex cursor-pointer items-center gap-2">
+              <User className="size-4" />
+              Profile
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/settings" className="flex cursor-pointer items-center gap-2">
+              <Settings className="size-4" />
               Settings
             </Link>
           </DropdownMenuItem>
@@ -58,8 +66,8 @@ export default async function UserButton() {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/admin/user" className="flex items-center gap-2 cursor-pointer">
-                  <Settings className="h-4 w-4" />
+                <Link href="/admin/user" className="flex cursor-pointer items-center gap-2">
+                  <Settings className="size-4" />
                   Admin Panel
                 </Link>
               </DropdownMenuItem>

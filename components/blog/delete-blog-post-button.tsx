@@ -12,18 +12,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
 import { hasErrorProperty } from "@/types/api"
 import { Loader2, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, type ComponentProps } from "react"
+import { toast } from "sonner"
 
-interface DeleteBlogPostButtonProps {
+type DeleteBlogPostButtonProps = Pick<ComponentProps<typeof Button>, "variant" | "size" | "className"> & {
   postId: string
   postTitle: string
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
-  size?: "default" | "sm" | "lg" | "icon"
-  className?: string
 }
 
 export default function DeleteBlogPostButton({
@@ -34,7 +31,6 @@ export default function DeleteBlogPostButton({
   className,
 }: DeleteBlogPostButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
   const router = useRouter()
 
   const handleDelete = async () => {
@@ -50,20 +46,13 @@ export default function DeleteBlogPostButton({
         throw new Error(errorMessage)
       }
 
-      toast({
-        title: "Success",
-        description: "Blog post deleted successfully",
-      })
+      toast.success("Blog post deleted successfully")
 
       // Redirect to blog list
       router.push("/blog")
       router.refresh()
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete blog post",
-        variant: "destructive",
-      })
+      toast.error(error instanceof Error ? error.message : "Failed to delete blog post")
     } finally {
       setIsLoading(false)
     }
@@ -73,8 +62,10 @@ export default function DeleteBlogPostButton({
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button variant={variant} size={size} disabled={isLoading} className={className}>
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          {size !== "icon" && (isLoading ? "Deleting..." : "Delete Post")}
+          {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+          <span className={size?.startsWith("icon") ? "sr-only" : undefined}>
+            {isLoading ? "Deleting\u2026" : "Delete Post"}
+          </span>
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -87,10 +78,7 @@ export default function DeleteBlogPostButton({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleDelete}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
+          <AlertDialogAction variant="destructive" onClick={handleDelete}>
             Delete Post
           </AlertDialogAction>
         </AlertDialogFooter>

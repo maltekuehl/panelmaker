@@ -27,13 +27,13 @@ export default function NotFound() {
             <div className="flex flex-col gap-2">
               <Button asChild variant="outline">
                 <Link href="/">
-                  <Home className="w-4 h-4 mr-2" />
+                  <Home className="size-4" />
                   Go to Homepage
                 </Link>
               </Button>
               <Button asChild variant="outline">
                 <Link href="/browse">
-                  <Search className="w-4 h-4 mr-2" />
+                  <Search className="size-4" />
                   Browse Markers
                 </Link>
               </Button>

@@ -1,4 +1,5 @@
 import { createAuthHandler, deleteUser } from "@/lib/auth"
+import { createErrorResponse } from "@/lib/error-handling"
 import { logger } from "@/lib/monitoring"
 import { getUserProfile, updateUserProfile } from "@/models/user"
 import { NextRequest, NextResponse } from "next/server"
@@ -56,14 +57,9 @@ export const PATCH = createAuthHandler(async (request: NextRequest, user) => {
 
 export const DELETE = createAuthHandler(async (request: NextRequest, user) => {
   try {
-    if (!user.id) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-    }
-
     await deleteUser(user.id)
     return NextResponse.json({ message: "Account deleted successfully" })
   } catch (error) {
-    logger.error("Error deleting account", error instanceof Error ? error : new Error(String(error)))
-    return NextResponse.json({ error: "Failed to delete account" }, { status: 500 })
+    return createErrorResponse(error, "Failed to delete account")
   }
 })

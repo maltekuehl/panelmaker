@@ -19,27 +19,35 @@ let cache: FluorophoreOption[] | null = null
 export function useFluorophores() {
   const [fluorophores, setFluorophores] = useState<FluorophoreOption[]>(cache ?? [])
   const [loading, setLoading] = useState(cache === null)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     if (cache !== null) return
     let active = true
     fetch("/api/fluorophores")
-      .then((res) => (res.ok ? res.json() : { fluorophores: [] }))
+      .then((res) => {
+        if (!res.ok) throw new Error("Request failed")
+        return res.json()
+      })
       .then((json) => {
+        // Only a successful response is cached, so a remount retries after a failure.
         cache = (json.fluorophores ?? []) as FluorophoreOption[]
         if (active) setFluorophores(cache)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (active) setError(true)
+      })
       .finally(() => active && setLoading(false))
     return () => {
       active = false
     }
   }, [])
 
-  return { fluorophores, loading }
+  return { fluorophores, loading, error }
 }
 
 interface FluorophoreComboboxProps {
+  id?: string
   value: FluorophoreOption | null
   onChange: (value: FluorophoreOption | null) => void
   variant?: "inline" | "field"
@@ -49,6 +57,7 @@ interface FluorophoreComboboxProps {
 }
 
 export function FluorophoreCombobox({
+  id,
   value,
   onChange,
   variant = "field",
@@ -57,7 +66,7 @@ export function FluorophoreCombobox({
   allowClear = true,
 }: FluorophoreComboboxProps) {
   const [open, setOpen] = useState(false)
-  const { fluorophores, loading } = useFluorophores()
+  const { fluorophores, loading, error } = useFluorophores()
 
   function select(option: FluorophoreOption | null) {
     setOpen(false)
@@ -67,9 +76,10 @@ export function FluorophoreCombobox({
   const trigger =
     variant === "inline" ? (
       <button
+        id={id}
         type="button"
         className={cn(
-          "inline-flex items-center gap-1 text-[11px] leading-none transition-colors",
+          "inline-flex items-center gap-1 text-xs leading-none transition-colors",
           value ? "text-muted-foreground hover:text-foreground" : "text-primary hover:text-primary/80 font-medium",
         )}
         disabled={disabled || pending}
@@ -80,6 +90,7 @@ export function FluorophoreCombobox({
       </button>
     ) : (
       <Button
+        id={id}
         variant="outline"
         role="combobox"
         className="mt-1 w-full justify-between font-normal"
@@ -98,16 +109,19 @@ export function FluorophoreCombobox({
     )
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
+        aria-label="Fluorophores"
         className={cn("p-0", variant === "inline" ? "w-60" : "w-(--radix-popover-trigger-width)")}
         align="start"
       >
         <Command>
-          <CommandInput placeholder="Search fluorophore..." />
+          <CommandInput placeholder="Search fluorophore…" />
           <CommandList>
-            <CommandEmpty>{loading ? "Loading fluorophores..." : "No fluorophore found."}</CommandEmpty>
+            <CommandEmpty>
+              {loading ? "Loading fluorophores…" : error ? "Could not load fluorophores" : "No fluorophore found."}
+            </CommandEmpty>
             <CommandGroup>
               {fluorophores.map((flu) => (
                 <CommandItem

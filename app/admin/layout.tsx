@@ -1,25 +1,22 @@
-import { auth } from "@/auth"
-import { isUserAdmin } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
+import { signInUrl } from "@/lib/routes"
 import { Metadata } from "next"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {
-  title: "Admin Panel",
+  title: "Admin | PanelMaker",
   description: "Administrative tools and user management",
 }
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth()
+  const user = await getSessionUser()
 
-  // Check if user is authenticated
-  if (!session?.user?.id) {
-    redirect("/signin")
+  if (!user) {
+    redirect(signInUrl("/admin/user"))
   }
 
-  // Check if user is admin
-  const adminStatus = await isUserAdmin(session.user.id)
-  if (!adminStatus) {
+  if (!user.isAdmin) {
     redirect("/")
   }
 
@@ -27,22 +24,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-screen bg-background">
       <div className="border-b">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center justify-between gap-y-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <h1 className="text-2xl font-bold">Admin Panel</h1>
               <div className="h-6 w-px bg-border" />
-              <nav className="flex space-x-4">
+              <nav className="flex flex-wrap gap-x-4 gap-y-1">
                 <Link
                   href="/admin/user"
                   className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
                   User Management
-                </Link>
-                <Link
-                  href="/admin/reviews"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Review Management
                 </Link>
                 <Link
                   href="/admin/reports"
@@ -58,7 +49,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 </Link>
               </nav>
             </div>
-            <div className="text-sm text-muted-foreground">Logged in as {session.user.name || session.user.email}</div>
+            <div className="text-sm text-muted-foreground">Logged in as {user.name || user.email}</div>
           </div>
         </div>
       </div>

@@ -1,9 +1,9 @@
-import { createAuthHandler, getOptionalAuth } from "@/lib/auth"
+import { createAuthHandler, getSessionUser } from "@/lib/auth"
 import { deleteBlogPost, getBlogPostById, updateBlogPost, type UpdateBlogPostData } from "@/lib/blog"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { logger } from "@/lib/monitoring"
 import { revalidateTag } from "next/cache"
-import { connection, NextRequest } from "next/server"
+import { connection, NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
 // Validation schema for blog post updates
@@ -23,20 +23,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   logger.apiRequest("GET", "/api/blog/[id]")
 
   try {
-    const user = await getOptionalAuth(request)
-    const isAdmin = !!user?.isAdmin
+    const isAdmin = (await getSessionUser())?.isAdmin ?? false
 
     const urlParams = await params
     const blogPost = await getBlogPostById(urlParams.id, isAdmin)
 
     if (!blogPost) {
-      return createErrorResponse("Blog post not found")
+      return NextResponse.json({ error: "Blog post not found" }, { status: 404 })
     }
 
-    logger.info("Retrieved blog post", { blogPostId: urlParams.id, isAdmin })
-    return createSuccessResponse({ blogPost })
+    const { author, ...rest } = blogPost
+    return createSuccessResponse({
+      blogPost: { ...rest, author: { id: author.id, name: author.name, image: author.image } },
+    })
   } catch (error) {
-    logger.error("Failed to fetch blog post", error instanceof Error ? error : new Error(String(error)))
     return createErrorResponse(error, "Failed to fetch blog post")
   }
 }
@@ -51,7 +51,7 @@ export const PUT = createAuthHandler(
       const urlParams = await params
       const existingPost = await getBlogPostById(urlParams.id, true)
       if (!existingPost) {
-        return createErrorResponse("Blog post not found")
+        return NextResponse.json({ error: "Blog post not found" }, { status: 404 })
       }
 
       // Parse and validate request body
@@ -72,9 +72,6 @@ export const PUT = createAuthHandler(
         blogPost: updatedPost,
       })
     } catch (error) {
-      logger.error("Failed to update blog post", error instanceof Error ? error : new Error(String(error)), {
-        userId: user.id,
-      })
       return createErrorResponse(error, "Failed to update blog post")
     }
   },
@@ -91,7 +88,7 @@ export const DELETE = createAuthHandler(
       const urlParams = await params
       const existingPost = await getBlogPostById(urlParams.id, true)
       if (!existingPost) {
-        return createErrorResponse("Blog post not found")
+        return NextResponse.json({ error: "Blog post not found" }, { status: 404 })
       }
 
       // Delete blog post
@@ -107,9 +104,6 @@ export const DELETE = createAuthHandler(
         message: "Blog post deleted successfully",
       })
     } catch (error) {
-      logger.error("Failed to delete blog post", error instanceof Error ? error : new Error(String(error)), {
-        userId: user.id,
-      })
       return createErrorResponse(error, "Failed to delete blog post")
     }
   },

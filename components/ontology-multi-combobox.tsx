@@ -5,18 +5,17 @@ import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useDebouncedSearch } from "@/hooks/use-debounced-search"
+import type { OntologyResult, OntologyType } from "@/lib/ontology"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown, Loader2, X } from "lucide-react"
 import { useCallback, useState } from "react"
 
-type OntologyType = "cl" | "uberon" | "ncbi_taxonomy" | "go_cc"
+import type { OntologyValue } from "@/components/ontology-combobox"
 
-export interface OntologyValue {
-  id: string
-  label: string
-}
+export type { OntologyValue }
 
 interface OntologyMultiComboboxProps {
+  id?: string
   ontologyType: OntologyType
   values: OntologyValue[]
   onChange: (values: OntologyValue[]) => void
@@ -24,28 +23,23 @@ interface OntologyMultiComboboxProps {
   disabled?: boolean
 }
 
-interface OntologyResult {
-  id: string
-  label: string
-  description?: string
-  ontology: string
-}
-
 export function OntologyMultiCombobox({
+  id,
   ontologyType,
   values,
   onChange,
-  placeholder = "Search...",
+  placeholder = "Search\u2026",
   disabled = false,
 }: OntologyMultiComboboxProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
   const fetcher = useCallback(
-    (q: string) => fetch(`/api/ontology?type=${ontologyType}&q=${encodeURIComponent(q)}`),
+    (q: string, signal: AbortSignal) =>
+      fetch(`/api/ontology?type=${ontologyType}&q=${encodeURIComponent(q)}`, { signal }),
     [ontologyType],
   )
-  const extractResults = useCallback((data: any) => data.results ?? [], [])
+  const extractResults = useCallback((data: unknown) => (data as { results?: OntologyResult[] }).results ?? [], [])
 
   const { results, isLoading } = useDebouncedSearch<OntologyResult>({
     query,
@@ -70,9 +64,10 @@ export function OntologyMultiCombobox({
 
   return (
     <div className="space-y-2">
-      <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen}>
+      <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen} modal>
         <PopoverTrigger asChild>
           <Button
+            id={id}
             variant="outline"
             role="combobox"
             aria-expanded={open}
@@ -82,10 +77,10 @@ export function OntologyMultiCombobox({
             <span className={cn(!values.length && "text-muted-foreground")}>
               {values.length > 0 ? `${values.length} selected` : placeholder}
             </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+        <PopoverContent aria-label={placeholder} className="w-(--radix-popover-trigger-width) p-0" align="start">
           <Command shouldFilter={false}>
             <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
             <CommandList>

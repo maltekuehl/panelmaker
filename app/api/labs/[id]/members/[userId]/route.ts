@@ -1,9 +1,8 @@
-import { authErrorResponse, requireAuth, requireLabRole } from "@/lib/auth"
+import { authErrorResponse, requireLabMember, requireLabRole } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { changeMemberRole, changeMemberRoleSchema, getUserLabRole, removeMember, ROLE_RANK } from "@/models/lab"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 type Context = { params: Promise<{ id: string; userId: string }> }
 
@@ -34,9 +33,6 @@ export async function PATCH(request: NextRequest, context: Context) {
     })
     return createSuccessResponse({ success: true })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     if (error instanceof Error && error.message === "Cannot demote the last owner") {
       return NextResponse.json({ error: error.message }, { status: 409 })
     }
@@ -49,12 +45,7 @@ export async function PATCH(request: NextRequest, context: Context) {
 export async function DELETE(request: NextRequest, context: Context) {
   try {
     const { id: labId, userId: targetUserId } = await context.params
-    const user = await requireAuth(request)
-
-    const actorRole = await getUserLabRole(user.id, labId)
-    if (!actorRole) {
-      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
-    }
+    const { user, role: actorRole } = await requireLabMember(request, labId)
 
     const isSelf = targetUserId === user.id
     if (!isSelf && ROLE_RANK[actorRole] < ROLE_RANK.ADMIN) {

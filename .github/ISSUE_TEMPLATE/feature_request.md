@@ -24,10 +24,13 @@ A clear and concise description of any alternative solutions or features you've 
 ## Feature Area
 **Select the area where this feature would be implemented:**
 - [ ] Authentication/User Management
-- [ ] Registry/MCP Server Management
+- [ ] Reports/Submissions
+- [ ] Panels/Panel designer
+- [ ] Antibodies/Markers/Cell types
+- [ ] Labs/Teams
+- [ ] Browse/Search
 - [ ] Chat/AI Integration
 - [ ] Blog/Content Management
-- [ ] Collections Management
 - [ ] Admin Dashboard
 - [ ] API/Backend
 - [ ] Database Schema

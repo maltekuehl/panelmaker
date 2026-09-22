@@ -1,4 +1,3 @@
-import { Suspense } from "react"
 import CookieConsentComponent from "./cookie-consent"
 
 export const CookieNotice = () => {
@@ -9,9 +8,7 @@ export const CookieNotice = () => {
 
   return (
     <div id="cookieconsent" suppressHydrationWarning>
-      <Suspense>
-        <CookieConsentComponent />
-      </Suspense>
+      <CookieConsentComponent />
     </div>
   )
 }

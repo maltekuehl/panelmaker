@@ -10,39 +10,18 @@
 //
 // Idempotent and non-destructive to the rest of the DB. Run AFTER `npx prisma db seed` (which
 // creates the Puelles lab) and AFTER `npm run pathoplex:lookup`:  `npm run pathoplex:seed`.
-import { PrismaPg } from "@prisma/adapter-pg"
 import "dotenv/config"
 import { readFileSync } from "node:fs"
 import path from "node:path"
-import { PrismaClient, type Clonality } from "../lib/generated/prisma/client"
+import { type Clonality } from "../lib/generated/prisma/client"
+import { runScript } from "../prisma/client"
+import { TAXA, taxonIdForHost } from "../prisma/data/taxa"
 import type { ResolvedReagent } from "./lookup-pathoplex-antibodies"
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-const prisma = new PrismaClient({ adapter })
-
 const LAB_ID = "seed_lab_puelles"
-const HUMAN_TAXON = "NCBI:txid9606"
-const MOUSE_TAXON = "NCBI:txid10090"
+const HUMAN_TAXON = "NCBITaxon:9606"
+const MOUSE_TAXON = "NCBITaxon:10090"
 const KIDNEY_TISSUE = "UBERON:0002113"
-
-// host string (registry sourceOrganism, mixed case) -> NCBI taxon id
-const HOST_TAXON: Record<string, string> = {
-  "mouse": "NCBI:txid10090",
-  "rabbit": "NCBI:txid9986",
-  "rat": "NCBI:txid10116",
-  "goat": "NCBI:txid9925",
-  "sheep": "NCBI:txid9940",
-  "guinea pig": "NCBI:txid10141",
-  "donkey": "NCBI:txid9793",
-  "hamster": "NCBI:txid10036",
-  "human": "NCBI:txid9606",
-}
-
-// Taxa that the main seed may not have created (PathoPlex uses guinea pig and sheep hosts).
-const EXTRA_TAXA = [
-  { id: "NCBI:txid10141", label: "Cavia porcellus" },
-  { id: "NCBI:txid9940", label: "Ovis aries" },
-]
 
 // Real Aarhus University members of the Puelles lab from the paper byline. Victor is already the
 // seeded OWNER. Emails follow the existing seed convention (…@clin.au.dk).
@@ -55,6 +34,8 @@ const OWNER_ID = "seed_user_puelles_victor"
 // Fictional placeholder member from the base seed, removed so the roster is the real team.
 const PLACEHOLDER_MEMBER_ID = "seed_user_puelles_member"
 
+const FORMALDEHYDE_CHEBI_ID = "CHEBI:16842"
+
 const EXPERIMENTS = [
   {
     id: "pp_exp_human",
@@ -64,6 +45,16 @@ const EXPERIMENTS = [
     speciesId: HUMAN_TAXON,
     sample: "human" as const,
     submitterId: "seed_user_pp_malte",
+    specimen: {
+      preservationText: "10% neutral buffered formalin, paraffin embedded",
+      antigenRetrievalText: "pH 9 Tris-EDTA, 20 min at 97C",
+      sampleType: "TISSUE" as const,
+      sectionThicknessUm: 2,
+      donorSex: "MALE" as const,
+      donorAge: "61Y",
+      developmentalStageId: "HsapDv:0000227",
+      protocolDoi: "10.17504/protocols.io.kqdg3xd1zg25/v1",
+    },
   },
   {
     id: "pp_exp_mouse",
@@ -73,6 +64,16 @@ const EXPERIMENTS = [
     speciesId: MOUSE_TAXON,
     sample: "mouse" as const,
     submitterId: OWNER_ID,
+    specimen: {
+      preservationText: "4% PFA perfusion fixed, paraffin embedded",
+      antigenRetrievalText: "pH 9 Tris-EDTA, 20 min at 97C",
+      sampleType: "TISSUE" as const,
+      sectionThicknessUm: 2,
+      donorSex: "FEMALE" as const,
+      donorAge: "70D",
+      developmentalStageId: "MmusDv:0000136",
+      protocolDoi: "10.17504/protocols.io.kqdg3xd1zg25/v1",
+    },
   },
 ]
 
@@ -252,7 +253,7 @@ const MARKERS: MarkerDef[] = [
     cellTypes: [{ id: "CL:0000084", canonical: true }],
   },
   {
-    protein: { id: "P06139", label: "CD4", gene: "CD4" },
+    protein: { id: "P01730", label: "CD4", gene: "CD4" },
     antibodyKeys: ["cd4-af-379-na", "cd4-ab183685"],
     cellTypes: [{ id: "CL:0000624", canonical: true }, { id: "CL:0000235" }],
   },
@@ -262,7 +263,7 @@ const MARKERS: MarkerDef[] = [
     cellTypes: [{ id: "CL:0000625", canonical: true }],
   },
   {
-    protein: { id: "P31996", label: "CD68", gene: "CD68" },
+    protein: { id: "P34810", label: "CD68", gene: "CD68" },
     antibodyKeys: ["cd68-916104"],
     cellTypes: [{ id: "CL:0000235", canonical: true }],
   },
@@ -287,7 +288,7 @@ const MARKERS: MarkerDef[] = [
     cellTypes: [{ id: "CL:0000775", canonical: true }],
   },
   {
-    protein: { id: "P06729", label: "CD45", gene: "PTPRC" },
+    protein: { id: "P08575", label: "CD45", gene: "PTPRC" },
     antibodyKeys: ["cd45-cst-70257"],
     cellTypes: [{ id: "CL:0000738", canonical: true }],
   },
@@ -326,19 +327,15 @@ function clonalityOf(raw: string | null): Clonality | null {
   return raw ? (CLONALITY[raw.toLowerCase()] ?? null) : null
 }
 
-function hostTaxonOf(host: string | null): string | null {
-  return host ? (HOST_TAXON[host.toLowerCase()] ?? null) : null
-}
-
 function antibodyName(r: ResolvedReagent): string {
   return r.cloneId ? `Anti-${r.target} [${r.cloneId}]` : `Anti-${r.target}`
 }
 
-function targetSpeciesOf(r: ResolvedReagent): string {
+function targetSpeciesOf(r: ResolvedReagent): string[] {
   const labels: string[] = []
   if (r.samples.includes("human")) labels.push("Homo sapiens")
   if (r.samples.includes("mouse")) labels.push("Mus musculus")
-  return JSON.stringify(labels)
+  return labels
 }
 
 function loadResolved(): ResolvedReagent[] {
@@ -350,14 +347,18 @@ function loadResolved(): ResolvedReagent[] {
   }
 }
 
-async function main() {
+runScript(async (prisma) => {
   const lab = await prisma.lab.findUnique({ where: { id: LAB_ID }, select: { id: true, name: true, slug: true } })
   if (!lab) throw new Error(`Lab ${LAB_ID} not found. Run \`npx prisma db seed\` first to create the Puelles lab.`)
 
-  const reagents = loadResolved()
+  // Example data has to be good data: an antibody without an RRID cannot be resolved against the
+  // Antibody Registry, so it would show up as unlinkable free text. Same rule as the IBEX import.
+  const allReagents = loadResolved()
+  const reagents = allReagents.filter((r) => r.rrid)
+  const rejected = allReagents.filter((r) => !r.rrid)
 
-  // Taxa that hosts may reference.
-  for (const taxon of EXTRA_TAXA) {
+  // Taxa that hosts may reference (the base seed creates these, but the script must stand alone).
+  for (const taxon of TAXA) {
     await prisma.taxon.upsert({ where: { id: taxon.id }, update: { label: taxon.label }, create: taxon })
   }
 
@@ -386,8 +387,8 @@ async function main() {
   for (const ct of KIDNEY_CELL_TYPES) {
     await prisma.cellType.upsert({
       where: { id: ct.id },
-      update: { label: ct.label, parentIds: JSON.stringify(ct.parentIds) },
-      create: { id: ct.id, label: ct.label, parentIds: JSON.stringify(ct.parentIds) },
+      update: { label: ct.label, parentIds: ct.parentIds },
+      create: { id: ct.id, label: ct.label, parentIds: ct.parentIds },
     })
   }
 
@@ -407,18 +408,11 @@ async function main() {
     for (const key of marker.antibodyKeys) proteinByKey.set(key, marker.protein.id)
   }
 
-  // Fall back to a registry UniProt id only when it matches a protein already in the DB.
-  const linkProtein = (key: string, uniprotId: string | null): string | null => {
-    const curated = proteinByKey.get(key)
-    if (curated) return curated
-    const first = uniprotId?.split(",")[0]?.trim()
-    return first && existingProteins.has(first) ? first : null
-  }
+  const linkProtein = (key: string): string | null => proteinByKey.get(key) ?? null
 
   // Antibodies. Deterministic ids (pp_<key>) keep re-runs idempotent; when an RRID exists we key the
   // upsert on it so we adopt any antibody the base seed already created with that RRID.
   const antibodyIdByKey = new Map<string, string>()
-  let withRrid = 0
   for (const r of reagents) {
     const ppId = `pp_${r.key}`
     const data = {
@@ -426,30 +420,22 @@ async function main() {
       catalogNumber: r.catalog,
       cloneId: r.cloneId,
       clonality: clonalityOf(r.clonality),
-      hostTaxonId: hostTaxonOf(r.host),
+      hostTaxonId: taxonIdForHost(r.host),
       targetSpecies: targetSpeciesOf(r),
-      targetProteinId: linkProtein(r.key, r.uniprotId),
+      targetProteinId: linkProtein(r.key),
       targetName: r.target,
-      applications: JSON.stringify(["IF", "PathoPlex"]),
+      applications: ["IF", "PathoPlex"],
       conjugate: r.conjugate ?? null,
       vendorName: r.vendor,
       citationCount: r.citationCount,
     }
-    const created = r.rrid
-      ? await prisma.antibody.upsert({
-          where: { rrid: r.rrid },
-          update: data,
-          create: { id: ppId, rrid: r.rrid, ...data },
-          select: { id: true },
-        })
-      : await prisma.antibody.upsert({
-          where: { id: ppId },
-          update: data,
-          create: { id: ppId, ...data },
-          select: { id: true },
-        })
+    const created = await prisma.antibody.upsert({
+      where: { rrid: r.rrid as string },
+      update: data,
+      create: { id: ppId, rrid: r.rrid as string, ...data },
+      select: { id: true },
+    })
     antibodyIdByKey.set(r.key, created.id)
-    if (r.rrid) withRrid++
   }
 
   // Assign the cell types each marker labels (podocyte, parietal epithelial cell, proximal tubule, ...).
@@ -471,6 +457,21 @@ async function main() {
   }
 
   // Two experiments + one validated report per antibody used.
+  await prisma.fixative.createMany({
+    data: [
+      { id: FORMALDEHYDE_CHEBI_ID, label: "formaldehyde" },
+      { id: "CHEBI:752978", label: "paraformaldehyde" },
+    ],
+    skipDuplicates: true,
+  })
+  await prisma.developmentalStage.createMany({
+    data: [
+      { id: "HsapDv:0000227", label: "late adult stage" },
+      { id: "MmusDv:0000136", label: "prime adult stage" },
+    ],
+    skipDuplicates: true,
+  })
+
   let reportCount = 0
   for (const exp of EXPERIMENTS) {
     await prisma.experiment.upsert({
@@ -481,7 +482,18 @@ async function main() {
         speciesId: exp.speciesId,
         tissueId: KIDNEY_TISSUE,
         fixation: "FFPE",
-        method: "PATHOPLEX",
+        preservation: "FFPE",
+        preservationText: exp.specimen.preservationText,
+        fixativeId: FORMALDEHYDE_CHEBI_ID,
+        fixativeConcentration: exp.specimen.preservationText.startsWith("4% PFA") ? "4%" : "10% formalin",
+        antigenRetrievalText: exp.specimen.antigenRetrievalText,
+        sampleType: exp.specimen.sampleType,
+        sectionThicknessUm: exp.specimen.sectionThicknessUm,
+        donorSex: exp.specimen.donorSex,
+        donorAge: exp.specimen.donorAge,
+        developmentalStageId: exp.specimen.developmentalStageId,
+        protocolDoi: exp.specimen.protocolDoi,
+        imagingMethodId: "pathoplex",
         antigenRetrieval: "TRIS_EDTA_PH9",
         submitterId: exp.submitterId,
         visibility: "PUBLIC",
@@ -494,7 +506,18 @@ async function main() {
         speciesId: exp.speciesId,
         tissueId: KIDNEY_TISSUE,
         fixation: "FFPE",
-        method: "PATHOPLEX",
+        preservation: "FFPE",
+        preservationText: exp.specimen.preservationText,
+        fixativeId: FORMALDEHYDE_CHEBI_ID,
+        fixativeConcentration: exp.specimen.preservationText.startsWith("4% PFA") ? "4%" : "10% formalin",
+        antigenRetrievalText: exp.specimen.antigenRetrievalText,
+        sampleType: exp.specimen.sampleType,
+        sectionThicknessUm: exp.specimen.sectionThicknessUm,
+        donorSex: exp.specimen.donorSex,
+        donorAge: exp.specimen.donorAge,
+        developmentalStageId: exp.specimen.developmentalStageId,
+        protocolDoi: exp.specimen.protocolDoi,
+        imagingMethodId: "pathoplex",
         antigenRetrieval: "TRIS_EDTA_PH9",
         submitterId: exp.submitterId,
         visibility: "PUBLIC",
@@ -550,21 +573,16 @@ async function main() {
   }
 
   console.log(`PathoPlex seed complete for the ${lab.name} (/labs/${lab.slug}):`)
-  console.log(
-    `  antibodies upserted: ${reagents.length} (${withRrid} with RRID, ${reagents.length - withRrid} without)`,
-  )
+  console.log(`  antibodies upserted: ${reagents.length} (all with an RRID)`)
   console.log(`  marker proteins:     ${MARKERS.length} linked to antibodies`)
   console.log(`  cell types:          ${KIDNEY_CELL_TYPES.length} added, ${assignmentCount} marker assignments`)
   console.log(`  experiments:         ${EXPERIMENTS.length} (human + mouse kidney panels)`)
   console.log(`  validated reports:   ${reportCount}`)
   console.log(`  inventory items:     ${i}`)
   console.log(`  members:             owner + ${MEMBERS.length} (${MEMBERS.map((m) => m.name).join(", ")})`)
-}
 
-main()
-  .then(() => prisma.$disconnect())
-  .catch(async (error) => {
-    console.error(error)
-    await prisma.$disconnect()
-    process.exit(1)
-  })
+  if (rejected.length > 0) {
+    console.log(`\n  ${rejected.length} reagents skipped, no RRID so they cannot resolve to a registry record:`)
+    for (const r of rejected) console.log(`    ${r.target} (${r.vendor} ${r.catalog})`)
+  }
+})

@@ -15,6 +15,7 @@ export interface CarouselImageLink {
 export interface CarouselImage {
   src: string
   title?: string
+  caption?: string | null
   links?: CarouselImageLink[]
   facts?: string[]
 }
@@ -60,7 +61,7 @@ export function ImageCarouselDialog({ images, title, trigger }: ImageCarouselDia
 
   const count = items.length
   const current = items[index]
-  const go = useCallback((next: number) => setIndex((i) => (count ? (next + count) % count : 0)), [count])
+  const go = useCallback((next: number) => setIndex(() => (count ? (next + count) % count : 0)), [count])
 
   const activeThumbRef = useRef<HTMLButtonElement | null>(null)
   const nextSrc = count > 1 ? items[(index + 1) % count].src : undefined
@@ -90,6 +91,18 @@ export function ImageCarouselDialog({ images, title, trigger }: ImageCarouselDia
     }
   }, [open, nextSrc, prevSrc])
 
+  // With nothing to show, the placeholder stays inert: a trigger here would open an empty lightbox.
+  if (!hasImages) {
+    return (
+      <div className="flex aspect-video w-full items-center justify-center rounded-md border bg-muted/40 text-muted-foreground">
+        <span className="flex flex-col items-center">
+          <ImageIcon className="mb-2 size-8" />
+          <span className="text-xs">No images</span>
+        </span>
+      </div>
+    )
+  }
+
   return (
     <Dialog
       open={open}
@@ -99,9 +112,7 @@ export function ImageCarouselDialog({ images, title, trigger }: ImageCarouselDia
       }}
     >
       <DialogTrigger asChild>
-        {trigger ? (
-          trigger
-        ) : hasImages ? (
+        {trigger ?? (
           <button
             type="button"
             className="group relative block w-full cursor-pointer overflow-hidden rounded-md border bg-muted/40 transition-colors hover:border-primary/50"
@@ -118,120 +129,127 @@ export function ImageCarouselDialog({ images, title, trigger }: ImageCarouselDia
               </span>
             </div>
           </button>
-        ) : (
-          <button
-            type="button"
-            className="flex aspect-video w-full items-center justify-center rounded-md border bg-muted/40 text-muted-foreground"
-          >
-            <span className="flex flex-col items-center">
-              <ImageIcon className="mb-2 h-8 w-8" />
-              <span className="text-xs">No images</span>
-            </span>
-          </button>
         )}
       </DialogTrigger>
 
-      {hasImages && (
-        <DialogContent
-          showCloseButton={false}
-          className="fixed inset-0 z-50 block h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 bg-transparent p-0 ring-0 sm:max-w-none"
-        >
-          <DialogTitle className="sr-only">{title} images</DialogTitle>
+      <DialogContent
+        showCloseButton={false}
+        className="fixed inset-0 z-50 block h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none border-0 bg-transparent p-0 ring-0 sm:max-w-none"
+      >
+        <DialogTitle className="sr-only">{title} images</DialogTitle>
 
-          <div className="absolute inset-0">
-            <TransformWrapper
-              key={index}
-              minScale={1}
-              maxScale={8}
-              centerOnInit
-              doubleClick={{ mode: "toggle", step: 1.2 }}
-              wheel={{ step: 0.01 }}
-              panning={{ velocityDisabled: true }}
-            >
-              {({ zoomIn, zoomOut, resetTransform }) => (
-                <>
-                  <TransformComponent
-                    wrapperStyle={{ width: "100%", height: "100%" }}
-                    contentStyle={{ width: "100%", height: "100%" }}
-                  >
-                    <div className="flex size-full items-center justify-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={current.src}
-                        alt={`${title} image ${index + 1}`}
-                        className="max-h-screen max-w-full object-contain select-none"
-                        draggable={false}
-                      />
-                    </div>
-                  </TransformComponent>
-
-                  <ImageCaption item={current} />
-
-                  <div className="absolute right-3 top-3 z-20 flex gap-1.5">
-                    <ControlButton onClick={() => zoomIn()} label="Zoom in">
-                      <ZoomIn className="size-4" />
-                    </ControlButton>
-                    <ControlButton onClick={() => zoomOut()} label="Zoom out">
-                      <ZoomOut className="size-4" />
-                    </ControlButton>
-                    <ControlButton onClick={() => resetTransform()} label="Reset zoom">
-                      <RotateCcw className="size-4" />
-                    </ControlButton>
-                    <DialogClose asChild>
-                      <button
-                        type="button"
-                        title="Close"
-                        className="flex size-9 items-center justify-center rounded-md bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
-                      >
-                        <X className="size-4" />
-                        <span className="sr-only">Close</span>
-                      </button>
-                    </DialogClose>
-                  </div>
-                </>
-              )}
-            </TransformWrapper>
-          </div>
-
-          {count > 1 && (
-            <>
-              <ControlButtonNav side="left" onClick={() => go(index - 1)} />
-              <ControlButtonNav side="right" onClick={() => go(index + 1)} />
-              <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
-                {index + 1} / {count}
-              </div>
-              <div className="absolute bottom-3 left-1/2 z-20 flex max-w-[95vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-lg bg-black/60 p-2 backdrop-blur">
-                {items.map((item, i) => (
-                  <button
-                    key={`${item.src}-${i}`}
-                    ref={i === index ? activeThumbRef : null}
-                    type="button"
-                    onClick={() => setIndex(i)}
-                    className={cn(
-                      "size-14 shrink-0 overflow-hidden rounded border-2 transition-colors",
-                      i === index ? "border-primary" : "border-transparent opacity-60 hover:opacity-100",
-                    )}
-                  >
+        <div className="absolute inset-0">
+          <TransformWrapper
+            key={index}
+            minScale={1}
+            maxScale={8}
+            centerOnInit
+            doubleClick={{ mode: "toggle", step: 1.2 }}
+            wheel={{ step: 0.01 }}
+            panning={{ velocityDisabled: true }}
+          >
+            {({ zoomIn, zoomOut, resetTransform }) => (
+              <>
+                <TransformComponent
+                  wrapperStyle={{ width: "100%", height: "100%" }}
+                  contentStyle={{ width: "100%", height: "100%" }}
+                >
+                  <div className="flex size-full items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={item.src}
-                      alt={`${title} thumbnail ${i + 1}`}
-                      loading="lazy"
-                      decoding="async"
-                      className="size-full object-cover"
+                      src={current.src}
+                      alt={`${title} image ${index + 1}`}
+                      className="max-h-screen max-w-full object-contain select-none"
+                      draggable={false}
                     />
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      )}
+                  </div>
+                </TransformComponent>
+
+                <ImageMeta item={current} />
+                <ImageCaption caption={current.caption} raised={count > 1} />
+
+                <div className="absolute right-3 top-3 z-20 flex gap-1.5">
+                  <ControlButton onClick={() => zoomIn()} label="Zoom in">
+                    <ZoomIn className="size-4" />
+                  </ControlButton>
+                  <ControlButton onClick={() => zoomOut()} label="Zoom out">
+                    <ZoomOut className="size-4" />
+                  </ControlButton>
+                  <ControlButton onClick={() => resetTransform()} label="Reset zoom">
+                    <RotateCcw className="size-4" />
+                  </ControlButton>
+                  <DialogClose asChild>
+                    <button
+                      type="button"
+                      title="Close"
+                      className="flex size-9 items-center justify-center rounded-md bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+                    >
+                      <X className="size-4" />
+                      <span className="sr-only">Close</span>
+                    </button>
+                  </DialogClose>
+                </div>
+              </>
+            )}
+          </TransformWrapper>
+        </div>
+
+        {count > 1 && (
+          <>
+            <ControlButtonNav side="left" onClick={() => go(index - 1)} />
+            <ControlButtonNav side="right" onClick={() => go(index + 1)} />
+            <div className="absolute bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
+              {index + 1} / {count}
+            </div>
+            <div className="absolute bottom-3 left-1/2 z-20 flex max-w-[95vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-lg bg-black/60 p-2 backdrop-blur">
+              {items.map((item, i) => (
+                <button
+                  key={`${item.src}-${i}`}
+                  ref={i === index ? activeThumbRef : null}
+                  type="button"
+                  onClick={() => setIndex(i)}
+                  className={cn(
+                    "size-14 shrink-0 overflow-hidden rounded border-2 transition-colors",
+                    i === index ? "border-primary" : "border-transparent opacity-60 hover:opacity-100",
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.src}
+                    alt={`${title} thumbnail ${i + 1}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="size-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </DialogContent>
     </Dialog>
   )
 }
 
-function ImageCaption({ item }: { item: CarouselImage }) {
+// A caption is free prose the submitter wrote about one image, so it only exists for some images. In a
+// full-bleed lightbox there is no column to keep aligned, so a missing one renders nothing rather than a
+// "Not available" plate that would sit over the picture on every image that never had a caption.
+function ImageCaption({ caption, raised }: { caption: string | null | undefined; raised: boolean }) {
+  if (!caption?.trim()) return null
+
+  return (
+    <div
+      className={cn(
+        "absolute left-1/2 z-20 max-h-[30vh] w-[min(92vw,44rem)] -translate-x-1/2 overflow-y-auto rounded-lg bg-black/70 px-3 py-2 text-sm leading-relaxed text-white backdrop-blur",
+        raised ? "bottom-32" : "bottom-3",
+      )}
+    >
+      <p className="break-words whitespace-pre-wrap">{caption}</p>
+    </div>
+  )
+}
+
+function ImageMeta({ item }: { item: CarouselImage }) {
   const hasLinks = (item.links?.length ?? 0) > 0
   const hasFacts = (item.facts?.length ?? 0) > 0
   if (!item.title && !hasLinks && !hasFacts) return null

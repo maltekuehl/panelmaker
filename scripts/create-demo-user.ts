@@ -4,22 +4,25 @@
 //
 // The demo user is VERIFIED (can submit reports and create labs) and ADMIN (can reach /admin), and
 // is made an OWNER of the seeded Puelles lab so the lab features are populated on first sign-in.
-import { PrismaPg } from "@prisma/adapter-pg"
+import { normalizeEmail } from "@/models/user/transforms"
 import bcrypt from "bcryptjs"
 import "dotenv/config"
 import { writeFileSync } from "node:fs"
 import path from "node:path"
-import { PrismaClient } from "../lib/generated/prisma/client"
+import { runScript } from "../prisma/client"
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-const prisma = new PrismaClient({ adapter })
-
-const DEMO_EMAIL = "demo@panelmaker.local"
+const DEMO_EMAIL = normalizeEmail(process.env.DEMO_USER_EMAIL ?? "demo@panelmaker.local")
 const DEMO_PASSWORD = process.env.DEMO_USER_PASSWORD ?? "PanelMakerDemo2026!"
 const DEMO_NAME = "Demo User"
 const HOME_LAB_ID = "seed_lab_puelles"
 
-async function main() {
+runScript(async (prisma) => {
+  if (process.env.NODE_ENV === "production" && !process.env.DEMO_USER_PASSWORD) {
+    throw new Error(
+      "Refusing to create a known-password admin against a production database. Set DEMO_USER_PASSWORD to override.",
+    )
+  }
+
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12)
 
   const user = await prisma.user.upsert({
@@ -73,12 +76,4 @@ async function main() {
   console.log(`Demo user ready: ${DEMO_EMAIL}`)
   console.log(`Credentials written to ${outPath}`)
   console.log(labNote)
-}
-
-main()
-  .then(() => prisma.$disconnect())
-  .catch(async (error) => {
-    console.error(error)
-    await prisma.$disconnect()
-    process.exit(1)
-  })
+})

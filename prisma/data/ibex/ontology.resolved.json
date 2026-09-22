@@ -1,0 +1,151 @@
+{
+  "source": {
+    "resolvedAt": "2026-09-22",
+    "uberon": "OLS4 https://www.ebi.ac.uk/ols4/api, every id fetched by IRI and its label and obsolete flag checked by hand",
+    "doid": "OLS4 https://www.ebi.ac.uk/ols4/api, disease ontology",
+    "taxonomy": "NCBI E-utilities esearch + esummary on db=taxonomy"
+  },
+  "targetTissues": {
+    "Lymph Node": { "uberonId": "UBERON:0000029", "uberonLabel": "lymph node", "diseaseId": null, "diseaseLabel": null },
+    "Lymph node": {
+      "uberonId": "UBERON:0000029",
+      "uberonLabel": "lymph node",
+      "diseaseId": null,
+      "diseaseLabel": null,
+      "note": "casing variant of Lymph Node in the source"
+    },
+    "Tonsil": { "uberonId": "UBERON:0002372", "uberonLabel": "tonsil", "diseaseId": null, "diseaseLabel": null },
+    "Retina": { "uberonId": "UBERON:0000966", "uberonLabel": "retina", "diseaseId": null, "diseaseLabel": null },
+    "Lung": { "uberonId": "UBERON:0002048", "uberonLabel": "lung", "diseaseId": null, "diseaseLabel": null },
+    "Liver": { "uberonId": "UBERON:0002107", "uberonLabel": "liver", "diseaseId": null, "diseaseLabel": null },
+    "Thymus": { "uberonId": "UBERON:0002370", "uberonLabel": "thymus", "diseaseId": null, "diseaseLabel": null },
+    "Spleen": { "uberonId": "UBERON:0002106", "uberonLabel": "spleen", "diseaseId": null, "diseaseLabel": null },
+    "Jejunum": { "uberonId": "UBERON:0002115", "uberonLabel": "jejunum", "diseaseId": null, "diseaseLabel": null },
+    "Kidney": { "uberonId": "UBERON:0002113", "uberonLabel": "kidney", "diseaseId": null, "diseaseLabel": null },
+    "Skin": {
+      "uberonId": "UBERON:0002097",
+      "uberonLabel": "skin of body",
+      "diseaseId": null,
+      "diseaseLabel": null,
+      "note": "the OLS4 top hit for Skin is pedal digit skin, which is wrong; skin of body is the organ"
+    },
+    "Small Intestine": {
+      "uberonId": "UBERON:0002108",
+      "uberonLabel": "small intestine",
+      "diseaseId": null,
+      "diseaseLabel": null
+    },
+    "Prostate": {
+      "uberonId": "UBERON:0002367",
+      "uberonLabel": "prostate gland",
+      "diseaseId": null,
+      "diseaseLabel": null,
+      "note": "the OLS4 top hit for Prostate is prostate gland smooth muscle, which is wrong"
+    },
+    "Brain": { "uberonId": "UBERON:0000955", "uberonLabel": "brain", "diseaseId": null, "diseaseLabel": null },
+    "Pancreas": { "uberonId": "UBERON:0001264", "uberonLabel": "pancreas", "diseaseId": null, "diseaseLabel": null },
+    "Pancreatic Ductal Adenocarcinoma": {
+      "uberonId": "UBERON:0001264",
+      "uberonLabel": "pancreas",
+      "diseaseId": "DOID:3498",
+      "diseaseLabel": "pancreatic ductal adenocarcinoma",
+      "note": "the source puts a diagnosis in the tissue column; the anatomy is pancreas and the diagnosis becomes the condition"
+    },
+    "Whole Foot": {
+      "uberonId": "UBERON:0002387",
+      "uberonLabel": "pes",
+      "diseaseId": null,
+      "diseaseLabel": null,
+      "note": "the OLS4 top hit for Whole Foot is sciatic nerve, which is wrong; pes is the hind foot"
+    },
+    "Peritoneum": {
+      "uberonId": "UBERON:0002358",
+      "uberonLabel": "peritoneum",
+      "diseaseId": null,
+      "diseaseLabel": null
+    },
+    "Uterus": { "uberonId": "UBERON:0000995", "uberonLabel": "uterus", "diseaseId": null, "diseaseLabel": null },
+    "Cervix": {
+      "uberonId": "UBERON:0000002",
+      "uberonLabel": "uterine cervix",
+      "diseaseId": null,
+      "diseaseLabel": null
+    },
+    "Ileum": { "uberonId": "UBERON:0002116", "uberonLabel": "ileum", "diseaseId": null, "diseaseLabel": null },
+    "Colon": { "uberonId": "UBERON:0001155", "uberonLabel": "colon", "diseaseId": null, "diseaseLabel": null },
+    "Heart": { "uberonId": "UBERON:0000948", "uberonLabel": "heart", "diseaseId": null, "diseaseLabel": null },
+    "Placenta": { "uberonId": "UBERON:0001987", "uberonLabel": "placenta", "diseaseId": null, "diseaseLabel": null },
+    "Nasal Polyp": {
+      "uberonId": "UBERON:0001707",
+      "uberonLabel": "nasal cavity",
+      "diseaseId": null,
+      "diseaseLabel": null,
+      "note": "a polyp is a lesion, not an anatomical structure; the nasal cavity is the site it arises in. DOID has no plain nasal polyp term"
+    },
+    "Tumor": {
+      "uberonId": null,
+      "uberonLabel": null,
+      "diseaseId": "DOID:162",
+      "diseaseLabel": "cancer",
+      "note": "not an anatomical structure and the source gives no organ, so the experiment keeps no tissue"
+    }
+  },
+  "tissueStates": {
+    "NA": null,
+    "Healthy": null,
+    "GFP transgenic line": null,
+    "Follicular Lymphoma": { "id": "DOID:0050873", "label": "follicular lymphoma" },
+    "Metastatic Ovarian Cancer": {
+      "id": "DOID:2394",
+      "label": "ovarian cancer",
+      "note": "DOID has no metastatic-ovarian-cancer term; the metastatic qualifier is kept in the experiment text"
+    },
+    "Idiopathic Pulmonary Fibrosis": { "id": "DOID:0050156", "label": "idiopathic pulmonary fibrosis" },
+    "Cervical Cancer": { "id": "DOID:4362", "label": "cervical cancer" },
+    "Melanoma": { "id": "DOID:1909", "label": "melanoma" },
+    "Cancer": { "id": "DOID:162", "label": "cancer" },
+    "Tumor": {
+      "id": "DOID:162",
+      "label": "cancer",
+      "note": "unspecified neoplasm; rows whose tissue column names a diagnosis use that diagnosis instead"
+    },
+    "Metastatic": {
+      "id": "DOID:162",
+      "label": "cancer",
+      "note": "the primary is not recorded, so only the generic term applies"
+    },
+    "Infected": {
+      "id": "DOID:0050117",
+      "label": "disease by infectious agent",
+      "note": "the agent is not recorded in the reagent table"
+    }
+  },
+  "targetSpecies": {
+    "Human": { "ncbiTaxId": 9606, "label": "Homo sapiens" },
+    "Mouse": { "ncbiTaxId": 10090, "label": "Mus musculus" },
+    "Zebrafish": { "ncbiTaxId": 7955, "label": "Danio rerio" },
+    "Rhesus Macaque": { "ncbiTaxId": 9544, "label": "Macaca mulatta" },
+    "Canine": { "ncbiTaxId": 9615, "label": "Canis lupus familiaris" },
+    "Turquoise Killifish": { "ncbiTaxId": 105023, "label": "Nothobranchius furzeri" },
+    "African Clawed Frog (Xenopus laevis)": { "ncbiTaxId": 8355, "label": "Xenopus laevis" },
+    "Jellyfish GFP transgene": null
+  },
+  "hostOrganisms": {
+    "NA": null,
+    "Mouse": { "ncbiTaxId": 10090, "label": "Mus musculus" },
+    "Rat": { "ncbiTaxId": 10116, "label": "Rattus norvegicus" },
+    "Rabbit": { "ncbiTaxId": 9986, "label": "Oryctolagus cuniculus" },
+    "Goat": { "ncbiTaxId": 9925, "label": "Capra hircus" },
+    "Donkey": { "ncbiTaxId": 9793, "label": "Equus asinus" },
+    "Human": { "ncbiTaxId": 9606, "label": "Homo sapiens" },
+    "Chicken": { "ncbiTaxId": 9031, "label": "Gallus gallus" },
+    "Sheep": { "ncbiTaxId": 9940, "label": "Ovis aries" },
+    "Syrian Hamster": { "ncbiTaxId": 10036, "label": "Mesocricetus auratus" },
+    "Alpaca": { "ncbiTaxId": 30538, "label": "Vicugna pacos" },
+    "Armenian Hamster": {
+      "ncbiTaxId": 3122392,
+      "label": "Nothocricetulus migratorius",
+      "note": "NCBI has reclassified Cricetulus migratorius under Nothocricetulus; 3122392 is the current node"
+    }
+  }
+}

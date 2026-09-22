@@ -1,16 +1,18 @@
 import { auth } from "@/auth"
 import { LabLink } from "@/components/lab/lab-link"
 import { PanelExportMenu } from "@/components/panel/panel-export-menu"
-import { FIXATION_LABELS } from "@/components/panel/types"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
+import { NotAvailable } from "@/components/shared/not-available"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { resolveViewerContext } from "@/lib/auth"
+import { FIXATION_LABELS } from "@/lib/constants"
+import { antibodyHref, markerHref, profileHref } from "@/lib/routes"
 import { canViewPanel } from "@/models/lab"
 import { getPanelById } from "@/models/panel"
-import { Edit, Layers } from "lucide-react"
+import { Edit, Layers, Microscope } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -32,6 +34,16 @@ export async function generateMetadata({ params }: PanelDetailPageProps): Promis
     title: `${panel.name} | PanelMaker`,
     description: panel.description ?? `A spatial proteomics antibody panel with ${panel.cycles.length} cycle(s).`,
   }
+}
+
+function PanelRridCell({ rrid }: { rrid: string | null }) {
+  const href = antibodyHref(rrid)
+  if (!href) return <NotAvailable />
+  return (
+    <Link href={href} className="text-primary hover:underline">
+      {rrid}
+    </Link>
+  )
 }
 
 export default async function PanelDetailPage({ params }: PanelDetailPageProps) {
@@ -67,11 +79,11 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">{panel.name}</h1>
           {panel.description && <p className="text-muted-foreground max-w-2xl">{panel.description}</p>}
-          {panel.owner?.name && (
+          {panel.ownerId && panel.owner?.name && (
             <p className="text-sm text-muted-foreground">
               By{" "}
               <Link
-                href={`/profile/${panel.ownerId}`}
+                href={profileHref(panel.ownerId)}
                 className="font-medium text-foreground transition-colors hover:text-primary hover:underline"
               >
                 {panel.owner.name}
@@ -89,7 +101,7 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
           {isOwner && (
             <Button asChild variant="outline" size="sm">
               <Link href="/panel">
-                <Edit className="h-4 w-4 mr-2" />
+                <Edit className="size-4" />
                 Edit in Designer
               </Link>
             </Button>
@@ -100,6 +112,15 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
       <div className="flex flex-wrap gap-2">
         {speciesLabel && <Badge variant="outline">{speciesLabel}</Badge>}
         {fixationLabel && <Badge variant="secondary">{fixationLabel}</Badge>}
+        {panel.imagingMethod && (
+          <Badge
+            variant="outline"
+            title={[panel.imagingMethod.label, panel.imagingMethod.efoId ?? "No ontology term"].join(" | ")}
+          >
+            <Microscope className="h-3.5 w-3.5" />
+            {panel.imagingMethod.shortLabel}
+          </Badge>
+        )}
         {panel.condition && <Badge variant="outline">Condition: {panel.condition.label}</Badge>}
         <Badge variant="outline">
           <Layers className="h-3.5 w-3.5 mr-1" />
@@ -152,10 +173,7 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
                               <TableCell className="py-2">
                                 <div className="font-medium">
                                   {marker.protein ? (
-                                    <Link
-                                      href={`/marker/${marker.protein.id}`}
-                                      className="text-primary hover:underline"
-                                    >
+                                    <Link href={markerHref(marker.protein.id)} className="text-primary hover:underline">
                                       {marker.protein.label}
                                     </Link>
                                   ) : (
@@ -169,7 +187,7 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
                                 )}
                               </TableCell>
                               <TableCell className="py-2 text-muted-foreground">
-                                {marker.antibody?.cloneId ?? "—"}
+                                {marker.antibody?.cloneId ?? "Not available"}
                               </TableCell>
                               <TableCell className="py-2 text-muted-foreground">
                                 {marker.antibody?.vendorName ? (
@@ -180,20 +198,11 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
                                     )}
                                   </>
                                 ) : (
-                                  "—"
+                                  "Not available"
                                 )}
                               </TableCell>
                               <TableCell className="py-2 font-mono text-xs">
-                                {marker.antibody?.rrid ? (
-                                  <Link
-                                    href={`/antibody/${marker.antibody.rrid.replace(/^RRID:/, "")}`}
-                                    className="text-primary hover:underline"
-                                  >
-                                    {marker.antibody.rrid}
-                                  </Link>
-                                ) : (
-                                  <span className="text-muted-foreground">—</span>
-                                )}
+                                <PanelRridCell rrid={marker.antibody?.rrid ?? null} />
                               </TableCell>
                               <TableCell className="py-2">
                                 {marker.fluorophore || marker.metalTag ? (
@@ -210,7 +219,7 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-muted-foreground">—</span>
+                                  <NotAvailable />
                                 )}
                               </TableCell>
                             </TableRow>

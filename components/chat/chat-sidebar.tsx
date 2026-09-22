@@ -3,20 +3,15 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import type { ConversationSummary } from "@/models/chat/transforms"
 import clsx from "clsx"
 import { Check, Edit2, Menu, MessageSquarePlus, Trash2, X } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { toast } from "sonner"
 
-// Local mirror of the server ConversationSummary shape (client components never import the model barrel).
-export interface ConversationListItem {
-  id: string
-  title: string | null
-  messageCount: number
-  updatedAt: string
-}
-
-const formatDate = (dateString: string) => {
+const formatRelativeDate = (dateString: string) => {
   const date = new Date(dateString)
   const now = new Date()
   const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
@@ -32,7 +27,7 @@ const formatDate = (dateString: string) => {
 }
 
 interface ConversationItemProps {
-  conversation: ConversationListItem
+  conversation: ConversationSummary
   isActive: boolean
   isDisabled?: boolean
   onSelect: () => void
@@ -73,71 +68,96 @@ const ConversationItem = ({
   return (
     <div
       className={clsx(
-        "group relative rounded-lg p-3 transition-colors w-full",
-        isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+        "group relative w-full rounded-lg transition-colors",
+        isDisabled && "opacity-50",
         isActive ? "bg-primary/10" : !isDisabled && "hover:bg-muted/50",
       )}
-      onClick={isDisabled ? undefined : onSelect}
     >
       {isEditing ? (
-        <div className="flex items-center gap-1 w-full" onClick={(event) => event.stopPropagation()}>
+        <div className="flex w-full items-center gap-1 p-3">
           <Input
             value={editedTitle}
             onChange={(event) => setEditedTitle(event.target.value)}
             onKeyDown={handleKeyDown}
             autoFocus
-            className="h-7 text-sm flex-1"
+            aria-label="Conversation title"
+            className="h-7 flex-1 text-sm"
           />
-          <Button variant="ghost" size="sm" onClick={handleSaveTitle} className="h-7 w-7 p-0 shrink-0">
-            <Check className="h-3.5 w-3.5" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSaveTitle}
+            aria-label="Save title"
+            className="size-7 shrink-0 p-0"
+          >
+            <Check className="size-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleCancelEdit} className="h-7 w-7 p-0 shrink-0">
-            <X className="h-3.5 w-3.5" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCancelEdit}
+            aria-label="Cancel renaming"
+            className="size-7 shrink-0 p-0"
+          >
+            <X className="size-3.5" />
           </Button>
         </div>
       ) : (
-        <div className="w-full pr-16">
-          <div className="font-medium text-sm wrap-break-word">{displayTitle}</div>
-          <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2 flex-wrap">
-            <span>{formatDate(conversation.updatedAt)}</span>
-            <span>•</span>
-            <span>
-              {conversation.messageCount} {conversation.messageCount === 1 ? "message" : "messages"}
-            </span>
-          </div>
-          <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <>
+          <Link
+            href={`/chat/${conversation.id}`}
+            aria-current={isActive ? "page" : undefined}
+            aria-disabled={isDisabled || undefined}
+            onClick={(event) => {
+              event.preventDefault()
+              if (isDisabled) return
+              onSelect()
+            }}
+            className={clsx(
+              "block w-full rounded-lg p-3 pr-16 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden",
+              isDisabled && "cursor-not-allowed",
+            )}
+          >
+            <div className="text-sm font-medium wrap-break-word">{displayTitle}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>{formatRelativeDate(conversation.updatedAt)}</span>
+              <span aria-hidden="true">|</span>
+              <span>
+                {conversation.messageCount} {conversation.messageCount === 1 ? "message" : "messages"}
+              </span>
+            </div>
+          </Link>
+          <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             <Button
               variant="ghost"
               size="sm"
-              onClick={(event) => {
-                event.stopPropagation()
+              onClick={() => {
                 setEditedTitle(conversation.title ?? "")
                 setIsEditing(true)
               }}
-              className="h-7 w-7 p-0"
+              aria-label={`Rename ${displayTitle}`}
+              className="size-7 p-0"
             >
-              <Edit2 className="h-3.5 w-3.5" />
+              <Edit2 className="size-3.5" />
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              onClick={(event) => {
-                event.stopPropagation()
-                onDelete()
-              }}
-              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+              onClick={onDelete}
+              aria-label={`Delete ${displayTitle}`}
+              className="size-7 p-0 text-destructive hover:text-destructive"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="size-3.5" />
             </Button>
           </div>
-        </div>
+        </>
       )}
     </div>
   )
 }
 
 interface ChatSidebarProps {
-  conversations: ConversationListItem[]
+  conversations: ConversationSummary[]
   currentConversationId: string
   isStreaming?: boolean
 }
@@ -160,6 +180,10 @@ const ChatSidebarContent = ({
         headers: { "Content-Type": "application/json" },
         body: "{}",
       })
+      if (!response.ok) {
+        toast.error("Could not start a new conversation")
+        return
+      }
       const json = await response.json()
       const id = json?.conversation?.id as string | undefined
       onClose?.()
@@ -180,7 +204,11 @@ const ChatSidebarContent = ({
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Delete this conversation? This cannot be undone.")) return
-    await fetch(`/api/chat/conversations/${id}`, { method: "DELETE" })
+    const response = await fetch(`/api/chat/conversations/${id}`, { method: "DELETE" })
+    if (!response.ok) {
+      toast.error("Could not delete conversation")
+      return
+    }
     if (id === currentConversationId) {
       const next = conversations.find((conversation) => conversation.id !== id)
       router.push(next ? `/chat/${next.id}` : "/chat")
@@ -190,25 +218,29 @@ const ChatSidebarContent = ({
   }
 
   const handleRename = async (id: string, title: string) => {
-    await fetch(`/api/chat/conversations/${id}`, {
+    const response = await fetch(`/api/chat/conversations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     })
+    if (!response.ok) {
+      toast.error("Could not rename conversation")
+      return
+    }
     router.refresh()
   }
 
   return (
-    <div className="flex h-full flex-col w-full">
-      <div className="p-4 border-b">
+    <div className="flex h-full w-full flex-col">
+      <div className="border-b p-4">
         <Button onClick={handleCreateNew} className="w-full" size="sm" disabled={isStreaming || busy}>
-          <MessageSquarePlus className="h-4 w-4" />
+          <MessageSquarePlus className="size-4" />
           New conversation
         </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="p-2 flex flex-col gap-1">
+        <div className="flex flex-col gap-1 p-2">
           {conversations.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               No conversations yet. Start by sending a message.
@@ -229,8 +261,8 @@ const ChatSidebarContent = ({
         </div>
       </div>
 
-      <div className="pt-4 px-4 border-t">
-        <div className="text-xs text-muted-foreground text-center">
+      <div className="border-t px-4 pt-4">
+        <div className="text-center text-xs text-muted-foreground">
           {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"} saved to your account.
         </div>
       </div>
@@ -245,12 +277,12 @@ export const ChatSidebarMobile = (props: ChatSidebarProps) => {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="sm">
-          <Menu className="h-5 w-5" />
+          <Menu className="size-5" />
           Conversations
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="w-80 p-0">
-        <SheetHeader className="p-4 border-b">
+        <SheetHeader className="border-b p-4">
           <SheetTitle>Conversations</SheetTitle>
         </SheetHeader>
         <ChatSidebarContent {...props} onClose={() => setOpen(false)} />
@@ -261,7 +293,7 @@ export const ChatSidebarMobile = (props: ChatSidebarProps) => {
 
 export const ChatSidebarDesktop = (props: ChatSidebarProps) => {
   return (
-    <div className="hidden lg:flex w-80 border-r bg-background">
+    <div className="hidden w-80 border-r bg-background lg:flex">
       <ChatSidebarContent {...props} />
     </div>
   )

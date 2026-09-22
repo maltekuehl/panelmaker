@@ -16,7 +16,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { useToast } from "@/hooks/use-toast"
+import { USER_ROLE_LABELS, USER_STATUS_LABELS } from "@/lib/constants"
+import type { UserRole, UserStatus } from "@/lib/generated/prisma/enums"
+import { format } from "date-fns"
 import {
   BadgeCheck,
   ChevronLeft,
@@ -32,6 +34,7 @@ import {
   X,
 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 
 interface User {
   id: string
@@ -45,7 +48,6 @@ interface User {
   createdAt: string
   updatedAt: string
   _count: {
-    reviews: number
     panels: number
     experiments: number
     blogPosts: number
@@ -71,7 +73,6 @@ export default function UserList() {
     totalUsers: 0,
     totalPages: 0,
   })
-  const { toast } = useToast()
 
   // Debounce search query
   useEffect(() => {
@@ -111,12 +112,8 @@ export default function UserList() {
       } = await response.json()
       setUsers(data.users)
       setPagination(data.pagination)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive",
-      })
+    } catch {
+      toast.error("Error", { description: "Failed to fetch users" })
     } finally {
       setLoading(false)
     }
@@ -138,19 +135,12 @@ export default function UserList() {
         throw new Error(errorData.error || "Failed to update user status")
       }
 
-      toast({
-        title: "Success",
-        description: `User ${action}ed successfully`,
-      })
+      toast.success("Success", { description: `User ${action}ed successfully` })
 
       // Refresh users list
       await fetchUsers(pagination.page)
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update user status",
-        variant: "destructive",
-      })
+      toast.error("Error", { description: error instanceof Error ? error.message : "Failed to update user status" })
     } finally {
       setActionLoading(null)
     }
@@ -172,17 +162,14 @@ export default function UserList() {
         throw new Error(errorData.error || "Failed to update submission access")
       }
 
-      toast({
-        title: "Success",
+      toast.success("Success", {
         description: action === "grant" ? "Submission access granted" : "Submission access revoked",
       })
 
       await fetchUsers(pagination.page)
     } catch (error) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: error instanceof Error ? error.message : "Failed to update submission access",
-        variant: "destructive",
       })
     } finally {
       setActionLoading(null)
@@ -201,34 +188,15 @@ export default function UserList() {
         throw new Error(errorData.error || "Failed to delete user")
       }
 
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      })
+      toast.success("Success", { description: "User deleted successfully" })
 
       // Refresh users list
       await fetchUsers(pagination.page)
     } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete user",
-        variant: "destructive",
-      })
+      toast.error("Error", { description: error instanceof Error ? error.message : "Failed to delete user" })
     } finally {
       setActionLoading(null)
     }
-  }
-
-  useEffect(() => {
-    fetchUsers()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    )
   }
 
   return (
@@ -240,7 +208,7 @@ export default function UserList() {
 
       {/* Search Input */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 transform -tranzinc-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search by name or email..."
           value={searchQuery}
@@ -252,7 +220,7 @@ export default function UserList() {
             variant="ghost"
             size="sm"
             onClick={() => setSearchQuery("")}
-            className="absolute right-1 top-1/2 transform -tranzinc-y-1/2 h-8 w-8 p-0 hover:bg-muted"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -268,185 +236,191 @@ export default function UserList() {
         </div>
       )}
 
-      <div className="grid gap-4">
-        {users.map((user) => (
-          <Card key={user.id}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Avatar>
-                    <AvatarImage src={user.image || undefined} />
-                    <AvatarFallback>
-                      {user.name ? user.name.slice(0, 2).toUpperCase() : <User className="h-4 w-4" />}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className="text-lg">{user.name || "No name"}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
+      <div className="grid gap-4" aria-busy={loading}>
+        {loading && (
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        )}
+        {!loading &&
+          users.map((user) => (
+            <Card key={user.id}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar>
+                      <AvatarImage src={user.image || undefined} />
+                      <AvatarFallback>
+                        {user.name ? user.name.slice(0, 2).toUpperCase() : <User className="h-4 w-4" />}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <CardTitle className="text-lg">{user.name || "No name"}</CardTitle>
+                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>
+                      {USER_ROLE_LABELS[user.role as UserRole] ?? user.role}
+                    </Badge>
+                    <Badge variant={user.status === "BLOCKED" ? "destructive" : "outline"}>
+                      {USER_STATUS_LABELS[user.status as UserStatus] ?? user.status}
+                    </Badge>
+                    {user.role !== "ADMIN" &&
+                      (user.accessStatus === "VERIFIED" ? (
+                        <Badge variant="outline" className="border-success/40 text-success">
+                          <BadgeCheck className="size-3" />
+                          Verified
+                        </Badge>
+                      ) : user.accessStatus === "REQUESTED" ? (
+                        <Badge variant="outline" className="border-warning/40 text-warning">
+                          <Clock className="size-3" />
+                          Requested
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Unverified
+                        </Badge>
+                      ))}
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>{user.role}</Badge>
-                  <Badge variant={user.status === "BLOCKED" ? "destructive" : "outline"}>{user.status}</Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium">Panels</p>
+                    <p className="text-muted-foreground">{user._count.panels}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Experiments</p>
+                    <p className="text-muted-foreground">{user._count.experiments}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Blog Posts</p>
+                    <p className="text-muted-foreground">{user._count.blogPosts}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Joined</p>
+                    <p className="text-muted-foreground">{format(new Date(user.createdAt), "MMM d, yyyy")}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 mt-4">
+                  {user.status === "ACTIVE" ? (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" disabled={actionLoading === user.id}>
+                          {actionLoading === user.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ShieldOff className="h-4 w-4" />
+                          )}
+                          Block User
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Block User</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to block {user.name || user.email}? They will not be able to sign in
+                            until unblocked.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleBlockUser(user.id, "block")}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Block User
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBlockUser(user.id, "unblock")}
+                      disabled={actionLoading === user.id}
+                    >
+                      {actionLoading === user.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Shield className="h-4 w-4" />
+                      )}
+                      Unblock User
+                    </Button>
+                  )}
+
                   {user.role !== "ADMIN" &&
                     (user.accessStatus === "VERIFIED" ? (
-                      <Badge variant="outline" className="border-green-600/40 text-green-700 dark:text-green-400">
-                        <BadgeCheck className="size-3" />
-                        Verified
-                      </Badge>
-                    ) : user.accessStatus === "REQUESTED" ? (
-                      <Badge variant="outline" className="border-amber-600/40 text-amber-700 dark:text-amber-400">
-                        <Clock className="size-3" />
-                        Requested
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground">
-                        Unverified
-                      </Badge>
-                    ))}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="font-medium">Reviews</p>
-                  <p className="text-muted-foreground">{user._count.reviews}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Panels</p>
-                  <p className="text-muted-foreground">{user._count.panels}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Experiments</p>
-                  <p className="text-muted-foreground">{user._count.experiments}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Blog Posts</p>
-                  <p className="text-muted-foreground">{user._count.blogPosts}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Joined</p>
-                  <p className="text-muted-foreground">{new Date(user.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2 mt-4">
-                {user.status === "ACTIVE" ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm" disabled={actionLoading === user.id}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSubmissionAccess(user.id, "revoke")}
+                        disabled={actionLoading === user.id}
+                      >
                         {actionLoading === user.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <ShieldOff className="h-4 w-4" />
                         )}
-                        Block User
+                        Revoke access
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSubmissionAccess(user.id, "grant")}
+                        disabled={actionLoading === user.id}
+                      >
+                        {actionLoading === user.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4" />
+                        )}
+                        {user.accessStatus === "REQUESTED" ? "Approve access" : "Verify user"}
+                      </Button>
+                    ))}
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="sm" disabled={actionLoading === user.id}>
+                        {actionLoading === user.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        Delete
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Block User</AlertDialogTitle>
+                        <AlertDialogTitle>Delete User</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to block {user.name || user.email}? They will not be able to sign in
-                          until unblocked.
+                          Are you sure you want to permanently delete {user.name || user.email}? This action cannot be
+                          undone and will remove all their data including panels, reports, and blog posts.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                          onClick={() => handleBlockUser(user.id, "block")}
+                          onClick={() => handleDeleteUser(user.id)}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                          Block User
+                          Delete User
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleBlockUser(user.id, "unblock")}
-                    disabled={actionLoading === user.id}
-                  >
-                    {actionLoading === user.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Shield className="h-4 w-4" />
-                    )}
-                    Unblock User
-                  </Button>
-                )}
-
-                {user.role !== "ADMIN" &&
-                  (user.accessStatus === "VERIFIED" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSubmissionAccess(user.id, "revoke")}
-                      disabled={actionLoading === user.id}
-                    >
-                      {actionLoading === user.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ShieldOff className="h-4 w-4" />
-                      )}
-                      Revoke access
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSubmissionAccess(user.id, "grant")}
-                      disabled={actionLoading === user.id}
-                    >
-                      {actionLoading === user.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ShieldCheck className="h-4 w-4" />
-                      )}
-                      {user.accessStatus === "REQUESTED" ? "Approve access" : "Verify user"}
-                    </Button>
-                  ))}
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={actionLoading === user.id}>
-                      {actionLoading === user.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                      Delete
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete User</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to permanently delete {user.name || user.email}? This action cannot be
-                        undone and will remove all their data including reviews, panels, reports, and blog posts.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        Delete User
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
       </div>
 
-      {users.length === 0 && (
+      {!loading && users.length === 0 && (
         <Card>
           <CardContent className="flex items-center justify-center py-8">
             <div className="text-center">

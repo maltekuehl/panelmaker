@@ -13,6 +13,12 @@ const compat = new FlatCompat({
   allConfig: js.configs.all,
 })
 
+// eslint-config-next registers the TypeScript plugin in one of its config objects; reuse that
+// instance so rules below can be switched on without adding a second copy of the plugin.
+const typescriptPlugin = nextPlugin.find((entry) => entry.plugins?.["@typescript-eslint"])?.plugins[
+  "@typescript-eslint"
+]
+
 const config = [
   {
     ignores: ["lib/generated/**"],
@@ -31,15 +37,17 @@ const config = [
   {
     plugins: {
       "react-compiler": reactCompiler,
+      "@typescript-eslint": typescriptPlugin,
     },
     rules: {
       "react-compiler/react-compiler": "error",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/preserve-manual-memoization": "off",
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/ban-ts-comment": "off",
-      "@typescript-eslint/no-unused-expressions": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "ignoreRestSiblings": true },
+      ],
     },
   },
   // MDX-specific rule adjustments

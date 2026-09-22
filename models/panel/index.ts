@@ -1,6 +1,9 @@
 export {
   checkCrossReactivity,
+  checkFluorophoreBrightness,
   checkFluorophoreOverlap,
+  checkTaggingModality,
+  computePairOverlap,
   exportPanelCsv,
   exportPanelJson,
   exportPanelOrderCsv,
@@ -8,11 +11,14 @@ export {
   validatePanel,
 } from "./intelligence"
 export type {
+  BrightnessIssue,
   CrossReactivityIssue,
   FluorophoreOverlapIssue,
+  PairOverlap,
   PanelReport,
   PanelValidationResult,
   PanelWarning,
+  TaggingIssue,
 } from "./intelligence"
 export {
   addCycle,
@@ -33,6 +39,7 @@ export {
   updateCycle,
   updateMarker,
   updatePanel,
+  validatePanelWithSpectra,
 } from "./queries"
 export type {
   LabPanelEntry,

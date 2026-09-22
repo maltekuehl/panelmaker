@@ -120,7 +120,7 @@ export default function SignUp() {
               <Label htmlFor="name">
                 Name <span className="text-destructive">*</span>
               </Label>
-              <Input id="name" name="name" type="text" placeholder="Your full name" required />
+              <Input id="name" name="name" type="text" autoComplete="name" placeholder="Your full name" required />
               {fieldErrors.name && <p className="text-sm text-destructive">{fieldErrors.name}</p>}
             </div>
 
@@ -128,7 +128,14 @@ export default function SignUp() {
               <Label htmlFor="email">
                 Email <span className="text-destructive">*</span>
               </Label>
-              <Input id="email" name="email" type="email" placeholder="you@institution.edu" required />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@institution.edu"
+                required
+              />
               {fieldErrors.email && <p className="text-sm text-destructive">{fieldErrors.email}</p>}
             </div>
 
@@ -136,7 +143,14 @@ export default function SignUp() {
               <Label htmlFor="password">
                 Password <span className="text-destructive">*</span>
               </Label>
-              <Input id="password" name="password" type="password" placeholder="Min. 8 characters" required />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Min. 8 characters"
+                required
+              />
               <p className="text-xs text-muted-foreground">Must be at least 8 characters.</p>
               {fieldErrors.password && <p className="text-sm text-destructive">{fieldErrors.password}</p>}
             </div>
@@ -169,13 +183,13 @@ export default function SignUp() {
                 ontologyType="ror"
                 value={institution}
                 onChange={setInstitution}
-                placeholder="Search for your institution..."
+                placeholder="Search for your institution…"
               />
               <p className="text-xs text-muted-foreground">Optional. Search by institution name.</p>
             </div>
 
             <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? "Creating account..." : "Create account"}
+              {isPending ? "Creating account…" : "Create account"}
             </Button>
 
             <p className="text-center text-sm text-muted-foreground">

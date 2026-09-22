@@ -73,9 +73,11 @@ export function canViewResource(viewer: ViewerContext | null, resource: Resource
 }
 
 // A lab ADMIN/OWNER may edit any resource owned by or shared with their lab, not only the creator.
+// Editing never exceeds viewing, so a PRIVATE resource is editable by its owner alone.
 export function canEditResource(viewer: ViewerContext | null, resource: ResourceVisibility): boolean {
   if (!viewer) return false
   if (resource.ownerId && resource.ownerId === viewer.userId) return true
+  if (resource.visibility === "PRIVATE") return false
   const labs = new Set<string>(resource.sharedLabIds)
   if (resource.owningLabId) labs.add(resource.owningLabId)
   for (const labId of labs) {

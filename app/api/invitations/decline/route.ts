@@ -2,9 +2,8 @@ import { authErrorResponse, requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { acceptInvitationSchema, declineInvitation } from "@/models/lab"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
-// POST /api/invitations/decline - Decline an emailed lab invitation by token
+// POST /api/invitations/decline - Decline an email-restricted lab invitation by token
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth(request)
@@ -15,9 +14,6 @@ export async function POST(request: NextRequest) {
 
     return createSuccessResponse({ success: true })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     if (
       error instanceof Error &&
       (error.message.includes("no longer valid") ||

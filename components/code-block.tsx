@@ -27,8 +27,6 @@ interface CodeBlockProps {
   value: string
   language?: string
   className?: string
-  showCopyButton?: boolean
-  editable?: boolean
 }
 
 // Create and configure lowlight instance once at module level
@@ -47,53 +45,32 @@ lowlight.register("shell", bash)
 lowlight.register("json", json)
 lowlight.register("jsonc", json)
 
-const CodeBlock: React.FC<CodeBlockProps> = ({
-  value,
-  language = "text",
-  className,
-  showCopyButton = true,
-  editable = false,
-}) => {
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+const CodeBlock: React.FC<CodeBlockProps> = ({ value, language = "text", className }) => {
   const [isCopied, setIsCopied] = React.useState(false)
-  const [highlightedCode, setHighlightedCode] = React.useState<string>("")
-  const [isLoading, setIsLoading] = React.useState(true)
-  const [editableValue, setEditableValue] = React.useState(value)
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null)
 
-  React.useEffect(() => {
-    const highlightCode = () => {
-      try {
-        if (lowlight.registered(language)) {
-          const tree = lowlight.highlight(language, value)
-          const html = toHtml(tree, {
-            allowDangerousCharacters: true,
-            closeSelfClosing: false,
-          })
-          // Sanitize HTML with DOMPurify before setting state
-          const sanitizedHtml = DOMPurify.sanitize(html, SANITIZE_CONFIG)
-          setHighlightedCode(sanitizedHtml)
-        } else {
-          // Fallback for unsupported languages - escape HTML
-          const escapedValue = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-          setHighlightedCode(escapedValue)
-        }
-      } catch (error) {
-        console.error("Failed to highlight code:", error)
-        // Fallback - escape HTML
-        const escapedValue = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        setHighlightedCode(escapedValue)
-      } finally {
-        setIsLoading(false)
-      }
+  // lowlight and DOMPurify are synchronous and SSR-safe, so the highlighted markup is derived
+  // during render instead of through an effect that would flash unhighlighted code first.
+  let highlightedCode: string
+  try {
+    if (lowlight.registered(language)) {
+      const tree = lowlight.highlight(language, value)
+      const html = toHtml(tree, { allowDangerousCharacters: true, closeSelfClosing: false })
+      highlightedCode = DOMPurify.sanitize(html, SANITIZE_CONFIG)
+    } else {
+      highlightedCode = escapeHtml(value)
     }
-
-    highlightCode()
-  }, [value, language])
+  } catch (error) {
+    console.error("Failed to highlight code:", error)
+    highlightedCode = escapeHtml(value)
+  }
 
   const handleCopy = async () => {
     try {
-      const textToCopy = editable ? editableValue : value
-      await navigator.clipboard.writeText(textToCopy)
+      await navigator.clipboard.writeText(value)
       setIsCopied(true)
       setTimeout(() => setIsCopied(false), 2000)
     } catch (error) {
@@ -101,43 +78,19 @@ const CodeBlock: React.FC<CodeBlockProps> = ({
     }
   }
 
-  React.useEffect(() => {
-    if (editable && textareaRef.current) {
-      // Auto-resize textarea to fit content
-      textareaRef.current.style.height = "auto"
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px"
-    }
-  }, [editableValue, editable])
-
   return (
-    <div className={cn("relative group code-block", className)}>
-      {showCopyButton && (
-        <button
-          onClick={handleCopy}
-          className="absolute top-2 right-2 z-10 p-2 rounded-md bg-muted hover:bg-muted/80 transition-colors opacity-0 group-hover:opacity-100"
-          aria-label="Copy code"
-        >
-          {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-        </button>
-      )}
-      {editable ? (
-        <textarea
-          ref={textareaRef}
-          value={editableValue}
-          onChange={(e) => setEditableValue(e.target.value)}
-          className="hljs rounded-lg overflow-x-auto p-4 text-sm font-mono leading-relaxed whitespace-pre w-full resize-none bg-transparent border-none outline-hidden focus:ring-2 focus:ring-primary/50"
-          spellCheck={false}
-        />
-      ) : isLoading ? (
-        <pre className="hljs rounded-lg overflow-x-auto p-4 whitespace-pre">
-          <code className="text-sm font-mono">{value}</code>
-        </pre>
-      ) : (
-        <pre
-          className="hljs rounded-lg overflow-x-auto p-4 text-sm font-mono leading-relaxed whitespace-pre"
-          dangerouslySetInnerHTML={{ __html: highlightedCode }}
-        />
-      )}
+    <div className={cn("group code-block relative", className)}>
+      <button
+        onClick={handleCopy}
+        className="absolute right-2 top-2 z-10 rounded-md bg-muted p-2 opacity-0 transition-colors hover:bg-muted/80 group-hover:opacity-100"
+        aria-label="Copy code"
+      >
+        {isCopied ? <Check className="size-4 text-primary" /> : <Copy className="size-4" />}
+      </button>
+      <pre
+        className="hljs overflow-x-auto whitespace-pre rounded-lg p-4 font-mono text-sm leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: highlightedCode }}
+      />
     </div>
   )
 }

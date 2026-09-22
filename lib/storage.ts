@@ -1,7 +1,7 @@
 import "server-only"
 
 import { randomBytes } from "node:crypto"
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import sharp from "sharp"
 import { env } from "./env"
@@ -35,7 +35,7 @@ export class InvalidImageError extends Error {
 }
 
 export function getUploadsDir(): string {
-  return path.resolve(process.cwd(), env.UPLOADS_DIR ?? "./data/uploads")
+  return path.resolve(process.cwd(), env.UPLOADS_DIR)
 }
 
 async function ensureUploadsDir(): Promise<string> {
@@ -83,4 +83,15 @@ export async function saveUploadedImage(buffer: Buffer): Promise<{ url: string; 
   await writeFile(path.join(dir, filename), output)
 
   return { url: `/uploads/${filename}`, filename }
+}
+
+// Accepts either the stored filename or the public `/uploads/<name>` url. Missing files are ignored
+// so callers can delete a record whose file was already swept.
+export async function deleteUploadedImage(filenameOrUrl: string): Promise<void> {
+  const filename = filenameOrUrl.startsWith("/uploads/") ? filenameOrUrl.slice("/uploads/".length) : filenameOrUrl
+  try {
+    await unlink(resolveUploadPath(filename))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error
+  }
 }

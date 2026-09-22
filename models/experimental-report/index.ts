@@ -12,21 +12,17 @@ export {
   getMarkerEntriesPage,
   getPendingReports,
   getPublicReportById,
-  getReportById,
   getReportEntriesPage,
   getReportsForAntibody,
   getReportsForCellType,
   getReportsForCondition,
-  getReportsForExperiment,
   getReportsForProtein,
-  getReportsForSubcellular,
-  getReportsForTaxon,
-  getReportsForTissue,
   getVisibleReportById,
   getVisibleReportsForExperiment,
   resolveAndCreateReport,
   resolveAndCreateReports,
   updateReportStatus,
+  validateAndResolveOntologyTerm,
 } from "./queries"
 export type {
   BatchReportResult,
@@ -38,7 +34,13 @@ export type {
   ReportQueryParams,
   ReportRow,
 } from "./queries"
-export { createReportBatchSchema, createReportSchema, searchParamsSchema, updateReportStatusSchema } from "./schema"
+export {
+  IMAGE_CAPTION_MAX_LENGTH,
+  createReportBatchSchema,
+  createReportSchema,
+  searchParamsSchema,
+  updateReportStatusSchema,
+} from "./schema"
 export type { CreateReportBatchData, CreateReportData, SearchParams, UpdateReportStatusData } from "./schema"
 export {
   aggregateAntibodyEntries,
@@ -49,4 +51,4 @@ export {
   toReportResponse,
   toReportUsage,
 } from "./transforms"
-export type { ReportResponse, ReportUsage } from "./transforms"
+export type { ReportImageResponse, ReportResponse, ReportUsage } from "./transforms"

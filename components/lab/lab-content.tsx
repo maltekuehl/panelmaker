@@ -5,7 +5,6 @@ import {
   MemberCell,
   panelColumns,
   reportColumns,
-  VISIBILITY_LABELS,
   type ExperimentEntry,
   type PanelEntry,
   type ReportEntry,
@@ -14,18 +13,18 @@ import { DataTable } from "@/components/browse/data-table"
 import { DataTableColumnHeader } from "@/components/data-table/column-header"
 import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
 import { DataTablePagination } from "@/components/data-table/pagination"
+import { DebouncedSearchInput } from "@/components/data-table/search-input"
+import { SegmentedTabs } from "@/components/data-table/segmented-tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { VISIBILITY_LABELS } from "@/lib/constants"
 import { isLabContentParamsActive, LAB_FILTER_DIMENSIONS, labContentParsers, type LabView } from "@/lib/data-table"
-import { cn } from "@/lib/utils"
+import type { Visibility } from "@/lib/generated/prisma/enums"
 import type { BrowseFacets } from "@/models/experimental-report"
 import { ColumnDef } from "@tanstack/react-table"
 import { X } from "lucide-react"
 import { useQueryStates } from "nuqs"
-import { useEffect, useRef, useState, type ReactNode } from "react"
-
-const SEARCH_DEBOUNCE_MS = 300
+import { type ReactNode } from "react"
 
 type LabContentCounts = Record<LabView, number>
 
@@ -45,7 +44,9 @@ const visibilityColumn: ColumnDef<PanelEntry> = {
   id: "visibility",
   header: "Visibility",
   cell: ({ row }) => (
-    <Badge variant="outline">{VISIBILITY_LABELS[row.original.visibility] ?? row.original.visibility}</Badge>
+    <Badge variant="outline">
+      {VISIBILITY_LABELS[row.original.visibility as Visibility] ?? row.original.visibility}
+    </Badge>
   ),
 }
 
@@ -65,44 +66,17 @@ function LabViewTabs({ counts }: { counts: LabContentCounts }) {
   const [params, setParams] = useQueryStates(labContentParsers, { shallow: false })
 
   return (
-    <div className="inline-flex rounded-md border bg-muted p-0.5">
-      {VIEW_LABELS.map((view) => (
-        <Button
-          key={view.value}
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "h-7 rounded-sm px-3 text-sm font-medium",
-            params.view === view.value
-              ? "bg-background text-foreground shadow-sm hover:bg-background"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-          onClick={() => setParams({ view: view.value, page: 1 })}
-        >
-          <span>{view.label}</span>
-          <span className="text-muted-foreground tabular-nums">{counts[view.value]}</span>
-        </Button>
-      ))}
-    </div>
+    <SegmentedTabs<LabView>
+      items={VIEW_LABELS.map((view) => ({ ...view, count: counts[view.value] }))}
+      value={params.view}
+      label="Lab content view"
+      onChange={(view) => setParams({ view, page: 1 })}
+    />
   )
 }
 
 function LabContentToolbar({ counts, facets }: { counts: LabContentCounts; facets: BrowseFacets }) {
   const [params, setParams] = useQueryStates(labContentParsers, { shallow: false })
-  const [search, setSearch] = useState(params.q)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  useEffect(() => {
-    setSearch(params.q)
-  }, [params.q])
-
-  const onSearchChange = (value: string) => {
-    setSearch(value)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      setParams({ q: value || null, page: 1 })
-    }, SEARCH_DEBOUNCE_MS)
-  }
 
   const isActive = isLabContentParamsActive(params)
 
@@ -123,10 +97,10 @@ function LabContentToolbar({ counts, facets }: { counts: LabContentCounts; facet
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <LabViewTabs counts={counts} />
-        <Input
-          placeholder="Search by name, marker, tissue..."
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
+        <DebouncedSearchInput
+          placeholder="Search by name, marker, tissue…"
+          value={params.q}
+          onCommit={(q) => setParams({ q: q || null, page: 1 })}
           className="h-8 w-[200px] lg:w-[280px]"
         />
       </div>
@@ -169,21 +143,26 @@ type LabContentProps = {
 
 export function LabContent(props: LabContentProps) {
   const { counts, facets, page, pageCount, total } = props
-  const pagination = <DataTablePagination page={page} pageCount={pageCount} total={total} />
-
   let table: ReactNode
   if (props.view === "experiments") {
-    table = <DataTable columns={experimentTableColumns} data={props.rows} pagination={pagination} />
+    table = (
+      <DataTable
+        columns={experimentTableColumns}
+        data={props.rows}
+        emptyMessage="No experiments match these filters."
+      />
+    )
   } else if (props.view === "reports") {
-    table = <DataTable columns={reportTableColumns} data={props.rows} pagination={pagination} />
+    table = <DataTable columns={reportTableColumns} data={props.rows} emptyMessage="No reports match these filters." />
   } else {
-    table = <DataTable columns={panelTableColumns} data={props.rows} pagination={pagination} />
+    table = <DataTable columns={panelTableColumns} data={props.rows} emptyMessage="No panels match these filters." />
   }
 
   return (
     <div className="space-y-4">
       <LabContentToolbar counts={counts} facets={facets} />
       {table}
+      <DataTablePagination page={page} pageCount={pageCount} total={total} />
     </div>
   )
 }

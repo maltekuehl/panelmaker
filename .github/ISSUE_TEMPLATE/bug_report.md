@@ -36,10 +36,13 @@ Steps to reproduce the behavior:
 ## Component/Feature Area
 **Select the area where the bug occurs:**
 - [ ] Authentication/Auth.js
-- [ ] Registry/MCP Servers
+- [ ] Reports/Submissions
+- [ ] Panels/Panel designer
+- [ ] Antibodies/Markers/Cell types
+- [ ] Labs/Teams
+- [ ] Browse/Search
 - [ ] Chat/AI Integration
 - [ ] Blog/Content Management
-- [ ] Collections
 - [ ] Admin Dashboard
 - [ ] User Management
 - [ ] API Routes

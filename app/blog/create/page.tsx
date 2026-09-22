@@ -1,6 +1,6 @@
-import { auth } from "@/auth"
 import BlogForm from "@/components/blog/blog-form"
-import { isUserAdmin } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
+import { signInUrl } from "@/lib/routes"
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 
@@ -14,14 +14,13 @@ export const metadata: Metadata = {
 }
 
 export default async function CreateBlogPage() {
-  const session = await auth()
+  const user = await getSessionUser()
 
-  if (!session?.user?.id) {
-    redirect("/auth/signin?callbackUrl=/blog/create")
+  if (!user) {
+    redirect(signInUrl("/blog/create"))
   }
 
-  const isAdmin = await isUserAdmin(session.user.id)
-  if (!isAdmin) {
+  if (!user.isAdmin) {
     redirect("/blog")
   }
 

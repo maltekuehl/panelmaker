@@ -7,7 +7,7 @@ import { useDroppable } from "@dnd-kit/react"
 import { Check, ChevronDown, ChevronRight, MessageSquare, Pencil, Trash2, X } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import { MarkerSearchDialog } from "./marker-search-dialog"
+import { AddMarkerForm } from "./add-marker-form"
 import { SortableMarkerCard } from "./sortable-marker-card"
 import { PanelCycle } from "./types"
 
@@ -79,15 +79,15 @@ export function CycleSection({
   }
 
   return (
-    <div className="relative pl-4 border-l-2 border-zinc-200 pb-6 last:border-l-0 last:pb-0">
-      <div className="absolute left-[-9px] top-0 h-4 w-4 rounded-full bg-zinc-200 border-2 border-white" />
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider">{cycle.name}</h4>
+    <div className="relative border-l-2 border-border pb-6 pl-4 last:border-l-0 last:pb-0">
+      <div className="absolute left-[-9px] top-0 size-4 rounded-full border-2 border-background bg-border" />
+      <div className="mb-3 flex items-center justify-between">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{cycle.name}</h4>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-zinc-400 hover:text-zinc-600"
+            className="size-6 text-muted-foreground hover:text-foreground"
             onClick={() => {
               if (!showNotes && !savedNotes) {
                 enterEditMode()
@@ -95,79 +95,77 @@ export function CycleSection({
                 setShowNotes(!showNotes)
               }
             }}
-            title="Cycle notes"
           >
-            <MessageSquare className="h-3 w-3" />
+            <MessageSquare className="size-3" />
+            <span className="sr-only">Cycle notes</span>
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px] gap-1"
-            onClick={() => setShowAddForm(!showAddForm)}
-          >
-            {showAddForm ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setShowAddForm(!showAddForm)}>
+            {showAddForm ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
             Add Marker
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-zinc-400 hover:text-red-500 hover:bg-transparent"
+            className="size-6 text-muted-foreground hover:bg-transparent hover:text-destructive"
             onClick={() => onRemoveCycle?.(cycle.id)}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="size-3" />
             <span className="sr-only">Remove Cycle</span>
           </Button>
         </div>
       </div>
 
       {showNotes && (
-        <div className="mb-3 rounded-lg bg-zinc-100 px-3 py-2">
+        <div className="mb-3 rounded-lg bg-muted/40 px-3 py-2">
           {isEditing ? (
             <div className="flex items-center gap-1.5">
               <Input
                 autoFocus
-                placeholder="Add notes for this cycle..."
+                placeholder="Add notes for this cycle…"
                 value={draftNotes}
                 onChange={(e) => setDraftNotes(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") saveNotes()
-                  if (e.key === "Escape") cancelEdit()
+                  if (e.key === "Escape") {
+                    e.preventDefault()
+                    cancelEdit()
+                  }
                 }}
-                className="h-8 text-sm bg-white"
+                className="h-8 text-sm"
                 disabled={isSaving}
               />
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0 text-zinc-500 hover:text-green-600"
+                className="size-8 shrink-0 text-muted-foreground hover:text-primary"
                 onClick={saveNotes}
                 disabled={isSaving}
-                title="Save notes"
               >
-                <Check className="h-4 w-4" />
+                <Check className="size-4" />
+                <span className="sr-only">Save notes</span>
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 shrink-0 text-zinc-400 hover:text-zinc-600"
+                className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
                 onClick={cancelEdit}
                 disabled={isSaving}
-                title="Cancel"
               >
-                <X className="h-4 w-4" />
+                <X className="size-4" />
+                <span className="sr-only">Cancel editing notes</span>
               </Button>
             </div>
           ) : savedNotes ? (
-            <div className="flex items-center gap-1.5 group">
-              <span className="text-sm text-zinc-600 flex-1">{savedNotes}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="flex-1 text-sm text-muted-foreground">{savedNotes}</span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 shrink-0 text-zinc-300 hover:text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="size-7 shrink-0 text-muted-foreground/60 hover:text-foreground"
                 onClick={enterEditMode}
-                title="Edit notes"
               >
-                <Pencil className="h-3.5 w-3.5" />
+                <Pencil className="size-3.5" />
+                <span className="sr-only">Edit notes</span>
               </Button>
             </div>
           ) : null}
@@ -175,8 +173,8 @@ export function CycleSection({
       )}
 
       {showAddForm && (
-        <div className="mb-3 p-3 border rounded-lg bg-white">
-          <MarkerSearchDialog
+        <div className="mb-3 rounded-lg border bg-background p-3">
+          <AddMarkerForm
             panelId={panelId}
             cycleId={cycle.id}
             species={species}

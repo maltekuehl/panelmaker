@@ -23,7 +23,7 @@ export function SortableMarkerCard({
   onRemove,
   onMarkerUpdated,
 }: SortableMarkerCardProps) {
-  const { ref, isDragging } = useSortable({
+  const { ref, handleRef, isDragging } = useSortable({
     id: marker.id,
     index,
     type: "item",
@@ -39,7 +39,7 @@ export function SortableMarkerCard({
         species={species}
         onRemove={onRemove}
         onMarkerUpdated={onMarkerUpdated}
-        isDragging={isDragging}
+        dragHandleRef={handleRef}
       />
     </div>
   )

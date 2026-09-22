@@ -1,10 +1,15 @@
 import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
 import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
-import { ANTIGEN_RETRIEVAL_LABELS, METHOD_LABELS } from "@/lib/constants"
+import { ANTIGEN_RETRIEVAL_LABELS, SPECIFICITY_RANK } from "@/lib/constants"
+import { antibodyHref, cellTypeHref, markerHref } from "@/lib/routes"
+import { toSpecimenDetail, type SpecimenDetail } from "@/models/experiment/transforms"
 import type { ReportRow } from "./queries"
+
+export type ReportImageResponse = { url: string; caption: string | null }
 
 export type ReportResponse = Omit<ReportRow, "images" | "fluorophore"> & {
   imageUrls: string[]
+  images: ReportImageResponse[]
   fluorophore: string | null
 }
 
@@ -14,6 +19,7 @@ export function toReportResponse(report: ReportRow): ReportResponse {
     ...rest,
     fluorophore: report.fluorophore?.name ?? null,
     imageUrls: images.map((i) => i.url),
+    images: images.map((i) => ({ url: i.url, caption: i.caption })),
   }
 }
 
@@ -23,13 +29,14 @@ export type ReportUsage = {
   experimentName: string | null
   species: string
   speciesId: string | null
-  tissueLabel: string
+  tissueLabel: string | null
   tissueId: string | null
-  fixation: string
+  fixation: string | null
   method: string
-  dilution: string
+  methodShort: string
+  dilution: string | null
   incubation: string | null
-  antigenRetrieval: string
+  antigenRetrieval: string | null
   works: boolean | null
   signalQuality: string | null
   specificity: string | null
@@ -37,7 +44,7 @@ export type ReportUsage = {
   metalTag: string | null
   cycleNumber: number | null
   notes: string | null
-  images: string[]
+  images: ReportImageResponse[]
   createdAt: string
   submitter: string
   submitterId: string | null
@@ -47,7 +54,7 @@ export type ReportUsage = {
   antibodyName: string
   antibodyVendor: string
   catalogNumber: string | null
-  clone: string
+  clone: string | null
   hostSpecies: string | null
   conjugate: string | null
   proteinId: string | null
@@ -57,25 +64,27 @@ export type ReportUsage = {
   subcellularLabel: string | null
   conditionId: string | null
   conditionLabel: string | null
+  specimen: SpecimenDetail
   status: string
 }
 
 export function toReportUsage(report: ReportRow): ReportUsage {
   return {
-    id: String(report.id),
+    id: report.id,
     experimentId: report.experimentId,
     experimentName: report.experiment.name ?? null,
     species: report.experiment.species?.label ?? "Unknown",
     speciesId: report.experiment.species?.id ?? null,
-    tissueLabel: report.experiment.tissue?.label ?? "N/A",
+    tissueLabel: report.experiment.tissue?.label ?? null,
     tissueId: report.experiment.tissue?.id ?? null,
-    fixation: report.experiment.fixation ?? "N/A",
-    method: report.experiment.method ?? "Unknown",
-    dilution: report.dilution ?? "N/A",
+    fixation: report.experiment.fixation ?? null,
+    method: report.experiment.imagingMethod?.label ?? "Unknown",
+    methodShort: report.experiment.imagingMethod?.shortLabel ?? "Unknown",
+    dilution: report.dilution ?? null,
     incubation: report.incubation,
     antigenRetrieval: report.experiment.antigenRetrieval
       ? (ANTIGEN_RETRIEVAL_LABELS[report.experiment.antigenRetrieval] ?? report.experiment.antigenRetrieval)
-      : "N/A",
+      : null,
     works: report.works,
     signalQuality: report.signalQuality,
     specificity: report.specificity,
@@ -83,17 +92,19 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     metalTag: report.metalTag,
     cycleNumber: report.cycleNumber,
     notes: report.notes,
-    images: report.images.map((i) => i.url),
+    images: report.images.map((i) => ({ url: i.url, caption: i.caption })),
     createdAt: report.createdAt.toISOString(),
     submitter: report.experiment.submitter?.name ?? "Anonymous",
     submitterId: report.experiment.submitter?.id ?? null,
     submitterInstitution: report.experiment.submitter?.institution ?? null,
-    antibodyId: report.antibody?.rrid ?? `AB_${report.antibodyId ?? "unknown"}`,
+    // The canonical RRID, or "" when the antibody has none. Never a fabricated id: /antibody/[id]
+    // resolves by RRID, so a made-up value renders a link that always 404s.
+    antibodyId: report.antibody?.rrid ?? "",
     antibodyDbId: report.antibody?.id ?? null,
     antibodyName: report.antibody?.name ?? "Unknown",
     antibodyVendor: report.antibody?.vendorName ?? "Unknown",
     catalogNumber: report.antibody?.catalogNumber ?? null,
-    clone: report.antibody?.cloneId ?? "N/A",
+    clone: report.antibody?.cloneId ?? null,
     hostSpecies: report.antibody?.hostTaxon?.label ?? null,
     conjugate: report.antibody?.conjugate ?? null,
     proteinId: report.antibody?.targetProteinId ?? null,
@@ -103,6 +114,7 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     subcellularLabel: report.subcellular?.label ?? null,
     conditionId: report.experiment.condition?.id ?? null,
     conditionLabel: report.experiment.condition?.label ?? null,
+    specimen: toSpecimenDetail(report.experiment),
     status: report.status,
   }
 }
@@ -110,22 +122,23 @@ export function toReportUsage(report: ReportRow): ReportUsage {
 export function reportUsageImages(usage: ReportUsage): CarouselImage[] {
   const links: CarouselImageLink[] = []
   if (usage.proteinId && usage.markerName) {
-    links.push({ label: usage.markerName, href: `/marker/${usage.proteinId}` })
+    links.push({ label: usage.markerName, href: markerHref(usage.proteinId) })
   }
-  if (usage.antibodyDbId) {
-    links.push({ label: usage.antibodyName, href: `/antibody/${usage.antibodyId.replace(/^RRID:/, "")}` })
+  const abHref = antibodyHref(usage.antibodyId)
+  if (abHref) {
+    links.push({ label: usage.antibodyName, href: abHref })
   }
   for (const cellType of usage.cellTypes) {
-    links.push({ label: cellType.label, href: `/celltype/${cellType.id}` })
+    links.push({ label: cellType.label, href: cellTypeHref(cellType.id) })
   }
 
   const facts: string[] = []
   if (usage.subcellularLabel) facts.push(usage.subcellularLabel)
-  if (usage.tissueLabel && usage.tissueLabel !== "N/A") facts.push(usage.tissueLabel)
+  if (usage.tissueLabel) facts.push(usage.tissueLabel)
   if (usage.species && usage.species !== "Unknown") facts.push(usage.species)
 
   const title = usage.markerName ?? usage.antibodyName
-  return usage.images.map((src) => ({ src, title, links, facts }))
+  return usage.images.map((image) => ({ src: image.url, caption: image.caption, title, links, facts }))
 }
 
 type SortAccessor<T> = (entry: T) => string | number
@@ -182,11 +195,9 @@ const REPORT_SORT_ACCESSORS: Record<string, SortAccessor<ReportEntry>> = {
   species: (entry) => entry.species.toLowerCase(),
   tissue: (entry) => entry.tissue.toLowerCase(),
   method: (entry) => entry.method.toLowerCase(),
-  specificity: (entry) => SPECIFICITY_RANK[entry.specificity ?? ""] ?? -1,
+  specificity: (entry) => SPECIFICITY_RANK[entry.specificity as keyof typeof SPECIFICITY_RANK] ?? -1,
   works: (entry) => (entry.works === null ? -1 : entry.works ? 1 : 0),
 }
-
-const SPECIFICITY_RANK: Record<string, number> = { HIGH: 3, MODERATE: 2, LOW: 1, NON_SPECIFIC: 0 }
 
 export function sortMarkerEntries(entries: MarkerEntry[], sort?: string | null, order: string = "desc"): MarkerEntry[] {
   return sortEntries(entries, MARKER_SORT_ACCESSORS, sort, order)
@@ -221,24 +232,31 @@ function collectImages(reports: ReportRow[], cap = MAX_ENTRY_IMAGES): CarouselIm
 }
 
 export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
-  const groups = new Map<string, { reports: ReportRow[]; marker: string; id: string }>()
+  const groups = new Map<string, { reports: ReportRow[]; marker: string; id: string; proteinId: string | null }>()
 
   for (const report of reports) {
-    const markerId = report.antibody?.targetProteinId ?? String(report.id)
+    const proteinId = report.antibody?.targetProteinId ?? null
+    // Antibodies with no linked protein (secondaries, and primaries whose target was never resolved to
+    // UniProt) still deserve a row, but they group by antibody rather than by protein and they must not
+    // produce a /marker/ link: that route resolves a UniProt accession and would 404.
+    const groupKey = proteinId ?? (report.antibody?.id ? `antibody:${report.antibody.id}` : `report:${report.id}`)
 
-    if (!groups.has(markerId)) {
-      groups.set(markerId, {
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
         reports: [],
-        marker: report.antibody?.targetName ?? report.antibody?.name ?? `Report #${report.id}`,
-        id: markerId,
+        marker: report.antibody?.targetName ?? report.antibody?.name ?? "Unlinked antibody",
+        id: groupKey,
+        proteinId,
       })
     }
 
-    groups.get(markerId)!.reports.push(report)
+    groups.get(groupKey)!.reports.push(report)
   }
 
   return Array.from(groups.values()).map((group) => {
-    const methods = [...new Set(group.reports.map((r) => r.experiment.method).filter(Boolean))] as string[]
+    const methods = [
+      ...new Set(group.reports.map((r) => r.experiment.imagingMethod?.shortLabel).filter(Boolean)),
+    ] as string[]
     const species = [...new Set(group.reports.map((r) => r.experiment.species?.label).filter(Boolean))] as string[]
     const tissues = [...new Set(group.reports.map((r) => r.experiment.tissue?.label).filter(Boolean))] as string[]
 
@@ -252,6 +270,7 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
 
     return {
       id: group.id,
+      proteinId: group.proteinId,
       marker: group.marker,
       cellTypes,
       species: species.join(", ") || "Unknown",
@@ -263,7 +282,7 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
         id: String(r.id),
         submitter: r.experiment.submitter?.name ?? "Anonymous",
         submitterId: r.experiment.submitter?.id ?? null,
-        method: r.experiment.method ? (METHOD_LABELS[r.experiment.method] ?? r.experiment.method) : "Unknown",
+        method: r.experiment.imagingMethod?.shortLabel ?? "Unknown",
         species: r.experiment.species?.label ?? "Unknown",
         works: r.works,
       })),
@@ -297,7 +316,7 @@ export function aggregateAntibodyEntries(reports: ReportRow[]): AntibodyEntry[] 
       id: String(r.id),
       submitter: r.experiment.submitter?.name ?? "Anonymous",
       submitterId: r.experiment.submitter?.id ?? null,
-      method: r.experiment.method ? (METHOD_LABELS[r.experiment.method] ?? r.experiment.method) : "Unknown",
+      method: r.experiment.imagingMethod?.shortLabel ?? "Unknown",
       species: r.experiment.species?.label ?? "Unknown",
       works: r.works,
     })),
@@ -306,17 +325,15 @@ export function aggregateAntibodyEntries(reports: ReportRow[]): AntibodyEntry[] 
 
 export function toReportEntry(report: ReportRow): ReportEntry {
   return {
-    id: String(report.id),
+    id: report.id,
     experimentId: report.experimentId,
-    marker: report.antibody?.targetName ?? report.antibody?.name ?? `Report #${report.id}`,
+    marker: report.antibody?.targetName ?? report.antibody?.name ?? "Unlinked antibody",
     antibodyId: report.antibody?.id ?? null,
     antibodyName: report.antibody?.name ?? "Unknown",
     rrid: report.antibody?.rrid ?? null,
     species: report.experiment.species?.label ?? "Unknown",
     tissue: report.experiment.tissue?.label ?? "Unknown",
-    method: report.experiment.method
-      ? (METHOD_LABELS[report.experiment.method] ?? report.experiment.method)
-      : "Unknown",
+    method: report.experiment.imagingMethod?.shortLabel ?? "Unknown",
     cellTypes: report.cellTypes.map((l) => ({ id: l.cellType.id, label: l.cellType.label })),
     subcellular: report.subcellular?.label ?? null,
     specificity: report.specificity,

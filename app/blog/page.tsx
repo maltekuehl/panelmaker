@@ -1,4 +1,3 @@
-import { auth } from "@/auth"
 import BlogSearchInput from "@/components/blog/blog-search-input"
 import DeleteBlogPostButton from "@/components/blog/delete-blog-post-button"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +11,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Skeleton } from "@/components/ui/skeleton"
-import { isUserAdmin } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
 import { getBlogPosts } from "@/lib/blog"
 import { format } from "date-fns"
 import { CalendarDays, Clock, Edit, PlusCircle, User } from "lucide-react"
@@ -24,20 +23,19 @@ import { Suspense } from "react"
 export const metadata: Metadata = {
   title: "Blog | PanelMaker",
   description:
-    "Read the latest news, updates, and insights about biomedical Model Context Protocol servers, AI-driven research tools, and the PanelMaker community.",
+    "News, tutorials, and updates on spatial proteomics panel design, antibody validation, and the PanelMaker community.",
   keywords: [
     "PanelMaker blog",
-    "MCP news",
-    "biomedical AI updates",
-    "research software",
+    "spatial proteomics",
+    "antibody validation",
+    "panel design",
+    "multiplex imaging",
     "computational biology",
     "bioinformatics",
-    "AI in healthcare",
-    "Model Context Protocol",
   ],
   openGraph: {
     title: "Blog | PanelMaker",
-    description: "Latest news and insights about biomedical MCP servers and AI-driven research tools",
+    description: "News and insights on spatial proteomics panel design and antibody validation.",
     type: "website",
   },
 }
@@ -74,8 +72,8 @@ function BlogPostsSkeleton() {
 }
 
 async function BlogPostsList({ page, search }: { page: number; search?: string }) {
-  const session = await auth()
-  const isAdmin = session?.user?.id ? await isUserAdmin(session.user.id) : false
+  const user = await getSessionUser()
+  const isAdmin = user?.isAdmin ?? false
 
   const result = await getCachedBlogPosts(
     {
@@ -109,13 +107,7 @@ async function BlogPostsList({ page, search }: { page: number; search?: string }
     <>
       <div className="divide-y">
         {posts.map((post) => {
-          const keywords: string[] = (() => {
-            try {
-              return JSON.parse(post.keywords)
-            } catch {
-              return []
-            }
-          })()
+          const keywords = post.keywords
           const dateValue = post.publishedAt ?? post.createdAt
 
           return (
@@ -129,26 +121,21 @@ async function BlogPostsList({ page, search }: { page: number; search?: string }
                       </Link>
                     </h2>
                     {!post.published && (
-                      <Badge
-                        variant="secondary"
-                        className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                      >
+                      <Badge variant="secondary" className="bg-warning/10 text-warning">
                         Draft
                       </Badge>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
                       <User className="size-3.5" />
                       {post.author.name || post.author.email}
                     </span>
-                    <span aria-hidden>·</span>
                     <span className="inline-flex items-center gap-1">
                       <CalendarDays className="size-3.5" />
                       {format(new Date(dateValue), "MMM d, yyyy")}
                     </span>
-                    <span aria-hidden>·</span>
                     <span className="inline-flex items-center gap-1">
                       <Clock className="size-3.5" />
                       {Math.ceil(post.content.split(" ").length / 200)} min read
@@ -159,19 +146,19 @@ async function BlogPostsList({ page, search }: { page: number; search?: string }
 
                   {keywords.length > 0 && (
                     <p className="text-sm text-muted-foreground">
-                      {keywords.slice(0, 5).join(" · ")}
-                      {keywords.length > 5 && ` · +${keywords.length - 5} more`}
+                      {keywords.slice(0, 5).join(", ")}
+                      {keywords.length > 5 && `, +${keywords.length - 5} more`}
                     </p>
                   )}
                 </div>
 
                 {isAdmin && (
                   <div className="flex shrink-0 items-center gap-1">
-                    <Link href={`/blog/edit/${post.id}`}>
-                      <Button variant="ghost" size="icon">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </Link>
+                    <Button asChild variant="ghost" size="icon">
+                      <Link href={`/blog/edit/${post.id}`} aria-label={`Edit ${post.title}`}>
+                        <Edit className="size-4" />
+                      </Link>
+                    </Button>
                     <DeleteBlogPostButton postId={post.id} postTitle={post.title} variant="ghost" size="icon" />
                   </div>
                 )}
@@ -224,11 +211,12 @@ async function BlogPostsList({ page, search }: { page: number; search?: string }
 
 export default async function BlogPage(props: { searchParams: Promise<BlogPageSearchParams> }) {
   const searchParams = await props.searchParams
-  const page = parseInt(searchParams.page || "1", 10)
+  const parsedPage = Number.parseInt(searchParams.page ?? "1", 10)
+  const page = Number.isFinite(parsedPage) ? Math.max(1, parsedPage) : 1
   const search = searchParams.search
 
-  const session = await auth()
-  const isAdmin = session?.user?.id ? await isUserAdmin(session.user.id) : false
+  const user = await getSessionUser()
+  const isAdmin = user?.isAdmin ?? false
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">

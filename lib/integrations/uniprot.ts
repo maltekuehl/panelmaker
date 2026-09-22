@@ -1,5 +1,7 @@
 import "server-only"
 
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/integrations/http"
+
 type UniProtEntry = {
   primaryAccession: string
   proteinDescription?: {
@@ -81,6 +83,7 @@ export async function lookupProtein(uniprotId: string): Promise<UniProtResult | 
   try {
     const response = await fetch(`https://rest.uniprot.org/uniprotkb/${uniprotId}?format=json`, {
       next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     })
 
     if (!response.ok) {
@@ -102,7 +105,7 @@ export async function searchProteinsByGene(geneName: string, organismId?: number
     const exactQuery = encodeURIComponent(`gene_exact:${geneName} AND ${orgFilter}`)
     const exactResponse = await fetch(
       `https://rest.uniprot.org/uniprotkb/search?query=${exactQuery}&format=json&size=5&fields=${fields}`,
-      { next: { revalidate: 86400 } },
+      { next: { revalidate: 86400 }, signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS) },
     )
 
     if (exactResponse.ok) {
@@ -115,7 +118,7 @@ export async function searchProteinsByGene(geneName: string, organismId?: number
     const broadQuery = encodeURIComponent(`(gene:${geneName} OR protein_name:${geneName}) AND ${orgFilter}`)
     const broadResponse = await fetch(
       `https://rest.uniprot.org/uniprotkb/search?query=${broadQuery}&format=json&size=10&fields=${fields}`,
-      { next: { revalidate: 86400 } },
+      { next: { revalidate: 86400 }, signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS) },
     )
 
     if (!broadResponse.ok) {

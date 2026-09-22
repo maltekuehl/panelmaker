@@ -1,80 +1,30 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./test-helpers"
 
-test.describe("Blog Page", () => {
-  test("should render blog page correctly", async ({ page }) => {
+test.describe("Blog", () => {
+  test("renders the blog index with a search field and a post list", async ({ page }) => {
     await page.goto("/blog")
 
-    // Check page loads without major errors
-    await expect(page.locator("body")).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1, name: "Blog" })).toBeVisible()
+    await expect(page.getByPlaceholder("Search blog posts...")).toBeVisible()
 
-    // Check for typical blog elements
-    await page.waitForLoadState("networkidle")
-
-    // Look for blog title or heading
-    const blogHeading = page.locator('h1, h2, [data-testid="blog-title"]').first()
-    if ((await blogHeading.count()) > 0) {
-      await expect(blogHeading).toBeVisible()
-    }
-
-    // Check for blog posts or empty state
-    const blogPosts = page.locator(".bg-card")
-    const emptyState = page.locator("text=No blog posts")
-
-    // Either posts should be visible OR empty state should be shown
-    const hasPosts = (await blogPosts.count()) > 0
-    const hasEmptyState = (await emptyState.count()) > 0
-
-    expect(hasPosts || hasEmptyState).toBeTruthy()
-
-    // Check for search functionality if present
-    const searchInput = page.locator('input[type="search"], input[placeholder*="search"]').first()
-    if ((await searchInput.count()) > 0) {
-      await expect(searchInput).toBeVisible()
-    }
-
-    // Verify no critical console errors
-    const errors: string[] = []
-    page.on("console", (msg) => {
-      if (msg.type() === "error") {
-        errors.push(msg.text())
-      }
-    })
-
-    await page.waitForTimeout(1000)
-
-    expect(
-      errors.filter(
-        (error) => !error.includes("favicon") && !error.includes("Third-party") && !error.includes("Extension"),
-      ),
-    ).toHaveLength(0)
+    const posts = page.locator("article")
+    const emptyState = page.getByText("No blog posts available yet.")
+    await expect(posts.first().or(emptyState)).toBeVisible()
   })
 
-  test("should handle pagination if present", async ({ page }) => {
+  test("typing in the search field puts the term in the URL", async ({ page }) => {
     await page.goto("/blog")
-    await page.waitForLoadState("networkidle")
 
-    // Check for pagination controls
-    const paginationNext = page.locator('text=Next, [aria-label="Next page"], .pagination-next').first()
-    const paginationPrev = page.locator('text=Previous, [aria-label="Previous page"], .pagination-prev').first()
+    await page.getByPlaceholder("Search blog posts...").fill("panelmaker")
 
-    // If pagination exists, test it doesn't break
-    if ((await paginationNext.count()) > 0) {
-      // Just verify the pagination is visible and clickable
-      await expect(paginationNext).toBeVisible()
-    }
+    await page.waitForURL(/[?&]search=panelmaker/)
+    await expect(page.getByRole("heading", { level: 1, name: "Blog" })).toBeVisible()
   })
 
-  test("should be responsive on mobile", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto("/blog")
+  test("a search with no matches shows the empty state", async ({ page }) => {
+    await page.goto("/blog?search=qqzzxxnomatch")
 
-    await expect(page.locator("body")).toBeVisible()
-    await page.waitForLoadState("networkidle")
-
-    // Verify mobile layout works
-    const mainContent = page.locator('main, [role="main"], .container').first()
-    if ((await mainContent.count()) > 0) {
-      await expect(mainContent).toBeVisible()
-    }
+    await expect(page.getByText("No blog posts found matching your search.")).toBeVisible()
+    await expect(page.getByRole("link", { name: "view all posts" })).toBeVisible()
   })
 })

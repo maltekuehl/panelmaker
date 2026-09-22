@@ -1,11 +1,9 @@
-import { auth } from "@/auth"
 import Chat from "@/components/chat/chat"
-import ChatSignInRequired from "@/components/chat/chat-signin-required"
 import { DEFAULT_MODEL, listAvailableModels } from "@/lib/ai/models"
-import { resolveViewerContext } from "@/lib/auth"
+import { getSessionUser, resolveViewerContext } from "@/lib/auth"
 import { getConversation, getConversationsForUser } from "@/models/chat"
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 export const metadata: Metadata = {
   title: "Chat | PanelMaker",
@@ -18,17 +16,16 @@ type Props = { params: Promise<{ id: string }> }
 
 export default async function ChatConversationPage({ params }: Props) {
   const { id } = await params
-  const session = await auth()
+  const user = await getSessionUser()
 
-  if (!session?.user?.id) {
-    return <ChatSignInRequired />
+  if (!user) {
+    redirect("/chat")
   }
 
-  const viewer = await resolveViewerContext(session.user.id)
   const [conversation, conversations, availableModels] = await Promise.all([
-    getConversation(session.user.id, id),
-    getConversationsForUser(session.user.id),
-    listAvailableModels(viewer),
+    getConversation(user.id, id),
+    getConversationsForUser(user.id),
+    resolveViewerContext(user.id).then(listAvailableModels),
   ])
 
   if (!conversation) {
@@ -41,7 +38,7 @@ export default async function ChatConversationPage({ params }: Props) {
       conversationId={conversation.id}
       initialMessages={conversation.messages}
       conversations={conversations}
-      name={session.user.name ?? undefined}
+      name={user.name ?? undefined}
       availableModels={availableModels.map((model) => ({ id: model.id, label: model.label }))}
       currentModel={conversation.model ?? DEFAULT_MODEL}
     />

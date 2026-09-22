@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { markerHref } from "@/lib/routes"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown, FlaskConical, GripVertical, Info, Loader2, X } from "lucide-react"
 import Link from "next/link"
@@ -34,10 +35,10 @@ interface MarkerCardProps {
   species?: { id: string; label: string } | null
   onRemove?: (id: string) => void
   onMarkerUpdated?: () => void
-  isDragging?: boolean
+  dragHandleRef?: (element: Element | null) => void
 }
 
-export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated, isDragging }: MarkerCardProps) {
+export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated, dragHandleRef }: MarkerCardProps) {
   const geneName = marker.protein?.geneSymbol ?? marker.protein?.label ?? "Unknown"
   const antibodyName = marker.antibody?.name ?? null
   const hostOrganism = marker.antibody?.hostTaxon?.label ?? null
@@ -145,16 +146,22 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
   }
 
   return (
-    <div className="group relative rounded-lg border bg-zinc-50 px-3 py-2.5 hover:border-zinc-300 transition-colors">
+    <div className="group relative rounded-lg border bg-muted/40 px-3 py-2.5 transition-colors hover:border-foreground/20">
       <div className="flex justify-between items-start gap-2">
         <div className="flex items-start gap-2.5 min-w-0">
-          <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-zinc-300 cursor-grab active:cursor-grabbing touch-none" />
+          <span
+            ref={dragHandleRef}
+            aria-label={`Reorder ${geneName}`}
+            className="mt-0.5 shrink-0 cursor-grab touch-none rounded-sm text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:cursor-grabbing"
+          >
+            <GripVertical className="size-4" aria-hidden />
+          </span>
           <div className="mt-1 h-3 w-3 rounded-full shadow-xs shrink-0 bg-primary/40" />
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               {marker.protein ? (
                 <Link
-                  href={`/marker/${marker.protein.id}`}
+                  href={markerHref(marker.protein.id)}
                   className="text-sm font-semibold leading-none hover:text-primary hover:underline underline-offset-2 transition-colors"
                 >
                   {geneName}
@@ -179,8 +186,8 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
                 <button
                   type="button"
                   className={cn(
-                    "inline-flex items-center gap-1 text-[10px] font-medium transition-colors max-w-[200px]",
-                    antibodyName ? "text-zinc-500 hover:text-zinc-700" : "text-primary hover:text-primary/80",
+                    "inline-flex max-w-[200px] items-center gap-1 text-xs font-medium transition-colors",
+                    antibodyName ? "text-muted-foreground hover:text-foreground" : "text-primary hover:text-primary/80",
                   )}
                   disabled={isUpdating}
                 >
@@ -191,7 +198,7 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
                   )}
                   <span className="truncate">
                     {antibodyName ?? "Choose antibody"}
-                    {antibodyName && marker.antibody?.cloneId ? ` · ${marker.antibody.cloneId}` : ""}
+                    {antibodyName && marker.antibody?.cloneId ? `, ${marker.antibody.cloneId}` : ""}
                   </span>
                   <ChevronsUpDown className="h-2.5 w-2.5 shrink-0 opacity-50" />
                 </button>
@@ -199,12 +206,12 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
               <PopoverContent className="w-72 p-0" align="start">
                 <Command shouldFilter={false}>
                   <CommandInput
-                    placeholder={marker.protein ? `Search antibodies for ${geneName}...` : "Search antibodies..."}
+                    placeholder={marker.protein ? `Search antibodies for ${geneName}…` : "Search antibodies…"}
                     value={abQuery}
                     onValueChange={setAbQuery}
                   />
                   {autoLoaded && abQuery.trim().length === 0 && (
-                    <p className="px-3 py-1 text-[10px] text-muted-foreground border-b">
+                    <p className="border-b px-3 py-1 text-xs text-muted-foreground">
                       Showing antibodies for this target. Type to search by name, clone, or RRID.
                     </p>
                   )}
@@ -336,7 +343,7 @@ export function MarkerCard({ marker, panelId, species, onRemove, onMarkerUpdated
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 -mr-1 -mt-1 text-zinc-400 hover:text-red-500 hover:bg-transparent"
+          className="-mr-1 -mt-1 size-6 text-muted-foreground hover:bg-transparent hover:text-destructive"
           onClick={() => onRemove?.(marker.id)}
         >
           <X className="h-3 w-3" />

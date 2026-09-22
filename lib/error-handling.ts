@@ -1,3 +1,5 @@
+import { Prisma } from "@/lib/generated/prisma/client"
+import { logger } from "@/lib/monitoring"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -17,6 +19,60 @@ export class ApiException extends Error {
   }
 }
 
+export class BadRequestError extends ApiException {
+  constructor(message: string, code?: string, details?: unknown) {
+    super(400, { message, code, details })
+    this.name = "BadRequestError"
+  }
+}
+
+export class UnauthorizedError extends ApiException {
+  constructor(message = "Authentication required", code?: string) {
+    super(401, { message, code })
+    this.name = "UnauthorizedError"
+  }
+}
+
+export class ForbiddenError extends ApiException {
+  constructor(message: string, code?: string) {
+    super(403, { message, code })
+    this.name = "ForbiddenError"
+  }
+}
+
+export class NotFoundError extends ApiException {
+  constructor(message = "Resource not found", code?: string) {
+    super(404, { message, code })
+    this.name = "NotFoundError"
+  }
+}
+
+export class ConflictError extends ApiException {
+  constructor(message: string, code?: string, details?: unknown) {
+    super(409, { message, code, details })
+    this.name = "ConflictError"
+  }
+}
+
+export class UnprocessableError extends ApiException {
+  constructor(message: string, code?: string, details?: unknown) {
+    super(422, { message, code, details })
+    this.name = "UnprocessableError"
+  }
+}
+
+// Prisma constraint failures that have a meaningful HTTP answer. Anything else stays a 500.
+const PRISMA_ERROR_MAP: Record<string, { status: number; message: string }> = {
+  P2002: { status: 409, message: "That value is already taken" },
+  P2003: { status: 400, message: "Referenced record does not exist" },
+  P2025: { status: 404, message: "Resource not found" },
+}
+
+function prismaErrorMapping(error: unknown) {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return null
+  return PRISMA_ERROR_MAP[error.code] ?? null
+}
+
 /**
  * Sanitizes error messages to prevent information disclosure
  * In production, returns generic messages unless explicitly allowed
@@ -29,6 +85,10 @@ export function sanitizeError(error: unknown, includeDetails = false): string {
     }
     if (error instanceof ApiException) {
       return error.apiError.message // Only user-facing message
+    }
+    const prismaMapping = prismaErrorMapping(error)
+    if (prismaMapping) {
+      return prismaMapping.message
     }
     if (error instanceof Error) {
       // Check for known safe error messages
@@ -87,6 +147,11 @@ export function getErrorStatusCode(error: unknown): number {
     return 400
   }
 
+  const prismaMapping = prismaErrorMapping(error)
+  if (prismaMapping) {
+    return prismaMapping.status
+  }
+
   if (error instanceof Error) {
     const message = error.message.toLowerCase()
 
@@ -114,8 +179,7 @@ export function getErrorStatusCode(error: unknown): number {
  * Creates a standardized error response with sanitized messages
  */
 export function createErrorResponse(error: unknown, defaultMessage = "Internal server error"): NextResponse {
-  // Log full error server-side (with sensitive data)
-  console.error("API Error:", error)
+  logger.error("API error", error instanceof Error ? error : new Error(String(error)))
 
   const statusCode = getErrorStatusCode(error)
   const sanitizedMessage = sanitizeError(error)
@@ -168,4 +232,23 @@ export function createErrorResponse(error: unknown, defaultMessage = "Internal s
 
 export function createSuccessResponse(data: any, status = 200): NextResponse {
   return NextResponse.json(data, { status })
+}
+
+/**
+ * Wraps a route handler so anything it throws becomes a standard error response.
+ * Replaces the hand-rolled try/catch plus `error.message === "..."` checks in route files:
+ * throw ApiException (or NotFoundError/ForbiddenError/ConflictError/UnprocessableError) from the
+ * model layer and the status, code and user-facing message come through untouched.
+ */
+export function withApiErrors<TArgs extends unknown[]>(
+  handler: (...args: TArgs) => Promise<NextResponse>,
+  defaultMessage = "Internal server error",
+): (...args: TArgs) => Promise<NextResponse> {
+  return async (...args: TArgs) => {
+    try {
+      return await handler(...args)
+    } catch (error) {
+      return createErrorResponse(error, defaultMessage)
+    }
+  }
 }

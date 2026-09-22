@@ -59,6 +59,9 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:-panelmaker}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
       UPLOADS_DIR: /app/data/uploads
+      # Auth.js runs behind nginx, so it cannot infer its own origin from the request.
+      AUTH_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:8080}/auth
+      AUTH_TRUST_HOST: "true"
     expose:
       - "3000"
     volumes:
@@ -90,8 +93,6 @@ services:
       - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       # Generates /etc/nginx/.htpasswd from the BASIC_AUTH_* env vars at startup.
       - ./docker/nginx/docker-entrypoint.d/40-basic-auth.sh:/docker-entrypoint.d/40-basic-auth.sh:ro
-      # nginx serves uploads read-only straight from the shared app volume.
-      - uploads_data:/srv/uploads:ro
     depends_on:
       app:
         condition: service_healthy

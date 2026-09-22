@@ -1,8 +1,9 @@
 "use client"
 
+import { WorksBadge } from "@/components/browse/report-badges"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { formatLongDate } from "@/lib/format"
 import { CheckCircle, ChevronDown, ChevronUp, Loader2, XCircle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -32,22 +33,6 @@ type ReportItem = {
   status: string
 }
 
-const formatDate = (dateString: string) =>
-  new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(dateString))
-
-function WorksBadge({ works }: { works: boolean | null }) {
-  if (works === null) return <Badge variant="outline">Unknown</Badge>
-  return works ? (
-    <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Works</Badge>
-  ) : (
-    <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">Does not work</Badge>
-  )
-}
-
 function ReportCard({
   report,
   onApprove,
@@ -64,21 +49,20 @@ function ReportCard({
   const notesTooLong = (report.notes?.length ?? 0) > 200
 
   return (
-    <Card className="border-l-4 border-l-yellow-500">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h3 className="font-semibold text-lg truncate">{report.markerName ?? report.antibodyName}</h3>
-            <p className="text-sm text-muted-foreground">
-              {report.antibodyName} &middot; {report.antibodyId}
-              {report.catalogNumber && ` &middot; Cat. ${report.catalogNumber}`}
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(report.createdAt)}</p>
+    <div className="space-y-4 border-t py-6 first:border-t-0 first:pt-0">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-semibold">{report.markerName ?? report.antibodyName}</h3>
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm text-muted-foreground">
+            <span>{report.antibodyName}</span>
+            <span className="font-mono">{report.antibodyId}</span>
+            {report.catalogNumber && <span>Cat. {report.catalogNumber}</span>}
+          </p>
         </div>
-      </CardHeader>
+        <p className="whitespace-nowrap text-xs text-muted-foreground">{formatLongDate(report.createdAt)}</p>
+      </div>
 
-      <CardContent className="space-y-4">
+      <div className="space-y-4">
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <div>
             <span className="font-medium text-muted-foreground">Vendor</span>
@@ -134,7 +118,7 @@ function ReportCard({
           <div className="text-sm">
             <span className="font-medium text-muted-foreground">Notes</span>
             <p className="mt-1 text-foreground leading-relaxed">
-              {notesExpanded || !notesTooLong ? report.notes : `${report.notes.slice(0, 200)}...`}
+              {notesExpanded || !notesTooLong ? report.notes : `${report.notes.slice(0, 200)}…`}
             </p>
             {notesTooLong && (
               <button
@@ -157,17 +141,12 @@ function ReportCard({
 
         <div className="text-sm text-muted-foreground">
           Submitted by <span className="font-medium text-foreground">{report.submitter}</span>
-          {report.submitterInstitution && ` \u00b7 ${report.submitterInstitution}`}
+          {report.submitterInstitution && <span>, {report.submitterInstitution}</span>}
         </div>
 
         <div className="flex gap-2 pt-2">
-          <Button
-            size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white"
-            onClick={() => onApprove(report.id)}
-            disabled={isLoading}
-          >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+          <Button size="sm" onClick={() => onApprove(report.id)} disabled={isLoading}>
+            {isLoading ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
             Approve
           </Button>
           <Button size="sm" variant="destructive" onClick={() => onReject(report.id)} disabled={isLoading}>
@@ -175,8 +154,8 @@ function ReportCard({
             Reject
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -228,7 +207,7 @@ export default function AdminReportsList() {
   if (reports.length === 0) {
     return (
       <div className="text-center py-12">
-        <CheckCircle className="h-10 w-10 mx-auto mb-3 text-green-500" />
+        <CheckCircle className="mx-auto mb-3 size-10 text-muted-foreground" />
         <p className="text-muted-foreground">No pending reports. All caught up!</p>
       </div>
     )

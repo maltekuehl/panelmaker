@@ -1,14 +1,14 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useToast } from "@/hooks/use-toast"
 import { ModelUsageStats, PeriodStats, StatsResponse } from "@/types/api"
-import { Brain, MessageSquare, Users } from "lucide-react"
+import { Brain, MessageSquare, Users, type LucideIcon } from "lucide-react"
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 
-function StatCard({
+function StatRow({
   title,
   value,
   description,
@@ -17,79 +17,73 @@ function StatCard({
   title: string
   value: number
   description: string
-  icon: any
+  icon: LucideIcon
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value.toLocaleString()}</div>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </CardContent>
-    </Card>
+    <div className="flex items-baseline justify-between gap-4 py-2">
+      <dt className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Icon className="size-4" />
+        <span>{title}</span>
+        <span className="text-xs">({description})</span>
+      </dt>
+      <dd className="font-medium tabular-nums">{value.toLocaleString()}</dd>
+    </div>
   )
 }
 
-function ModelUsageCard({ models }: { models: ModelUsageStats[] }) {
+function ModelUsageTable({ models }: { models: ModelUsageStats[] }) {
   if (models.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">No model usage recorded in this period</p>
-        </CardContent>
-      </Card>
-    )
+    return <p className="py-6 text-center text-muted-foreground">No model usage recorded in this period</p>
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Model Usage</CardTitle>
-        <CardDescription>AI model usage by calls and tokens</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {models.map((model, index) => (
-            <div key={index} className="flex items-center justify-between px-4 py-3 rounded-md bg-muted/30">
-              <div className="flex items-center space-x-2">
-                <Brain className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{model.modelName}</span>
-              </div>
-              <div className="flex items-center space-x-6">
-                <div className="text-right">
-                  <div className="text-sm font-semibold">{model.totalCalls.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">calls</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold">{model.totalTokens.toLocaleString()}</div>
-                  <div className="text-xs text-muted-foreground">tokens</div>
-                </div>
-              </div>
-            </div>
+    <div className="space-y-2">
+      <h3 className="text-lg font-semibold">Model usage</h3>
+      <p className="text-sm text-muted-foreground">AI model usage by calls and tokens</p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Model</TableHead>
+            <TableHead className="text-right">Calls</TableHead>
+            <TableHead className="text-right">Tokens</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {models.map((model) => (
+            <TableRow key={model.modelName}>
+              <TableCell className="flex items-center gap-2 font-medium">
+                <Brain className="size-4 text-muted-foreground" />
+                {model.modelName}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{model.totalCalls.toLocaleString()}</TableCell>
+              <TableCell className="text-right tabular-nums">{model.totalTokens.toLocaleString()}</TableCell>
+            </TableRow>
           ))}
-        </div>
-      </CardContent>
-    </Card>
+        </TableBody>
+      </Table>
+    </div>
   )
 }
 
 function PeriodStatsView({ stats }: { stats: PeriodStats }) {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
-        <StatCard
-          title="Total Messages"
-          value={stats.totalMessages}
-          description="Chat messages sent"
-          icon={MessageSquare}
-        />
-        <StatCard title="Unique Users" value={stats.totalUsers} description="Users who sent messages" icon={Users} />
+      <div>
+        <h3 className="text-lg font-semibold">At a glance</h3>
+        <dl className="divide-y">
+          <StatRow
+            title="Total messages"
+            value={stats.totalMessages}
+            description="chat messages sent"
+            icon={MessageSquare}
+          />
+          <StatRow title="Unique users" value={stats.totalUsers} description="users who sent messages" icon={Users} />
+        </dl>
       </div>
 
-      <ModelUsageCard models={stats.modelUsage} />
+      <div className="border-t pt-6">
+        <ModelUsageTable models={stats.modelUsage} />
+      </div>
     </div>
   )
 }
@@ -97,28 +91,19 @@ function PeriodStatsView({ stats }: { stats: PeriodStats }) {
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="divide-y">
         {[1, 2].map((i) => (
-          <Card key={i}>
-            <CardHeader className="space-y-0 pb-2">
-              <Skeleton className="h-4 w-24" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-32" />
-            </CardContent>
-          </Card>
+          <div key={i} className="flex items-center justify-between py-2">
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-16" />
+          </div>
         ))}
       </div>
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-32 w-full" />
-        </CardContent>
-      </Card>
+      <div className="space-y-2 border-t pt-6">
+        <Skeleton className="h-6 w-48" />
+        <Skeleton className="h-4 w-64" />
+        <Skeleton className="h-32 w-full" />
+      </div>
     </div>
   )
 }
@@ -126,7 +111,6 @@ function LoadingSkeleton() {
 export default function AdminStats() {
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const { toast } = useToast()
 
   useEffect(() => {
     async function fetchStats() {
@@ -139,31 +123,21 @@ export default function AdminStats() {
         setStats(data)
       } catch (error) {
         console.error("Error fetching stats:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load statistics. Please try again.",
-          variant: "destructive",
-        })
+        toast.error("Failed to load statistics. Please try again.")
       } finally {
         setLoading(false)
       }
     }
 
     fetchStats()
-  }, [toast])
+  }, [])
 
   if (loading) {
     return <LoadingSkeleton />
   }
 
   if (!stats) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">Failed to load statistics</p>
-        </CardContent>
-      </Card>
-    )
+    return <p className="py-6 text-center text-muted-foreground">Failed to load statistics</p>
   }
 
   return (

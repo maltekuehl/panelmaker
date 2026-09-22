@@ -6,10 +6,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params
 
-    if (!id) {
-      return NextResponse.json({ error: "Invalid antibody ID" }, { status: 400 })
-    }
-
     const antibody = await getAntibodyById(id)
 
     if (!antibody) {

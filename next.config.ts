@@ -1,65 +1,49 @@
 import createMDX from "@next/mdx"
 import { NextConfig } from "next"
 
-const ContentSecurityPolicy = `
-  default-src 'none';
-  base-uri 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  script-src 'self' ${process.env.NODE_ENV !== "production" ? "'unsafe-eval' " : ""} 'unsafe-inline' *.panelmaker.ai panelmaker.ai ${
-    process.env.NODE_ENV !== "production" ? "localhost:* " : ""
-  } *.cloudflareinsights.com;
-  img-src 'self' data: blob: *.panelmaker.ai panelmaker.ai ${
-    process.env.NODE_ENV !== "production" ? "localhost:* " : ""
-  } https://media.licdn.com https://github.com https://www.github.com https://www.github.com https://avatars.githubusercontent.com https://raw.githubusercontent.com https://img.shields.io https://codecov.io;
-  style-src 'self' 'unsafe-inline' *.panelmaker.ai panelmaker.ai ${
-    process.env.NODE_ENV !== "production" ? "localhost:* " : ""
-  };
-  media-src 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  font-src 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  form-action 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  frame-ancestors 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  frame-src 'self' *.panelmaker.ai panelmaker.ai tally.so ${
-    process.env.NODE_ENV !== "production" ? "localhost:* " : ""
-  };
-  connect-src 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  manifest-src 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  worker-src 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  object-src 'self' *.panelmaker.ai panelmaker.ai ${process.env.NODE_ENV !== "production" ? "localhost:* " : ""};
-  ${process.env.NODE_ENV === "production" && "upgrade-insecure-requests;"}
-`
+const isProd = process.env.NODE_ENV === "production"
+
+const self = ["'self'"]
+const site = ["'self'", "panelmaker.ai", "*.panelmaker.ai", ...(isProd ? [] : ["localhost:*"])]
+
+const directives: Record<string, string[]> = {
+  "default-src": ["'none'"],
+  "base-uri": site,
+  "script-src": [...site, "'unsafe-inline'", ...(isProd ? [] : ["'unsafe-eval'"]), "*.cloudflareinsights.com"],
+  "style-src": [...site, "'unsafe-inline'"],
+  "img-src": [
+    ...site,
+    "data:",
+    "blob:",
+    "https://avatars.githubusercontent.com",
+    "https://raw.githubusercontent.com",
+    "https://media.licdn.com",
+  ],
+  "media-src": site,
+  "font-src": site,
+  "form-action": site,
+  "frame-ancestors": self,
+  "frame-src": site,
+  "connect-src": site,
+  "manifest-src": site,
+  "worker-src": [...site, "blob:"],
+  "object-src": ["'none'"],
+}
+
+const contentSecurityPolicy = [
+  ...Object.entries(directives).map(([name, values]) => `${name} ${values.join(" ")}`),
+  ...(isProd ? ["upgrade-insecure-requests"] : []),
+].join("; ")
 
 const securityHeaders = [
-  {
-    key: "X-DNS-Prefetch-Control",
-    value: "on",
-  },
-  {
-    key: "X-XSS-Protection",
-    value: "1; mode=block",
-  },
-  {
-    key: "X-Frame-Options",
-    value: "SAMEORIGIN",
-  },
-  {
-    key: "X-Content-Type-Options",
-    value: "nosniff",
-  },
-  {
-    key: "Referrer-Policy",
-    value: "same-origin",
-  },
-  {
-    key: "Strict-Transport-Security",
-    value: "max-age=63072000; includeSubDomains; preload",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: ContentSecurityPolicy.replace(/\s{2,}/g, " ").trim(),
-  },
-  {
-    key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=()",
-  },
+  { key: "X-DNS-Prefetch-Control", value: "on" },
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "same-origin" },
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "X-Accel-Buffering", value: "no" },
 ]
 
 const nextConfig: NextConfig = {
@@ -70,42 +54,6 @@ const nextConfig: NextConfig = {
   trailingSlash: false,
   reactCompiler: true,
   outputFileTracingRoot: __dirname,
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "media.licdn.com",
-      },
-      {
-        protocol: "https",
-        hostname: "avatars.githubusercontent.com",
-      },
-      {
-        protocol: "https",
-        hostname: "raw.githubusercontent.com",
-      },
-      {
-        protocol: "https",
-        hostname: "github.com",
-      },
-      {
-        protocol: "https",
-        hostname: "www.github.com",
-      },
-      {
-        protocol: "https",
-        hostname: "codecov.io",
-      },
-      {
-        protocol: "https",
-        hostname: "img.shields.io",
-      },
-      {
-        protocol: "https",
-        hostname: "placehold.co",
-      },
-    ],
-  },
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
   compress: true,
@@ -116,22 +64,8 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        source: "/:path*{/}?",
-        headers: [
-          {
-            key: "X-Accel-Buffering",
-            value: "no",
-          },
-        ],
-      },
-      {
-        source: "/:all*(svg|jpg|png|ico|webp)",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=9999999999, must-revalidate",
-          },
-        ],
+        source: "/assets/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
       },
     ]
   },

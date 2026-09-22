@@ -1,4 +1,3 @@
-import { auth } from "@/auth"
 import { InventoryManager } from "@/components/lab/inventory-manager"
 import { LabPageHeader } from "@/components/lab/lab-page-header"
 import { labInventoryParsers } from "@/lib/data-table"
@@ -7,12 +6,11 @@ import {
   getLabBySlug,
   getLabInventoryFacets,
   getLabInventoryPage,
-  getUserLabRole,
   toLabAntibodyResponse,
 } from "@/models/lab"
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
 import { createLoader, type SearchParams } from "nuqs/server"
+import { requireLabMember } from "../require-lab-member"
 
 interface LabInventoryPageProps {
   params: Promise<{ slug: string }>
@@ -31,21 +29,10 @@ export async function generateMetadata({ params }: LabInventoryPageProps): Promi
 export default async function LabInventoryPage({ params, searchParams }: LabInventoryPageProps) {
   const { slug } = await params
 
-  const [lab, session, query] = await Promise.all([getLabBySlug(slug), auth(), loadSearchParams(searchParams)])
-
-  if (!lab) {
-    notFound()
-  }
-
-  if (!session?.user?.id) {
-    notFound()
-  }
-
-  const role = await getUserLabRole(session.user.id, lab.id)
-
-  if (!role) {
-    notFound()
-  }
+  const [{ lab, role }, query] = await Promise.all([
+    requireLabMember(slug, `/labs/${slug}/inventory`),
+    loadSearchParams(searchParams),
+  ])
 
   const [{ rows, total, page, pageCount }, facets] = await Promise.all([
     getLabInventoryPage(lab.id, query),

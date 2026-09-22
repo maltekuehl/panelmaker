@@ -6,10 +6,10 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { VISIBILITY_LABELS } from "@/lib/constants"
+import type { Visibility } from "@/lib/generated/prisma/enums"
 import { cn } from "@/lib/utils"
 import { Check, PlusCircle } from "lucide-react"
-
-type Visibility = "PRIVATE" | "LAB" | "PUBLIC"
 
 interface VisibilityValue {
   visibility: Visibility
@@ -21,12 +21,6 @@ interface VisibilitySelectorProps {
   onChange: (next: VisibilityValue) => void
   labs: { id: string; name: string }[]
   disabled?: boolean
-}
-
-const VISIBILITY_LABELS: Record<Visibility, string> = {
-  PRIVATE: "Private",
-  LAB: "Lab",
-  PUBLIC: "Public",
 }
 
 const VISIBILITY_DESCRIPTIONS: Record<Visibility, string> = {
@@ -59,10 +53,10 @@ export function VisibilitySelector({ value, onChange, labs, disabled }: Visibili
 
   return (
     <div className="space-y-2">
-      <Label>Visibility</Label>
+      <Label htmlFor="visibility">Visibility</Label>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={value.visibility} onValueChange={handleVisibilityChange} disabled={disabled}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger id="visibility" className="w-36">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -103,16 +97,21 @@ export function VisibilitySelector({ value, onChange, labs, disabled }: Visibili
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto min-w-[220px] max-w-[420px] p-0" align="start">
-              <div className="p-1">
+            <PopoverContent
+              aria-label="Labs this is shared with"
+              className="w-auto min-w-[220px] max-w-[420px] p-0"
+              align="start"
+            >
+              <div role="group" aria-label="Labs this is shared with" className="p-1">
                 {labs.map((lab) => {
                   const isSelected = selected.has(lab.id)
                   return (
                     <div
                       key={lab.id}
-                      role="button"
+                      role="checkbox"
+                      aria-checked={isSelected}
                       tabIndex={0}
-                      className="relative flex cursor-pointer select-none items-center whitespace-nowrap rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground"
+                      className="relative flex cursor-pointer select-none items-center whitespace-nowrap rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => toggleLab(lab.id)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -136,20 +135,13 @@ export function VisibilitySelector({ value, onChange, labs, disabled }: Visibili
                 {selected.size > 0 && (
                   <>
                     <Separator className="my-1" />
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      className="flex cursor-pointer select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground"
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => onChange({ ...value, sharedLabIds: [] })}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault()
-                          onChange({ ...value, sharedLabIds: [] })
-                        }
-                      }}
                     >
                       Clear selection
-                    </div>
+                    </button>
                   </>
                 )}
               </div>

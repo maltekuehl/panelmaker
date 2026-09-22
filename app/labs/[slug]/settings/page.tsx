@@ -1,11 +1,10 @@
-import { auth } from "@/auth"
 import { DeleteLabButton } from "@/components/lab/delete-lab-button"
 import { LabForm } from "@/components/lab/lab-form"
 import { LabPageHeader } from "@/components/lab/lab-page-header"
 import { ApiKeysSection } from "@/components/settings/api-keys-section"
-import { getLabBySlug, getUserLabRole } from "@/models/lab"
+import { getLabBySlug } from "@/models/lab"
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { requireLabMember } from "../require-lab-member"
 
 interface LabSettingsPageProps {
   params: Promise<{ slug: string }>
@@ -21,21 +20,7 @@ export async function generateMetadata({ params }: LabSettingsPageProps): Promis
 export default async function LabSettingsPage({ params }: LabSettingsPageProps) {
   const { slug } = await params
 
-  const [lab, session] = await Promise.all([getLabBySlug(slug), auth()])
-
-  if (!lab) {
-    notFound()
-  }
-
-  if (!session?.user?.id) {
-    notFound()
-  }
-
-  const role = await getUserLabRole(session.user.id, lab.id)
-
-  if (role !== "ADMIN" && role !== "OWNER") {
-    notFound()
-  }
+  const { lab, role } = await requireLabMember(slug, `/labs/${slug}/settings`, "ADMIN")
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">

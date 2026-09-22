@@ -165,7 +165,7 @@ export default function TeamPage() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button asChild size="lg">
-            <Link href="/docs/community/governance">Start Contributing</Link>
+            <Link href="/docs/community/roadmap">Start Contributing</Link>
           </Button>
           <Button variant="outline" size="lg" asChild>
             <Link href="/browse">Browse Antibodies</Link>

@@ -30,22 +30,36 @@ All domain logic lives in `models/<entity>/` (not flat `lib/`). Current entities
 models/
   protein/
     queries.ts      -- import "server-only"; Prisma queries (getAll, getById, search, getForCellType)
-    transforms.ts   -- Prisma return types → API/UI shapes
+    transforms.ts   -- Prisma return types to API/UI shapes
     schema.ts       -- Zod schemas for API input validation
     index.ts        -- Re-exports: types + query functions
-  cell-type/        -- same structure
   antibody/         -- same structure
-  experimental-report/  -- same structure
+  cell-type/        -- same structure
+  cellular-component/
+  chat/             -- conversations, messages, encrypted provider credentials
+  evidence/         -- viewer-scoped report search and aggregation used by the AI tools
+  experiment/
+  experimental-report/
+  fluorophore/
+  lab/
+    queries.ts
+    access.ts       -- pure role/permission predicates (type-only Prisma import)
+    visibility.ts   -- pure visibility where-builders (type-only Prisma import)
+    transforms.ts
+    schema.ts
+    index.ts
   panel/
     queries.ts
     transforms.ts
     schema.ts
     intelligence.ts -- Fluorophore overlap, host species cross-reactivity checks
     index.ts
-  structure/
-    queries.ts
-    index.ts
+  taxon/
+  tissue/
+  user/
 ```
+
+`models/lab/access.ts` and `models/lab/visibility.ts` must stay pure: type-only Prisma imports, no `server-only`, no I/O. `tests/unit/lab-access.ts` enforces that, plus a guard that no `"use client"` file imports the server-only barrel.
 
 Rules:
 - `queries.ts` always starts with `import "server-only"` and imports `prisma` from `@/lib/prisma`
@@ -66,7 +80,7 @@ datasource db {
 - Native Postgres features are available: enums, `@db.VarChar()`/`@db.Text` annotations, `String[]` array fields
 - Migrations: always `npx prisma migrate dev --create-only --name <name>`, then review SQL before applying
 
-### Search: Prisma LIKE Queries
+### Search: Prisma contains queries
 
 Use Prisma `contains` mode for text search (maps to SQL `LIKE %term%`). Add `@@index` on searchable fields. Use `mode: "insensitive"` for case-insensitive matching (supported by PostgreSQL).
 
@@ -81,62 +95,53 @@ await prisma.protein.findMany({
 })
 ```
 
-### Image Storage: Cloudflare R2
+### Image Storage: local disk
 
-- SDK: `@aws-sdk/client-s3` (S3-compatible)
-- Wrapper: `lib/storage.ts` — exports `uploadImage()`, `deleteImage()`, `getSignedUrl()`
-- Upload route: `app/api/uploads/route.ts` (authenticated, rate-limited)
-- Constraints: 10MB max per image, JPEG/PNG/TIFF only
-- Env vars: `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_URL`
+- Wrapper: `lib/storage.ts`, which exports `saveUploadedImage()`, `deleteUploadedImage()`, `getUploadsDir()`, `resolveUploadPath()`
+- Upload route: `app/api/uploads/route.ts` (authenticated, rate-limited). Serving route: `app/uploads/[...path]/route.ts`
+- Images are converted to lossless WebP with sharp on upload
+- Constraints: `MAX_UPLOAD_BYTES` (80MB), PNG, JPEG, WebP and TIFF in, dimensions between `MIN_DIMENSION` and `MAX_DIMENSION`
+- Env var: `UPLOADS_DIR` (default `./data/uploads`). Requests for `/uploads/*` always go through the app route, never straight from disk, because report images can belong to PRIVATE or LAB experiments and only the app can apply the visibility check.
 
 ### Ontology Lookups
 
 - Cell Ontology (CL) and UBERON: OLS4 REST API at `https://www.ebi.ac.uk/ols4/api`
 - Species/taxonomy: NCBI E-utilities API
-- Client-side: debounced autocomplete (300ms) using React state or SWR
-- Wrapper: `lib/ontology.ts` — exports `searchCellTypes()`, `searchStructures()`, `searchSpecies()`
-- Store ontology ID alongside display name in all DB fields
+- Client-side: debounced autocomplete via `hooks/use-debounced-search.ts`
+- Wrapper: `lib/ontology.ts`, which exports `searchCellOntology()`, `searchUberon()`, `searchGoCellularComponent()`, `searchDiseaseOntology()`, `searchRor()`, `searchSpecies()`, reached through `GET /api/ontology?type=...`
+- Store the ontology id alongside the display name in every DB field
+- `docs/metadata-standards.md` holds the researched plan for where these are going (NCBITaxon CURIEs, OLS4 term lookup and hierarchy, MONDO for disease, EFO assay terms). Read it before changing ontology handling.
 
 ### External API Integrations
 
 All read-only enrichment in `lib/integrations/`:
 - `antibody-registry.ts` — RRID lookup, auto-fill vendor/host/clone
 - `uniprot.ts` — protein metadata by UniProt ID or gene name
-- `hpa.ts` — Human Protein Atlas tissue expression and subcellular location
-- `ensembl.ts` — Ensembl gene ID resolution
+- `hpa.ts` — Human Protein Atlas tissue expression and subcellular location (written, not yet wired to any caller)
+- `ensembl.ts` — Ensembl gene ID resolution (written, not yet wired to any caller)
+- `scicrunch.ts` — RRID resolver plus the optional Elasticsearch index behind `SCICRUNCH_API_KEY`
 
-### AI Chat: Vercel AI SDK v5 (Direct Tools)
+### AI Chat: Vercel AI SDK (Direct Tools)
 
-- No MCP dependency — tools call model query functions directly
-- System prompt: spatial proteomics panel design context
-- Tools defined in `lib/chat-tools.ts`: `searchMarkers`, `getMarkerDetails`, `suggestPanel`, `checkCompatibility`
-- Remove `@ai-sdk/mcp` and `@modelcontextprotocol/sdk` dependencies
-- Remove MCP server picker from chat UI and stores
+- No MCP dependency. Tools call model query functions directly.
+- System prompt: spatial proteomics panel design context, in `app/api/chat/route.ts`
+- `lib/chat-tools.ts` exports `createChatTools(viewer)`, a viewer-scoped toolkit: resolve helpers for markers, cell types, species, tissues and antibodies, plus `findReports`, `aggregateReports`, `listMyLabs`, `getLabInventory`, `getLabPanels`, `analyzePanel` and panel editing. Every tool closes over the viewer and intersects any model-supplied lab scope with the viewer's real memberships.
+- Conversations and messages are persisted through `models/chat/`; provider API keys are encrypted at rest with `ENCRYPTION_KEY`.
+- Model ids follow the `provider:model` convention. Any such string works at request time, so the catalog in `lib/ai/models.ts` is a convenience, not a whitelist.
 
-### Public API v1: app/api/(versions)/v1/
+### Public API: app/api/
 
-All endpoints are read-only (GET), public, no auth required:
+The versioned `app/api/(versions)/v1/` tree described in earlier plans was never built. Public read endpoints live directly under `app/api/` (`proteins`, `antibodies`, `cell-types`, `reports`, `panels/public`, `fluorophores`, `ontology`).
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /v1/proteins` | List/search proteins |
-| `GET /v1/proteins/[id]` | Single protein |
-| `GET /v1/cell-types` | List/search cell types |
-| `GET /v1/cell-types/[id]` | Single cell type |
-| `GET /v1/antibodies` | List/search antibodies |
-| `GET /v1/antibodies/[id]` | Single antibody |
-| `GET /v1/reports` | Public validated reports |
-| `GET /v1/reports/[id]` | Single report |
-| `GET /v1/panels` | Public panels |
+Conventions for these routes:
+- Validate query params with a Zod schema in the matching `models/<entity>/schema.ts`
+- `?q=` text search, `?limit=` (bounded), `?cursor=` for cursor pagination, returning `nextCursor`
+- Respond with `createSuccessResponse()` / `createErrorResponse()` from `lib/error-handling.ts`. `lib/api-response.ts` is a second, unused implementation with a different envelope: do not import it.
+- Public endpoints read the public lane only (`visibility: "PUBLIC"`), never the viewer-scoped lane
 
-Query params: `?q=` (text search), `?species=`, `?method=`, `?fixation=`, `?limit=` (max 100, default 20), `?cursor=` (cursor-based pagination).
-Response: use `createSuccessResponse()` from `lib/api-response.ts`; add `nextCursor` to meta when paginating.
+### Rate Limiting
 
-### Rate Limiting: New Resource Types
-
-Add to `RATE_LIMITS` in `lib/rate-limiting.ts`:
-- `REPORTS_SUBMIT`: 10 requests / 24 hours (authenticated, submitting experimental reports)
-- `PANELS_CREATE`: 50 requests / 24 hours (authenticated, creating/modifying panels)
+Current entries in `RATE_LIMITS` (`lib/rate-limiting.ts`), all on a 24 hour window: `CHAT_FREE` 30, `REVIEWS` 20, `REPORTS_SUBMIT` 50, `PANELS_CREATE` 50, `UPLOADS` 200, plus the lab limits `LABS_CREATE`, `LAB_INVITATIONS_SEND` and `INVENTORY_MUTATE`. Keep this list and the code in step when you add one.
 
 ---
 
@@ -160,6 +165,7 @@ Add to `RATE_LIMITS` in `lib/rate-limiting.ts`:
   - UPPER_SNAKE_CASE: Constants and enums
 - **HTML escaping**: Always escape special characters (including `'` as `&apos;` and `"` as `&quot;`)
 - **NEVER use em dashes (`—`) in user-facing copy**: not in headings, body text, button labels, placeholders, toasts, descriptions, or anywhere a user reads. This is non-negotiable. Em dashes read as AI slop. Rewrite the sentence instead: use two shorter sentences, a comma, a colon, or parentheses. A short, plain label (e.g. "Next") beats a clever dashed one. This also applies to en dashes (`–`) in copy. (Numeric/date ranges and code are the only exceptions.)
+- **NEVER use middle dots (`·`) in user-facing copy** either, and never `.join(" · ")` to build a metadata line. Same reasoning as the dashes. Separate facts with layout (flex and gap, separate spans, separate lines) or with a comma.
 - **No manual gaps inside buttons**: shadcn `Button` already applies an internal `gap` between an icon and its label. Do NOT add `mr-2`/`ml-2`/`gap-*` to icons placed inside a `Button`; just render `<Icon className="size-4" />` followed by the label.
 - **Comments**: Avoid comments. Code should be self-explanatory through clear naming and structure. Only add comments in exceptional circumstances where complex logic or non-obvious reasoning cannot be understood otherwise
 
@@ -245,7 +251,7 @@ export default function ClientComponent() {
 
 #### shadcn/ui + Radix UI
 - **All UI components** use shadcn/ui from `@/components/ui/*`
-- **Available components**: button, card, dialog, dropdown-menu, form, input, label, select, separator, tabs, toast, tooltip, alert, badge, checkbox, sheet, skeleton, switch, textarea, alert-dialog, navigation-menu, pagination, progress, accordion, avatar, collapsible, sidebar, sonner
+- **Available components** (`components/ui/`): accordion, alert, alert-dialog, avatar, badge, breadcrumb, button, card, checkbox, command, dialog, dropdown-menu, form, hover-card, input, input-group, label, pagination, popover, select, separator, sheet, sidebar, skeleton, sonner, switch, table, tabs, textarea, tooltip. Toasts are sonner only: there is no shadcn toast provider, so import `toast` from `sonner`.
 - **Styling**: Tailwind CSS with CSS variables for theming
 - **Icons**: Use `lucide-react` for all icons
 - **No margins inside buttons**: `Button` already spaces its children via a built-in `gap` (and icon-aware padding). NEVER add `ml-*`/`mr-*`/`mx-*` to icons or any other child inside a `Button` — just place the icon before or after the label and let the gap handle spacing. (Negative margin on the `Button` element itself for outer alignment, e.g. `-ml-3`, is fine.)
@@ -271,7 +277,7 @@ These are the house style for app pages. Follow them by default; deviate only wi
 - `Card` is reserved for genuinely card-like floating UI (e.g. home navigation tiles, auth/settings forms), not as a generic content container.
 
 **Condensing & surfacing data**
-- Prefer **inline metadata rows** over grids of bordered tiles: `Label: value · Label: value` using `flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm` (muted label, `font-medium`/`font-mono` value). Apply this to header key/value facts.
+- Prefer **inline metadata rows** over grids of bordered tiles: render each fact as its own `<span>` (`Label:` muted, then the value in `font-medium`/`font-mono`) inside `flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm`. The gap does the separating: never join facts with a separator character. Apply this to header key/value facts.
 - For per-record detail grids, use borderless label/value pairs (`grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4`), not filled tile boxes.
 - Replace lone big-number blocks with a compact **"At a glance"** stat list (`dl` of `flex justify-between` rows) that surfaces several derived metrics (counts of reports, antibodies, contributors, cell types, etc.).
 - For tabular data inside another surface (e.g. an accordion), use the shadcn `Table` with transparent, border-only rows — never grey filled boxes, which clash with surrounding greys.
@@ -426,9 +432,12 @@ await prisma.$transaction([
   - `AUTH_LINKEDIN_ID`, `AUTH_LINKEDIN_SECRET`: OAuth
   - `GEMINI_API_KEY`: AI features
   - `CRON_SECRET`: Cron job auth
-- **Image storage vars** (add when implementing uploads):
-  - `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_URL`
-- **Removed vars** (no longer needed): `GITHUB_TOKEN` (no GitHub API calls)
+- **Also required or optional**:
+  - `UPLOADS_DIR` (local image storage, default `./data/uploads`)
+  - `ENCRYPTION_KEY` (encrypts stored provider API keys; the key routes return 503 without it)
+  - `SHADOW_DATABASE_URL` (separate disposable database for `migrate dev`)
+  - `SCICRUNCH_API_KEY` (optional, richer antibody search; the keyless resolver is used without it)
+- `.env.local.example` is the authoritative list. Keep it in step with `lib/env.ts`.
 - **Never hardcode secrets** in code or commit to git
 
 ### Security Headers
@@ -503,17 +512,17 @@ npm run start        # Start production server
 - **File-based routing**: `app/` directory
 - **Route groups**: Use `(group)` for organization without affecting URL
 - **API routes**: `app/api/*/route.ts` with named exports (GET, POST, etc.)
-- **Middleware**: Auth middleware in `middleware.ts`
+- **Middleware**: Auth middleware in `proxy.ts` (Next 16 renamed the file; it re-exports the Auth.js handler)
 - **Metadata**: Export `metadata` and `viewport` from page components
 
 ### State Management
 - **Server state**: React Server Components (default)
-- **Client state**: `useState` for local, Zustand for global (see `stores/chat.ts`)
+- **Client state**: `useState` for local, Zustand for global (see `stores/panels.ts`)
 - **URL state**: `useSearchParams` and `useRouter` from `next/navigation`
 - **Form state**: `react-hook-form` with `@hookform/resolvers` and Zod
 
 ### AI & Chat
-- **Vercel AI SDK v5**: For streaming chat responses
+- **Vercel AI SDK**: `ai` v6 and `@ai-sdk/react` v3 for streaming chat responses
 - **No MCP**: Tools call internal model query functions directly (no `@ai-sdk/mcp` or `@modelcontextprotocol/sdk`)
 - **Providers**: Anthropic (Claude), Google (Gemini), OpenAI via `@ai-sdk/*`
 - **Tools**: defined in `lib/chat-tools.ts`, call `models/*/queries.ts` functions directly

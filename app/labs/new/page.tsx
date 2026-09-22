@@ -1,18 +1,19 @@
-import { auth } from "@/auth"
 import { LabForm } from "@/components/lab/lab-form"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
-import { getAccessState } from "@/lib/auth"
+import { getAccessState, getSessionUser } from "@/lib/auth"
+import { signInUrl } from "@/lib/routes"
 import { ShieldCheck } from "lucide-react"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 
 export default async function NewLabPage() {
-  const session = await auth()
+  const user = await getSessionUser()
 
-  if (!session?.user?.id) {
-    redirect("/signin?callbackUrl=/labs/new")
+  if (!user) {
+    redirect(signInUrl("/labs/new"))
   }
 
-  const accessState = await getAccessState(session.user.id)
+  const accessState = await getAccessState(user.id)
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -37,8 +38,11 @@ export default async function NewLabPage() {
               platform trustworthy for the whole community.
             </p>
             <p>
-              To request access, go to your profile settings or contact a PanelMaker administrator directly. Once
-              verified, you can come back here to create a lab.
+              You can request verification on the{" "}
+              <Link href="/submit" className="font-medium underline underline-offset-4">
+                submit page
+              </Link>
+              . Once verified, come back here to create a lab.
             </p>
           </div>
         </div>

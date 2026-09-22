@@ -1,111 +1,81 @@
 import { expect, test } from "@playwright/test"
+import { STORAGE_STATE } from "./test-helpers"
 
 test.describe("API Endpoints", () => {
-  test("should have working health endpoint", async ({ request }) => {
+  test("GET /api/health reports a healthy service", async ({ request }) => {
     const response = await request.get("/api/health")
     expect(response.status()).toBe(200)
 
     const body = await response.json()
-    expect(body).toHaveProperty("status")
+    expect(body.status).toBe("healthy")
+    expect(body.checks.database).toBe(true)
   })
 
   test.describe("Public API - Proteins", () => {
-    test("GET /api/proteins should return proteins array", async ({ request }) => {
+    test("GET /api/proteins returns a proteins array", async ({ request }) => {
       const response = await request.get("/api/proteins")
       expect(response.status()).toBe(200)
 
       const body = await response.json()
-      expect(body).toHaveProperty("success")
-      expect(body).toHaveProperty("data")
-      expect(body.data).toHaveProperty("proteins")
-      expect(Array.isArray(body.data.proteins)).toBeTruthy()
+      expect(Array.isArray(body.proteins)).toBe(true)
     })
 
-    test("GET /api/proteins should support search query", async ({ request }) => {
-      const response = await request.get("/api/proteins?q=CD4")
+    test("GET /api/proteins supports a search query", async ({ request }) => {
+      const response = await request.get("/api/proteins?q=CD3")
       expect(response.status()).toBe(200)
 
       const body = await response.json()
-      expect(body.data).toHaveProperty("proteins")
-      expect(Array.isArray(body.data.proteins)).toBeTruthy()
+      expect(Array.isArray(body.proteins)).toBe(true)
     })
 
-    test("GET /api/proteins should support limit parameter", async ({ request }) => {
+    test("GET /api/proteins honours the limit parameter", async ({ request }) => {
       const response = await request.get("/api/proteins?limit=5")
       expect(response.status()).toBe(200)
 
       const body = await response.json()
-      expect(body.data.proteins.length).toBeLessThanOrEqual(5)
+      expect(body.proteins.length).toBeLessThanOrEqual(5)
     })
   })
 
   test.describe("Public API - Cell Types", () => {
-    test("GET /api/cell-types should return cell types array", async ({ request }) => {
+    test("GET /api/cell-types returns a cellTypes array", async ({ request }) => {
       const response = await request.get("/api/cell-types")
       expect(response.status()).toBe(200)
 
       const body = await response.json()
-      expect(body).toHaveProperty("success")
-      expect(body).toHaveProperty("data")
-      expect(body.data).toHaveProperty("cellTypes")
-      expect(Array.isArray(body.data.cellTypes)).toBeTruthy()
+      expect(Array.isArray(body.cellTypes)).toBe(true)
     })
 
-    test("GET /api/cell-types should support search query", async ({ request }) => {
+    test("GET /api/cell-types supports a search query", async ({ request }) => {
       const response = await request.get("/api/cell-types?q=T+cell")
       expect(response.status()).toBe(200)
 
       const body = await response.json()
-      expect(body.data).toHaveProperty("cellTypes")
-      expect(Array.isArray(body.data.cellTypes)).toBeTruthy()
+      expect(Array.isArray(body.cellTypes)).toBe(true)
     })
   })
 
-  test.describe("Protected API - Panels", () => {
-    test("GET /api/panels without auth should return 401", async ({ request }) => {
+  test.describe("Protected API - Panels without a session", () => {
+    test("GET /api/panels returns 401", async ({ request }) => {
       const response = await request.get("/api/panels")
       expect(response.status()).toBe(401)
     })
 
-    test("POST /api/panels without auth should return 401", async ({ request }) => {
-      const response = await request.post("/api/panels", {
-        data: { name: "Test Panel" },
-      })
+    test("POST /api/panels returns 401", async ({ request }) => {
+      const response = await request.post("/api/panels", { data: { name: "Test Panel" } })
       expect(response.status()).toBe(401)
     })
+  })
 
-    test("GET /api/panels with test credentials should return panels array", async ({ page, request }) => {
-      // First, authenticate using the test credentials page
-      await page.goto("/signin")
-      await page.waitForLoadState("networkidle")
+  test.describe("Protected API - Panels with a session", () => {
+    test.use({ storageState: STORAGE_STATE })
 
-      const passwordField = page.locator('input[type="password"]').first()
-      const isTestMode = (await passwordField.count()) > 0
+    test("GET /api/panels returns a panels array", async ({ request }) => {
+      const response = await request.get("/api/panels")
+      expect(response.status()).toBe(200)
 
-      if (isTestMode) {
-        await passwordField.fill("password")
-        await page.getByRole("button", { name: "Sign In with Test Credentials" }).click()
-        await page.waitForURL("/")
-
-        // Get the session cookie
-        const cookies = await page.context().cookies()
-        const authHeader = cookies.map((c) => `${c.name}=${c.value}`).join("; ")
-
-        // Now test the API with the session
-        const response = await request.get("/api/panels", {
-          headers: {
-            cookie: authHeader,
-          },
-        })
-        expect(response.status()).toBe(200)
-
-        const body = await response.json()
-        expect(body).toHaveProperty("success")
-        expect(body.data).toHaveProperty("panels")
-        expect(Array.isArray(body.data.panels)).toBeTruthy()
-      } else {
-        test.skip()
-      }
+      const body = await response.json()
+      expect(Array.isArray(body.panels)).toBe(true)
     })
   })
 })

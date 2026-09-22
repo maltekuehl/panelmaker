@@ -7,16 +7,17 @@ export const metadata = {
 
 # Authentication
 
-Most PanelMaker API endpoints are public and require no authentication. A subset of endpoints — those that create or modify user data — require you to be signed in.
+Most PanelMaker API endpoints are public and require no authentication. A subset of endpoints, those that create or modify user data, require you to be signed in.
 
 ## Signing in
 
-PanelMaker supports OAuth sign-in via:
+Sign in with your email address and password on the sign-in page. If the deployment has them configured, you can also
+use OAuth:
 
-- **GitHub** — click _Sign in with GitHub_ on the sign-in page
-- **LinkedIn** — click _Sign in with LinkedIn_ on the sign-in page
+- **GitHub**: click _Sign in with GitHub_ on the sign-in page
+- **LinkedIn**: click _Sign in with LinkedIn_ on the sign-in page
 
-No password or API key is needed. After signing in, your session is stored in an HTTP-only cookie.
+After signing in, your session is stored in an HTTP-only cookie.
 
 ## Authenticated endpoints
 

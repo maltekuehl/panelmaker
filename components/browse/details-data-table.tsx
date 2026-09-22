@@ -8,14 +8,20 @@ import {
   getSortedRowModel,
   SortingState,
   useReactTable,
-  VisibilityState,
 } from "@tanstack/react-table"
 import { useQueryStates } from "nuqs"
 import * as React from "react"
 
-import { Button } from "@/components/ui/button"
+import { PaginationControls } from "@/components/data-table/pagination"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { sortParsers } from "@/lib/data-table"
+
+// The sortable headers write the server-side sort keys into the URL, but this table sorts client-side by
+// tanstack column id. These two column ids differ from their server field name, so they are mapped here.
+const SORT_FIELD_TO_COLUMN_ID: Record<string, string> = {
+  cellType: "cellTypes",
+  methods: "validatedMethods",
+}
 
 interface DetailsDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -29,11 +35,11 @@ export function DetailsDataTable<TData, TValue>({
   hiddenColumns = [],
 }: DetailsDataTableProps<TData, TValue>) {
   const [{ sort, order }] = useQueryStates(sortParsers, { shallow: false })
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
-    hiddenColumns.reduce((acc, col) => ({ ...acc, [col]: false }), {}),
-  )
 
-  const sorting: SortingState = React.useMemo(() => (sort ? [{ id: sort, desc: order === "desc" }] : []), [sort, order])
+  const sorting: SortingState = React.useMemo(
+    () => (sort ? [{ id: SORT_FIELD_TO_COLUMN_ID[sort] ?? sort, desc: order === "desc" }] : []),
+    [sort, order],
+  )
 
   const table = useReactTable({
     data,
@@ -41,10 +47,9 @@ export function DetailsDataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    state: {
-      sorting,
-      columnVisibility,
+    state: { sorting },
+    initialState: {
+      columnVisibility: Object.fromEntries(hiddenColumns.map((column) => [column, false])),
     },
   })
 
@@ -68,7 +73,7 @@ export function DetailsDataTable<TData, TValue>({
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"} className="text-xs">
+                <TableRow key={row.id} className="text-xs">
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-2">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -86,14 +91,12 @@ export function DetailsDataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2">
-        <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-          Previous
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-          Next
-        </Button>
-      </div>
+      <PaginationControls
+        page={table.getState().pagination.pageIndex + 1}
+        pageCount={Math.max(table.getPageCount(), 1)}
+        total={data.length}
+        onPageChange={(page) => table.setPageIndex(page - 1)}
+      />
     </div>
   )
 }

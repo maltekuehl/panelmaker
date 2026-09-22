@@ -1,77 +1,48 @@
-import { expect, test } from "@playwright/test"
+import { expect, STORAGE_STATE, test } from "./test-helpers"
 
-test.describe("Chat Page", () => {
-  test("should render chat page correctly for unauthenticated users", async ({ page }) => {
+const COMPOSER_PLACEHOLDER = "E.g., which markers work for resident memory T cells in human kidney?"
+
+test.describe("Chat without a session", () => {
+  test("asks the visitor to sign in", async ({ page }) => {
     await page.goto("/chat")
 
-    // Check page loads
-    await expect(page.locator("body")).toBeVisible()
-    await page.waitForLoadState("networkidle")
+    await expect(page.getByText("Sign in required")).toBeVisible()
+    await expect(page.getByRole("link", { name: "Sign in to continue" })).toHaveAttribute(
+      "href",
+      "/signin?callbackUrl=/chat",
+    )
+    await expect(page.getByPlaceholder(COMPOSER_PLACEHOLDER)).toHaveCount(0)
+  })
+})
 
-    // Should show sign-in required message for unauthenticated users
-    const signInMessage = page.locator("text=Sign in required").first()
+test.describe("Chat with a session", () => {
+  test.use({ storageState: STORAGE_STATE })
 
-    // Either show sign-in prompt or chat interface
-    const chatInterface = page.locator("#chat, textarea").first()
+  test("opens a conversation with a usable composer", async ({ page }) => {
+    await page.goto("/chat")
+    await page.waitForURL(/\/chat\/.+/)
 
-    const hasSignIn = (await signInMessage.count()) > 0
-    const hasChat = (await chatInterface.count()) > 0
+    const composer = page.getByPlaceholder(COMPOSER_PLACEHOLDER)
+    await expect(composer).toBeVisible()
 
-    // Should have either sign-in message or chat interface
-    expect(hasSignIn || hasChat).toBeTruthy()
+    const send = page.getByRole("button", { name: "Send message" })
+    await expect(send).toBeDisabled()
 
-    // Verify no critical console errors
-    const errors: string[] = []
-    page.on("console", (msg) => {
-      if (msg.type() === "error") {
-        errors.push(msg.text())
-      }
-    })
-
-    await page.waitForTimeout(1000)
-
-    expect(
-      errors.filter(
-        (error) =>
-          !error.includes("favicon") &&
-          !error.includes("Third-party") &&
-          !error.includes("Extension") &&
-          !error.includes("fetch"), // API calls might fail in test env
-      ),
-    ).toHaveLength(0)
+    await composer.fill("Which markers label T cells?")
+    await expect(send).toBeEnabled()
   })
 
-  test("should handle chat interface elements", async ({ page }) => {
+  test("offers a model picker when more than one model is configured", async ({ page }) => {
     await page.goto("/chat")
-    await page.waitForLoadState("networkidle")
+    await page.waitForURL(/\/chat\/.+/)
 
-    // Look for typical chat elements
-    const chatInput = page
-      .locator('textarea, input[type="text"], [placeholder*="message"], [placeholder*="chat"]')
-      .first()
-    const sendButton = page.locator('button[type="submit"], button:has-text("Send"), [aria-label*="send"]').first()
+    await expect(page.getByPlaceholder(COMPOSER_PLACEHOLDER)).toBeVisible()
 
-    // If chat interface is present, verify basic elements
-    if ((await chatInput.count()) > 0) {
-      await expect(chatInput).toBeVisible()
-
-      if ((await sendButton.count()) > 0) {
-        await expect(sendButton).toBeVisible()
-      }
+    const modelPicker = page.getByRole("combobox")
+    if ((await modelPicker.count()) === 0) {
+      test.skip(true, "Only one AI provider is configured in this environment")
     }
-  })
 
-  test("should be responsive on mobile", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto("/chat")
-
-    await expect(page.locator("body")).toBeVisible()
-    await page.waitForLoadState("networkidle")
-
-    // Verify mobile layout works
-    const mainContent = page.locator('main, [role="main"], .container, .chat-container').first()
-    if ((await mainContent.count()) > 0) {
-      await expect(mainContent).toBeVisible()
-    }
+    await expect(modelPicker.first()).toBeVisible()
   })
 })

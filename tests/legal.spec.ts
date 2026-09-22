@@ -1,65 +1,21 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, TEST_DATA } from "./test-helpers"
 
 test.describe("Legal Pages", () => {
-  const legalPages = [
-    { path: "/legal/terms", name: "Terms of Service" },
-    { path: "/legal/privacy", name: "Privacy Policy" },
-    { path: "/legal/notice", name: "Legal Notice" },
-  ]
-
-  legalPages.forEach(({ path, name }) => {
-    test(`should render ${name} page correctly`, async ({ page }) => {
+  for (const { path, name, heading } of TEST_DATA.LEGAL_PAGES) {
+    test(`renders the ${name} page`, async ({ page }) => {
       await page.goto(path)
 
-      // Check page loads
-      await expect(page.locator("body")).toBeVisible()
-      await page.waitForLoadState("networkidle")
-
-      // Should not result in 404
-      const notFoundIndicators = page.locator("text=404, text=Not Found, text=Page not found")
-      expect(await notFoundIndicators.count()).toBe(0)
-
-      // Should have typical legal document structure
-      const headings = page.locator("h1")
-      if ((await headings.count()) > 0) {
-        await expect(headings.first()).toBeVisible()
-      }
-
-      // Should have content paragraphs
-      const content = page.locator("p").first()
-      if ((await content.count()) > 0) {
-        await expect(content).toBeVisible()
-      }
-
-      // Verify no critical console errors
-      const errors: string[] = []
-      page.on("console", (msg) => {
-        if (msg.type() === "error") {
-          errors.push(msg.text())
-        }
-      })
-
-      await page.waitForTimeout(1000)
-
-      expect(
-        errors.filter(
-          (error) => !error.includes("favicon") && !error.includes("Third-party") && !error.includes("Extension"),
-        ),
-      ).toHaveLength(0)
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible()
+      await expect(page.locator("main p").first()).toBeVisible()
     })
-  })
+  }
 
-  test("should be responsive on mobile", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto("/legal/terms")
+  test("the sidebar footer links to every legal page", async ({ page }) => {
+    await page.goto("/")
 
-    await expect(page.locator("body")).toBeVisible()
-    await page.waitForLoadState("networkidle")
-
-    // Mobile layout should work
-    const mainContent = page.locator('main, [role="main"], .container').first()
-    if ((await mainContent.count()) > 0) {
-      await expect(mainContent).toBeVisible()
-    }
+    const sidebar = page.locator('[data-slot="sidebar"]')
+    await expect(sidebar.getByRole("link", { name: "Legal Notice" })).toHaveAttribute("href", "/legal/notice")
+    await expect(sidebar.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/legal/terms")
+    await expect(sidebar.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/legal/privacy")
   })
 })

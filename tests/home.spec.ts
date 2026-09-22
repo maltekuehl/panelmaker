@@ -1,67 +1,36 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./test-helpers"
 
 test.describe("Home Page", () => {
-  test("should render homepage correctly", async ({ page }) => {
+  test("shows the hero, the database stats and the destination cards", async ({ page }) => {
     await page.goto("/")
 
-    // Check page title
     await expect(page).toHaveTitle(/PanelMaker/)
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("spatial proteomics")
 
-    // Check main heading
-    await expect(page.locator("h1")).toContainText("PanelMaker")
+    await expect(page.getByText("Proteins", { exact: true })).toBeVisible()
+    await expect(page.getByText("Antibodies", { exact: true })).toBeVisible()
+    await expect(page.getByText("Validated Reports", { exact: true })).toBeVisible()
 
-    // Check that main navigation elements are present
-    await expect(page.locator("nav, #mobile-nav").first()).toBeVisible()
-
-    // Check that main content area exists
-    await expect(page.locator("main, [role='main'], .container").first()).toBeVisible()
-
-    // Verify no console errors (common rendering issues)
-    const errors: string[] = []
-    page.on("console", (msg) => {
-      if (msg.type() === "error") {
-        errors.push(msg.text())
-      }
-    })
-
-    // Wait for page to be fully loaded
-    await page.waitForLoadState("networkidle")
-
-    // Check that there are no critical console errors
-    expect(
-      errors.filter(
-        (error) => !error.includes("favicon") && !error.includes("Third-party") && !error.includes("Extension"),
-      ),
-    ).toHaveLength(0)
-  })
-
-  test("should be responsive on mobile", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto("/")
-
-    // Check that mobile navigation works
-    await expect(page.locator("h1")).toBeVisible()
-    await expect(page.locator("h1")).toHaveText("PanelMaker")
-
-    // Check that main content is visible on mobile
-    const mainContent = page.locator("main, [role='main']").first()
-    if ((await mainContent.count()) > 0) {
-      await expect(mainContent).toBeVisible()
+    const destinations = page.locator("section").last()
+    for (const title of ["Browse Markers", "Design a Panel", "Submit a Marker", "Documentation"]) {
+      await expect(destinations.getByRole("link", { name: title })).toBeVisible()
     }
   })
 
-  test("should have working logo/home link", async ({ page }) => {
+  test("the Browse Markers card navigates to the browse page", async ({ page }) => {
     await page.goto("/")
-    await page.waitForLoadState("networkidle")
 
-    const logoLink = page.locator('header a[href="/"], header a:has-text("PanelMaker")').first()
+    await page.getByRole("link", { name: "Browse Markers" }).click()
 
-    if ((await logoLink.count()) > 0) {
-      // Navigate to another page first
-      await page.goto("/browse")
-      // Then click logo to go back home
-      await page.locator('header a[href="/"], header a:has-text("PanelMaker")').first().click()
-      await expect(page).toHaveURL("/")
-    }
+    await expect(page).toHaveURL("/browse")
+    await expect(page.getByRole("heading", { level: 1, name: "Browse" })).toBeVisible()
+  })
+
+  test("the sidebar logo returns to the home page", async ({ page }) => {
+    await page.goto("/browse")
+
+    await page.getByRole("link", { name: "PanelMaker" }).click()
+
+    await expect(page).toHaveURL("/")
   })
 })

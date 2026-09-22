@@ -1,8 +1,18 @@
 "use client"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { move } from "@dnd-kit/helpers"
-import { DragDropProvider } from "@dnd-kit/react"
+import { DragDropProvider, type DragDropEvents } from "@dnd-kit/react"
 import { Plus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -48,6 +58,8 @@ function applyRecord(cycles: PanelCycle[], record: Record<string, string[]>): Pa
 
 export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelListProps) {
   const [isAddingCycle, setIsAddingCycle] = useState(false)
+  const [cycleToDelete, setCycleToDelete] = useState<PanelCycle | null>(null)
+  const [isDeletingCycle, setIsDeletingCycle] = useState(false)
   const previousCycles = useRef(cycles)
 
   const [items, setItems] = useState(() => cyclesToRecord(cycles))
@@ -69,7 +81,7 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
     }
   }, [cycles])
 
-  const handleDragOver = (event: any) => {
+  const handleDragOver: NonNullable<DragDropEvents["dragover"]> = (event) => {
     const { source } = event.operation
     if (source?.type === "column") return
 
@@ -80,10 +92,9 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
     })
   }
 
-  const handleDragEnd = async (event: any) => {
+  const handleDragEnd: NonNullable<DragDropEvents["dragend"]> = async (event) => {
     if (event.canceled) {
       syncFromProps(previousCycles.current)
-      onCyclesChange(previousCycles.current)
       return
     }
 
@@ -111,7 +122,6 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
         toast.error("Failed to reorder markers")
       } else {
         previousCycles.current = finalCycles
-        await handleMarkerAdded()
       }
     } catch {
       onCyclesChange(previousCycles.current)
@@ -121,65 +131,93 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
   }
 
   const handleRemoveMarker = async (cycleId: string, markerId: string) => {
-    const res = await fetch(`/api/panels/${panelId}/markers`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markerId }),
-    })
+    try {
+      const res = await fetch(`/api/panels/${panelId}/markers`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markerId }),
+      })
 
-    if (!res.ok) {
-      toast.error("Failed to remove marker")
-      return
-    }
-
-    const newCycles = cycles.map((cycle) => {
-      if (cycle.id === cycleId) {
-        return { ...cycle, markers: cycle.markers.filter((m) => m.id !== markerId) }
+      if (!res.ok) {
+        toast.error("Failed to remove marker")
+        return
       }
-      return cycle
-    })
-    onCyclesChange(newCycles)
+
+      const newCycles = cycles.map((cycle) => {
+        if (cycle.id === cycleId) {
+          return { ...cycle, markers: cycle.markers.filter((m) => m.id !== markerId) }
+        }
+        return cycle
+      })
+      onCyclesChange(newCycles)
+    } catch {
+      toast.error("Failed to remove marker")
+    }
   }
 
   const handleAddCycle = async () => {
     setIsAddingCycle(true)
-    const nextSortOrder = cycles.length
+    const usedNumbers = cycles.map((cycle) => Number(/^Cycle (\d+)$/.exec(cycle.name)?.[1] ?? 0))
+    const nextNumber = Math.max(cycles.length, ...usedNumbers) + 1
+    const nextSortOrder = Math.max(-1, ...cycles.map((cycle) => cycle.sortOrder)) + 1
 
-    const res = await fetch(`/api/panels/${panelId}/cycles`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: `Cycle ${cycles.length + 1}`, sortOrder: nextSortOrder }),
-    })
+    try {
+      const res = await fetch(`/api/panels/${panelId}/cycles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `Cycle ${nextNumber}`, sortOrder: nextSortOrder }),
+      })
 
-    setIsAddingCycle(false)
+      if (!res.ok) {
+        toast.error("Failed to add cycle")
+        return
+      }
 
-    if (!res.ok) {
+      const json = await res.json()
+      onCyclesChange([...cycles, json.cycle])
+    } catch {
       toast.error("Failed to add cycle")
-      return
+    } finally {
+      setIsAddingCycle(false)
     }
+  }
 
-    const json = await res.json()
-    onCyclesChange([...cycles, json.data?.cycle ?? json.cycle])
+  const deleteCycle = async (cycleId: string) => {
+    setIsDeletingCycle(true)
+    try {
+      const res = await fetch(`/api/panels/${panelId}/cycles/${cycleId}`, {
+        method: "DELETE",
+      })
+
+      if (!res.ok) {
+        toast.error("Failed to remove cycle")
+        return
+      }
+
+      onCyclesChange(cycles.filter((cycle) => cycle.id !== cycleId))
+    } catch {
+      toast.error("Failed to remove cycle")
+    } finally {
+      setIsDeletingCycle(false)
+      setCycleToDelete(null)
+    }
   }
 
   const handleRemoveCycle = async (cycleId: string) => {
-    const res = await fetch(`/api/panels/${panelId}/cycles/${cycleId}`, {
-      method: "DELETE",
-    })
-
-    if (!res.ok) {
-      toast.error("Failed to remove cycle")
+    const cycle = cycles.find((c) => c.id === cycleId)
+    if (!cycle) return
+    if (cycle.markers.length === 0) {
+      await deleteCycle(cycleId)
       return
     }
-
-    onCyclesChange(cycles.filter((cycle) => cycle.id !== cycleId))
+    setCycleToDelete(cycle)
   }
 
   const handleMarkerAdded = async () => {
     const res = await fetch(`/api/panels/${panelId}`)
     if (res.ok) {
       const json = await res.json()
-      const updatedPanel = json.data?.panel ?? json.panel
+      const updatedPanel = json.panel
       if (updatedPanel?.cycles) {
         onCyclesChange(updatedPanel.cycles)
       }
@@ -210,18 +248,48 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
           />
         ))}
 
-        <div className="relative pl-4 border-l-2 border-transparent">
+        {displayCycles.length === 0 && (
+          <p className="pl-4 text-xs text-muted-foreground">Add a cycle to start placing markers.</p>
+        )}
+
+        <div className="relative border-l-2 border-transparent pl-4">
           <Button
             variant="secondary"
             className="w-full justify-start text-xs font-medium"
             onClick={handleAddCycle}
             disabled={isAddingCycle}
           >
-            <Plus className="mr-2 h-3 w-3" />
-            {isAddingCycle ? "Adding..." : "Add new cycle"}
+            <Plus className="size-3" />
+            {isAddingCycle ? "Adding…" : "Add new cycle"}
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={cycleToDelete !== null} onOpenChange={(open) => !open && setCycleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete cycle</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{cycleToDelete?.name}&quot; and its {cycleToDelete?.markers.length}{" "}
+              {cycleToDelete?.markers.length === 1 ? "marker" : "markers"} will be permanently deleted. This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeletingCycle}
+              onClick={(event) => {
+                event.preventDefault()
+                if (cycleToDelete) void deleteCycle(cycleToDelete.id)
+              }}
+            >
+              Delete cycle
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DragDropProvider>
   )
 }

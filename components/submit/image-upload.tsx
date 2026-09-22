@@ -2,15 +2,19 @@
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { IMAGE_CAPTION_MAX_LENGTH } from "@/models/experimental-report/schema"
 import { Check, ImagePlus, Loader2, Plus, X } from "lucide-react"
-import { useRef, useState } from "react"
+import { useId, useRef, useState } from "react"
 import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop"
 import "react-image-crop/dist/ReactCrop.css"
 import { toast } from "sonner"
 import * as UTIF from "utif2"
 import type { OntologyValue, ReportImageInput } from "./types"
 
+const CAPTION_PLACEHOLDER =
+  "Human tonsil: CD3 (green), CD20 (red) and DAPI (blue). Germinal centre at the centre of the field."
 const MIN_DIMENSION = 256
 const MAX_DIMENSION = 4084
 const ACCEPT = ".png,.jpg,.jpeg,.webp,.tiff,.tif"
@@ -49,6 +53,7 @@ export function ImageUpload({
   invalid?: boolean
   max?: number
 }) {
+  const fieldId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -173,7 +178,7 @@ export function ImageUpload({
         toast.error("Upload failed. Please try again.")
         return
       }
-      onChange([...value, { url, cellTypeIds: availableCellTypes.map((c) => c.id) }])
+      onChange([...value, { url, caption: "", cellTypeIds: availableCellTypes.map((c) => c.id) }])
       closeDialog()
     } catch {
       toast.error("Could not process the image. Please try again.")
@@ -186,6 +191,10 @@ export function ImageUpload({
     onChange(value.map((im, i) => (i === index ? { ...im, cellTypeIds: ids } : im)))
   }
 
+  function setCaption(index: number, caption: string) {
+    onChange(value.map((im, i) => (i === index ? { ...im, caption } : im)))
+  }
+
   return (
     <div className="space-y-3">
       <input ref={inputRef} type="file" accept={ACCEPT} className="hidden" onChange={handleFile} />
@@ -194,6 +203,7 @@ export function ImageUpload({
         <div className="space-y-2">
           {value.map((image, index) => {
             const selected = new Set(image.cellTypeIds)
+            const captionId = `${fieldId}-caption-${index}`
             function toggle(id: string) {
               const next = new Set(selected)
               if (next.has(id)) next.delete(id)
@@ -281,6 +291,24 @@ export function ImageUpload({
                       Untagged. This image will not appear on any cell type page.
                     </p>
                   )}
+
+                  <div className="space-y-1">
+                    <label htmlFor={captionId} className="text-xs font-medium">
+                      Caption (optional)
+                    </label>
+                    <Textarea
+                      id={captionId}
+                      value={image.caption}
+                      onChange={(e) => setCaption(index, e.target.value.slice(0, IMAGE_CAPTION_MAX_LENGTH))}
+                      maxLength={IMAGE_CAPTION_MAX_LENGTH}
+                      rows={2}
+                      placeholder={CAPTION_PLACEHOLDER}
+                      className="min-h-0 rounded-md px-2 py-1.5 text-xs md:text-xs"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      What is visible and how it is coloured. Shown under the image on every page it appears on.
+                    </p>
+                  </div>
                 </div>
               </div>
             )
@@ -343,7 +371,7 @@ export function ImageUpload({
               {busy ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Uploading...
+                  Uploading…
                 </>
               ) : (
                 "Add image"

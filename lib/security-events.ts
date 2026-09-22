@@ -30,7 +30,7 @@ export enum SecurityEventType {
 /**
  * Security event severity levels
  */
-export enum SecurityEventSeverity {
+enum SecurityEventSeverity {
   LOW = "low",
   MEDIUM = "medium",
   HIGH = "high",
@@ -40,9 +40,8 @@ export enum SecurityEventSeverity {
 /**
  * Security event data structure
  */
-export interface SecurityEvent {
+interface SecurityEvent {
   type: SecurityEventType
-  severity: SecurityEventSeverity
   userId?: string
   ip?: string
   userAgent?: string
@@ -56,98 +55,48 @@ export interface SecurityEvent {
 /**
  * Determines the severity of a security event
  */
-function getEventSeverity(type: SecurityEventType): SecurityEventSeverity {
-  const severityMap: Record<SecurityEventType, SecurityEventSeverity> = {
-    [SecurityEventType.AUTH_FAILURE]: SecurityEventSeverity.MEDIUM,
-    [SecurityEventType.AUTH_SUCCESS]: SecurityEventSeverity.LOW,
-    [SecurityEventType.AUTHZ_FAILURE]: SecurityEventSeverity.HIGH,
-    [SecurityEventType.RATE_LIMIT_EXCEEDED]: SecurityEventSeverity.MEDIUM,
-    [SecurityEventType.SUSPICIOUS_INPUT]: SecurityEventSeverity.MEDIUM,
-    [SecurityEventType.ADMIN_ACTION]: SecurityEventSeverity.MEDIUM,
-    [SecurityEventType.CSRF_VIOLATION]: SecurityEventSeverity.HIGH,
-    [SecurityEventType.IDOR_ATTEMPT]: SecurityEventSeverity.CRITICAL,
-    [SecurityEventType.SSRF_ATTEMPT]: SecurityEventSeverity.CRITICAL,
-    [SecurityEventType.USER_BLOCKED]: SecurityEventSeverity.MEDIUM,
-    [SecurityEventType.USER_DELETED]: SecurityEventSeverity.MEDIUM,
-    [SecurityEventType.INVALID_URL]: SecurityEventSeverity.MEDIUM,
-    [SecurityEventType.CRON_AUTH_FAILURE]: SecurityEventSeverity.HIGH,
-    [SecurityEventType.LAB_INVITE_CREATED]: SecurityEventSeverity.LOW,
-    [SecurityEventType.LAB_INVITE_ACCEPTED]: SecurityEventSeverity.LOW,
-    [SecurityEventType.LAB_INVITE_REVOKED]: SecurityEventSeverity.MEDIUM,
-    [SecurityEventType.LAB_ROLE_CHANGED]: SecurityEventSeverity.HIGH,
-    [SecurityEventType.LAB_MEMBER_REMOVED]: SecurityEventSeverity.HIGH,
-    [SecurityEventType.LAB_DELETED]: SecurityEventSeverity.HIGH,
-    [SecurityEventType.VISIBILITY_DOWNGRADE]: SecurityEventSeverity.HIGH,
-  }
-
-  return severityMap[type] || SecurityEventSeverity.LOW
-}
-
-/**
- * Determines if an event should be persisted to the database
- * Currently only logs to console, but can be extended to store in DB
- */
-function shouldPersistEvent(type: SecurityEventType): boolean {
-  // Only persist critical and high-severity events
-  const severity = getEventSeverity(type)
-  return severity === SecurityEventSeverity.CRITICAL || severity === SecurityEventSeverity.HIGH
-}
-
-/**
- * Determines if an event requires immediate alerting
- */
-function isCriticalEvent(event: SecurityEvent): boolean {
-  return event.severity === SecurityEventSeverity.CRITICAL
+const SEVERITY_BY_TYPE: Record<SecurityEventType, SecurityEventSeverity> = {
+  [SecurityEventType.AUTH_FAILURE]: SecurityEventSeverity.MEDIUM,
+  [SecurityEventType.AUTH_SUCCESS]: SecurityEventSeverity.LOW,
+  [SecurityEventType.AUTHZ_FAILURE]: SecurityEventSeverity.HIGH,
+  [SecurityEventType.RATE_LIMIT_EXCEEDED]: SecurityEventSeverity.MEDIUM,
+  [SecurityEventType.SUSPICIOUS_INPUT]: SecurityEventSeverity.MEDIUM,
+  [SecurityEventType.ADMIN_ACTION]: SecurityEventSeverity.MEDIUM,
+  [SecurityEventType.CSRF_VIOLATION]: SecurityEventSeverity.HIGH,
+  [SecurityEventType.IDOR_ATTEMPT]: SecurityEventSeverity.CRITICAL,
+  [SecurityEventType.SSRF_ATTEMPT]: SecurityEventSeverity.CRITICAL,
+  [SecurityEventType.USER_BLOCKED]: SecurityEventSeverity.MEDIUM,
+  [SecurityEventType.USER_DELETED]: SecurityEventSeverity.MEDIUM,
+  [SecurityEventType.INVALID_URL]: SecurityEventSeverity.MEDIUM,
+  [SecurityEventType.CRON_AUTH_FAILURE]: SecurityEventSeverity.HIGH,
+  [SecurityEventType.LAB_INVITE_CREATED]: SecurityEventSeverity.LOW,
+  [SecurityEventType.LAB_INVITE_ACCEPTED]: SecurityEventSeverity.LOW,
+  [SecurityEventType.LAB_INVITE_REVOKED]: SecurityEventSeverity.MEDIUM,
+  [SecurityEventType.LAB_ROLE_CHANGED]: SecurityEventSeverity.HIGH,
+  [SecurityEventType.LAB_MEMBER_REMOVED]: SecurityEventSeverity.HIGH,
+  [SecurityEventType.LAB_DELETED]: SecurityEventSeverity.HIGH,
+  [SecurityEventType.VISIBILITY_DOWNGRADE]: SecurityEventSeverity.HIGH,
 }
 
 /**
  * Logs a security event with proper context and severity
  */
-export async function logSecurityEvent(event: SecurityEvent): Promise<void> {
-  const severity = getEventSeverity(event.type)
-
-  // Log to console with appropriate log level
-  const logData = {
-    type: event.type,
-    severity,
-    userId: event.userId,
-    ip: event.ip,
-    userAgent: event.userAgent,
-    resource: event.resource,
-    action: event.action,
-    success: event.success,
-    metadata: event.metadata,
-    timestamp: event.timestamp,
-  }
+async function logSecurityEvent(event: SecurityEvent): Promise<void> {
+  const severity = SEVERITY_BY_TYPE[event.type] ?? SecurityEventSeverity.LOW
+  const logData = { ...event, severity }
+  const message = `SECURITY [${event.type}]`
 
   switch (severity) {
     case SecurityEventSeverity.CRITICAL:
-      logger.error(`SECURITY [${event.type}]`, new Error(`Critical security event: ${event.type}`), logData)
-      break
     case SecurityEventSeverity.HIGH:
-      logger.error(`SECURITY [${event.type}]`, new Error(`High severity security event: ${event.type}`), logData)
+      logger.error(message, undefined, logData)
       break
     case SecurityEventSeverity.MEDIUM:
-      logger.warn(`SECURITY [${event.type}]`, logData)
+      logger.warn(message, logData)
       break
     case SecurityEventSeverity.LOW:
-      logger.info(`SECURITY [${event.type}]`, logData)
+      logger.info(message, logData)
       break
-  }
-
-  // In production, you might want to:
-  // 1. Store critical events in database
-  // 2. Send alerts via email/Slack/PagerDuty
-  // 3. Push to external monitoring service
-
-  if (shouldPersistEvent(event.type)) {
-    // TODO: Implement database persistence if needed
-    // await prisma.securityEvent.create({ data: event })
-  }
-
-  if (isCriticalEvent(event)) {
-    // TODO: Implement alerting for critical events
-    // await sendSecurityAlert(event)
   }
 }
 
@@ -168,7 +117,6 @@ export async function logSecurityEventFromRequest(
 
   await logSecurityEvent({
     type,
-    severity: getEventSeverity(type),
     userId: options.userId,
     ip: context.ip,
     userAgent: context.userAgent,

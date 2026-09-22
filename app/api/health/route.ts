@@ -1,30 +1,25 @@
-import { getHealthStatus } from "@/lib/monitoring"
-import { NextRequest, NextResponse } from "next/server"
+import { getHealthStatus, logger } from "@/lib/monitoring"
+import { NextResponse } from "next/server"
 
-export async function GET(request: NextRequest) {
+async function currentStatus(): Promise<{ status: string; timestamp: string }> {
+  const health = await getHealthStatus()
+  return { status: health.status, timestamp: health.timestamp }
+}
+
+export async function GET() {
   try {
-    const health = await getHealthStatus()
-
-    const statusCode = health.status === "healthy" ? 200 : health.status === "degraded" ? 206 : 503
-
-    return NextResponse.json(health, { status: statusCode })
+    const status = await currentStatus()
+    return NextResponse.json(status, { status: status.status === "unhealthy" ? 503 : 200 })
   } catch (error) {
-    return NextResponse.json(
-      {
-        status: "unhealthy",
-        error: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      },
-      { status: 503 },
-    )
+    logger.error("Health check failed", error instanceof Error ? error : new Error(String(error)))
+    return NextResponse.json({ status: "unhealthy", timestamp: new Date().toISOString() }, { status: 503 })
   }
 }
 
-export async function HEAD(request: NextRequest) {
+export async function HEAD() {
   try {
-    const health = await getHealthStatus()
-    const statusCode = health.status === "healthy" ? 200 : 503
-    return new NextResponse(null, { status: statusCode })
+    const status = await currentStatus()
+    return new NextResponse(null, { status: status.status === "unhealthy" ? 503 : 200 })
   } catch {
     return new NextResponse(null, { status: 503 })
   }

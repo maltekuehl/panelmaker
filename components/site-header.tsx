@@ -29,11 +29,12 @@ export function SiteHeader({ children }: { children?: React.ReactNode }) {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-1 h-10" />
 
-        <form onSubmit={handleSearch} className="relative flex-1 max-w-md">
+        <form onSubmit={handleSearch} role="search" className="relative max-w-md flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Search cell types, proteins..."
+            placeholder="Search cell types, proteins…"
+            aria-label="Search markers, cell types and antibodies"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-9 pl-9"

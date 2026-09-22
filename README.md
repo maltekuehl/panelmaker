@@ -4,18 +4,16 @@ PanelMaker is a community-driven platform for antibody panel design in spatial p
 
 ## Publication
 
-You can find our Nature Biotechnology correspondence here: [https://www.nature.com/articles/s41587-025-02900-9](https://www.nature.com/articles/s41587-025-02900-9).
+PanelMaker grew out of BioContextAI. Our Nature Biotechnology correspondence is here: [https://www.nature.com/articles/s41587-025-02900-9](https://www.nature.com/articles/s41587-025-02900-9).
 
 If our work is useful to your research, please cite it as below.
 
 ```bibtex
 @article{BioContext_AI_Kuehl_Schaub_2025,
-  title={PanelMaker is a community hub for agentic biomedical systems},
+  title={BioContextAI is a community hub for agentic biomedical systems},
   url={http://dx.doi.org/10.1038/s41587-025-02900-9},
   urldate = {2025-11-06},
   doi={10.1038/s41587-025-02900-9},
-  year = {2025},
-  month = nov,
   journal={Nature Biotechnology},
   publisher={Springer Science and Business Media LLC},
   author={Kuehl, Malte and Schaub, Darius P. and Carli, Francesco and Heumos, Lukas and Hellmig, Malte and Fernández-Zapata, Camila and Kaiser, Nico and Schaul, Jonathan and Kulaga, Anton and Usanov, Nikolay and Koutrouli, Mikaela and Ergen, Can and Palla, Giovanni and Krebs, Christian F. and Panzer, Ulf and Bonn, Stefan and Lobentanzer, Sebastian and Saez-Rodriguez, Julio and Puelles, Victor G.},
@@ -29,8 +27,9 @@ If our work is useful to your research, please cite it as below.
 
 ### Prerequisites
 
-- Node.js 20+ (use `nvm use` to activate the correct version)
+- Node.js 24+ (run `nvm use` to activate the version in `.nvmrc`)
 - npm
+- PostgreSQL 14+ (or Docker, see the docker section below)
 
 ### 1. Clone and install
 
@@ -46,51 +45,52 @@ npm install
 Copy the example environment file:
 
 ```bash
-cp .env.local.example .env.local
+cp .env.local.example .env
 ```
 
 Required variables:
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | SQLite path, defaults to `file:./dev.db` |
-| `AUTH_SECRET` | Auth.js secret (32+ characters) |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth credentials |
-| `AUTH_LINKEDIN_ID` / `AUTH_LINKEDIN_SECRET` | LinkedIn OAuth credentials |
-| `GEMINI_API_KEY` | Google Gemini API key (AI chat features) |
-| `CRON_SECRET` | Secret for cron job authentication |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SHADOW_DATABASE_URL` | A separate, disposable database that `prisma migrate dev` may drop and recreate |
+| `NEXT_PUBLIC_BASE_URL` | Public URL of this deployment |
+| `AUTH_SECRET` | Auth.js secret, 32+ characters. Generate with `openssl rand -hex 32` |
 
-Optional variables for image uploads: `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_URL`.
+Optional: `GEMINI_API_KEY` (the shared server-side key for the AI chat; without it users must add their own in settings), `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`, `AUTH_LINKEDIN_ID` and `AUTH_LINKEDIN_SECRET` (OAuth sign-in, email and password works without them), `ENCRYPTION_KEY` (required before users can save their own provider API keys), `SCICRUNCH_API_KEY` (richer antibody search), `UPLOADS_DIR` (image storage directory, default `./data/uploads`).
 
 ### 3. Set up the database
 
-PanelMaker uses SQLite via Prisma. No external database server needed.
+PanelMaker uses PostgreSQL via Prisma with the `@prisma/adapter-pg` driver adapter.
 
 ```bash
-# Apply all migrations (creates prisma/dev.db automatically)
+# Apply all migrations
 npx prisma migrate dev
 
 # Seed the database with demo data
 npx prisma db seed
 ```
 
-The seed script (`prisma/seed.ts`) populates the database with:
+The seed script (`prisma/seed.ts`) populates the database with demo researchers and labs, proteins, Cell Ontology cell types, UBERON tissues, antibodies with RRIDs, experimental reports across CODEX, CyCIF, IMC, MIBI and IBEX, and two complete panels with cycles and fluorophore assignments. The real PathoPlex antibody inventory is seeded separately with `npm run pathoplex:seed`.
 
-- **11 users** &mdash; researchers from institutions like Stanford, Harvard, UCSF, and Complex Tissue Lab (RWTH Aachen)
-- **21 proteins** &mdash; common immune and structural markers (CD3, CD4, CD8, FoxP3, Ki67, Pan-CK, etc.)
-- **15 cell types** &mdash; from Cell Ontology (T cells, B cells, macrophages, dendritic cells, etc.)
-- **5 anatomical structures** &mdash; from UBERON (spleen, lymph node, kidney, tonsil, colon)
-- **25 cell type&ndash;marker associations** &mdash; canonical and non-canonical markers per cell type
-- **25 antibodies** &mdash; with RRID, vendor, clone, catalog number, and conjugate data (BioLegend, Abcam, Cell Signaling, BD, Thermo Fisher)
-- **46 experimental reports** &mdash; validated across CODEX, CyCIF, IMC, MIBI, IBEX, IF, and IHC methods
-- **2 panels** &mdash; complete panels with cycles, markers, and fluorophore assignments
-
-The seed performs a full database reset before inserting, so it is safe to re-run at any time:
+The seed performs a full database reset before inserting. It deletes every row, so never point it at a database whose contents matter:
 
 ```bash
-# Re-seed from scratch (deletes all data first)
-npx prisma db seed
+# Everything in order: core seed, demo login, PathoPlex, IBEX, FPbase spectra
+npm run seed:all
 ```
+
+`seed:all` chains five steps, each of which can also be run on its own:
+
+| Step | What it adds |
+|------|--------------|
+| `npx prisma db seed` | Resets the database, then the demo users, labs, ontology terms, antibodies, reports and panels |
+| `npm run seed:demo-user` | The `demo@panelmaker.local` admin login, written to `DEMO_CREDENTIALS.txt` |
+| `npm run pathoplex:seed` | The real PathoPlex antibody inventory and the two kidney experiments from the Nature paper |
+| `npm run ibex:import` | The IBEX Imaging Community knowledge base, about 950 validated reagent records |
+| `npm run fpbase:sync` | Excitation and emission spectra from FPbase, used for panel overlap checks |
+
+Only the first step is destructive. The others upsert and are safe to re-run.
 
 ### 4. Start the application
 
@@ -112,13 +112,13 @@ npx prisma studio
 
 ## Features
 
-- **Browse validated markers and antibodies** &mdash; search and filter by species, cell type, tissue, and method
-- **Design antibody panels** &mdash; build custom panels with fluorophore compatibility checking and cycle management
-- **Export panels** &mdash; download panel CSV, order list CSV (for procurement), or JSON
-- **Submit experimental validation reports** &mdash; contribute your panel validation data with ontology-backed forms
-- **AI-assisted recommendations** &mdash; get panel design suggestions via an interactive chat assistant with tool visualizations
-- **Public API** &mdash; programmatic access to all validated data at `/api/v1/`
-- **Ontology-backed search** &mdash; cell types from Cell Ontology (CL), tissues from UBERON, proteins from UniProt
+- **Browse validated markers and antibodies** - search and filter by species, cell type, tissue, and method
+- **Design antibody panels** - build custom panels with fluorophore compatibility checking and cycle management
+- **Export panels** - download panel CSV, order list CSV (for procurement), or JSON
+- **Submit experimental validation reports** - contribute your panel validation data with ontology-backed forms
+- **AI-assisted recommendations** - get panel design suggestions via an interactive chat assistant with tool visualizations
+- **Public API** - read-only JSON endpoints under `/api/` for proteins, antibodies, cell types, reports and public panels
+- **Ontology-backed search** - cell types from Cell Ontology (CL), tissues from UBERON, proteins from UniProt
 
 ## Architecture
 
@@ -136,21 +136,24 @@ components/             # React components
   ui/                   # shadcn/ui primitives
 models/                 # Data access layer (one folder per entity)
   protein/              # queries.ts, transforms.ts, schema.ts, index.ts
-  antibody/             # queries.ts, transforms.ts, schema.ts, index.ts
-  cell-type/            # queries.ts, transforms.ts, schema.ts, index.ts
-  experimental-report/  # queries.ts, transforms.ts, schema.ts, index.ts
+  antibody/ cell-type/ cellular-component/ experiment/ experimental-report/
+  fluorophore/ taxon/ tissue/ user/     # same structure
+  chat/                 # conversations, messages, encrypted provider credentials
+  evidence/             # viewer-scoped report search and aggregation for the AI tools
+  lab/                  # queries.ts, access.ts, visibility.ts, transforms.ts, schema.ts, index.ts
   panel/                # queries.ts, transforms.ts, schema.ts, intelligence.ts, index.ts
-  structure/            # queries.ts, index.ts
 lib/                    # Cross-cutting infrastructure
   integrations/         # External API clients (antibody-registry, uniprot, hpa, ensembl)
   auth.ts               # Auth.js configuration
   chat.ts               # AI chat system prompt and configuration
   chat-tools.ts         # AI tool definitions (searchMarkers, suggestPanel, etc.)
-  ontology.ts           # OLS4 API client for CL/UBERON/GO_CC lookups
+  ontology.ts           # OLS4 API client for CL, UBERON, GO CC, DOID and ROR lookups
+  storage.ts            # Local image storage (sharp, WebP conversion)
   prisma.ts             # Prisma client singleton
   rate-limiting.ts      # Rate limit configuration
 prisma/
-  schema.prisma         # Database schema (SQLite)
+  schema.prisma         # Database schema (PostgreSQL)
+  data/                 # Static seed data modules
   seed.ts               # Database seeding script
   migrations/           # Prisma migration files
 stores/                 # Zustand stores (client-side state)
@@ -163,13 +166,15 @@ tests/                  # Playwright E2E tests
 
 The Prisma schema (`prisma/schema.prisma`) models the spatial proteomics domain:
 
-- **Protein** &mdash; UniProt proteins with gene symbol and Ensembl ID
-- **CellType** &mdash; Cell Ontology terms with parent hierarchy
-- **AnatomicalStructure** &mdash; UBERON tissue terms
-- **Antibody** &mdash; commercial antibodies with RRID, vendor, clone, conjugate
-- **ExperimentalReport** &mdash; validated antibody usage in specific methods/tissues
-- **Panel / PanelCycle / PanelMarker** &mdash; user-designed antibody panels with cycle management
-- **CellTypeMarker** &mdash; canonical marker associations between cell types and proteins
+- **Protein** - UniProt proteins with gene symbol and Ensembl ID
+- **CellType** - Cell Ontology terms with parent hierarchy
+- **Tissue** - UBERON tissue terms, plus **CellularComponent** (GO CC) and **Taxon** (NCBI taxonomy)
+- **Antibody** - commercial antibodies with RRID, vendor, clone, conjugate
+- **ExperimentalReport** - validated antibody usage in specific methods/tissues
+- **Panel / PanelCycle / PanelMarker** - user-designed antibody panels with cycle management
+- **CellTypeMarker** - canonical marker associations between cell types and proteins
+- **Lab / LabMembership / LabInvitation / LabAntibody** - teams, roles, invitations and per-lab antibody inventory
+- **Fluorophore** - normalised fluorophore table anchored on FPbase
 
 ### Migrations
 
@@ -192,11 +197,14 @@ npx prisma migrate deploy
 Playwright E2E tests live in `tests/`.
 
 ```bash
+# Unit assertions (no server or database needed)
+npm run test:unit
+
 # Build and start the test server
 npm run build:test
 npm run start:test
 
-# Run all tests
+# Run all end-to-end tests
 npm test
 
 # Interactive UI mode

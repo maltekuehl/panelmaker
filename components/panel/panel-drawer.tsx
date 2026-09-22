@@ -6,19 +6,28 @@ import { cn } from "@/lib/utils"
 import { usePanelsSignal } from "@/stores/panels"
 import { Palette, X } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useCallback, useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { PanelWorkspace } from "./panel-workspace"
 
 export function PanelDrawer() {
   const [open, setOpen] = useState(false)
   const [hasOpened, setHasOpened] = useState(false)
+  const launcherRef = useRef<HTMLButtonElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
   const [markerCount, setMarkerCount] = useState(0)
   const { data: session } = useSession()
+  const pathname = usePathname()
   const panelsVersion = usePanelsSignal((s) => s.version)
 
   useEffect(() => {
-    if (open) setHasOpened(true)
-  }, [open])
+    if (open) {
+      setHasOpened(true)
+      closeRef.current?.focus()
+    } else if (hasOpened) {
+      launcherRef.current?.focus()
+    }
+  }, [open, hasOpened])
 
   const fetchPanelCount = useCallback(async () => {
     try {
@@ -48,32 +57,37 @@ export function PanelDrawer() {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false)
+      // Radix layers (dialogs, popovers, selects) call preventDefault on the Escape they consume,
+      // so this only closes the drawer when nothing inside it handled the key.
+      if (e.key === "Escape" && !e.defaultPrevented) setOpen(false)
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [open])
 
-  if (!session?.user) return null
+  // The dedicated designer route already renders a workspace, so the launcher would overlap it
+  // and mount a second copy.
+  if (!session?.user || pathname === "/panel" || pathname.startsWith("/panel/")) return null
 
   return (
     <>
       <div
+        inert={open}
         className={cn(
           "fixed right-0 top-1/2 z-40 -translate-y-1/2 transition-opacity",
           open && "pointer-events-none opacity-0",
         )}
       >
         <Button
+          ref={launcherRef}
           className="h-auto flex-col gap-2 rounded-l-2xl rounded-r-none border-b border-l border-t border-primary-foreground/10 bg-primary px-3 py-5 shadow-xl hover:bg-primary/90"
           onClick={() => setOpen(true)}
-          aria-hidden={open}
           aria-label="Open panel designer"
         >
-          <Palette className="h-6 w-6" />
+          <Palette className="size-6" />
           <span className="text-xs font-semibold leading-tight tracking-wide [writing-mode:vertical-lr]">Panel</span>
           {markerCount > 0 && (
-            <Badge variant="secondary" className="h-5 w-5 justify-center rounded-full p-0 text-[10px] font-bold">
+            <Badge variant="secondary" className="size-5 justify-center rounded-full p-0 text-xs font-bold">
               {markerCount}
             </Badge>
           )}
@@ -81,19 +95,25 @@ export function PanelDrawer() {
       </div>
 
       <aside
-        aria-hidden={!open}
+        inert={!open}
         className={cn(
-          "fixed bottom-0 right-0 top-16 z-40 flex w-[420px] max-w-[calc(100vw-1rem)] flex-col border-l bg-popover text-popover-foreground shadow-2xl transition-transform duration-300 ease-in-out",
+          "fixed bottom-0 right-0 top-16 z-40 flex w-[420px] max-w-[calc(100vw-1rem)] flex-col border-l bg-popover text-popover-foreground shadow-2xl transition-transform duration-300 ease-in-out motion-reduce:transition-none",
           open ? "translate-x-0" : "pointer-events-none translate-x-full",
         )}
       >
         <div className="flex items-center justify-between border-b p-4">
           <h2 className="font-heading text-base font-medium">Panel Designer</h2>
-          <Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Close panel designer">
-            <X className="h-4 w-4" />
+          <Button
+            ref={closeRef}
+            variant="ghost"
+            size="icon"
+            onClick={() => setOpen(false)}
+            aria-label="Close panel designer"
+          >
+            <X className="size-4" />
           </Button>
         </div>
-        <div className="flex-1 overflow-hidden">{hasOpened && <PanelWorkspace flat />}</div>
+        <div className="flex-1 overflow-hidden">{hasOpened && <PanelWorkspace />}</div>
       </aside>
     </>
   )

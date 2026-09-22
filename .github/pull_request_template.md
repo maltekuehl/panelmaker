@@ -16,10 +16,13 @@
 ## Component/Feature Area
 **Select the areas affected by this PR:**
 - [ ] Authentication/Auth.js
-- [ ] Registry/MCP Servers
+- [ ] Reports/Submissions
+- [ ] Panels/Panel designer
+- [ ] Antibodies/Markers/Cell types
+- [ ] Labs/Teams
 - [ ] Chat/AI Integration
 - [ ] Blog/Content Management
-- [ ] Collections
+- [ ] Browse/Search
 - [ ] Admin Dashboard
 - [ ] User Management
 - [ ] API Routes

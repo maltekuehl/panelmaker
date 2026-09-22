@@ -13,11 +13,9 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # ─── deps ────────────────────────────────────────────────────────────
-# Install all dependencies. `postinstall` runs `prisma generate`, and
-# prisma.config.ts resolves DATABASE_URL at load time, so a build-only
-# placeholder is required even though generation never touches the DB.
+# Install all dependencies. `postinstall` runs `prisma generate`, which never
+# connects to the database; prisma.config.ts falls back to a placeholder URL.
 FROM base AS deps
-ENV DATABASE_URL=postgresql://build:build@localhost:5432/build
 COPY package.json package-lock.json prisma.config.ts ./
 COPY prisma ./prisma
 RUN npm ci
@@ -38,9 +36,7 @@ ARG NEXT_PUBLIC_BASE_URL=http://localhost:8080
 ENV NODE_ENV=production \
   NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL} \
   DATABASE_URL=postgresql://postgres@127.0.0.1:5432/panelmaker_build \
-  AUTH_SECRET=build_time_placeholder_secret_min_32_chars \
-  GEMINI_API_KEY=build \
-  CRON_SECRET=build_time_placeholder_secret
+  AUTH_SECRET=build_time_placeholder_secret_min_32_chars
 RUN apt-get update \
   && apt-get install -y --no-install-recommends postgresql \
   && rm -rf /var/lib/apt/lists/*
@@ -71,12 +67,10 @@ CMD ["npx", "prisma", "migrate", "deploy"]
 # Hot-reloading dev server. Source is bind-mounted by docker-compose.dev.yml;
 # node_modules and lib/generated are seeded into named volumes from this image.
 FROM base AS dev
-ENV NODE_ENV=development \
-  DATABASE_URL=postgresql://build:build@localhost:5432/build
-COPY package.json package-lock.json prisma.config.ts ./
-COPY prisma ./prisma
-RUN npm ci
+ENV NODE_ENV=development
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+COPY --from=deps /app/lib/generated ./lib/generated
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
 

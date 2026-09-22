@@ -1,17 +1,27 @@
-import { auth } from "@/auth"
-import { createAuthHandler, isUserAdmin } from "@/lib/auth"
-import {
-  createBlogPost,
-  getBlogPosts,
-  type BlogPostFilters,
-  type CreateBlogPostData,
-  type PaginationOptions,
-} from "@/lib/blog"
+import { createAuthHandler, getSessionUser } from "@/lib/auth"
+import { createBlogPost, getBlogPosts, type BlogPostFilters, type CreateBlogPostData } from "@/lib/blog"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getRequestContext, logger } from "@/lib/monitoring"
 import { revalidateTag } from "next/cache"
 import { connection, NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+
+const blogListParamsSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  search: z.string().trim().max(200).optional(),
+  published: z
+    .enum(["true", "false"])
+    .transform((value) => value === "true")
+    .optional(),
+  authorId: z.string().max(64).optional(),
+})
+
+// The author email is never part of a public response.
+function withPublicAuthor<T extends { author: { id: string; name: string | null; image: string | null } }>(post: T) {
+  const { author, ...rest } = post
+  return { ...rest, author: { id: author.id, name: author.name, image: author.image } }
+}
 
 // Validation schema for blog post creation
 const createBlogPostSchema = z.object({
@@ -28,46 +38,30 @@ const createBlogPostSchema = z.object({
 export async function GET(request: NextRequest) {
   await connection()
   try {
-    const { searchParams } = new URL(request.url)
+    const query = blogListParamsSchema.parse(Object.fromEntries(request.nextUrl.searchParams))
 
-    // Parse pagination parameters
-    const page = parseInt(searchParams.get("page") || "1", 10)
-    const limit = parseInt(searchParams.get("limit") || "10", 10)
-
-    // Parse filter parameters
     const filters: BlogPostFilters = {}
-
-    const publishedParam = searchParams.get("published")
-    if (publishedParam !== null) {
-      filters.published = publishedParam === "true"
+    if (query.published !== undefined) {
+      filters.published = query.published
+    }
+    if (query.authorId) {
+      filters.authorId = query.authorId
+    }
+    if (query.search) {
+      filters.search = query.search
     }
 
-    const authorId = searchParams.get("authorId")
-    if (authorId) {
-      filters.authorId = authorId
-    }
+    const isAdmin = (await getSessionUser())?.isAdmin ?? false
 
-    const search = searchParams.get("search")
-    if (search) {
-      filters.search = search
-    }
-
-    // Check if user is authenticated and admin for unpublished posts
-    const session = await auth()
-    const isAdmin = session?.user?.id ? await isUserAdmin(session.user.id) : false
-
-    // If not admin, only show published posts
     if (!isAdmin && filters.published === undefined) {
       filters.published = true
     }
 
-    const pagination: PaginationOptions = { page, limit }
-    const result = await getBlogPosts(filters, pagination)
+    const result = await getBlogPosts(filters, { page: query.page, limit: query.limit })
 
-    return NextResponse.json(result)
+    return NextResponse.json({ ...result, posts: result.posts.map(withPublicAuthor) })
   } catch (error) {
-    logger.error("Error fetching blog posts", error instanceof Error ? error : new Error(String(error)))
-    return NextResponse.json({ error: "Failed to fetch blog posts" }, { status: 500 })
+    return createErrorResponse(error, "Failed to fetch blog posts")
   }
 }
 
@@ -103,7 +97,6 @@ export const POST = createAuthHandler(async (request: NextRequest, user) => {
       201,
     )
   } catch (error) {
-    logger.error("Failed to create blog post", error as Error, { userId: user.id })
     return createErrorResponse(error, "Failed to create blog post")
   }
 }, true)

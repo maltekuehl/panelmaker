@@ -13,6 +13,8 @@
 // Note: antibody records carry NO gene/UniProt/Entrez cross-reference, only a target name. The
 // target -> UniProt link is resolved separately and species-constrained (lib/integrations/uniprot.ts),
 // never read off the antibody record.
+import { EXTERNAL_FETCH_TIMEOUT_MS, fetchJson } from "@/lib/integrations/http"
+
 const SCICRUNCH_SEARCH_URL = "https://api.scicrunch.io/elastic/v1/RIN_Antibody_pr/_search"
 
 // ---- Structured shape of a RIN_Antibody_pr hit's _source (only the fields we read) ----
@@ -85,18 +87,24 @@ function apiKey(): string {
 }
 
 // Low-level POST to the RIN_Antibody_pr index. Retries transient failures; returns hit _source rows.
+// A missing API key throws before the retry loop so a misconfigured server is not reported as
+// "no results", and client errors (4xx other than 429) are not retried.
 export async function rinSearch(body: unknown, retries = 2): Promise<ScicrunchSource[]> {
+  const key = apiKey()
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(SCICRUNCH_SEARCH_URL, {
         method: "POST",
-        headers: { "apikey": apiKey(), "Content-Type": "application/json" },
+        headers: { "apikey": key, "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
       })
       if (res.ok) {
         const json = (await res.json()) as { hits?: { hits?: { _source?: ScicrunchSource }[] } }
         return (json.hits?.hits ?? []).map((h) => h._source).filter((s): s is ScicrunchSource => Boolean(s))
       }
+      if (res.status < 500 && res.status !== 429) return []
     } catch {
       // fall through to retry
     }
@@ -193,14 +201,11 @@ export async function searchAntibodyHitsByCatalog(
 export async function resolveRridSource(rrid: string): Promise<ScicrunchSource | null> {
   const id = rrid.replace(/^rrid:/i, "").trim()
   if (!id) return null
-  try {
-    const res = await fetch(`https://scicrunch.org/resolver/RRID:${id}.json`, { next: { revalidate: 86400 } })
-    if (!res.ok) return null
-    const json = (await res.json()) as { hits?: { hits?: { _source?: ScicrunchSource }[] } }
-    return json.hits?.hits?.[0]?._source ?? null
-  } catch {
-    return null
-  }
+  const json = await fetchJson<{ hits?: { hits?: { _source?: ScicrunchSource }[] } }>(
+    `https://scicrunch.org/resolver/RRID:${id}.json`,
+    { next: { revalidate: 86400 } },
+  )
+  return json?.hits?.hits?.[0]?._source ?? null
 }
 
 // ---- Field helpers + normalizer ----
@@ -238,7 +243,7 @@ export function mapHit(hit: ScicrunchSource): RegistryAntibody {
     isotype: text(primary?.isotype?.name),
     targetSpecies,
     applications: [],
-    url: "",
+    url: /^https?:\/\//.test(text(vendor?.link)) ? text(vendor?.link) : "",
     citationCount: citationCountOf(hit),
   }
 }

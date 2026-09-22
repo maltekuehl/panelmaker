@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import type { Metadata, Viewport } from "next"
 import { DM_Sans, Outfit } from "next/font/google"
 import localFont from "next/font/local"
+import { cookies } from "next/headers"
 import { Suspense } from "react"
 import "./globals.css"
 
@@ -38,6 +39,7 @@ const inter = localFont({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(env.NEXT_PUBLIC_BASE_URL || "https://panelmaker.ai"),
   title: "PanelMaker",
   description:
     "A community-driven database of validated antibodies and cell type markers for spatial proteomics, including PathoPlex, MIBI-ToF, CODEX, and IMC.",
@@ -64,11 +66,11 @@ export const metadata: Metadata = {
     description:
       "Community-driven database of validated antibodies and cell type markers for spatial proteomics panel design.",
     type: "website",
-    url: "https://panelmaker.ai",
+    url: "/",
     siteName: "PanelMaker",
     images: [
       {
-        url: "https://panelmaker.ai/ms-icon-310x310.png",
+        url: "/ms-icon-310x310.png",
         width: 310,
         height: 310,
         alt: "PanelMaker - Validated Spatial Proteomics Marker Database",
@@ -83,8 +85,10 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   viewportFit: "cover",
-  themeColor: "#000000",
-  colorScheme: "light",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
 }
 
 export default async function RootLayout({ children }: React.PropsWithChildren) {
@@ -107,9 +111,6 @@ export default async function RootLayout({ children }: React.PropsWithChildren) 
         <link rel="manifest" href="/manifest.json" />
         <meta name="msapplication-TileColor" content="#ffffff" />
         <meta name="msapplication-TileImage" content="/ms-icon-144x144.png" />
-        <meta name="theme-color" content="#ffffff" />
-
-        <base href={env.NEXT_PUBLIC_BASE_URL || "https://panelmaker.ai"} />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
@@ -123,13 +124,13 @@ export default async function RootLayout({ children }: React.PropsWithChildren) 
 }
 
 async function SessionProvider({ children }: React.PropsWithChildren) {
-  const session = await auth()
+  const [session, cookieStore] = await Promise.all([auth(), cookies()])
+  const sidebarOpen = cookieStore.get("sidebar_state")?.value !== "false"
 
-  // Filter out sensitive data before passing to client
   let clientSession = null
   if (session?.user) {
     clientSession = {
-      ...session,
+      expires: session.expires,
       user: {
         id: session.user.id,
         name: session.user.name,
@@ -141,7 +142,7 @@ async function SessionProvider({ children }: React.PropsWithChildren) {
 
   return (
     <Providers session={clientSession}>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={sidebarOpen}>
         <AppSidebar />
         <SidebarInset className="min-w-0">
           <SiteHeader>

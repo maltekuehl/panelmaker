@@ -7,16 +7,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Linkedin } from "lucide-react"
-import { AuthError } from "next-auth"
+import { Linkedin, User } from "lucide-react"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 
 type ProviderInfo = { id: string; name: string }
 
+const ERROR_MESSAGES: Record<string, string> = {
+  CredentialsSignin: "Invalid email or password.",
+  AccessDenied: "This account is not allowed to sign in.",
+  OAuthAccountNotLinked: "That email is already registered with a different sign-in method.",
+  Configuration: "Sign in is unavailable right now. Please try again later.",
+}
+
+function errorMessage(code: string): string {
+  return ERROR_MESSAGES[code] ?? "Something went wrong signing you in. Please try again."
+}
+
 export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] }) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -25,31 +36,32 @@ export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] })
     e.preventDefault()
     if (isPending) return
 
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+
     startTransition(async () => {
-      try {
-        setError(null)
-        const formData = new FormData(e.currentTarget)
-        const email = formData.get("email") as string
-        const password = formData.get("password") as string
+      setError(null)
 
-        if (!email || !password) {
-          setError("Email and password are required.")
-          return
-        }
-
-        await signIn("credentials", {
-          redirect: true,
-          redirectTo: searchParams.get("callbackUrl") || "/",
-          email,
-          password,
-        })
-      } catch (error) {
-        if (error instanceof AuthError) {
-          setError(error.message)
-          return
-        }
-        setError("Invalid email or password. Please try again.")
+      if (!email || !password) {
+        setError("Email and password are required.")
+        return
       }
+
+      const result = await signIn("credentials", {
+        redirect: false,
+        redirectTo: searchParams.get("callbackUrl") || "/",
+        email,
+        password,
+      })
+
+      if (result?.error) {
+        setError(errorMessage(result.error))
+        return
+      }
+
+      router.push(result?.url ?? "/")
+      router.refresh()
     })
   }
 
@@ -58,19 +70,11 @@ export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] })
     if (isPending) return
 
     startTransition(async () => {
-      try {
-        setError(null)
-        await signIn(providerId, {
-          redirect: true,
-          redirectTo: searchParams.get("callbackUrl") || "/",
-        })
-      } catch (error) {
-        if (error instanceof AuthError) {
-          setError(error.message)
-          return
-        }
-        setError("An unexpected error occurred. Please try again.")
-      }
+      setError(null)
+      await signIn(providerId, {
+        redirect: true,
+        redirectTo: searchParams.get("callbackUrl") || "/",
+      })
     })
   }
 
@@ -81,19 +85,7 @@ export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] })
       <Card>
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-6 w-6 text-primary"
-            >
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+            <User className="size-6 text-primary" />
           </div>
           <CardTitle className="text-xl">Sign in to your account</CardTitle>
           <CardDescription className="text-center">
@@ -106,9 +98,7 @@ export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] })
               <Alert variant="destructive" className="bg-destructive/50">
                 <AlertTitle className="text-destructive-foreground">Error</AlertTitle>
                 <AlertDescription className="text-destructive-foreground">
-                  {searchParams.get("error") === "CredentialsSignin"
-                    ? "Invalid email or password."
-                    : searchParams.get("error")}
+                  {errorMessage(searchParams.get("error") ?? "")}
                 </AlertDescription>
               </Alert>
             )}
@@ -123,14 +113,28 @@ export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] })
             <form onSubmit={handleCredentialsSubmit} className="flex flex-col gap-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" placeholder="you@institution.edu" required />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@institution.edu"
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" name="password" type="password" placeholder="Your password" required />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Your password"
+                  required
+                />
               </div>
               <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? "Signing in..." : "Sign in"}
+                {isPending ? "Signing in…" : "Sign in"}
               </Button>
             </form>
 
@@ -148,7 +152,7 @@ export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] })
                     <Separator className="w-full" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
                   </div>
                 </div>
 
@@ -156,8 +160,8 @@ export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] })
                   {oauthProviders.map((provider) => (
                     <form key={provider.id} onSubmit={handleOAuthSubmit.bind(null, provider.id)}>
                       <Button type="submit" variant="outline" className="w-full" disabled={isPending}>
-                        {provider.name === "GitHub" && <GitHub className="w-4 h-4 mr-2" />}
-                        {provider.name === "LinkedIn" && <Linkedin className="w-4 h-4 mr-2" />}
+                        {provider.name === "GitHub" && <GitHub className="size-4" />}
+                        {provider.name === "LinkedIn" && <Linkedin className="size-4" />}
                         Sign in with {provider.name}
                       </Button>
                     </form>

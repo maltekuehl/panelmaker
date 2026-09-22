@@ -3,7 +3,6 @@ import { isEncryptionConfigured } from "@/lib/crypto"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getLabApiCredentials, upsertCredentialSchema, upsertLabApiCredential } from "@/models/chat"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -34,9 +33,6 @@ export async function POST(request: NextRequest, context: Context) {
     await upsertLabApiCredential(id, user.id, validated)
     return createSuccessResponse({ success: true }, 201)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to save lab API key")
   }
 }

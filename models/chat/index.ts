@@ -1,8 +1,9 @@
 export {
+  appendMessages,
   conversationBelongsToUser,
   countMessages,
   createConversation,
-  deleteAllConversationsForUser,
+  deleteConversation,
   deleteLabApiCredential,
   deleteMessageAndAfter,
   deleteUserApiCredential,
@@ -10,23 +11,32 @@ export {
   getConversationsForUser,
   getLabApiCredentials,
   getMostRecentConversationId,
+  getOwnedConversation,
   getUserApiCredentials,
+  listAvailableProviders,
+  logChatUsage,
   resolveProviderKey,
   saveAssistantMessages,
   saveUserMessage,
   setConversationTitle,
-  softDeleteConversation,
   updateConversation,
   upsertLabApiCredential,
   upsertUserApiCredential,
 } from "./queries"
-export type { CredentialView } from "./queries"
+export type { CredentialView, KeySource, ResolvedProviderKey } from "./queries"
 export {
+  PROVIDER_IDS,
   chatRequestSchema,
   createConversationSchema,
-  renameConversationSchema,
   updateConversationSchema,
   upsertCredentialSchema,
 } from "./schema"
-export { deriveRole, storedMessageId } from "./transforms"
+export type { ProviderId } from "./schema"
+export {
+  deriveRole,
+  extractMessageText,
+  parseStoredMessage,
+  storedMessageId,
+  toConversationSummary,
+} from "./transforms"
 export type { ConversationSummary, ConversationWithMessages } from "./transforms"

@@ -2,6 +2,11 @@ import type { LeaderboardEntry, RecentReportRow, UserProfileRow, UserStats } fro
 
 export type { LeaderboardEntry, UserProfileRow, UserStats }
 
+// Emails are compared as identity keys, so every read and write has to agree on one spelling.
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase()
+}
+
 export type RecentReportSummary = {
   id: string
   markerName: string
@@ -17,7 +22,7 @@ export type RecentReportSummary = {
 export function toRecentReportSummary(report: RecentReportRow): RecentReportSummary {
   return {
     id: report.id,
-    markerName: report.antibody?.name ?? `Report #${report.id}`,
+    markerName: report.antibody?.name ?? "Unlinked antibody",
     proteinId: report.antibody?.targetProteinId ?? null,
     antibodyRrid: report.antibody?.rrid ?? null,
     cellType: report.cellTypes.map((l) => l.cellType.label).join(", ") || null,
@@ -34,9 +39,11 @@ export type ContributionTier = {
 }
 
 export function getContributionTier(reportCount: number): ContributionTier {
-  if (reportCount === 0) return { label: "New Member", color: "bg-zinc-100 text-zinc-700" }
-  if (reportCount < 5) return { label: "Contributor", color: "bg-blue-100 text-blue-700" }
-  if (reportCount < 15) return { label: "Active Contributor", color: "bg-emerald-100 text-emerald-700" }
-  if (reportCount < 30) return { label: "Expert", color: "bg-purple-100 text-purple-700" }
-  return { label: "Champion", color: "bg-amber-100 text-amber-700" }
+  if (reportCount === 0) return { label: "New Member", color: "bg-muted text-muted-foreground" }
+  if (reportCount < 5) return { label: "Contributor", color: "bg-primary/10 text-primary" }
+  if (reportCount < 15) {
+    return { label: "Active Contributor", color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" }
+  }
+  if (reportCount < 30) return { label: "Expert", color: "bg-purple-500/15 text-purple-700 dark:text-purple-300" }
+  return { label: "Champion", color: "bg-amber-500/15 text-amber-700 dark:text-amber-300" }
 }

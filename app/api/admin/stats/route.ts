@@ -9,28 +9,27 @@ async function getStatsForPeriod(daysAgo: number): Promise<PeriodStats> {
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - daysAgo)
 
-  const totalMessages = await prisma.chatMessage.count({
-    where: { createdAt: { gte: startDate } },
-  })
-
-  const uniqueUsers = await prisma.chatMessage.findMany({
-    where: {
-      createdAt: { gte: startDate },
-      userId: { not: null },
-    },
-    select: { userId: true },
-    distinct: ["userId"],
-  })
-
-  const modelUsageData = await prisma.chatMessage.groupBy({
-    by: ["modelName"],
-    where: {
-      createdAt: { gte: startDate },
-      modelName: { not: null },
-    },
-    _count: { id: true },
-    _sum: { totalTokens: true },
-  })
+  const [totalMessages, uniqueUsers, modelUsageData] = await Promise.all([
+    prisma.chatMessage.count({
+      where: { createdAt: { gte: startDate } },
+    }),
+    prisma.chatMessage.groupBy({
+      by: ["userId"],
+      where: {
+        createdAt: { gte: startDate },
+        userId: { not: null },
+      },
+    }),
+    prisma.chatMessage.groupBy({
+      by: ["modelName"],
+      where: {
+        createdAt: { gte: startDate },
+        modelName: { not: null },
+      },
+      _count: { id: true },
+      _sum: { totalTokens: true },
+    }),
+  ])
 
   const modelUsage: ModelUsageStats[] = modelUsageData
     .map((item) => ({
@@ -63,6 +62,6 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
     return createSuccessResponse(response)
   } catch (error) {
     logger.error("Failed to fetch statistics", error as Error, { userId: user.id })
-    return createErrorResponse("Failed to fetch statistics")
+    return createErrorResponse(error, "Failed to fetch statistics")
   }
 }, true)

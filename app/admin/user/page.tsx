@@ -1,5 +1,5 @@
-import { auth } from "@/auth"
-import { isUserAdmin } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
+import { signInUrl } from "@/lib/routes"
 import { Loader2 } from "lucide-react"
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
@@ -7,21 +7,18 @@ import { Suspense } from "react"
 import UserList from "./UserList"
 
 export const metadata: Metadata = {
-  title: "User Management - Admin",
+  title: "User Management | Admin | PanelMaker",
   description: "Manage community members and their access",
 }
 
 export default async function AdminUserPage() {
-  const session = await auth()
+  const user = await getSessionUser()
 
-  // Check if user is authenticated
-  if (!session?.user?.id) {
-    redirect("/signin")
+  if (!user) {
+    redirect(signInUrl("/admin/user"))
   }
 
-  // Check if user is admin
-  const adminStatus = await isUserAdmin(session.user.id)
-  if (!adminStatus) {
+  if (!user.isAdmin) {
     redirect("/")
   }
 

@@ -2,8 +2,8 @@ import { authErrorResponse, requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import {
   conversationBelongsToUser,
+  deleteConversation,
   getConversation,
-  softDeleteConversation,
   updateConversation,
   updateConversationSchema,
 } from "@/models/chat"
@@ -46,12 +46,13 @@ export async function PATCH(request: NextRequest, context: Context) {
   }
 }
 
-// DELETE /api/chat/conversations/[id] - Soft delete (owner only; scoped updateMany is a no-op otherwise)
+// DELETE /api/chat/conversations/[id] - Delete the conversation and its messages (owner only; the
+// scoped deleteMany is a no-op for anyone else)
 export async function DELETE(request: NextRequest, context: Context) {
   try {
     const { id } = await context.params
     const user = await requireAuth(request)
-    await softDeleteConversation(user.id, id)
+    await deleteConversation(user.id, id)
     return createSuccessResponse({ success: true })
   } catch (error) {
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to delete conversation")

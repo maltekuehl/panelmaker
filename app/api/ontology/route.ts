@@ -1,8 +1,11 @@
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import {
   searchCellOntology,
+  searchChebi,
   searchDiseaseOntology,
   searchGoCellularComponent,
+  searchHsapDv,
+  searchMmusDv,
   searchRor,
   searchSpecies,
   searchUberon,
@@ -11,12 +14,11 @@ import {
 import { NextRequest } from "next/server"
 import { z } from "zod"
 
-const querySchema = z
-  .object({
-    type: z.enum(["cl", "uberon", "ncbi_taxonomy", "go_cc", "doid", "ror"]),
-    q: z.string().min(1).max(200),
-  })
-  .strict()
+const querySchema = z.object({
+  type: z.enum(["cl", "uberon", "ncbi_taxonomy", "go_cc", "doid", "ror", "chebi", "hsapdv", "mmusdv"]),
+  q: z.string().min(1).max(200),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+})
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,15 +32,16 @@ export async function GET(request: NextRequest) {
       go_cc: searchGoCellularComponent,
       doid: searchDiseaseOntology,
       ror: searchRor,
+      chebi: searchChebi,
+      hsapdv: searchHsapDv,
+      mmusdv: searchMmusDv,
     }
 
-    const results = await searchFn[validated.type](validated.q)
+    const found = await searchFn[validated.type](validated.q)
+    const results = validated.limit ? found.slice(0, validated.limit) : found
 
     return createSuccessResponse({ results })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     return createErrorResponse(error, "Failed to search ontology")
   }
 }

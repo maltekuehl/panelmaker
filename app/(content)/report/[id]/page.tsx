@@ -1,17 +1,23 @@
-import { auth } from "@/auth"
 import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
+import { QualityBadge } from "@/components/browse/report-badges"
 import { LabLink } from "@/components/lab/lab-link"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
+import { NotAvailable } from "@/components/shared/not-available"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { resolveViewerContext } from "@/lib/auth"
+import { getSessionUser, resolveViewerContext } from "@/lib/auth"
+import { VALIDATION_STATUS_LABELS } from "@/lib/constants"
+import { formatLongDate } from "@/lib/format"
 import { doiUrl, hasPublication, pubmedUrl } from "@/lib/publication"
+import { antibodyHref, cellTypeHref, conditionHref, markerHref, profileHref } from "@/lib/routes"
+import { preservationLabel, specimenFieldList } from "@/models/experiment"
 import {
   getPublicReportById,
   getVisibleReportById,
   reportUsageImages,
   toReportUsage,
+  type ReportImageResponse,
 } from "@/models/experimental-report"
 import { CheckCircle2, ExternalLink, HelpCircle, XCircle } from "lucide-react"
 import type { Metadata } from "next"
@@ -31,46 +37,34 @@ export async function generateMetadata({ params }: ReportPageProps): Promise<Met
   const marker = report.antibody?.targetName ?? report.antibody?.name ?? "Unknown"
   return {
     title: `${marker}: Experimental Report #${report.id} | PanelMaker`,
-    description: `Experimental validation report for ${marker} using ${report.experiment.method ?? "unknown method"} on ${report.experiment.species?.label ?? "unknown species"} ${report.experiment.tissue?.label ?? ""} tissue.`,
+    description: `Experimental validation report for ${marker} using ${report.experiment.imagingMethod?.label ?? "unknown method"} on ${report.experiment.species?.label ?? "unknown species"} ${report.experiment.tissue?.label ?? ""} tissue.`,
   }
 }
 
-function QualityBadge({ label }: { label: string | null }) {
-  if (!label) return <span className="text-muted-foreground">N/A</span>
-  const styles: Record<string, string> = {
-    EXCELLENT: "bg-green-100 text-green-700 border-green-200",
-    GOOD: "bg-primary/10 text-primary border-primary/20",
-    MODERATE: "bg-amber-100 text-amber-700 border-amber-200",
-    POOR: "bg-red-100 text-red-700 border-red-200",
-    HIGH: "bg-green-100 text-green-700 border-green-200",
-    LOW: "bg-red-100 text-red-700 border-red-200",
-  }
-  return (
-    <Badge className={styles[label] ?? "bg-zinc-100 text-zinc-700"}>
-      {label.charAt(0) + label.slice(1).toLowerCase()}
-    </Badge>
-  )
+function ReportQuality({ label }: { label: string | null }) {
+  if (!label) return <NotAvailable />
+  return <QualityBadge label={label} />
 }
 
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "PUBLISHED":
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-200 gap-1">
+        <Badge className="gap-1 border-success/20 bg-success/10 text-success">
           <CheckCircle2 className="h-3 w-3" />
-          Published
+          {VALIDATION_STATUS_LABELS.PUBLISHED}
         </Badge>
       )
     case "REJECTED":
       return (
-        <Badge className="bg-red-100 text-red-700 border-red-200 gap-1">
+        <Badge className="gap-1 border-destructive/20 bg-destructive/10 text-destructive">
           <XCircle className="h-3 w-3" />
-          Rejected
+          {VALIDATION_STATUS_LABELS.REJECTED}
         </Badge>
       )
     default:
       return (
-        <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
+        <Badge className="gap-1 border-warning/20 bg-warning/10 text-warning">
           <HelpCircle className="h-3 w-3" />
           Pending
         </Badge>
@@ -82,29 +76,50 @@ function WorksIndicator({ works }: { works: boolean | null }) {
   if (works === null) {
     return (
       <div className="flex items-center gap-2">
-        <div className="h-3 w-3 rounded-full bg-zinc-300" />
+        <div className="h-3 w-3 rounded-full bg-muted-foreground/40" />
         <span className="text-sm font-medium">Unknown</span>
       </div>
     )
   }
   return works ? (
     <div className="flex items-center gap-2">
-      <div className="h-3 w-3 rounded-full bg-green-500" />
-      <span className="text-sm font-medium text-green-700">Works</span>
+      <div className="h-3 w-3 rounded-full bg-success" />
+      <span className="text-sm font-medium text-success">Works</span>
     </div>
   ) : (
     <div className="flex items-center gap-2">
-      <div className="h-3 w-3 rounded-full bg-red-500" />
-      <span className="text-sm font-medium text-red-700">Failed</span>
+      <div className="h-3 w-3 rounded-full bg-destructive" />
+      <span className="text-sm font-medium text-destructive">Failed</span>
     </div>
   )
 }
 
+// Only some images carry a caption, so the whole block is dropped when none does. Once one image has
+// one, the rest keep a labelled slot: "Image 2" with nothing under it would read as a rendering fault.
+function ImageCaptions({ images }: { images: ReportImageResponse[] }) {
+  if (!images.some((image) => image.caption?.trim())) return null
+  const numbered = images.length > 1
+
+  return (
+    <dl className="space-y-2 text-sm">
+      {images.map((image, index) => (
+        <div key={image.url} className="space-y-0.5">
+          {numbered && <dt className="text-xs font-medium text-muted-foreground">Image {index + 1}</dt>}
+          <dd className="break-words whitespace-pre-wrap text-muted-foreground">
+            {image.caption?.trim() ? image.caption : <NotAvailable />}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const missing = children === null || children === undefined || children === ""
   return (
     <div className="space-y-0.5">
       <span className="block text-xs font-medium text-muted-foreground">{label}</span>
-      <div className="text-sm font-medium">{children}</div>
+      <div className="text-sm font-medium">{missing ? <NotAvailable /> : children}</div>
     </div>
   )
 }
@@ -112,12 +127,15 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 // Viewer-aware (uncached): a report is shown only if the viewer may see it (public, own, or
 // lab-shared, including unpublished lab work). Must not be wrapped in "use cache" because it reads auth.
 async function ReportContent({ id }: { id: string }) {
-  const session = await auth()
-  const viewer = await resolveViewerContext(session?.user?.id ?? null)
+  const user = await getSessionUser()
+  const viewer = await resolveViewerContext(user?.id ?? null)
   const report = await getVisibleReportById(id, viewer)
   if (!report) notFound()
 
   const usage = toReportUsage(report)
+  const antibodyLink = antibodyHref(usage.antibodyId)
+  const preservation = preservationLabel(usage.specimen)
+  const specimenFields = specimenFieldList(usage.specimen)
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -131,7 +149,7 @@ async function ReportContent({ id }: { id: string }) {
                 <AddToPanelButton
                   antibodyId={usage.antibodyDbId}
                   proteinId={usage.proteinId ?? undefined}
-                  label={usage.markerName ?? usage.clone}
+                  label={usage.markerName ?? usage.clone ?? usage.antibodyName}
                   size="sm"
                   className="gap-2"
                 />
@@ -140,7 +158,9 @@ async function ReportContent({ id }: { id: string }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-4">
-            <Badge variant="secondary">{usage.method}</Badge>
+            <Badge variant="secondary" title={usage.method}>
+              {usage.methodShort}
+            </Badge>
             <Badge variant="outline">{usage.species}</Badge>
             <WorksIndicator works={usage.works} />
           </div>
@@ -158,7 +178,7 @@ async function ReportContent({ id }: { id: string }) {
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
             <DetailRow label="Marker / Target">
               {usage.proteinId ? (
-                <Link href={`/marker/${usage.proteinId}`} className="text-primary hover:underline">
+                <Link href={markerHref(usage.proteinId)} className="text-primary hover:underline">
                   {usage.markerName ?? "Unknown"}
                 </Link>
               ) : (
@@ -166,20 +186,21 @@ async function ReportContent({ id }: { id: string }) {
               )}
             </DetailRow>
             <DetailRow label="Antibody">
-              <Link
-                href={`/antibody/${usage.antibodyId.replace(/^RRID:/, "")}`}
-                className="text-primary hover:underline"
-              >
-                {usage.antibodyName}
-              </Link>
+              {antibodyLink ? (
+                <Link href={antibodyLink} className="text-primary hover:underline">
+                  {usage.antibodyName}
+                </Link>
+              ) : (
+                usage.antibodyName
+              )}
             </DetailRow>
             <DetailRow label="RRID">
-              <span className="font-mono">{usage.antibodyId}</span>
+              {usage.antibodyId ? <span className="font-mono">{usage.antibodyId}</span> : <NotAvailable />}
             </DetailRow>
             <DetailRow label="Clone">{usage.clone}</DetailRow>
             <DetailRow label="Vendor">{usage.antibodyVendor}</DetailRow>
-            <DetailRow label="Catalog #">{usage.catalogNumber ?? "N/A"}</DetailRow>
-            <DetailRow label="Host Species">{usage.hostSpecies ?? "N/A"}</DetailRow>
+            <DetailRow label="Catalog #">{usage.catalogNumber ?? "Not available"}</DetailRow>
+            <DetailRow label="Host Species">{usage.hostSpecies ?? "Not available"}</DetailRow>
             <DetailRow label="Conjugate">{usage.conjugate ?? "Unconjugated"}</DetailRow>
           </div>
         </div>
@@ -189,10 +210,29 @@ async function ReportContent({ id }: { id: string }) {
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
             <DetailRow label="Species">{usage.species}</DetailRow>
             <DetailRow label="Tissue">{usage.tissueLabel}</DetailRow>
-            <DetailRow label="Fixation">{usage.fixation}</DetailRow>
+            <DetailRow label="Preservation">{preservation ?? usage.fixation}</DetailRow>
             <DetailRow label="Method">{usage.method}</DetailRow>
             <DetailRow label="Dilution">{usage.dilution}</DetailRow>
             <DetailRow label="Antigen Retrieval">{usage.antigenRetrieval}</DetailRow>
+            {specimenFields
+              .filter((field) => field.label !== "Preservation")
+              .map((field) => (
+                <DetailRow key={field.label} label={field.label}>
+                  <span title={field.hint}>{field.value}</span>
+                </DetailRow>
+              ))}
+            {usage.specimen.protocolDoi && (
+              <DetailRow label="Protocol">
+                <a
+                  href={doiUrl(usage.specimen.protocolDoi)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {usage.specimen.protocolDoi}
+                </a>
+              </DetailRow>
+            )}
             {usage.incubation && <DetailRow label="Incubation">{usage.incubation}</DetailRow>}
             {usage.fluorophore && <DetailRow label="Fluorophore">{usage.fluorophore}</DetailRow>}
             {usage.metalTag && <DetailRow label="Metal Tag">{usage.metalTag}</DetailRow>}
@@ -207,17 +247,17 @@ async function ReportContent({ id }: { id: string }) {
               <WorksIndicator works={usage.works} />
             </DetailRow>
             <DetailRow label="Signal Quality">
-              <QualityBadge label={usage.signalQuality} />
+              <ReportQuality label={usage.signalQuality} />
             </DetailRow>
             <DetailRow label="Specificity">
-              <QualityBadge label={usage.specificity} />
+              <ReportQuality label={usage.specificity} />
             </DetailRow>
             {usage.cellTypes.length > 0 && (
               <DetailRow label="Cell Types">
                 <span className="flex flex-wrap gap-x-1">
                   {usage.cellTypes.map((ct, idx) => (
                     <span key={ct.id}>
-                      <Link href={`/celltype/${ct.id}`} className="text-primary hover:underline">
+                      <Link href={cellTypeHref(ct.id)} className="text-primary hover:underline">
                         {ct.label}
                       </Link>
                       {idx < usage.cellTypes.length - 1 && ", "}
@@ -231,7 +271,7 @@ async function ReportContent({ id }: { id: string }) {
             )}
             {usage.conditionId && (
               <DetailRow label="Condition">
-                <Link href={`/condition/${usage.conditionId}`} className="text-primary hover:underline">
+                <Link href={conditionHref(usage.conditionId)} className="text-primary hover:underline">
                   {usage.conditionLabel ?? usage.conditionId}
                 </Link>
               </DetailRow>
@@ -251,6 +291,7 @@ async function ReportContent({ id }: { id: string }) {
           <div className="space-y-4">
             <h3 className="font-semibold">Images</h3>
             <ImageCarouselDialog images={reportUsageImages(usage)} title={`Report #${report.id}`} />
+            <ImageCaptions images={usage.images} />
           </div>
         )}
 
@@ -259,7 +300,7 @@ async function ReportContent({ id }: { id: string }) {
           <div>
             <span className="text-muted-foreground block text-xs mb-0.5">Submitted by</span>
             {usage.submitterId ? (
-              <Link href={`/profile/${usage.submitterId}`} className="font-medium text-primary hover:underline">
+              <Link href={profileHref(usage.submitterId)} className="font-medium text-primary hover:underline">
                 {usage.submitter}
               </Link>
             ) : (
@@ -284,13 +325,7 @@ async function ReportContent({ id }: { id: string }) {
           )}
           <div>
             <span className="text-muted-foreground block text-xs mb-0.5">Date</span>
-            <span className="font-medium">
-              {new Date(usage.createdAt).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </span>
+            <span className="font-medium">{formatLongDate(usage.createdAt)}</span>
           </div>
           {hasPublication(report.experiment) && (
             <div>
@@ -328,24 +363,23 @@ async function ReportContent({ id }: { id: string }) {
           <h3 className="font-semibold">Related Pages</h3>
           {usage.proteinId && (
             <Link
-              href={`/marker/${usage.proteinId}`}
+              href={markerHref(usage.proteinId)}
               className="flex items-center gap-2 text-sm text-primary hover:underline"
             >
               <ExternalLink className="h-4 w-4" />
               View Marker: {usage.markerName}
             </Link>
           )}
-          <Link
-            href={`/antibody/${usage.antibodyId.replace(/^RRID:/, "")}`}
-            className="flex items-center gap-2 text-sm text-primary hover:underline"
-          >
-            <ExternalLink className="h-4 w-4" />
-            View Antibody: {usage.antibodyId}
-          </Link>
+          {antibodyLink && (
+            <Link href={antibodyLink} className="flex items-center gap-2 text-sm text-primary hover:underline">
+              <ExternalLink className="h-4 w-4" />
+              View Antibody: {usage.antibodyId}
+            </Link>
+          )}
           {usage.cellTypes.map((ct) => (
             <Link
               key={ct.id}
-              href={`/celltype/${ct.id}`}
+              href={cellTypeHref(ct.id)}
               className="flex items-center gap-2 text-sm text-primary hover:underline"
             >
               <ExternalLink className="h-4 w-4" />
@@ -354,7 +388,7 @@ async function ReportContent({ id }: { id: string }) {
           ))}
           {usage.conditionId && (
             <Link
-              href={`/condition/${usage.conditionId}`}
+              href={conditionHref(usage.conditionId)}
               className="flex items-center gap-2 text-sm text-primary hover:underline"
             >
               <ExternalLink className="h-4 w-4" />

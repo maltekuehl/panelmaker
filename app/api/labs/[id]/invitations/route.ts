@@ -1,10 +1,10 @@
 import { authErrorResponse, requireLabRole } from "@/lib/auth"
+import { env } from "@/lib/env"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { createInvitation, inviteToLabSchema, listLabInvitations, toLabInvitationResponse } from "@/models/lab"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -20,7 +20,8 @@ export async function GET(request: NextRequest, context: Context) {
   }
 }
 
-// POST /api/labs/[id]/invitations - Create an invitation. Returns the accept URL once.
+// POST /api/labs/[id]/invitations - Create an invitation. Returns the accept URL once. The link is
+// not emailed; the inviter copies and shares it.
 export async function POST(request: NextRequest, context: Context) {
   try {
     const { id: labId } = await context.params
@@ -50,12 +51,9 @@ export async function POST(request: NextRequest, context: Context) {
       metadata: { labId, role: data.role, email },
     })
 
-    const acceptUrl = `${new URL(request.url).origin}/lab/join/${token}`
+    const acceptUrl = new URL(`/lab/join/${token}`, env.NEXT_PUBLIC_BASE_URL).toString()
     return createSuccessResponse({ invitation: toLabInvitationResponse(invitation), token, acceptUrl }, 201)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     if (
       error instanceof Error &&
       (error.message.includes("Invite links") ||

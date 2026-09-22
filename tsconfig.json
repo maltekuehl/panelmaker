@@ -33,12 +33,10 @@
     }
   },
   "include": [
-    "process.d.ts",
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "app/legal/notice/page.mdx",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [

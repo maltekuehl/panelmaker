@@ -3,8 +3,23 @@
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
+import type { createChatTools } from "@/lib/chat-tools"
+import { antibodyHref, cellTypeHref, markerHref } from "@/lib/routes"
+import type { EvidenceReport } from "@/models/evidence"
 import { usePanelsSignal } from "@/stores/panels"
-import { Beaker, Building2, Check, FlaskConical, Layers, Loader2, Search, Sparkles, Trash2, X } from "lucide-react"
+import type { DynamicToolUIPart, ToolUIPart } from "ai"
+import {
+  Beaker,
+  Building2,
+  Check,
+  FlaskConical,
+  Layers,
+  Loader2,
+  Search,
+  Sparkles,
+  X,
+  type LucideIcon,
+} from "lucide-react"
 import Link from "next/link"
 import { createContext, useContext, useEffect, useRef } from "react"
 
@@ -12,34 +27,9 @@ import { createContext, useContext, useEffect, useRef } from "react"
 // collapsible JSON view of it without every card having to thread the prop through.
 const ToolQueryContext = createContext<Record<string, unknown> | null>(null)
 
-type ToolState = "input-available" | "output-available" | "error"
+type ToolPart = ToolUIPart | DynamicToolUIPart
 
-interface ToolPart {
-  type: string
-  toolName?: string
-  input?: Record<string, unknown>
-  output?: Record<string, unknown>
-  state?: ToolState
-}
-
-interface EvidenceAntibody {
-  id: string
-  name: string
-  rrid: string | null
-}
-
-interface EvidenceReport {
-  id: string
-  reportUrl: string
-  works: boolean | null
-  signalQuality: string | null
-  specificity: string | null
-  method: string | null
-  species: string | null
-  tissue: string | null
-  fluorophore: string | null
-  antibody: EvidenceAntibody | null
-}
+type ToolName = keyof ReturnType<typeof createChatTools>
 
 interface ResolveMarkersOutput {
   markers?: { id: string; label: string; geneSymbol: string | null }[]
@@ -224,7 +214,7 @@ interface PanelEditOutput {
   error?: string
 }
 
-const TOOL_LABELS: Record<string, string> = {
+const TOOL_LABELS: Record<ToolName, string> = {
   resolveMarkers: "Searching markers...",
   resolveCellTypes: "Resolving cell types...",
   resolveSpecies: "Resolving species...",
@@ -241,6 +231,7 @@ const TOOL_LABELS: Record<string, string> = {
   getPanelLayoutSignals: "Gathering layout signals...",
   recommendForPanel: "Preparing recommendation...",
   resolveFluorophores: "Resolving fluorophores...",
+  resolveImagingMethods: "Loading imaging methods...",
   listMyPanels: "Loading your panels...",
   createPanel: "Creating panel...",
   addCycle: "Adding cycle...",
@@ -250,24 +241,29 @@ const TOOL_LABELS: Record<string, string> = {
   removeMarker: "Removing marker...",
 }
 
-function antibodyHref(rrid: string | null): string | null {
-  return rrid ? `/antibody/${rrid.replace(/^RRID:/, "")}` : null
-}
-
 function pct(rate: number): string {
   return `${Math.round(rate * 100)}%`
 }
 
-function DeleteButton({ onDelete }: { onDelete: () => void }) {
+// The tool cards all use the same tight "Add to panel" affordance.
+function CompactAddToPanelButton(props: {
+  proteinId?: string
+  geneSymbol?: string
+  antibodyId?: string
+  label: string
+}) {
   return (
-    <button
-      type="button"
-      onClick={onDelete}
-      aria-label="Delete tool result"
-      className="ml-auto shrink-0 rounded text-muted-foreground transition-colors hover:text-destructive"
-    >
-      <Trash2 className="size-3.5" />
-    </button>
+    <AddToPanelButton {...props} variant="outline" size="sm" className="h-6 shrink-0 px-1.5 text-[10px]" iconOnly />
+  )
+}
+
+// One presentation for every tool failure, so "not visible to you" never reads as "no results".
+function ToolErrorRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-2">
+      <X className="size-3.5 shrink-0 text-destructive" />
+      <span className="min-w-0 flex-1 text-xs text-destructive">{children}</span>
+    </div>
   )
 }
 
@@ -275,15 +271,16 @@ function ToolAccordion({
   icon,
   title,
   count,
-  onDelete,
+  mono = false,
   children,
 }: {
-  icon: React.ReactNode
+  icon: LucideIcon
   title: string
   count?: number
-  onDelete?: () => void
+  mono?: boolean
   children: React.ReactNode
 }) {
+  const Icon = icon
   const query = useContext(ToolQueryContext)
   const hasQuery = query !== null && Object.keys(query).length > 0
   return (
@@ -291,27 +288,22 @@ function ToolAccordion({
       <AccordionItem value="tool" className="border-b-0">
         <AccordionTrigger className="items-center gap-2 px-3 py-2.5">
           <span className="flex min-w-0 flex-1 items-center gap-1.5">
-            {icon}
-            <span className="truncate text-xs font-medium text-foreground">{title}</span>
+            <Icon className="size-3.5 shrink-0 text-primary" />
+            <span
+              className={
+                mono
+                  ? "truncate font-mono text-xs font-medium text-foreground"
+                  : "truncate text-xs font-medium text-foreground"
+              }
+            >
+              {title}
+            </span>
             {count !== undefined && (
               <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px]">
                 {count}
               </Badge>
             )}
           </span>
-          {onDelete && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete()
-              }}
-              aria-label="Delete tool result"
-              className="shrink-0 rounded text-muted-foreground transition-colors hover:text-destructive"
-            >
-              <Trash2 className="size-3.5" />
-            </button>
-          )}
         </AccordionTrigger>
         <AccordionContent className="h-auto! pt-0 pb-2">
           <div className="max-h-72 space-y-1 overflow-y-auto pr-1 pb-1">{children}</div>
@@ -335,12 +327,13 @@ function EmptyRow({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] text-muted-foreground">{children}</p>
 }
 
-function LoadingCard({ toolName, onDelete }: { toolName: string; onDelete?: () => void }) {
+function LoadingCard({ toolName }: { toolName: string }) {
   return (
     <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-2.5 py-2">
       <Loader2 className="size-3 shrink-0 animate-spin text-primary" />
-      <span className="text-xs text-muted-foreground">{TOOL_LABELS[toolName] ?? `Running ${toolName}...`}</span>
-      {onDelete && <DeleteButton onDelete={onDelete} />}
+      <span className="text-xs text-muted-foreground">
+        {toolName in TOOL_LABELS ? TOOL_LABELS[toolName as ToolName] : `Running ${toolName}...`}
+      </span>
     </div>
   )
 }
@@ -351,7 +344,7 @@ function ReportRow({ report }: { report: EvidenceReport }) {
   return (
     <div className="flex items-center gap-1.5 text-[11px]">
       {report.works === true ? (
-        <Check className="size-3 shrink-0 text-emerald-600 dark:text-emerald-500" />
+        <Check className="size-3 shrink-0 text-success" />
       ) : report.works === false ? (
         <X className="size-3 shrink-0 text-muted-foreground" />
       ) : null}
@@ -366,13 +359,17 @@ function ReportRow({ report }: { report: EvidenceReport }) {
         ) : (
           <span className="truncate text-muted-foreground">{ab.name}</span>
         ))}
-      {report.method && (
-        <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px] font-normal">
-          {report.method}
+      {report.methodShort && (
+        <Badge
+          variant="secondary"
+          className="h-4 shrink-0 px-1 text-[10px] font-normal"
+          title={report.method ?? undefined}
+        >
+          {report.methodShort}
         </Badge>
       )}
       <span className="ml-auto shrink-0 truncate text-[10px] text-muted-foreground">
-        {[report.species, report.tissue].filter(Boolean).join(" · ")}
+        {[report.species, report.tissue].filter(Boolean).join(", ")}
       </span>
     </div>
   )
@@ -391,15 +388,10 @@ function ReportList({ reports, max = 6 }: { reports: EvidenceReport[]; max?: num
   )
 }
 
-function ResolveMarkersCard({ output, onDelete }: { output: ResolveMarkersOutput; onDelete?: () => void }) {
+function ResolveMarkersCard({ output }: { output: ResolveMarkersOutput }) {
   const markers = output.markers ?? []
   return (
-    <ToolAccordion
-      icon={<Search className="size-3.5 shrink-0 text-primary" />}
-      title="Markers"
-      count={markers.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={Search} title="Markers" count={markers.length}>
       {markers.length === 0 ? (
         <EmptyRow>No markers matched.</EmptyRow>
       ) : (
@@ -410,19 +402,15 @@ function ResolveMarkersCard({ output, onDelete }: { output: ResolveMarkersOutput
               className="flex items-center justify-between gap-2 rounded-md border bg-popover px-2 py-1.5"
             >
               <div className="min-w-0 flex-1">
-                <Link href={`/marker/${m.id}`} className="block truncate text-xs font-semibold hover:text-primary">
+                <Link href={markerHref(m.id)} className="block truncate text-xs font-semibold hover:text-primary">
                   {m.label}
                 </Link>
                 {m.geneSymbol && <p className="text-[10px] text-muted-foreground">{m.geneSymbol}</p>}
               </div>
-              <AddToPanelButton
+              <CompactAddToPanelButton
                 proteinId={m.id}
                 geneSymbol={m.geneSymbol ?? undefined}
                 label={m.geneSymbol ?? m.label}
-                variant="outline"
-                size="sm"
-                className="h-6 shrink-0 px-1.5 text-[10px]"
-                iconOnly
               />
             </div>
           ))}
@@ -432,15 +420,10 @@ function ResolveMarkersCard({ output, onDelete }: { output: ResolveMarkersOutput
   )
 }
 
-function ResolveAntibodiesCard({ output, onDelete }: { output: ResolveAntibodiesOutput; onDelete?: () => void }) {
+function ResolveAntibodiesCard({ output }: { output: ResolveAntibodiesOutput }) {
   const antibodies = output.antibodies ?? []
   return (
-    <ToolAccordion
-      icon={<Search className="size-3.5 shrink-0 text-primary" />}
-      title="Antibodies"
-      count={antibodies.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={Search} title="Antibodies" count={antibodies.length}>
       {antibodies.length === 0 ? (
         <EmptyRow>No antibodies matched.</EmptyRow>
       ) : (
@@ -461,18 +444,11 @@ function ResolveAntibodiesCard({ output, onDelete }: { output: ResolveAntibodies
                     <p className="truncate text-xs font-semibold">{a.name}</p>
                   )}
                   <p className="truncate text-[10px] text-muted-foreground">
-                    {[a.rrid, a.vendor, a.host, a.clonality].filter(Boolean).join(" · ")}
+                    {[a.rrid, a.vendor, a.host, a.clonality].filter(Boolean).join(", ")}
                   </p>
                   {a.targetName && <p className="truncate text-[10px] text-muted-foreground">Target: {a.targetName}</p>}
                 </div>
-                <AddToPanelButton
-                  antibodyId={a.id}
-                  label={a.name}
-                  variant="outline"
-                  size="sm"
-                  className="h-6 shrink-0 px-1.5 text-[10px]"
-                  iconOnly
-                />
+                <CompactAddToPanelButton antibodyId={a.id} label={a.name} />
               </div>
             )
           })}
@@ -482,16 +458,11 @@ function ResolveAntibodiesCard({ output, onDelete }: { output: ResolveAntibodies
   )
 }
 
-function ResolveCellTypesCard({ output, onDelete }: { output: ResolveCellTypesOutput; onDelete?: () => void }) {
+function ResolveCellTypesCard({ output }: { output: ResolveCellTypesOutput }) {
   const matches = output.matches ?? []
   const expanded = output.expandedIds ?? []
   return (
-    <ToolAccordion
-      icon={<Search className="size-3.5 shrink-0 text-primary" />}
-      title="Cell types"
-      count={matches.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={Search} title="Cell types" count={matches.length}>
       {matches.length === 0 ? (
         <EmptyRow>No cell types matched.</EmptyRow>
       ) : (
@@ -500,7 +471,7 @@ function ResolveCellTypesCard({ output, onDelete }: { output: ResolveCellTypesOu
             {matches.map((c) => (
               <Link
                 key={c.id}
-                href={`/celltype/${c.id}`}
+                href={cellTypeHref(c.id)}
                 className="rounded-md border bg-popover px-1.5 py-0.5 text-[11px] hover:text-primary"
               >
                 {c.label}
@@ -522,15 +493,13 @@ function ChipListCard({
   title,
   icon,
   items,
-  onDelete,
 }: {
   title: string
-  icon: React.ReactNode
+  icon: LucideIcon
   items: { id: string; label: string }[]
-  onDelete?: () => void
 }) {
   return (
-    <ToolAccordion icon={icon} title={title} count={items.length} onDelete={onDelete}>
+    <ToolAccordion icon={icon} title={title} count={items.length}>
       {items.length === 0 ? (
         <EmptyRow>No matches.</EmptyRow>
       ) : (
@@ -546,42 +515,25 @@ function ChipListCard({
   )
 }
 
-function GetMarkerDetailsCard({ output, onDelete }: { output: GetMarkerDetailsOutput; onDelete?: () => void }) {
+function GetMarkerDetailsCard({ output }: { output: GetMarkerDetailsOutput }) {
   if (output.error || !output.marker) {
-    return (
-      <ToolAccordion
-        icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-        title="Marker"
-        onDelete={onDelete}
-      >
-        <EmptyRow>{output.error ?? "Marker not found."}</EmptyRow>
-      </ToolAccordion>
-    )
+    return <ToolErrorRow>{output.error ?? "Marker not found."}</ToolErrorRow>
   }
   const { marker } = output
   const reports = output.reports ?? []
   return (
-    <ToolAccordion
-      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-      title={`Marker · ${marker.label}`}
-      count={output.reportCount ?? reports.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={FlaskConical} title={`Marker: ${marker.label}`} count={output.reportCount ?? reports.length}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <Link href={`/marker/${marker.id}`} className="block truncate text-xs font-semibold hover:text-primary">
+          <Link href={markerHref(marker.id)} className="block truncate text-xs font-semibold hover:text-primary">
             {marker.label}
           </Link>
           {marker.geneSymbol && <p className="text-[10px] text-muted-foreground">{marker.geneSymbol}</p>}
         </div>
-        <AddToPanelButton
+        <CompactAddToPanelButton
           proteinId={marker.id}
           geneSymbol={marker.geneSymbol ?? undefined}
           label={marker.geneSymbol ?? marker.label}
-          variant="outline"
-          size="sm"
-          className="h-6 shrink-0 px-1.5 text-[10px]"
-          iconOnly
         />
       </div>
       {reports.length > 0 && <div className="mt-1.5">{<ReportList reports={reports} />}</div>}
@@ -589,28 +541,15 @@ function GetMarkerDetailsCard({ output, onDelete }: { output: GetMarkerDetailsOu
   )
 }
 
-function GetAntibodyDetailsCard({ output, onDelete }: { output: GetAntibodyDetailsOutput; onDelete?: () => void }) {
+function GetAntibodyDetailsCard({ output }: { output: GetAntibodyDetailsOutput }) {
   if (output.error || !output.antibody) {
-    return (
-      <ToolAccordion
-        icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-        title="Antibody"
-        onDelete={onDelete}
-      >
-        <EmptyRow>{output.error ?? "Antibody not found."}</EmptyRow>
-      </ToolAccordion>
-    )
+    return <ToolErrorRow>{output.error ?? "Antibody not found."}</ToolErrorRow>
   }
   const ab = output.antibody
   const href = antibodyHref(ab.rrid)
   const reports = output.reports ?? []
   return (
-    <ToolAccordion
-      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-      title={`Antibody · ${ab.name}`}
-      count={output.reportCount ?? reports.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={FlaskConical} title={`Antibody: ${ab.name}`} count={output.reportCount ?? reports.length}>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0 flex-1">
           {href ? (
@@ -621,33 +560,21 @@ function GetAntibodyDetailsCard({ output, onDelete }: { output: GetAntibodyDetai
             <p className="truncate text-xs font-semibold">{ab.name}</p>
           )}
           <p className="truncate text-[10px] text-muted-foreground">
-            {[ab.rrid, ab.vendor, ab.host, ab.clonality, ab.conjugate].filter(Boolean).join(" · ")}
+            {[ab.rrid, ab.vendor, ab.host, ab.clonality, ab.conjugate].filter(Boolean).join(", ")}
           </p>
           {ab.targetName && <p className="truncate text-[10px] text-muted-foreground">Target: {ab.targetName}</p>}
         </div>
-        <AddToPanelButton
-          antibodyId={ab.id}
-          label={ab.name}
-          variant="outline"
-          size="sm"
-          className="h-6 shrink-0 px-1.5 text-[10px]"
-          iconOnly
-        />
+        <CompactAddToPanelButton antibodyId={ab.id} label={ab.name} />
       </div>
       {reports.length > 0 && <div className="mt-1.5">{<ReportList reports={reports} />}</div>}
     </ToolAccordion>
   )
 }
 
-function FindReportsCard({ output, onDelete }: { output: FindReportsOutput; onDelete?: () => void }) {
+function FindReportsCard({ output }: { output: FindReportsOutput }) {
   const reports = output.reports ?? []
   return (
-    <ToolAccordion
-      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-      title="Reports"
-      count={output.count ?? reports.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={FlaskConical} title="Reports" count={output.count ?? reports.length}>
       {reports.length === 0 ? (
         <EmptyRow>No reports matched these filters.</EmptyRow>
       ) : (
@@ -657,15 +584,10 @@ function FindReportsCard({ output, onDelete }: { output: FindReportsOutput; onDe
   )
 }
 
-function AggregateReportsCard({ output, onDelete }: { output: AggregateReportsOutput; onDelete?: () => void }) {
+function AggregateReportsCard({ output }: { output: AggregateReportsOutput }) {
   const groups = output.groups ?? []
   return (
-    <ToolAccordion
-      icon={<Sparkles className="size-3.5 shrink-0 text-primary" />}
-      title="Ranked reports"
-      count={groups.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={Sparkles} title="Ranked reports" count={groups.length}>
       {groups.length === 0 ? (
         <EmptyRow>Nothing to aggregate.</EmptyRow>
       ) : (
@@ -686,15 +608,10 @@ function AggregateReportsCard({ output, onDelete }: { output: AggregateReportsOu
   )
 }
 
-function ListMyLabsCard({ output, onDelete }: { output: ListMyLabsOutput; onDelete?: () => void }) {
+function ListMyLabsCard({ output }: { output: ListMyLabsOutput }) {
   const labs = output.labs ?? []
   return (
-    <ToolAccordion
-      icon={<Building2 className="size-3.5 shrink-0 text-primary" />}
-      title="Labs"
-      count={labs.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={Building2} title="Labs" count={labs.length}>
       {labs.length === 0 ? (
         <EmptyRow>You are not a member of any lab.</EmptyRow>
       ) : (
@@ -706,7 +623,7 @@ function ListMyLabsCard({ output, onDelete }: { output: ListMyLabsOutput; onDele
                   {lab.name}
                 </Link>
                 <p className="text-[10px] text-muted-foreground">
-                  {[lab.role, `${lab.memberCount} members`, `${lab.inventoryCount} stocked`].join(" · ")}
+                  {[lab.role, `${lab.memberCount} members`, `${lab.inventoryCount} stocked`].join(", ")}
                 </p>
               </div>
             </div>
@@ -717,15 +634,10 @@ function ListMyLabsCard({ output, onDelete }: { output: ListMyLabsOutput; onDele
   )
 }
 
-function GetLabInventoryCard({ output, onDelete }: { output: GetLabInventoryOutput; onDelete?: () => void }) {
+function GetLabInventoryCard({ output }: { output: GetLabInventoryOutput }) {
   const items = output.items ?? []
   return (
-    <ToolAccordion
-      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-      title="Inventory"
-      count={output.count ?? items.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={FlaskConical} title="Inventory" count={output.count ?? items.length}>
       {items.length === 0 ? (
         <EmptyRow>No matching inventory.</EmptyRow>
       ) : (
@@ -738,7 +650,7 @@ function GetLabInventoryCard({ output, onDelete }: { output: GetLabInventoryOutp
                   <div className="flex items-center gap-1.5">
                     {it.markerId ? (
                       <Link
-                        href={`/marker/${it.markerId}`}
+                        href={markerHref(it.markerId)}
                         className="shrink-0 font-semibold text-primary hover:underline"
                       >
                         {it.marker ?? "Marker"}
@@ -755,7 +667,7 @@ function GetLabInventoryCard({ output, onDelete }: { output: GetLabInventoryOutp
                     )}
                   </div>
                   <p className="truncate text-[10px] text-muted-foreground">
-                    {[it.rrid, it.storageLocation, it.host].filter(Boolean).join(" · ")}
+                    {[it.rrid, it.storageLocation, it.host].filter(Boolean).join(", ")}
                   </p>
                 </div>
                 <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px] font-normal">
@@ -773,26 +685,13 @@ function GetLabInventoryCard({ output, onDelete }: { output: GetLabInventoryOutp
   )
 }
 
-function GetLabPanelsCard({ output, onDelete }: { output: GetLabPanelsOutput; onDelete?: () => void }) {
+function GetLabPanelsCard({ output }: { output: GetLabPanelsOutput }) {
   if (output.error) {
-    return (
-      <ToolAccordion
-        icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-        title="Panels"
-        onDelete={onDelete}
-      >
-        <EmptyRow>{output.error}</EmptyRow>
-      </ToolAccordion>
-    )
+    return <ToolErrorRow>{output.error}</ToolErrorRow>
   }
   const panels = output.panels ?? []
   return (
-    <ToolAccordion
-      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-      title="Panels"
-      count={panels.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={FlaskConical} title="Panels" count={panels.length}>
       {panels.length === 0 ? (
         <EmptyRow>No panels visible.</EmptyRow>
       ) : (
@@ -817,7 +716,7 @@ function GetLabPanelsCard({ output, onDelete }: { output: GetLabPanelsOutput; on
                   </Badge>
                 </div>
                 <p className="truncate text-[10px] text-muted-foreground">
-                  {[p.species, p.visibility.toLowerCase(), p.owner].filter(Boolean).join(" · ")}
+                  {[p.species, p.visibility.toLowerCase(), p.owner].filter(Boolean).join(", ")}
                 </p>
                 {preview && <p className="truncate text-[10px] text-muted-foreground">{preview}</p>}
               </div>
@@ -829,39 +728,26 @@ function GetLabPanelsCard({ output, onDelete }: { output: GetLabPanelsOutput; on
   )
 }
 
-function AnalyzePanelCard({ output, onDelete }: { output: AnalyzePanelOutput; onDelete?: () => void }) {
+function AnalyzePanelCard({ output }: { output: AnalyzePanelOutput }) {
   if (output.error) {
-    return (
-      <ToolAccordion
-        icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-        title="Panel check"
-        onDelete={onDelete}
-      >
-        <EmptyRow>{output.error}</EmptyRow>
-      </ToolAccordion>
-    )
+    return <ToolErrorRow>{output.error}</ToolErrorRow>
   }
   const warnings = output.warnings ?? []
   return (
     <ToolAccordion
-      icon={<FlaskConical className="size-3.5 shrink-0 text-primary" />}
-      title={`Panel check · ${output.valid ? "valid" : `${output.errorCount ?? 0} issue(s)`}`}
+      icon={FlaskConical}
+      title={`Panel check: ${output.valid ? "valid" : `${output.errorCount ?? 0} issue(s)`}`}
       count={output.warningCount}
-      onDelete={onDelete}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-        <span
-          className={
-            output.valid ? "font-medium text-emerald-600 dark:text-emerald-500" : "font-medium text-destructive"
-          }
-        >
+        <span className={output.valid ? "font-medium text-success" : "font-medium text-destructive"}>
           {output.valid ? "Valid" : "Invalid"}
         </span>
         <span className="text-muted-foreground">
           <span className="font-medium text-destructive">{output.errorCount ?? 0}</span> errors
         </span>
         <span className="text-muted-foreground">
-          <span className="font-medium text-amber-600 dark:text-amber-500">{output.warningCount ?? 0}</span> warnings
+          <span className="font-medium text-warning">{output.warningCount ?? 0}</span> warnings
         </span>
       </div>
       {warnings.length > 0 && (
@@ -873,7 +759,7 @@ function AnalyzePanelCard({ output, onDelete }: { output: AnalyzePanelOutput; on
                 w.severity === "error"
                   ? "text-[11px] text-destructive"
                   : w.severity === "warning"
-                    ? "text-[11px] text-amber-600 dark:text-amber-500"
+                    ? "text-[11px] text-warning"
                     : "text-[11px] text-muted-foreground"
               }
             >
@@ -889,21 +775,10 @@ function AnalyzePanelCard({ output, onDelete }: { output: AnalyzePanelOutput; on
   )
 }
 
-function GetPanelLayoutSignalsCard({
-  output,
-  onDelete,
-}: {
-  output: GetPanelLayoutSignalsOutput
-  onDelete?: () => void
-}) {
+function GetPanelLayoutSignalsCard({ output }: { output: GetPanelLayoutSignalsOutput }) {
   const signals = output.signals ?? []
   return (
-    <ToolAccordion
-      icon={<Sparkles className="size-3.5 shrink-0 text-primary" />}
-      title="Layout signals"
-      count={signals.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={Sparkles} title="Layout signals" count={signals.length}>
       {signals.length === 0 ? (
         <EmptyRow>No signals.</EmptyRow>
       ) : (
@@ -911,7 +786,7 @@ function GetPanelLayoutSignalsCard({
           {signals.map((s) => (
             <div key={s.markerId} className="rounded-md border bg-popover px-2 py-1.5">
               <div className="flex items-center gap-1.5">
-                <Link href={`/marker/${s.markerId}`} className="text-xs font-semibold text-primary hover:underline">
+                <Link href={markerHref(s.markerId)} className="text-xs font-semibold text-primary hover:underline">
                   {s.marker}
                 </Link>
                 {s.likelyLabileOrPhospho && (
@@ -939,14 +814,13 @@ function GetPanelLayoutSignalsCard({
   )
 }
 
-function RecommendForPanelCard({ output, onDelete }: { output: RecommendForPanelOutput; onDelete?: () => void }) {
+function RecommendForPanelCard({ output }: { output: RecommendForPanelOutput }) {
   const recommendations = output.recommendations ?? []
   return (
     <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5">
       <div className="flex items-center gap-1.5">
         <Sparkles className="size-3.5 shrink-0 text-primary" />
         <span className="text-[10px] font-medium uppercase tracking-wide text-primary">Recommended for your panel</span>
-        {onDelete && <DeleteButton onDelete={onDelete} />}
       </div>
       {output.summary && <p className="text-xs text-muted-foreground">{output.summary}</p>}
       {recommendations.length === 0 ? (
@@ -954,7 +828,7 @@ function RecommendForPanelCard({ output, onDelete }: { output: RecommendForPanel
       ) : (
         <div className="space-y-1">
           {recommendations.map((rec, i) => {
-            const href = rec.kind === "marker" ? `/marker/${rec.markerId}` : antibodyHref(rec.rrid)
+            const href = rec.kind === "marker" ? markerHref(rec.markerId) : antibodyHref(rec.rrid)
             return (
               <div key={i} className="flex items-start justify-between gap-2 rounded-md border bg-popover p-2.5">
                 <div className="min-w-0 flex-1">
@@ -969,23 +843,9 @@ function RecommendForPanelCard({ output, onDelete }: { output: RecommendForPanel
                   {rec.reason && <p className="text-[10px] text-muted-foreground">{rec.reason}</p>}
                 </div>
                 {rec.kind === "marker" ? (
-                  <AddToPanelButton
-                    proteinId={rec.markerId}
-                    label={rec.label}
-                    variant="outline"
-                    size="sm"
-                    className="h-6 shrink-0 px-1.5 text-[10px]"
-                    iconOnly
-                  />
+                  <CompactAddToPanelButton proteinId={rec.markerId} label={rec.label} />
                 ) : (
-                  <AddToPanelButton
-                    antibodyId={rec.antibodyId}
-                    label={rec.label}
-                    variant="outline"
-                    size="sm"
-                    className="h-6 shrink-0 px-1.5 text-[10px]"
-                    iconOnly
-                  />
+                  <CompactAddToPanelButton antibodyId={rec.antibodyId} label={rec.label} />
                 )}
               </div>
             )
@@ -996,25 +856,14 @@ function RecommendForPanelCard({ output, onDelete }: { output: RecommendForPanel
   )
 }
 
-function ListMyPanelsCard({ output, onDelete }: { output: ListMyPanelsOutput; onDelete?: () => void }) {
+function ListMyPanelsCard({ output }: { output: ListMyPanelsOutput }) {
   if (output.error) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-2">
-        <X className="size-3.5 shrink-0 text-destructive" />
-        <span className="text-xs text-destructive">{output.error}</span>
-        {onDelete && <DeleteButton onDelete={onDelete} />}
-      </div>
-    )
+    return <ToolErrorRow>{output.error}</ToolErrorRow>
   }
   if (output.panel) {
     const p = output.panel
     return (
-      <ToolAccordion
-        icon={<Layers className="size-3.5 shrink-0 text-primary" />}
-        title={p.name}
-        count={p.cycles.length}
-        onDelete={onDelete}
-      >
+      <ToolAccordion icon={Layers} title={p.name} count={p.cycles.length}>
         {p.cycles.length === 0 ? (
           <EmptyRow>No cycles yet.</EmptyRow>
         ) : (
@@ -1038,12 +887,7 @@ function ListMyPanelsCard({ output, onDelete }: { output: ListMyPanelsOutput; on
   }
   const panels = output.panels ?? []
   return (
-    <ToolAccordion
-      icon={<Layers className="size-3.5 shrink-0 text-primary" />}
-      title="Your panels"
-      count={panels.length}
-      onDelete={onDelete}
-    >
+    <ToolAccordion icon={Layers} title="Your panels" count={panels.length}>
       {panels.length === 0 ? (
         <EmptyRow>You have no editable panels yet.</EmptyRow>
       ) : (
@@ -1060,7 +904,7 @@ function ListMyPanelsCard({ output, onDelete }: { output: ListMyPanelsOutput; on
                 {p.name}
               </Link>
               <span className="shrink-0 text-[10px] text-muted-foreground">
-                {p.cycleCount} cycles · {p.markerCount} markers
+                {p.cycleCount} cycles, {p.markerCount} markers
               </span>
             </div>
           ))}
@@ -1070,7 +914,7 @@ function ListMyPanelsCard({ output, onDelete }: { output: ListMyPanelsOutput; on
   )
 }
 
-function PanelEditCard({ output, onDelete }: { output: PanelEditOutput; onDelete?: () => void }) {
+function PanelEditCard({ output }: { output: PanelEditOutput }) {
   const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
   const notified = useRef(false)
   const success = !output.error && (output.message != null || output.panel != null)
@@ -1082,13 +926,7 @@ function PanelEditCard({ output, onDelete }: { output: PanelEditOutput; onDelete
   }, [success, notifyPanelsChanged])
 
   if (output.error) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-2.5 py-2">
-        <X className="size-3.5 shrink-0 text-destructive" />
-        <span className="min-w-0 flex-1 text-xs text-destructive">{output.error}</span>
-        {onDelete && <DeleteButton onDelete={onDelete} />}
-      </div>
-    )
+    return <ToolErrorRow>{output.error}</ToolErrorRow>
   }
   return (
     <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-2">
@@ -1099,152 +937,106 @@ function PanelEditCard({ output, onDelete }: { output: PanelEditOutput; onDelete
           View panel
         </Link>
       )}
-      {onDelete && <DeleteButton onDelete={onDelete} />}
     </div>
   )
 }
 
-function GenericFallbackCard({
-  toolName,
-  input,
-  output,
-  onDelete,
-}: {
-  toolName: string
-  input: Record<string, unknown>
-  output: Record<string, unknown>
-  onDelete?: () => void
-}) {
+// Unknown tool: ToolAccordion already renders the input under "Query", so only the output is new.
+function GenericFallbackCard({ toolName, output }: { toolName: string; output: Record<string, unknown> }) {
   const hasOutput = Object.keys(output).length > 0
   return (
-    <Accordion type="single" collapsible>
-      <AccordionItem value="tool" className="border-b-0">
-        <AccordionTrigger className="items-center gap-2 px-3 py-2.5">
-          <span className="flex min-w-0 flex-1 items-center gap-1.5">
-            <Beaker className="size-3.5 shrink-0 text-primary" />
-            <span className="truncate font-mono text-xs font-medium text-foreground">{toolName}</span>
-          </span>
-          {onDelete && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onDelete()
-              }}
-              aria-label="Delete tool result"
-              className="shrink-0 rounded text-muted-foreground transition-colors hover:text-destructive"
-            >
-              <Trash2 className="size-3.5" />
-            </button>
-          )}
-        </AccordionTrigger>
-        <AccordionContent className="pt-0 pb-2">
-          <div className="max-h-72 space-y-2 overflow-y-auto pr-1 pb-1">
-            <div>
-              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Input</p>
-              <pre className="overflow-auto rounded-md border bg-popover p-2 text-xs whitespace-pre">
-                {JSON.stringify(input, null, 2)}
-              </pre>
-            </div>
-            {hasOutput && (
-              <div>
-                <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Output</p>
-                <pre className="overflow-auto rounded-md border bg-popover p-2 text-xs whitespace-pre">
-                  {JSON.stringify(output, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+    <ToolAccordion icon={Beaker} title={toolName} mono>
+      {hasOutput ? (
+        <pre className="overflow-auto rounded-md border bg-popover p-2 text-xs whitespace-pre">
+          {JSON.stringify(output, null, 2)}
+        </pre>
+      ) : (
+        <EmptyRow>No output.</EmptyRow>
+      )}
+    </ToolAccordion>
   )
 }
 
-export function ToolResultCard({ part, onDelete }: { part: ToolPart; onDelete?: () => void }) {
-  const toolName =
-    part.toolName ??
-    (typeof part.type === "string" && part.type.startsWith("tool-") ? part.type.replace("tool-", "") : "")
-  const state = part.state ?? "input-available"
-  const isStreaming = state !== "output-available"
+export function ToolResultCard({ part }: { part: ToolPart }) {
+  const toolName = part.type === "dynamic-tool" ? part.toolName : part.type.slice("tool-".length)
+
+  // A failed execute arrives as state "output-error" with errorText; anything short of a finished
+  // output is still in flight.
+  if (part.state === "output-error") {
+    return <ToolErrorRow>{part.errorText || `${toolName} failed.`}</ToolErrorRow>
+  }
+  if (part.state !== "output-available") {
+    return <LoadingCard toolName={toolName} />
+  }
+
   const input = (part.input ?? {}) as Record<string, unknown>
   const output = (part.output ?? {}) as Record<string, unknown>
-
-  if (isStreaming) {
-    return <LoadingCard toolName={toolName} onDelete={onDelete} />
-  }
 
   const card = (() => {
     switch (toolName) {
       case "resolveMarkers":
-        return <ResolveMarkersCard output={output as ResolveMarkersOutput} onDelete={onDelete} />
+        return <ResolveMarkersCard output={output as ResolveMarkersOutput} />
       case "resolveAntibodies":
-        return <ResolveAntibodiesCard output={output as ResolveAntibodiesOutput} onDelete={onDelete} />
+        return <ResolveAntibodiesCard output={output as ResolveAntibodiesOutput} />
       case "resolveCellTypes":
-        return <ResolveCellTypesCard output={output as ResolveCellTypesOutput} onDelete={onDelete} />
+        return <ResolveCellTypesCard output={output as ResolveCellTypesOutput} />
       case "resolveSpecies":
-        return (
-          <ChipListCard
-            title="Species"
-            icon={<Search className="size-3.5 shrink-0 text-primary" />}
-            items={(output as ChipOutput).species ?? []}
-            onDelete={onDelete}
-          />
-        )
+        return <ChipListCard title="Species" icon={Search} items={(output as ChipOutput).species ?? []} />
       case "resolveTissues":
-        return (
-          <ChipListCard
-            title="Tissues"
-            icon={<Search className="size-3.5 shrink-0 text-primary" />}
-            items={(output as ChipOutput).tissues ?? []}
-            onDelete={onDelete}
-          />
-        )
+        return <ChipListCard title="Tissues" icon={Search} items={(output as ChipOutput).tissues ?? []} />
       case "getMarkerDetails":
-        return <GetMarkerDetailsCard output={output as GetMarkerDetailsOutput} onDelete={onDelete} />
+        return <GetMarkerDetailsCard output={output as GetMarkerDetailsOutput} />
       case "getAntibodyDetails":
-        return <GetAntibodyDetailsCard output={output as GetAntibodyDetailsOutput} onDelete={onDelete} />
+        return <GetAntibodyDetailsCard output={output as GetAntibodyDetailsOutput} />
       case "findReports":
-        return <FindReportsCard output={output as FindReportsOutput} onDelete={onDelete} />
+        return <FindReportsCard output={output as FindReportsOutput} />
       case "aggregateReports":
-        return <AggregateReportsCard output={output as AggregateReportsOutput} onDelete={onDelete} />
+        return <AggregateReportsCard output={output as AggregateReportsOutput} />
       case "listMyLabs":
-        return <ListMyLabsCard output={output as ListMyLabsOutput} onDelete={onDelete} />
+        return <ListMyLabsCard output={output as ListMyLabsOutput} />
       case "getLabInventory":
-        return <GetLabInventoryCard output={output as GetLabInventoryOutput} onDelete={onDelete} />
+        return <GetLabInventoryCard output={output as GetLabInventoryOutput} />
       case "getLabPanels":
-        return <GetLabPanelsCard output={output as GetLabPanelsOutput} onDelete={onDelete} />
+        return <GetLabPanelsCard output={output as GetLabPanelsOutput} />
       case "analyzePanel":
-        return <AnalyzePanelCard output={output as AnalyzePanelOutput} onDelete={onDelete} />
+        return <AnalyzePanelCard output={output as AnalyzePanelOutput} />
       case "getPanelLayoutSignals":
-        return <GetPanelLayoutSignalsCard output={output as GetPanelLayoutSignalsOutput} onDelete={onDelete} />
+        return <GetPanelLayoutSignalsCard output={output as GetPanelLayoutSignalsOutput} />
       case "recommendForPanel":
-        return <RecommendForPanelCard output={output as RecommendForPanelOutput} onDelete={onDelete} />
+        return <RecommendForPanelCard output={output as RecommendForPanelOutput} />
       case "resolveFluorophores":
         return (
           <ChipListCard
             title="Fluorophores"
-            icon={<Search className="size-3.5 shrink-0 text-primary" />}
+            icon={Search}
             items={((output as { fluorophores?: { id: string; name: string }[] }).fluorophores ?? []).map((f) => ({
               id: f.id,
               label: f.name,
             }))}
-            onDelete={onDelete}
+          />
+        )
+      case "resolveImagingMethods":
+        return (
+          <ChipListCard
+            title="Imaging methods"
+            icon={Search}
+            items={((output as { imagingMethods?: { id: string; label: string }[] }).imagingMethods ?? []).map((m) => ({
+              id: m.id,
+              label: m.label,
+            }))}
           />
         )
       case "listMyPanels":
-        return <ListMyPanelsCard output={output as ListMyPanelsOutput} onDelete={onDelete} />
+        return <ListMyPanelsCard output={output as ListMyPanelsOutput} />
       case "createPanel":
       case "addCycle":
       case "deleteCycle":
       case "addAntibodyToCycle":
       case "moveMarker":
       case "removeMarker":
-        return <PanelEditCard output={output as PanelEditOutput} onDelete={onDelete} />
+        return <PanelEditCard output={output as PanelEditOutput} />
       default:
-        return (
-          <GenericFallbackCard toolName={toolName || "unknown"} input={input} output={output} onDelete={onDelete} />
-        )
+        return <GenericFallbackCard toolName={toolName || "unknown"} output={output} />
     }
   })()
 

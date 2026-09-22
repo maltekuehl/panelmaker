@@ -1,104 +1,31 @@
-import { expect, test } from "@playwright/test"
+import { expect, STORAGE_STATE, test } from "./test-helpers"
 
-test.describe("Experimental Report Submission", () => {
-  test("should render submission page", async ({ page }) => {
+test.describe("Report submission without a session", () => {
+  test("redirects to the sign-in page", async ({ page }) => {
     await page.goto("/submit")
-    await page.waitForLoadState("networkidle")
 
-    // Check page title
-    await expect(page).toHaveTitle(/Submit|Report/)
+    await expect(page).toHaveURL("/signin?callbackUrl=%2Fsubmit")
+    await expect(page.getByText("Sign in to your account")).toBeVisible()
+  })
+})
 
-    // Check main heading
-    await expect(page.locator("h1")).toContainText("Submit Experimental Report")
+test.describe("Report submission with a session", () => {
+  test.use({ storageState: STORAGE_STATE })
 
-    // Check that form or content is present
-    const mainContent = page.locator("main, [role='main']").first()
-    if ((await mainContent.count()) > 0) {
-      await expect(mainContent).toBeVisible()
-    }
+  test("renders the stepped submission form", async ({ page }) => {
+    await page.goto("/submit")
 
-    // Verify no critical console errors
-    const errors: string[] = []
-    page.on("console", (msg) => {
-      if (msg.type() === "error") {
-        errors.push(msg.text())
-      }
-    })
-
-    await page.waitForTimeout(1000)
-
-    expect(
-      errors.filter(
-        (error) =>
-          !error.includes("favicon") &&
-          !error.includes("Third-party") &&
-          !error.includes("Extension") &&
-          !error.includes("fetch"),
-      ),
-    ).toHaveLength(0)
+    await expect(page).toHaveTitle(/Submit Experimental Report/)
+    await expect(page.getByRole("heading", { level: 1, name: "Submit Experimental Report" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 2, name: "Experiment details" })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 2, name: "Antibodies" })).toBeVisible()
   })
 
-  test("should have submission form elements", async ({ page }) => {
+  test("breadcrumbs point back to the home page", async ({ page }) => {
     await page.goto("/submit")
-    await page.waitForLoadState("networkidle")
 
-    // Look for form inputs - should have at least some of these
-    const formElements = page.locator('form, input, textarea, select, [role="combobox"]').first()
+    await page.getByRole("navigation", { name: "breadcrumb" }).getByRole("link", { name: "Home" }).click()
 
-    if ((await formElements.count()) > 0) {
-      await expect(formElements).toBeVisible()
-    }
-
-    // Check for description text
-    const description = page.locator("text=/peer review|community|contribution/i")
-    if ((await description.count()) > 0) {
-      await expect(description).toBeVisible()
-    }
-  })
-
-  test("authenticated: should load form for logged-in user", async ({ page }) => {
-    // First sign in
-    await page.goto("/signin")
-    await page.waitForLoadState("networkidle")
-
-    const passwordField = page.locator('input[type="password"]').first()
-    const isTestMode = (await passwordField.count()) > 0
-
-    if (isTestMode) {
-      await passwordField.fill("password")
-      await page.getByRole("button", { name: "Sign In with Test Credentials" }).click()
-      await page.waitForURL("/")
-
-      // Now navigate to submit page
-      await page.goto("/submit")
-      await page.waitForLoadState("networkidle")
-
-      // Should not show sign-in message
-      const signInRequired = page.locator("text=/sign in required|sign in to/i")
-      expect(await signInRequired.count()).toBe(0)
-
-      // Should have form elements
-      const form = page.locator("form").first()
-      if ((await form.count()) > 0) {
-        await expect(form).toBeVisible()
-      }
-    } else {
-      test.skip()
-    }
-  })
-
-  test("should be responsive on mobile", async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto("/submit")
-    await page.waitForLoadState("networkidle")
-
-    // Check that page heading is visible
-    await expect(page.locator("h1").first()).toBeVisible()
-
-    // Check that main content is visible
-    const mainContent = page.locator("main, [role='main']").first()
-    if ((await mainContent.count()) > 0) {
-      await expect(mainContent).toBeVisible()
-    }
+    await expect(page).toHaveURL("/")
   })
 })

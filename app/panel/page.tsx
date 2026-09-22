@@ -1,6 +1,7 @@
-import { auth } from "@/auth"
 import { PanelWorkspace } from "@/components/panel/panel-workspace"
+import { SignInRequired } from "@/components/shared/sign-in-required"
 import { Button } from "@/components/ui/button"
+import { getSessionUser } from "@/lib/auth"
 import type { Metadata } from "next"
 import Link from "next/link"
 
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
 }
 
 export default async function PanelPage() {
-  const session = await auth()
+  const user = await getSessionUser()
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -30,26 +31,24 @@ export default async function PanelPage() {
           <h1 className="text-3xl font-bold tracking-tight">Panel Designer</h1>
           <p className="text-muted-foreground">Design and manage antibody panels for spatial proteomics experiments.</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/browse?mode=panels">Browse public panels</Link>
-        </Button>
+        {user && (
+          <Button asChild variant="outline">
+            <Link href="/browse?mode=panels">Browse public panels</Link>
+          </Button>
+        )}
       </div>
 
-      {session?.user ? (
-        <div className="h-[600px]">
+      {user ? (
+        <div className="h-[calc(100dvh-14rem)] min-h-[480px] rounded-md border">
           <PanelWorkspace />
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          <Link href="/api/auth/signin?callbackUrl=/panel" className="text-primary underline underline-offset-4">
-            Sign in
-          </Link>{" "}
-          to create and manage your own panels, or{" "}
-          <Link href="/browse?mode=panels" className="text-primary underline underline-offset-4">
-            browse panels shared by the community
-          </Link>
-          .
-        </p>
+        <SignInRequired
+          title="Sign in to design a panel"
+          description="Panels are saved to your account, so you can come back to them and share them with your lab. Panels the community has already published stay open to everyone."
+          callbackPath="/panel"
+          secondaryAction={{ label: "Browse public panels", href: "/browse?mode=panels" }}
+        />
       )}
     </div>
   )

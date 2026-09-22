@@ -1,5 +1,7 @@
 import "server-only"
 
+import { EXTERNAL_FETCH_TIMEOUT_MS } from "@/lib/integrations/http"
+
 type EnsemblLookupResponse = {
   id: string
   display_name: string
@@ -42,6 +44,7 @@ export async function lookupGene(ensemblId: string): Promise<EnsemblGeneResult |
   try {
     const response = await fetch(`https://rest.ensembl.org/lookup/id/${ensemblId}?content-type=application/json`, {
       next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
     })
 
     if (!response.ok) {
@@ -64,6 +67,7 @@ export async function searchGeneBySymbol(
       `https://rest.ensembl.org/lookup/symbol/${species}/${symbol}?content-type=application/json`,
       {
         next: { revalidate: 86400 },
+        signal: AbortSignal.timeout(EXTERNAL_FETCH_TIMEOUT_MS),
       },
     )
 

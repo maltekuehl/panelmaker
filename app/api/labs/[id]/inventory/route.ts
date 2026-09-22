@@ -3,7 +3,6 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { addLabAntibodySchema, getLabInventory, toLabAntibodyResponse, upsertLabAntibody } from "@/models/lab"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -35,9 +34,6 @@ export async function POST(request: NextRequest, context: Context) {
     const item = await upsertLabAntibody(labId, data, user.id)
     return createSuccessResponse({ item: toLabAntibodyResponse(item) }, 201)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     if (error instanceof Error && error.message.includes("No antibody found")) {
       return NextResponse.json({ error: error.message }, { status: 422 })
     }

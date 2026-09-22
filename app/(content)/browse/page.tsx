@@ -19,7 +19,7 @@ import { createLoader, type SearchParams } from "nuqs/server"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
-  title: "PanelMaker — Browse Markers, Antibodies & Reports",
+  title: "Browse markers, antibodies and reports | PanelMaker",
   description:
     "Browse validated cell type markers, antibodies, and experimental reports to design antibody panels for spatial proteomics experiments.",
   keywords: [
@@ -38,16 +38,16 @@ export const metadata: Metadata = {
     "computational biology",
   ],
   openGraph: {
-    title: "PanelMaker — Browse Markers, Antibodies & Reports",
+    title: "Browse markers, antibodies and reports | PanelMaker",
     description:
       "Browse validated cell type markers and antibodies to design panels for spatial proteomics experiments.",
     type: "website",
-    url: "https://panelmaker.ai/browse",
+    url: "/browse",
     siteName: "PanelMaker",
   },
   twitter: {
     card: "summary_large_image",
-    title: "PanelMaker — Browse Markers, Antibodies & Reports",
+    title: "Browse markers, antibodies and reports | PanelMaker",
     description: "Browse validated markers and antibodies for spatial proteomics panel design",
   },
 }
@@ -73,54 +73,49 @@ async function BrowseTable({ params }: { params: BrowseMarkerParams }) {
   if (params.mode === "antibodies") {
     const { rows, total, page, pageCount } = await getAntibodyEntriesPage(params)
     return (
-      <DataTable
-        columns={antibodyColumns}
-        data={rows}
-        pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
-      />
+      <>
+        <DataTable columns={antibodyColumns} data={rows} emptyMessage="No antibodies match these filters." />
+        <DataTablePagination page={page} pageCount={pageCount} total={total} />
+      </>
     )
   }
 
   if (params.mode === "reports") {
     const { rows, total, page, pageCount } = await getReportEntriesPage(params)
     return (
-      <DataTable
-        columns={reportColumns}
-        data={rows}
-        pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
-      />
+      <>
+        <DataTable columns={reportColumns} data={rows} emptyMessage="No reports match these filters." />
+        <DataTablePagination page={page} pageCount={pageCount} total={total} />
+      </>
     )
   }
 
   if (params.mode === "experiments") {
     const { rows, total, page, pageCount } = await getExperimentEntriesPage(params)
     return (
-      <DataTable
-        columns={experimentColumns}
-        data={rows}
-        pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
-      />
+      <>
+        <DataTable columns={experimentColumns} data={rows} emptyMessage="No experiments match these filters." />
+        <DataTablePagination page={page} pageCount={pageCount} total={total} />
+      </>
     )
   }
 
   if (params.mode === "panels") {
     const { rows, total, page, pageCount } = await getPanelEntriesPage(params)
     return (
-      <DataTable
-        columns={panelColumns}
-        data={rows}
-        pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
-      />
+      <>
+        <DataTable columns={panelColumns} data={rows} emptyMessage="No shared panels match these filters." />
+        <DataTablePagination page={page} pageCount={pageCount} total={total} />
+      </>
     )
   }
 
   const { rows, total, page, pageCount } = await getMarkerEntriesPage(params)
   return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      pagination={<DataTablePagination page={page} pageCount={pageCount} total={total} />}
-    />
+    <>
+      <DataTable columns={columns} data={rows} emptyMessage="No markers match these filters." />
+      <DataTablePagination page={page} pageCount={pageCount} total={total} />
+    </>
   )
 }
 

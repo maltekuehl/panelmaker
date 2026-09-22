@@ -22,5 +22,5 @@ export const metadata: Metadata = {
 }
 
 export default function DocsMarkdownLayout({ children }: { children: React.ReactNode }) {
-  return <div className="docs max-w-full min-w-0 prose prose-zinc p-6 dark:prose-invert">{children}</div>
+  return <div className="docs max-w-full min-w-0 prose p-6">{children}</div>
 }

@@ -1,5 +1,5 @@
 import { createAuthHandler, deleteUser } from "@/lib/auth"
-import { logger } from "@/lib/monitoring"
+import { createErrorResponse } from "@/lib/error-handling"
 import { NextRequest, NextResponse } from "next/server"
 
 // DELETE /api/user/[id] - Delete a user (admin only)
@@ -7,10 +7,6 @@ export const DELETE = createAuthHandler(
   async (request: NextRequest, user, context: { params: Promise<{ id: string }> }) => {
     try {
       const userId = (await context.params).id
-
-      if (!userId) {
-        return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-      }
 
       // Prevent admin from deleting themselves
       if (userId === user.id) {
@@ -20,8 +16,7 @@ export const DELETE = createAuthHandler(
       await deleteUser(userId)
       return NextResponse.json({ message: "User deleted successfully" })
     } catch (error) {
-      logger.error("Error deleting user", error instanceof Error ? error : new Error(String(error)))
-      return NextResponse.json({ error: "Failed to delete user" }, { status: 500 })
+      return createErrorResponse(error, "Failed to delete user")
     }
   },
   true, // Require admin access

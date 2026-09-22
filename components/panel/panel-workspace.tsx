@@ -1,5 +1,6 @@
 "use client"
 
+import { ImagingMethodSelect, useImagingMethods } from "@/components/imaging-method-select"
 import { VisibilitySelector } from "@/components/shared/visibility-selector"
 import {
   AlertDialog,
@@ -12,23 +13,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import type { Visibility } from "@/lib/generated/prisma/enums"
 import { cn } from "@/lib/utils"
 import { usePanelsSignal } from "@/stores/panels"
-import { AlertTriangle, Download, Palette, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, Download, Info, Palette, Plus, Trash2, XCircle } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
+import { PanelExportMenu } from "./panel-export-menu"
 import type { CreatePanelFormData } from "./panel-form"
 import { PanelForm } from "./panel-form"
 import { PanelList } from "./panel-list"
 import { FIXATION_LABELS, Panel, PanelCycle } from "./types"
 
 type VisibilityValue = {
-  visibility: "PRIVATE" | "LAB" | "PUBLIC"
+  visibility: Visibility
   sharedLabIds: string[]
 }
 
@@ -40,7 +41,14 @@ type PanelWarning = {
   message: string
 }
 
-export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
+const SEVERITY_LABELS = { error: "Error", warning: "Warning", info: "Note" } as const
+
+function SeverityIcon({ severity }: { severity: PanelWarning["severity"] }) {
+  const Icon = severity === "error" ? XCircle : severity === "warning" ? AlertTriangle : Info
+  return <Icon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+}
+
+export function PanelWorkspace() {
   const [panels, setPanels] = useState<Panel[]>([])
   const [activePanelId, setActivePanelId] = useState<string | null>(null)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -50,6 +58,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
   const [panelToDelete, setPanelToDelete] = useState<Panel | null>(null)
   const [userLabs, setUserLabs] = useState<{ id: string; name: string }[]>([])
   const [labsLoading, setLabsLoading] = useState(true)
+  const { imagingMethods } = useImagingMethods()
   const panelsVersion = usePanelsSignal((s) => s.version)
   const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
 
@@ -66,7 +75,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
       }
 
       const json = await res.json()
-      const fetched: Panel[] = json.data?.panels ?? json.panels ?? []
+      const fetched: Panel[] = json.panels ?? []
       setPanels(fetched)
       setActivePanelId((current) =>
         current && fetched.some((p) => p.id === current) ? current : (fetched[0]?.id ?? null),
@@ -111,9 +120,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
       if (!res.ok) return
       const json = await res.json()
       setWarnings(json.warnings ?? [])
-    } catch {
-      // Silently fail — validation warnings are non-critical
-    }
+    } catch {}
   }
 
   useEffect(() => {
@@ -126,35 +133,39 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
 
   const handleCreatePanel = async (data: CreatePanelFormData) => {
     setIsCreating(true)
+    try {
+      const res = await fetch("/api/panels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          description: data.description || undefined,
+          speciesId: data.speciesId || undefined,
+          speciesLabel: data.speciesLabel || undefined,
+          fixation: data.fixation || undefined,
+          imagingMethodId: data.imagingMethodId || undefined,
+          conditionId: data.conditionId || undefined,
+          conditionLabel: data.conditionLabel || undefined,
+        }),
+      })
 
-    const res = await fetch("/api/panels", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: data.name,
-        description: data.description || undefined,
-        speciesId: data.speciesId || undefined,
-        speciesLabel: data.speciesLabel || undefined,
-        fixation: data.fixation || undefined,
-        conditionId: data.conditionId || undefined,
-        conditionLabel: data.conditionLabel || undefined,
-      }),
-    })
+      if (!res.ok) {
+        toast.error("Failed to create panel")
+        return
+      }
 
-    setIsCreating(false)
-
-    if (!res.ok) {
+      const json = await res.json()
+      const newPanel: Panel = json.panel
+      setPanels((prev) => [newPanel, ...prev])
+      setActivePanelId(newPanel.id)
+      setIsCreateOpen(false)
+      notifyPanelsChanged()
+      toast.success("Panel created")
+    } catch {
       toast.error("Failed to create panel")
-      return
+    } finally {
+      setIsCreating(false)
     }
-
-    const json = await res.json()
-    const newPanel: Panel = json.data?.panel ?? json.panel
-    setPanels((prev) => [newPanel, ...prev])
-    setActivePanelId(newPanel.id)
-    setIsCreateOpen(false)
-    notifyPanelsChanged()
-    toast.success("Panel created")
   }
 
   const handleCyclesChange = (panelId: string, newCycles: PanelCycle[]) => {
@@ -172,44 +183,53 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
   const confirmDeletePanel = async () => {
     if (!panelToDelete) return
 
-    const res = await fetch(`/api/panels/${panelToDelete.id}`, { method: "DELETE" })
-
-    if (!res.ok) {
-      toast.error("Failed to delete panel")
-      return
-    }
-
-    const remaining = panels.filter((p) => p.id !== panelToDelete.id)
-    setPanels(remaining)
-    setActivePanelId(remaining.length > 0 ? remaining[0].id : null)
-    setPanelToDelete(null)
-    notifyPanelsChanged()
-    toast.success("Panel deleted")
-  }
-
-  const handleExport = async (panelId: string, format: "csv" | "order" | "json") => {
     try {
-      const res = await fetch(`/api/panels/${panelId}/export?format=${format}`)
+      const res = await fetch(`/api/panels/${panelToDelete.id}`, { method: "DELETE" })
+
       if (!res.ok) {
-        toast.error("Failed to export panel")
+        toast.error("Failed to delete panel")
         return
       }
-      const blob = await res.blob()
-      const contentDisposition = res.headers.get("Content-Disposition")
-      const filename = contentDisposition
-        ? (contentDisposition.split("filename=")[1]?.replace(/"/g, "") ?? `panel.${format === "json" ? "json" : "csv"}`)
-        : `panel.${format === "json" ? "json" : "csv"}`
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      toast.success("Panel exported")
+
+      const remaining = panels.filter((p) => p.id !== panelToDelete.id)
+      setPanels(remaining)
+      setActivePanelId(remaining.length > 0 ? remaining[0].id : null)
+      notifyPanelsChanged()
+      toast.success("Panel deleted")
     } catch {
-      toast.error("Failed to export panel")
+      toast.error("Failed to delete panel")
+    } finally {
+      setPanelToDelete(null)
+    }
+  }
+
+  const handleImagingMethodChange = async (panelId: string, next: string | null) => {
+    const previous = panels.find((p) => p.id === panelId) ?? null
+    const method = next ? (imagingMethods.find((m) => m.id === next) ?? null) : null
+
+    setPanels((ps) => ps.map((p) => (p.id === panelId ? { ...p, imagingMethodId: next, imagingMethod: method } : p)))
+
+    try {
+      const res = await fetch(`/api/panels/${panelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imagingMethodId: next }),
+      })
+
+      if (!res.ok) throw new Error("Request failed")
+
+      fetchValidation(panelId)
+      notifyPanelsChanged()
+      toast.success(method ? `Imaging method set to ${method.label}` : "Imaging method cleared")
+    } catch {
+      setPanels((ps) =>
+        ps.map((p) =>
+          p.id === panelId && previous
+            ? { ...p, imagingMethodId: previous.imagingMethodId, imagingMethod: previous.imagingMethod }
+            : p,
+        ),
+      )
+      toast.error("Failed to update imaging method")
     }
   }
 
@@ -226,13 +246,7 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
       ),
     )
 
-    const res = await fetch(`/api/panels/${panelId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visibility: next.visibility, sharedLabIds: next.sharedLabIds }),
-    })
-
-    if (!res.ok) {
+    const rollback = () => {
       setPanels((ps) =>
         ps.map((p) =>
           p.id === panelId
@@ -245,29 +259,41 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
         ),
       )
       toast.error("Failed to update panel visibility")
-      return
     }
 
-    notifyPanelsChanged()
-    toast.success("Panel visibility updated")
+    try {
+      const res = await fetch(`/api/panels/${panelId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visibility: next.visibility, sharedLabIds: next.sharedLabIds }),
+      })
+
+      if (!res.ok) {
+        rollback()
+        return
+      }
+
+      notifyPanelsChanged()
+      toast.success("Panel visibility updated")
+    } catch {
+      rollback()
+    }
   }
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? panels[0] ?? null
 
-  const Wrapper = flat ? "div" : Card
-
   if (isLoading) {
     return (
-      <Wrapper className="flex h-full flex-col gap-4 p-4">
+      <div className="flex h-full flex-col gap-4 p-4">
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-16 w-full" />
         <Skeleton className="h-32 w-full" />
-      </Wrapper>
+      </div>
     )
   }
 
   return (
-    <Wrapper className="flex h-full flex-col overflow-hidden p-0">
+    <div className="flex h-full flex-col overflow-hidden p-0">
       <div className="p-4 pb-0 space-y-4">
         <div className="flex items-center justify-between gap-3">
           {panels.length > 0 ? (
@@ -290,7 +316,8 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{panel.name}</span>
                           <span className="text-xs text-muted-foreground">
-                            {[pSpecies, pFixation].filter(Boolean).join(" • ") || "No species / fixation set"}
+                            {[pSpecies, pFixation, panel.imagingMethod?.shortLabel].filter(Boolean).join(", ") ||
+                              "No species, fixation or method set"}
                           </span>
                         </div>
                       </SelectItem>
@@ -304,11 +331,12 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
           )}
           <Popover open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="icon" className="h-10 w-10 shrink-0">
-                <Plus className="h-4 w-4" />
+              <Button variant="outline" size="icon" className="size-10 shrink-0">
+                <Plus className="size-4" />
+                <span className="sr-only">New panel</span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
+            <PopoverContent aria-label="Create new panel" className="w-80" align="end">
               <div className="space-y-4">
                 <h4 className="font-medium leading-none">Create New Panel</h4>
                 <PanelForm
@@ -327,12 +355,12 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
               <div className="min-w-0 flex-1">
                 <VisibilitySelector
                   value={{
-                    visibility: (activePanel.visibility ?? "PRIVATE") as "PRIVATE" | "LAB" | "PUBLIC",
+                    visibility: activePanel.visibility ?? "PRIVATE",
                     sharedLabIds: activePanel.sharedLabIds ?? [],
                   }}
                   onChange={(next) => {
                     const prev: VisibilityValue = {
-                      visibility: (activePanel.visibility ?? "PRIVATE") as "PRIVATE" | "LAB" | "PUBLIC",
+                      visibility: activePanel.visibility ?? "PRIVATE",
                       sharedLabIds: activePanel.sharedLabIds ?? [],
                     }
                     handleVisibilityChange(activePanel.id, prev, next)
@@ -342,35 +370,36 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
                 />
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-400 hover:text-zinc-600">
-                      <Download className="h-3.5 w-3.5" />
+                <PanelExportMenu
+                  panelId={activePanel.id}
+                  trigger={
+                    <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground">
+                      <Download className="size-3.5" />
                       <span className="sr-only">Export Panel</span>
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleExport(activePanel.id, "csv")}>
-                      Export Panel (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleExport(activePanel.id, "order")}>
-                      Export Order List (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleExport(activePanel.id, "json")}>
-                      Export Panel (JSON)
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  }
+                />
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-zinc-400 hover:text-red-500 hover:bg-red-50"
+                  className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => handleDeletePanel(activePanel.id)}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="size-3.5" />
                   <span className="sr-only">Delete Panel</span>
                 </Button>
               </div>
+            </div>
+            <div className="border-t pt-3">
+              <label htmlFor="panel-imaging-method" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Imaging method
+              </label>
+              <ImagingMethodSelect
+                id="panel-imaging-method"
+                value={activePanel.imagingMethodId ?? null}
+                onChange={(next) => handleImagingMethodChange(activePanel.id, next)}
+                className="h-8 text-xs"
+              />
             </div>
             {(activePanel.description || activePanel.condition) && (
               <div className="space-y-1 border-t pt-2">
@@ -384,28 +413,30 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
         )}
       </div>
 
-      {warnings.length > 0 && (
-        <div className="px-4 pt-4 pb-0">
-          <div className="space-y-1.5">
+      <div className="px-4 empty:hidden" aria-live="polite">
+        {warnings.length > 0 && (
+          <div className="space-y-1.5 pt-4">
             {warnings.map((w, i) => (
               <div
-                key={i}
+                key={`${w.type}-${w.cycleId ?? "panel"}-${i}`}
                 className={cn(
                   "flex items-start gap-2 rounded-md px-3 py-2 text-xs",
                   w.severity === "error"
-                    ? "bg-red-50 text-red-700 border border-red-200"
+                    ? "border border-destructive/20 bg-destructive/10 text-destructive"
                     : w.severity === "warning"
-                      ? "bg-amber-50 text-amber-700 border border-amber-200"
-                      : "bg-primary/10 text-primary border border-primary/20",
+                      ? "border border-warning/30 bg-warning/10 text-warning"
+                      : "border border-primary/20 bg-primary/10 text-primary",
                 )}
               >
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>{w.message}</span>
+                <SeverityIcon severity={w.severity} />
+                <span>
+                  <span className="font-medium">{SEVERITY_LABELS[w.severity]}:</span> {w.message}
+                </span>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {activePanel ? (
         <PanelList
@@ -415,10 +446,9 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
           onCyclesChange={(newCycles) => handleCyclesChange(activePanel.id, newCycles)}
         />
       ) : (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground text-center px-8">
-            Click on the plus icon in the upper right corner to create your first panel and get started.
-          </p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center">
+          <p className="text-sm text-muted-foreground">You have no panels yet.</p>
+          <Button onClick={() => setIsCreateOpen(true)}>Create your first panel</Button>
         </div>
       )}
 
@@ -433,15 +463,12 @@ export function PanelWorkspace({ flat = false }: { flat?: boolean }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 focus-visible:ring-red-600"
-              onClick={confirmDeletePanel}
-            >
+            <AlertDialogAction variant="destructive" onClick={confirmDeletePanel}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Wrapper>
+    </div>
   )
 }

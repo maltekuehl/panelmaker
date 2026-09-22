@@ -1,10 +1,12 @@
 import { auth } from "@/auth"
 import { env } from "@/lib/env"
-import { AccessStatus, type LabRole, UserRole, UserStatus } from "@/lib/generated/prisma/enums"
+import { ApiException, createErrorResponse } from "@/lib/error-handling"
+import { AccessStatus, type LabRole, UserRole, UserStatus, Visibility } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { ROLE_RANK, type ViewerContext } from "@/models/lab/access"
 import { getSoleOwnerLabIds, getUserLabMemberships, getUserLabRole } from "@/models/lab/queries"
+import { normalizeEmail } from "@/models/user/transforms"
 import { NextRequest, NextResponse } from "next/server"
 import { cache } from "react"
 
@@ -16,78 +18,51 @@ export interface AuthenticatedUser {
   isAdmin?: boolean
 }
 
-export async function isUserAdmin(userId: string): Promise<boolean> {
+export const isUserAdmin = cache(async (userId: string): Promise<boolean> => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true },
   })
   return user?.role === UserRole.ADMIN
+})
+
+// Loads the live user row behind a session token. Returns null when the account no longer exists
+// or is blocked, so a still-valid JWT cannot outlive the account it points at.
+async function loadSessionUser(userId: string): Promise<AuthenticatedUser | null> {
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, image: true, role: true, status: true },
+  })
+  if (!row || row.status === UserStatus.BLOCKED) return null
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    image: row.image,
+    isAdmin: row.role === UserRole.ADMIN,
+  }
 }
 
 export async function requireAuth(request: NextRequest): Promise<AuthenticatedUser> {
   const session = await auth()
+  const user = session?.user?.id ? await loadSessionUser(session.user.id) : null
 
-  if (!session?.user?.id) {
+  if (!user) {
     await logSecurityEventFromRequest(request, SecurityEventType.AUTH_FAILURE, {
+      userId: session?.user?.id,
       action: "access",
       success: false,
     })
     throw new Error("Authentication required")
   }
 
-  await ensureUserExists(session.user)
-
-  return {
-    id: session.user.id,
-    name: session.user.name,
-    email: session.user.email,
-    image: session.user.image,
-  }
-}
-
-async function ensureUserExists(user: {
-  id: string
-  name?: string | null
-  email?: string | null
-  image?: string | null
-}) {
-  const byId = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true },
-  })
-  if (byId) return
-
-  if (user.email) {
-    const byEmail = await prisma.user.findUnique({
-      where: { email: user.email },
-      select: { id: true },
-    })
-    if (byEmail) {
-      if (byEmail.id !== user.id) {
-        await prisma.user.update({
-          where: { email: user.email },
-          data: { id: user.id },
-        })
-      }
-      return
-    }
-  }
-
-  await prisma.user.create({
-    data: {
-      id: user.id,
-      name: user.name ?? null,
-      email: user.email ?? `${user.id}@placeholder.local`,
-      image: user.image ?? null,
-    },
-  })
+  return user
 }
 
 export async function requireAdmin(request: NextRequest): Promise<AuthenticatedUser> {
   const user = await requireAuth(request)
-  const adminStatus = await isUserAdmin(user.id)
 
-  if (!adminStatus) {
+  if (!user.isAdmin) {
     // Log authorization failure
     await logSecurityEventFromRequest(request, SecurityEventType.AUTHZ_FAILURE, {
       userId: user.id,
@@ -117,28 +92,17 @@ export function createAuthHandler<T extends any[]>(
 
       return await handler(request, user, ...args)
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.message === "Authentication required") {
-          return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-        }
-        if (error.message === "Admin access required") {
-          return NextResponse.json({ error: "Admin access required" }, { status: 403 })
-        }
-        if (error.message === "Lab membership required" || error.message === "Insufficient lab role") {
-          return NextResponse.json({ error: error.message }, { status: 403 })
-        }
-        if (error.message === "Resource not found") {
-          return NextResponse.json({ error: "Resource not found" }, { status: 404 })
-        }
-      }
+      const response = authErrorResponse(error)
+      if (response) return response
       throw error
     }
   }
 }
 
-// Maps the auth/authorization errors thrown by the require* guards to an HTTP response.
+// Maps ApiException and the string errors thrown by the require* guards to an HTTP response.
 // Returns null when the error is not a recognized auth error, so callers can fall through.
 export function authErrorResponse(error: unknown): NextResponse | null {
+  if (error instanceof ApiException) return createErrorResponse(error)
   if (!(error instanceof Error)) return null
   switch (error.message) {
     case "Authentication required":
@@ -154,12 +118,40 @@ export function authErrorResponse(error: unknown): NextResponse | null {
   }
 }
 
+// Session user for server components and pages. Returns null when there is no session, when the
+// JWT names a user row that no longer exists (for example after a database reset), or when the
+// account is blocked. Pages must use this rather than reading session.user.id straight from auth(),
+// otherwise a stale cookie reaches Prisma and fails on a foreign key.
+export const getSessionUser = cache(async (): Promise<AuthenticatedUser | null> => {
+  const session = await auth()
+  const id = session?.user?.id
+  if (!id) return null
+
+  const account = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, name: true, email: true, image: true, role: true, status: true },
+  })
+  if (!account || account.status === UserStatus.BLOCKED) return null
+
+  return {
+    id: account.id,
+    name: account.name,
+    email: account.email,
+    image: account.image,
+    isAdmin: account.role === UserRole.ADMIN,
+  }
+})
+
 // Resolves the per-request lab context for a user (memberships, roles, site-admin flag).
 // Memoized per request and intentionally NOT cached in the JWT, so a removed member or a role
 // change takes effect immediately on the next request.
 export const resolveViewerContext = cache(async (userId: string | null): Promise<ViewerContext | null> => {
   if (!userId) return null
-  const [memberships, admin] = await Promise.all([getUserLabMemberships(userId), isUserAdmin(userId)])
+  const [memberships, account] = await Promise.all([
+    getUserLabMemberships(userId),
+    prisma.user.findUnique({ where: { id: userId }, select: { role: true, status: true } }),
+  ])
+  if (!account || account.status === UserStatus.BLOCKED) return null
   const roleByLab: Record<string, LabRole> = {}
   for (const membership of memberships) {
     roleByLab[membership.labId] = membership.role
@@ -168,7 +160,7 @@ export const resolveViewerContext = cache(async (userId: string | null): Promise
     userId,
     labIds: memberships.map((membership) => membership.labId),
     roleByLab,
-    isAdmin: admin,
+    isAdmin: account.role === UserRole.ADMIN,
   }
 })
 
@@ -211,18 +203,16 @@ export async function requireLabRole(
 }
 
 // Helper function for optional auth (user might or might not be authenticated)
-export async function getOptionalAuth(request: NextRequest): Promise<AuthenticatedUser | null> {
-  try {
-    return await requireAuth(request)
-  } catch {
-    return null
-  }
+export async function getOptionalAuth(_request: NextRequest): Promise<AuthenticatedUser | null> {
+  const session = await auth()
+  if (!session?.user?.id) return null
+  return loadSessionUser(session.user.id)
 }
 
 // Check if a user can sign in (not blocked)
 export async function canSignIn(email: string): Promise<boolean> {
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { email: normalizeEmail(email) },
     select: { status: true },
   })
 
@@ -235,18 +225,24 @@ export async function canSignIn(email: string): Promise<boolean> {
 
 // Block a user
 export async function blockUser(userId: string): Promise<void> {
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+  if (!target) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
+  if (target.role === UserRole.ADMIN) {
+    throw new ApiException(409, { message: "Admin accounts cannot be blocked", code: "ADMIN_USER" })
+  }
   await prisma.user.update({
-    where: { id: userId, role: { not: UserRole.ADMIN } },
+    where: { id: userId },
     data: { status: UserStatus.BLOCKED },
   })
 }
 
 // Unblock a user
 export async function unblockUser(userId: string): Promise<void> {
-  await prisma.user.update({
+  const { count } = await prisma.user.updateMany({
     where: { id: userId },
     data: { status: UserStatus.ACTIVE },
   })
+  if (count === 0) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
 }
 
 // Verified access is only enforced in production. Elsewhere everyone is treated as verified.
@@ -309,18 +305,20 @@ export async function requestAccess(userId: string): Promise<AccessStatus> {
 
 // Admin grants verified access
 export async function grantAccess(userId: string): Promise<void> {
-  await prisma.user.update({
+  const { count } = await prisma.user.updateMany({
     where: { id: userId },
     data: { accessStatus: AccessStatus.VERIFIED, accessRequestedAt: null },
   })
+  if (count === 0) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
 }
 
 // Admin revokes verified access
 export async function revokeAccess(userId: string): Promise<void> {
-  await prisma.user.update({
+  const { count } = await prisma.user.updateMany({
     where: { id: userId },
     data: { accessStatus: AccessStatus.NONE, accessRequestedAt: null },
   })
+  if (count === 0) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
 }
 
 // Delete a user and all their data
@@ -330,23 +328,32 @@ export async function deleteUser(userId: string): Promise<void> {
     select: { role: true },
   })
 
-  if (user?.role === UserRole.ADMIN) {
-    throw new Error("Cannot delete admin users")
+  if (!user) {
+    throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
+  }
+
+  if (user.role === UserRole.ADMIN) {
+    throw new ApiException(403, { message: "Cannot delete admin users", code: "ADMIN_USER" })
   }
 
   const soleOwnerLabIds = await getSoleOwnerLabIds(userId)
   if (soleOwnerLabIds.length > 0) {
-    throw new Error("Cannot delete a user who is the sole owner of a lab. Transfer ownership or delete the lab first.")
+    throw new ApiException(409, {
+      message: "Cannot delete a user who is the sole owner of a lab. Delete the lab first.",
+      code: "SOLE_LAB_OWNER",
+      details: { labIds: soleOwnerLabIds },
+    })
   }
 
-  await prisma.user.delete({
-    where: {
-      id: userId,
-      role: {
-        not: UserRole.ADMIN,
-      },
-    },
-  })
+  // Panels and experiments keep the User relation with onDelete: SetNull so public contributions stay
+  // in place. Private ones would become unreachable orphans, so they go with the account.
+  await prisma.$transaction([
+    prisma.panel.deleteMany({ where: { ownerId: userId, visibility: Visibility.PRIVATE, owningLabId: null } }),
+    prisma.experiment.deleteMany({ where: { submitterId: userId, visibility: Visibility.PRIVATE, owningLabId: null } }),
+    prisma.rateLimit.deleteMany({ where: { userId } }),
+    prisma.chatMessage.updateMany({ where: { userId }, data: { userId: null } }),
+    prisma.user.delete({ where: { id: userId } }),
+  ])
 }
 
 // Get all users with pagination (admin only)
@@ -360,11 +367,13 @@ export async function getAllUsers(page: number = 1, pageSize: number = 20, searc
           {
             name: {
               contains: search,
+              mode: "insensitive" as const,
             },
           },
           {
             email: {
               contains: search,
+              mode: "insensitive" as const,
             },
           },
         ],
@@ -387,7 +396,6 @@ export async function getAllUsers(page: number = 1, pageSize: number = 20, searc
         updatedAt: true,
         _count: {
           select: {
-            reviews: true,
             panels: true,
             experiments: true,
             blogPosts: true,

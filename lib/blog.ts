@@ -1,4 +1,4 @@
-import type { BlogPost } from "@/lib/generated/prisma/client"
+import type { BlogPost, Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { generateSlug } from "@/lib/utils"
 import "server-only"
@@ -60,7 +60,7 @@ export async function getBlogPosts(
   const skip = (page - 1) * limit
 
   // Build where clause
-  const where: any = {}
+  const where: Prisma.BlogPostWhereInput = {}
 
   if (typeof published === "boolean") {
     where.published = published
@@ -71,7 +71,11 @@ export async function getBlogPosts(
   }
 
   if (search) {
-    where.OR = [{ title: { contains: search } }, { excerpt: { contains: search } }, { content: { contains: search } }]
+    where.OR = [
+      { title: { contains: search, mode: "insensitive" } },
+      { excerpt: { contains: search, mode: "insensitive" } },
+      { content: { contains: search, mode: "insensitive" } },
+    ]
   }
 
   // Get total count for pagination
@@ -110,7 +114,7 @@ export async function getBlogPosts(
  * Get a single blog post by slug
  */
 export async function getBlogPostBySlug(slug: string, includeUnpublished = false): Promise<BlogPostWithAuthor | null> {
-  const where: any = { slug }
+  const where: Prisma.BlogPostWhereUniqueInput = { slug }
 
   if (!includeUnpublished) {
     where.published = true
@@ -135,7 +139,7 @@ export async function getBlogPostBySlug(slug: string, includeUnpublished = false
  * Get a single blog post by ID
  */
 export async function getBlogPostById(id: string, includeUnpublished = false): Promise<BlogPostWithAuthor | null> {
-  const where: any = { id }
+  const where: Prisma.BlogPostWhereUniqueInput = { id }
 
   if (!includeUnpublished) {
     where.published = true
@@ -173,7 +177,7 @@ export async function createBlogPost(data: CreateBlogPostData): Promise<BlogPost
       publishedAt,
       metaTitle: data.metaTitle,
       metaDescription: data.metaDescription,
-      keywords: JSON.stringify(data.keywords ?? []),
+      keywords: data.keywords ?? [],
       authorId: data.authorId,
     },
   })
@@ -183,7 +187,12 @@ export async function createBlogPost(data: CreateBlogPostData): Promise<BlogPost
  * Update an existing blog post
  */
 export async function updateBlogPost(id: string, data: UpdateBlogPostData): Promise<BlogPost> {
-  const updateData: any = { ...data }
+  // authorId is not editable, so it must not be spread through.
+  const { keywords, authorId: _authorId, ...rest } = data
+  const updateData: Prisma.BlogPostUpdateInput = {
+    ...rest,
+    ...(keywords !== undefined && { keywords }),
+  }
 
   // Generate new slug if title changed
   if (data.title) {
@@ -290,15 +299,11 @@ export async function getRelatedBlogPosts(
     return []
   }
 
-  const keywordConditions = keywords.map((kw) => ({
-    keywords: { contains: kw },
-  }))
-
   return await prisma.blogPost.findMany({
     where: {
       id: { not: currentPostId },
       published: true,
-      OR: keywordConditions,
+      keywords: { hasSome: keywords },
     },
     include: {
       author: {

@@ -1,19 +1,14 @@
-import { auth } from "@/auth"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { getAccessState } from "@/lib/auth"
+import { getAccessState, getSessionUser } from "@/lib/auth"
+import { LAB_ROLE_LABELS } from "@/lib/constants"
+import type { LabRole } from "@/lib/generated/prisma/enums"
+import { signInUrl } from "@/lib/routes"
 import { getLabsForUser } from "@/models/lab"
 import { Building2, FlaskConical, Plus, Users } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-
-const ROLE_LABELS: Record<string, string> = {
-  OWNER: "Owner",
-  ADMIN: "Admin",
-  MEMBER: "Member",
-  VIEWER: "Viewer",
-}
 
 const ROLE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = {
   OWNER: "default",
@@ -23,16 +18,13 @@ const ROLE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = {
 }
 
 export default async function LabsPage() {
-  const session = await auth()
+  const user = await getSessionUser()
 
-  if (!session?.user?.id) {
-    redirect("/signin?callbackUrl=/labs")
+  if (!user) {
+    redirect(signInUrl("/labs"))
   }
 
-  const [labsWithRoles, accessState] = await Promise.all([
-    getLabsForUser(session.user.id),
-    getAccessState(session.user.id),
-  ])
+  const [labsWithRoles, accessState] = await Promise.all([getLabsForUser(user.id), getAccessState(user.id)])
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -43,27 +35,23 @@ export default async function LabsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Your labs</h1>
           <p className="text-muted-foreground">Labs you belong to and the panels and inventory they share.</p>
         </div>
-        {accessState.verified ? (
+        {accessState.verified && (
           <Button asChild>
             <Link href="/labs/new">
               <Plus className="size-4" />
               New lab
             </Link>
           </Button>
-        ) : (
-          <Button asChild variant="outline" disabled>
-            <span>
-              <Plus className="size-4" />
-              New lab
-            </span>
-          </Button>
         )}
       </div>
 
       {!accessState.verified && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-          Account verification is required before you can create a lab. Contact an administrator to request access. You
-          can still browse and join labs you have been invited to.
+        <div className="rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+          Account verification is required before you can create a lab. You can request verification on the{" "}
+          <Link href="/submit" className="font-medium underline underline-offset-4">
+            submit page
+          </Link>
+          . You can still browse and join labs you have been invited to.
         </div>
       )}
 
@@ -101,7 +89,7 @@ export default async function LabsPage() {
                     {lab.name}
                   </Link>
                   <Badge variant={ROLE_VARIANTS[role] ?? "outline"} className="shrink-0 text-xs">
-                    {ROLE_LABELS[role] ?? role}
+                    {LAB_ROLE_LABELS[role as LabRole] ?? role}
                   </Badge>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">

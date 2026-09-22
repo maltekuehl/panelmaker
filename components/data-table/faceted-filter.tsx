@@ -65,16 +65,21 @@ export function DataTableFacetedFilter({ title, options, value, onChange }: Data
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto min-w-[220px] max-w-[420px] p-0" align="start">
+      <PopoverContent
+        aria-label={`Filter by ${title}`}
+        className="w-auto min-w-[220px] max-w-[420px] p-0"
+        align="start"
+      >
         <div className="p-1">
           {options.map((option) => {
             const isSelected = selected.has(option.value)
             return (
               <div
                 key={option.value}
-                role="button"
+                role="checkbox"
+                aria-checked={isSelected}
                 tabIndex={0}
-                className="relative flex cursor-pointer select-none items-center whitespace-nowrap rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground"
+                className="relative flex cursor-pointer select-none items-center whitespace-nowrap rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => toggle(option.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -102,20 +107,13 @@ export function DataTableFacetedFilter({ title, options, value, onChange }: Data
           {selected.size > 0 && (
             <>
               <Separator className="my-1" />
-              <div
-                role="button"
-                tabIndex={0}
-                className="flex cursor-pointer select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground"
+              <button
+                type="button"
+                className="flex w-full cursor-pointer select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onChange([])}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault()
-                    onChange([])
-                  }
-                }}
               >
                 Clear filter
-              </div>
+              </button>
             </>
           )}
         </div>

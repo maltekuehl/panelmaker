@@ -3,18 +3,21 @@
 import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useDebouncedSearch } from "@/hooks/use-debounced-search"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import type { ProteinValue } from "./types"
 
 export function ProteinCombobox({
+  id,
   value,
   onChange,
   organismId,
   disabled,
   className,
 }: {
+  id?: string
   value?: ProteinValue | null
   onChange: (value: ProteinValue | null) => void
   organismId?: number
@@ -23,52 +26,38 @@ export function ProteinCombobox({
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<ProteinValue[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    if (!open) return
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (query.trim().length < 2) {
-      setResults([])
-      return
-    }
+  const fetcher = useCallback(
+    (q: string, signal: AbortSignal) => {
+      const params = new URLSearchParams({ q, limit: "10" })
+      if (organismId) params.set("organismId", String(organismId))
+      return fetch(`/api/proteins?${params}`, { signal })
+    },
+    [organismId],
+  )
 
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true)
-      try {
-        const params = new URLSearchParams({ q: query.trim(), limit: "10" })
-        if (organismId) params.set("organismId", String(organismId))
-        const res = await fetch(`/api/proteins?${params}`)
-        if (res.ok) {
-          const data = await res.json()
-          setResults(
-            (data.proteins ?? []).map((p: { id: string; label: string; geneSymbol: string | null }) => ({
-              id: p.id,
-              label: p.label,
-              geneSymbol: p.geneSymbol,
-            })),
-          )
-        } else {
-          setResults([])
-        }
-      } catch {
-        setResults([])
-      } finally {
-        setIsSearching(false)
-      }
-    }, 300)
+  const extractResults = useCallback(
+    (data: unknown) =>
+      ((data as { proteins?: { id: string; label: string; geneSymbol: string | null }[] }).proteins ?? []).map((p) => ({
+        id: p.id,
+        label: p.label,
+        geneSymbol: p.geneSymbol,
+      })),
+    [],
+  )
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [query, open, organismId])
+  const { results, isLoading: isSearching } = useDebouncedSearch<ProteinValue>({
+    query,
+    enabled: open,
+    fetcher,
+    extractResults,
+  })
 
   return (
-    <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen}>
+    <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen} modal>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -76,14 +65,14 @@ export function ProteinCombobox({
           disabled={disabled}
         >
           <span className={cn("truncate", !value && "text-muted-foreground")}>
-            {value ? `${value.label}${value.geneSymbol ? ` (${value.geneSymbol})` : ""}` : "Search UniProt proteins..."}
+            {value ? `${value.label}${value.geneSymbol ? ` (${value.geneSymbol})` : ""}` : "Search UniProt proteins…"}
           </span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
         <Command shouldFilter={false}>
-          <CommandInput placeholder="Type to search (e.g. CD3, Ki67)..." value={query} onValueChange={setQuery} />
+          <CommandInput placeholder="Type to search (e.g. CD3, Ki67)…" value={query} onValueChange={setQuery} />
           <CommandList>
             {isSearching && (
               <div className="flex items-center justify-center py-6">
@@ -112,8 +101,9 @@ export function ProteinCombobox({
                     <div className="flex flex-col">
                       <span className="font-medium">{protein.label}</span>
                       {protein.geneSymbol && (
-                        <span className="text-xs text-muted-foreground">
-                          {protein.geneSymbol} · {protein.id}
+                        <span className="flex gap-x-2 text-xs text-muted-foreground">
+                          <span>{protein.geneSymbol}</span>
+                          <span>{protein.id}</span>
                         </span>
                       )}
                     </div>

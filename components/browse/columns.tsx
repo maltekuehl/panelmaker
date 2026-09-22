@@ -1,17 +1,22 @@
 "use client"
 
 import { ImageCarouselDialog, type CarouselImage } from "@/components/browse/image-carousel-dialog"
+import { SpecificityBadge, WorksBadge } from "@/components/browse/report-badges"
 import { ReportsDialog } from "@/components/browse/reports-dialog"
 import { DataTableColumnHeader } from "@/components/data-table/column-header"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
+import { NotAvailable, ValueOrNotAvailable } from "@/components/shared/not-available"
 import { Badge } from "@/components/ui/badge"
-import { SPECIFICITY_LABELS } from "@/lib/constants"
+import { formatDate } from "@/lib/format"
 import { doiUrl, pubmedUrl } from "@/lib/publication"
+import { antibodyHref, cellTypeHref, markerHref, profileHref } from "@/lib/routes"
 import { ColumnDef } from "@tanstack/react-table"
 import { ImageIcon } from "lucide-react"
 import Link from "next/link"
 
-export type OntologyRef = { id: string; label: string }
+import type { OntologyValue as OntologyRef } from "@/components/ontology-combobox"
+
+export type { OntologyRef }
 
 export type MemberRef = { id: string; name: string | null }
 
@@ -25,7 +30,11 @@ export type MarkerReport = {
 }
 
 export type MarkerEntry = {
+  // Grouping key for the table row. Equals proteinId when the antibody is linked to a protein,
+  // otherwise a synthetic key, so it must never be used to build a /marker/ link.
   id: string
+  // The UniProt accession, null when no protein is linked. Only this may drive a marker link.
+  proteinId: string | null
   marker: string
   cellTypes: OntologyRef[]
   species: string
@@ -85,48 +94,19 @@ export type ExperimentEntry = {
   submitter: MemberRef | null
 }
 
-function antibodyHref(rrid: string): string {
-  return `/antibody/${rrid.replace(/^RRID:/, "")}`
-}
-
 function CellTypeLinks({ cellTypes }: { cellTypes: OntologyRef[] }) {
-  if (cellTypes.length === 0) return <span className="text-muted-foreground">N/A</span>
+  if (cellTypes.length === 0) return <NotAvailable />
   return (
     <div className="flex flex-wrap gap-x-2 gap-y-0.5">
       {cellTypes.map((ct, i) => (
         <span key={ct.id}>
-          <Link href={`/celltype/${ct.id}`} className="text-primary hover:underline">
+          <Link href={cellTypeHref(ct.id)} className="text-primary hover:underline">
             {ct.label}
           </Link>
           {i < cellTypes.length - 1 ? "," : ""}
         </span>
       ))}
     </div>
-  )
-}
-
-const SPECIFICITY_STYLES: Record<string, string> = {
-  HIGH: "border-green-200 bg-green-100 text-green-700",
-  MODERATE: "border-amber-200 bg-amber-100 text-amber-700",
-  LOW: "border-red-200 bg-red-100 text-red-700",
-  NON_SPECIFIC: "border-red-200 bg-red-100 text-red-700",
-}
-
-function SpecificityBadge({ specificity }: { specificity: string | null }) {
-  if (!specificity) return <span className="text-muted-foreground">N/A</span>
-  return (
-    <Badge className={SPECIFICITY_STYLES[specificity] ?? "border-transparent bg-muted text-muted-foreground"}>
-      {SPECIFICITY_LABELS[specificity as keyof typeof SPECIFICITY_LABELS] ?? specificity}
-    </Badge>
-  )
-}
-
-function WorksBadge({ works }: { works: boolean | null }) {
-  if (works === null) return <span className="text-muted-foreground">N/A</span>
-  return works ? (
-    <Badge className="border-green-200 bg-green-100 text-green-700">Works</Badge>
-  ) : (
-    <Badge className="border-red-200 bg-red-100 text-red-700">Failed</Badge>
   )
 }
 
@@ -165,16 +145,26 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   {
     accessorKey: "marker",
     header: () => <DataTableColumnHeader field="marker" title="Marker" />,
-    cell: ({ row }) => (
-      <Link href={`/marker/${row.original.id}`} className="font-semibold hover:underline text-primary">
-        {row.getValue("marker")}
-      </Link>
-    ),
+    cell: ({ row }) =>
+      row.original.proteinId ? (
+        <Link href={markerHref(row.original.proteinId)} className="font-semibold hover:underline text-primary">
+          {row.getValue("marker")}
+        </Link>
+      ) : (
+        <span className="font-semibold" title="No UniProt accession is linked to this antibody">
+          {row.getValue("marker") as string}
+        </span>
+      ),
   },
   {
     accessorKey: "cellTypes",
     header: () => <DataTableColumnHeader field="cellType" title="Cell Types" />,
     cell: ({ row }) => <CellTypeLinks cellTypes={row.original.cellTypes} />,
+    sortingFn: (a, b) =>
+      a.original.cellTypes
+        .map((c) => c.label)
+        .join(", ")
+        .localeCompare(b.original.cellTypes.map((c) => c.label).join(", ")),
   },
   {
     accessorKey: "species",
@@ -190,11 +180,14 @@ export const columns: ColumnDef<MarkerEntry>[] = [
     accessorKey: "validatedMethods",
     header: () => <DataTableColumnHeader field="methods" title="Methods" />,
     cell: ({ row }) => {
-      const methods = row.getValue("validatedMethods") as string[]
+      const methods = row.original.validatedMethods.join(", ")
       return (
-        <div className="flex flex-wrap gap-1 text-muted-foreground truncate max-w-[150px]">{methods.join(", ")}</div>
+        <span className="block max-w-[150px] truncate text-muted-foreground" title={methods}>
+          {methods}
+        </span>
       )
     },
+    sortingFn: (a, b) => a.original.validatedMethods.join(", ").localeCompare(b.original.validatedMethods.join(", ")),
   },
   {
     accessorKey: "reportCount",
@@ -234,10 +227,10 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
     accessorKey: "name",
     header: () => <DataTableColumnHeader field="name" title="Antibody" />,
     cell: ({ row }) => {
-      const rrid = row.original.rrid
+      const href = antibodyHref(row.original.rrid)
       const name = row.original.name
-      return rrid ? (
-        <Link href={antibodyHref(rrid)} className="font-semibold hover:underline text-primary">
+      return href ? (
+        <Link href={href} className="font-semibold hover:underline text-primary">
           {name}
         </Link>
       ) : (
@@ -250,9 +243,9 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
     header: () => <DataTableColumnHeader field="target" title="Target" />,
     cell: ({ row }) => {
       const { target, targetProteinId } = row.original
-      if (!target) return <span className="text-muted-foreground">N/A</span>
+      if (!target) return <NotAvailable />
       return targetProteinId ? (
-        <Link href={`/marker/${targetProteinId}`} className="text-primary hover:underline">
+        <Link href={markerHref(targetProteinId)} className="text-primary hover:underline">
           {target}
         </Link>
       ) : (
@@ -263,24 +256,26 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
   {
     accessorKey: "rrid",
     header: () => <DataTableColumnHeader field="rrid" title="RRID" />,
-    cell: ({ row }) =>
-      row.original.rrid ? (
-        <Link href={antibodyHref(row.original.rrid)} className="font-mono text-xs text-primary hover:underline">
+    cell: ({ row }) => {
+      const href = antibodyHref(row.original.rrid)
+      return href ? (
+        <Link href={href} className="font-mono text-xs text-primary hover:underline">
           {row.original.rrid}
         </Link>
       ) : (
-        <span className="text-muted-foreground">N/A</span>
-      ),
+        <NotAvailable />
+      )
+    },
   },
   {
     accessorKey: "vendor",
     header: () => <DataTableColumnHeader field="vendor" title="Vendor" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.vendor ?? "N/A"}</span>,
+    cell: ({ row }) => <ValueOrNotAvailable value={row.original.vendor} className="text-muted-foreground" />,
   },
   {
     accessorKey: "clone",
     header: () => <DataTableColumnHeader field="clone" title="Clone" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.clone ?? "N/A"}</span>,
+    cell: ({ row }) => <ValueOrNotAvailable value={row.original.clone} className="text-muted-foreground" />,
   },
   {
     accessorKey: "reportCount",
@@ -328,24 +323,31 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
   {
     accessorKey: "antibodyName",
     header: () => <DataTableColumnHeader field="antibodyName" title="Antibody" />,
-    cell: ({ row }) =>
-      row.original.rrid ? (
-        <Link href={antibodyHref(row.original.rrid)} className="text-primary hover:underline">
+    cell: ({ row }) => {
+      const href = antibodyHref(row.original.rrid)
+      return href ? (
+        <Link href={href} className="text-primary hover:underline">
           {row.original.antibodyName}
         </Link>
       ) : (
         <span>{row.original.antibodyName}</span>
-      ),
+      )
+    },
   },
   {
     accessorKey: "cellTypes",
     header: () => <DataTableColumnHeader field="cellType" title="Cell Types" />,
     cell: ({ row }) => <CellTypeLinks cellTypes={row.original.cellTypes} />,
+    sortingFn: (a, b) =>
+      a.original.cellTypes
+        .map((c) => c.label)
+        .join(", ")
+        .localeCompare(b.original.cellTypes.map((c) => c.label).join(", ")),
   },
   {
     accessorKey: "subcellular",
     header: () => <DataTableColumnHeader field="subcellular" title="Subcellular" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.subcellular ?? "N/A"}</span>,
+    cell: ({ row }) => <ValueOrNotAvailable value={row.original.subcellular} className="text-muted-foreground" />,
   },
   {
     accessorKey: "species",
@@ -402,25 +404,20 @@ export type PanelEntry = {
   ownerId: string | null
   ownerName: string | null
   species: string | null
+  method: string | null
   visibility: string
   cycleCount: number
   markerCount: number
   updatedAt: string
 }
 
-export const VISIBILITY_LABELS: Record<string, string> = { PRIVATE: "Private", LAB: "Lab", PUBLIC: "Public" }
-
 export function MemberCell({ member }: { member: MemberRef | null }) {
-  if (!member) return <span className="text-muted-foreground/50">N/A</span>
+  if (!member) return <NotAvailable />
   return (
-    <Link href={`/profile/${member.id}`} className="text-primary hover:underline">
+    <Link href={profileHref(member.id)} className="text-primary hover:underline">
       {member.name ?? "Unnamed user"}
     </Link>
   )
-}
-
-export function formatEntryDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
 function panelOwner(panel: PanelEntry): MemberRef | null {
@@ -450,12 +447,13 @@ export const panelColumns: ColumnDef<PanelEntry>[] = [
   {
     accessorKey: "species",
     header: () => <DataTableColumnHeader field="species" title="Species" />,
+    cell: ({ row }) => (row.original.species ? <span>{row.original.species}</span> : <NotAvailable />),
+  },
+  {
+    accessorKey: "method",
+    header: () => <DataTableColumnHeader field="method" title="Method" />,
     cell: ({ row }) =>
-      row.original.species ? (
-        <span>{row.original.species}</span>
-      ) : (
-        <span className="text-muted-foreground/50">N/A</span>
-      ),
+      row.original.method ? <span className="text-muted-foreground">{row.original.method}</span> : <NotAvailable />,
   },
   {
     accessorKey: "markerCount",
@@ -474,7 +472,7 @@ export const panelColumns: ColumnDef<PanelEntry>[] = [
   {
     accessorKey: "updatedAt",
     header: () => <DataTableColumnHeader field="updatedAt" title="Updated" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{formatEntryDate(row.original.updatedAt)}</span>,
+    cell: ({ row }) => <span className="text-muted-foreground">{formatDate(row.original.updatedAt)}</span>,
   },
 ]
 
@@ -504,7 +502,11 @@ export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
     accessorKey: "name",
     header: () => <DataTableColumnHeader field="name" title="Experiment" />,
     cell: ({ row }) => (
-      <Link href={`/experiment/${row.original.id}`} className="font-semibold hover:underline text-primary">
+      <Link
+        href={`/experiment/${row.original.id}`}
+        className="block max-w-[360px] truncate font-semibold text-primary hover:underline"
+        title={row.original.name ?? undefined}
+      >
         {row.original.name ?? `Experiment ${row.original.id.slice(0, 8)}`}
       </Link>
     ),
@@ -527,7 +529,7 @@ export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
   {
     accessorKey: "condition",
     header: () => <DataTableColumnHeader field="condition" title="Condition" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.condition ?? "N/A"}</span>,
+    cell: ({ row }) => <ValueOrNotAvailable value={row.original.condition} className="text-muted-foreground" />,
   },
   {
     id: "publication",

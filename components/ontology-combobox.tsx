@@ -4,18 +4,17 @@ import { Button } from "@/components/ui/button"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useDebouncedSearch } from "@/hooks/use-debounced-search"
+import type { OntologyResult, OntologyType } from "@/lib/ontology"
 import { cn } from "@/lib/utils"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
 import { useCallback, useState } from "react"
 
-type OntologyType = "cl" | "uberon" | "ncbi_taxonomy" | "go_cc" | "doid" | "ror"
+export type { OntologyType }
 
-interface OntologyValue {
-  id: string
-  label: string
-}
+export type OntologyValue = Pick<OntologyResult, "id" | "label">
 
 interface OntologyComboboxProps {
+  id?: string
   ontologyType: OntologyType
   value?: OntologyValue | null
   onChange: (value: OntologyValue | null) => void
@@ -23,28 +22,23 @@ interface OntologyComboboxProps {
   disabled?: boolean
 }
 
-interface OntologyResult {
-  id: string
-  label: string
-  description?: string
-  ontology: string
-}
-
 export function OntologyCombobox({
+  id,
   ontologyType,
   value,
   onChange,
-  placeholder = "Search...",
+  placeholder = "Search\u2026",
   disabled = false,
 }: OntologyComboboxProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
 
   const fetcher = useCallback(
-    (q: string) => fetch(`/api/ontology?type=${ontologyType}&q=${encodeURIComponent(q)}`),
+    (q: string, signal: AbortSignal) =>
+      fetch(`/api/ontology?type=${ontologyType}&q=${encodeURIComponent(q)}`, { signal }),
     [ontologyType],
   )
-  const extractResults = useCallback((data: any) => data.results ?? [], [])
+  const extractResults = useCallback((data: unknown) => (data as { results?: OntologyResult[] }).results ?? [], [])
 
   const { results, isLoading } = useDebouncedSearch<OntologyResult>({
     query,
@@ -60,9 +54,10 @@ export function OntologyCombobox({
   }
 
   return (
-    <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen}>
+    <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen} modal>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           variant="outline"
           role="combobox"
           aria-expanded={open}
@@ -70,10 +65,10 @@ export function OntologyCombobox({
           disabled={disabled}
         >
           <span className={cn(!value && "text-muted-foreground")}>{value ? value.label : placeholder}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+      <PopoverContent aria-label={placeholder} className="w-(--radix-popover-trigger-width) p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
           <CommandList>

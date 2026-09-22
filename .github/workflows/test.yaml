@@ -3,26 +3,25 @@ name: Lint, build & test
 on:
   push:
     branches: [main]
+  pull_request:
 
 permissions:
   contents: read
   actions: read
 
 jobs:
-  build-deploy:
+  ci:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -30,6 +29,12 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Unit tests
+        run: npm run test:unit
 
       - name: Build for testing
         run: npm run build:test

@@ -1,9 +1,10 @@
 import "server-only"
 
-import type { Clonality, Prisma } from "@/lib/generated/prisma/client"
+import { Prisma } from "@/lib/generated/prisma/client"
 import { lookupAntibodyByRrid } from "@/lib/integrations/antibody-registry"
 import { prisma } from "@/lib/prisma"
 import { resolveTaxonByName } from "@/models/taxon"
+import { type RegistryAntibodyInput, registryToAntibodyCreate } from "./transforms"
 
 export type AntibodyQueryParams = {
   q?: string
@@ -54,7 +55,7 @@ function buildAntibodyWhere(params: AntibodyQueryParams): Prisma.AntibodyWhereIn
   }
 
   if (params.species) {
-    conditions.push({ targetSpecies: { contains: params.species, mode: "insensitive" } })
+    conditions.push({ targetSpecies: { has: params.species } })
   }
 
   return conditions.length > 0 ? { AND: conditions } : {}
@@ -82,14 +83,7 @@ export async function getAntibodyById(id: string): Promise<AntibodyRow | null> {
 export async function searchAntibodies(query: string): Promise<AntibodyRow[]> {
   return prisma.antibody.findMany({
     select: antibodySelect,
-    where: {
-      OR: [
-        { name: { contains: query, mode: "insensitive" } },
-        { rrid: { contains: query, mode: "insensitive" } },
-        { targetName: { contains: query, mode: "insensitive" } },
-        { cloneId: { contains: query, mode: "insensitive" } },
-      ],
-    },
+    where: buildAntibodyWhere({ q: query }),
     take: 20,
     orderBy: { name: "asc" },
   })
@@ -110,18 +104,6 @@ export async function lookupByRrid(rrid: string): Promise<AntibodyRow | null> {
   })
 }
 
-const CLONALITY_MAP: Record<string, Clonality> = {
-  monoclonal: "MONOCLONAL",
-  polyclonal: "POLYCLONAL",
-  recombinant: "RECOMBINANT",
-  oligoclonal: "OLIGOCLONAL",
-}
-
-function cleanValue(value: string | undefined | null): string | null {
-  const trimmed = value?.trim()
-  return trimmed && trimmed.toLowerCase() !== "unknown" ? trimmed : null
-}
-
 export async function resolveAntibodyByRrid(rrid: string): Promise<AntibodyRow | null> {
   const existing = await lookupByRrid(rrid)
   if (existing) return existing
@@ -129,28 +111,40 @@ export async function resolveAntibodyByRrid(rrid: string): Promise<AntibodyRow |
   const registry = await lookupAntibodyByRrid(rrid)
   if (!registry) return null
 
-  const clonality = CLONALITY_MAP[registry.clonality.toLowerCase()] ?? null
   const hostTaxonId = await resolveTaxonByName(registry.sourceOrganism)
 
   try {
     return await prisma.antibody.create({
-      data: {
-        rrid,
-        name: cleanValue(registry.name) ?? "Unknown",
-        catalogNumber: cleanValue(registry.catalogNumber),
-        cloneId: cleanValue(registry.cloneId),
-        clonality,
-        hostTaxonId,
-        targetSpecies: JSON.stringify(registry.targetSpecies ?? []),
-        targetName: cleanValue(registry.target),
-        applications: JSON.stringify(registry.applications ?? []),
-        conjugate: cleanValue(registry.conjugate),
-        vendorName: cleanValue(registry.vendor),
-        vendorUrl: cleanValue(registry.url),
-      },
+      data: registryToAntibodyCreate(registry, { rrid, hostTaxonId }),
       select: antibodySelect,
     })
-  } catch {
-    return lookupByRrid(rrid)
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return lookupByRrid(rrid)
+    throw error
   }
+}
+
+// Catalogues registry search hits so they are linkable and searchable locally. Existing rows are
+// left untouched: the registry is the source of first import, not an authority over later curation.
+export async function upsertAntibodiesFromRegistry(
+  results: RegistryAntibodyInput[],
+  targetProteinId: string | null = null,
+): Promise<AntibodyRow[]> {
+  const rows: AntibodyRow[] = []
+
+  for (const result of results) {
+    if (!result.citation) continue
+    const hostTaxonId = result.sourceOrganism ? await resolveTaxonByName(result.sourceOrganism) : null
+
+    rows.push(
+      await prisma.antibody.upsert({
+        where: { rrid: result.citation },
+        update: {},
+        create: registryToAntibodyCreate(result, { rrid: result.citation, hostTaxonId, targetProteinId }),
+        select: antibodySelect,
+      }),
+    )
+  }
+
+  return rows
 }

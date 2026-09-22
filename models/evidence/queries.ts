@@ -1,8 +1,9 @@
 import "server-only"
 
 import type { Prisma } from "@/lib/generated/prisma/client"
-import type { Clonality, MultiplexMethod, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
+import type { Clonality, DetectionModality, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
+import { resolveImagingMethodId } from "@/models/imaging-method/data"
 import type { ViewerContext } from "@/models/lab/access"
 import { buildReportVisibilityWhere } from "@/models/lab/visibility"
 
@@ -44,7 +45,7 @@ const evidenceSelect = {
   cellTypes: { select: { cellType: { select: { id: true, label: true } } } },
   experiment: {
     select: {
-      method: true,
+      imagingMethod: { select: { id: true, label: true, shortLabel: true, detection: true } },
       fixation: true,
       antigenRetrieval: true,
       species: { select: { id: true, label: true } },
@@ -85,6 +86,9 @@ export interface EvidenceReport {
   fluorophore: string | null
   metalTag: string | null
   method: string | null
+  methodShort: string | null
+  methodId: string | null
+  detection: DetectionModality | null
   fixation: string | null
   antigenRetrieval: string | null
   species: string | null
@@ -117,7 +121,11 @@ function buildEvidenceWhere(filter: EvidenceFilter): Prisma.ExperimentalReportWh
   if (filter.tissueIds?.length) experiment.tissueId = { in: filter.tissueIds }
   if (filter.speciesIds?.length) experiment.speciesId = { in: filter.speciesIds }
   if (filter.conditionIds?.length) experiment.conditionId = { in: filter.conditionIds }
-  if (filter.methods?.length) experiment.method = { in: filter.methods as MultiplexMethod[] }
+  if (filter.methods?.length) {
+    // A caller may pass an ImagingMethod id, an EFO id, an alias or a legacy enum value from an old link.
+    const methodIds = filter.methods.map((value) => resolveImagingMethodId(value)).filter((id): id is string => !!id)
+    experiment.imagingMethodId = { in: methodIds }
+  }
   if (filter.submitterIds?.length) experiment.submitterId = { in: filter.submitterIds }
   if (Object.keys(experiment).length) where.experiment = experiment
 
@@ -149,7 +157,10 @@ function toEvidenceReport(row: EvidenceRow): EvidenceReport {
     incubation: row.incubation,
     fluorophore: row.fluorophore?.name ?? null,
     metalTag: row.metalTag,
-    method: row.experiment.method,
+    method: row.experiment.imagingMethod?.label ?? null,
+    methodShort: row.experiment.imagingMethod?.shortLabel ?? null,
+    methodId: row.experiment.imagingMethod?.id ?? null,
+    detection: row.experiment.imagingMethod?.detection ?? null,
     fixation: row.experiment.fixation,
     antigenRetrieval: row.experiment.antigenRetrieval,
     species: row.experiment.species?.label ?? null,
@@ -179,18 +190,31 @@ function toEvidenceReport(row: EvidenceRow): EvidenceReport {
   }
 }
 
+// A listing is meant to be read, an aggregation is meant to be counted, so they cap differently.
+export const MAX_FIND_REPORTS = 200
+export const MAX_AGGREGATE_REPORTS = 2000
+
+async function loadEvidenceReports(
+  viewer: ViewerContext | null,
+  filter: EvidenceFilter,
+  limit: number,
+  cap: number,
+): Promise<EvidenceReport[]> {
+  const rows = await prisma.experimentalReport.findMany({
+    where: { AND: [buildReportVisibilityWhere(viewer), buildEvidenceWhere(filter)] },
+    select: evidenceSelect,
+    take: Math.min(Math.max(1, limit), cap),
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  })
+  return rows.map(toEvidenceReport)
+}
+
 export async function findReports(
   viewer: ViewerContext | null,
   filter: EvidenceFilter,
   limit = 100,
 ): Promise<EvidenceReport[]> {
-  const rows = await prisma.experimentalReport.findMany({
-    where: { AND: [buildReportVisibilityWhere(viewer), buildEvidenceWhere(filter)] },
-    select: evidenceSelect,
-    take: Math.min(Math.max(1, limit), 200),
-    orderBy: { createdAt: "desc" },
-  })
-  return rows.map(toEvidenceReport)
+  return loadEvidenceReports(viewer, filter, limit, MAX_FIND_REPORTS)
 }
 
 export type EvidenceGroupBy =
@@ -240,7 +264,7 @@ function groupKeyOf(report: EvidenceReport, groupBy: EvidenceGroupBy): { key: st
     case "fixation":
       return report.fixation ? { key: report.fixation, label: report.fixation } : null
     case "method":
-      return report.method ? { key: report.method, label: report.method } : null
+      return report.methodId ? { key: report.methodId, label: report.methodShort ?? report.methodId } : null
     case "submitter":
       return report.submitter ? { key: report.submitter.id, label: report.submitter.name ?? "Unnamed" } : null
     case "fluorophore":
@@ -256,7 +280,7 @@ export async function aggregateReports(
   groupBy: EvidenceGroupBy,
   limit = 400,
 ): Promise<EvidenceGroup[]> {
-  const reports = await findReports(viewer, filter, limit)
+  const reports = await loadEvidenceReports(viewer, filter, limit, MAX_AGGREGATE_REPORTS)
   const groups = new Map<string, { label: string; count: number; works: number; rated: number; strong: number }>()
 
   for (const report of reports) {

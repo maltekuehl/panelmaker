@@ -1,15 +1,14 @@
-import { canSubmit, requireAuth } from "@/lib/auth"
+import { authErrorResponse, canSubmit, requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import {
+  createReport,
   createReportSchema,
   getAllReports,
-  resolveAndCreateReport,
   searchParamsSchema,
   toReportResponse,
 } from "@/models/experimental-report"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,9 +22,6 @@ export async function GET(request: NextRequest) {
 
     return createSuccessResponse({ reports: data, nextCursor })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     return createErrorResponse(error, "Failed to fetch reports")
   }
 }
@@ -44,30 +40,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const body = await request.json()
+    const validated = createReportSchema.parse(body)
+
     const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.REPORTS_SUBMIT)
     if (!rateLimitResult.allowed) {
       return createRateLimitError(rateLimitResult) as NextResponse
     }
 
-    const body = await request.json()
-    const validated = createReportSchema.parse(body)
-
-    const report = await resolveAndCreateReport(validated, user.id)
+    const report = await createReport(validated, user.id)
 
     return createSuccessResponse({ report: toReportResponse(report) }, 201)
   } catch (error) {
-    if (error instanceof Error && error.message === "Authentication required") {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     if (
       error instanceof Error &&
       (error.message.includes("not found in") || error.message.includes("not found in Antibody Registry"))
     ) {
       return NextResponse.json({ error: error.message }, { status: 422 })
     }
-    return createErrorResponse(error, "Failed to create report")
+    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to create report")
   }
 }

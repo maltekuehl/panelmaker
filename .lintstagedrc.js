@@ -4,6 +4,5 @@ const buildEslintCommand = (filenames) =>
   `eslint --fix ${filenames.map((f) => path.relative(process.cwd(), f)).join(" ")}`
 
 module.exports = {
-  "*.{js,jsx,mdx}": ["prettier --write", buildEslintCommand],
-  "*.{ts,tsx}": ["prettier --write", buildEslintCommand],
+  "*.{js,jsx,ts,tsx,mdx}": ["prettier --write", buildEslintCommand],
 }

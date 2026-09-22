@@ -1,4 +1,19 @@
-export { getLeaderboard, getUserProfile, getUserRecentReports, getUserStats, updateUserProfile } from "./queries"
-export type { LeaderboardEntry, RecentReportRow, UserProfileRow, UserStats } from "./queries"
-export { getContributionTier, toRecentReportSummary } from "./transforms"
+export {
+  getLabLeaderboard,
+  getLeaderboard,
+  getUserProfile,
+  getUserRecentReports,
+  getUserStats,
+  updateUserProfile,
+} from "./queries"
+export type {
+  LabLeaderboardEntry,
+  LeaderboardEntry,
+  LeaderboardFilters,
+  LeaderboardScope,
+  RecentReportRow,
+  UserProfileRow,
+  UserStats,
+} from "./queries"
+export { getContributionTier, normalizeEmail, toRecentReportSummary } from "./transforms"
 export type { ContributionTier, RecentReportSummary } from "./transforms"

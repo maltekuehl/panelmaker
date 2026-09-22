@@ -1,20 +1,16 @@
+import { env } from "@/lib/env"
 import { MetadataRoute } from "next"
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://panelmaker.ai"
+  const baseUrl = env.NEXT_PUBLIC_BASE_URL || "https://panelmaker.ai"
 
   return {
     rules: [
       {
-        userAgent: ["AhrefsBot", "Bingbot", "DuckDuckBot", "Googlebot"],
-        allow: "/",
-        disallow: ["/api/", "/admin/", "/auth/", "/_next/", "/private/"],
-      },
-      {
         userAgent: "*",
-        disallow: "/",
+        allow: "/",
+        disallow: ["/api/", "/admin/", "/auth/", "/_next/", "/settings", "/labs", "/lab/", "/chat"],
       },
-      // Block AI bots
       {
         userAgent: [
           "Amazonbot",

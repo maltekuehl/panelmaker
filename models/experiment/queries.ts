@@ -2,14 +2,21 @@ import "server-only"
 
 import type { ExperimentEntry } from "@/components/browse/columns"
 import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
-import { METHOD_LABELS } from "@/lib/constants"
 import type { BrowseMarkerParams, EntryFilterParams, LabContentParams } from "@/lib/data-table"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
+import { antibodyHref, cellTypeHref, markerHref } from "@/lib/routes"
+import { validateAndResolveOntologyTerm } from "@/models/experimental-report"
 import { type EntriesPage, paginate } from "@/models/experimental-report/queries"
+import { resolveImagingMethodId } from "@/models/imaging-method/data"
 import type { ViewerContext } from "@/models/lab/access"
 import { buildExperimentVisibilityWhere } from "@/models/lab/visibility"
 import type { UpdateExperimentData } from "./schema"
+import { legacyFixationFor } from "./transforms"
+
+const imagingMethodSelect = {
+  select: { id: true, label: true, shortLabel: true, detection: true, cyclic: true },
+} as const
 
 const experimentHeaderSelect = {
   id: true,
@@ -19,8 +26,19 @@ const experimentHeaderSelect = {
   pmid: true,
   doi: true,
   fixation: true,
-  method: true,
+  imagingMethod: imagingMethodSelect,
   antigenRetrieval: true,
+  preservation: true,
+  preservationText: true,
+  fixativeConcentration: true,
+  antigenRetrievalText: true,
+  sampleType: true,
+  sectionThicknessUm: true,
+  donorSex: true,
+  donorAge: true,
+  protocolDoi: true,
+  fixative: { select: { id: true, label: true } },
+  developmentalStage: { select: { id: true, label: true } },
   visibility: true,
   createdAt: true,
   submitterId: true,
@@ -65,6 +83,26 @@ export async function getVisibleExperimentById(
 }
 
 export async function updateExperiment(id: string, data: UpdateExperimentData): Promise<ExperimentHeaderRow> {
+  const fixative = data.fixative ? await validateAndResolveOntologyTerm("fixative", data.fixative) : null
+  const developmentalStage = data.developmentalStage
+    ? await validateAndResolveOntologyTerm("developmentalStage", data.developmentalStage)
+    : null
+
+  if (fixative) {
+    await prisma.fixative.upsert({
+      where: { id: fixative.id },
+      update: { label: fixative.label },
+      create: fixative,
+    })
+  }
+  if (developmentalStage) {
+    await prisma.developmentalStage.upsert({
+      where: { id: developmentalStage.id },
+      update: { label: developmentalStage.label },
+      create: developmentalStage,
+    })
+  }
+
   return prisma.experiment.update({
     where: { id },
     data: {
@@ -73,6 +111,19 @@ export async function updateExperiment(id: string, data: UpdateExperimentData): 
       citation: data.citation ?? null,
       pmid: data.pmid ?? null,
       doi: data.doi ?? null,
+      preservation: data.preservation ?? null,
+      preservationText: data.preservationText ?? null,
+      fixativeId: fixative?.id ?? null,
+      fixativeConcentration: data.fixativeConcentration ?? null,
+      antigenRetrievalText: data.antigenRetrievalText ?? null,
+      sampleType: data.sampleType ?? null,
+      sectionThicknessUm: data.sectionThicknessUm ?? null,
+      donorSex: data.donorSex ?? null,
+      donorAge: data.donorAge ?? null,
+      developmentalStageId: developmentalStage?.id ?? null,
+      protocolDoi: data.protocolDoi ?? null,
+      // Keep the legacy column in step so browse filters and evidence roll-ups stay correct.
+      fixation: legacyFixationFor({ preservation: data.preservation, fixativeId: fixative?.id }),
     },
     select: experimentHeaderSelect,
   })
@@ -86,7 +137,7 @@ const experimentEntrySelect = {
   citation: true,
   pmid: true,
   doi: true,
-  method: true,
+  imagingMethod: imagingMethodSelect,
   createdAt: true,
   submitter: { select: { id: true, name: true } },
   species: { select: { id: true, label: true } },
@@ -114,7 +165,10 @@ const BROWSE_EXPERIMENT_SCOPE: Prisma.ExperimentWhereInput = {
 }
 
 function labExperimentScope(labId: string): Prisma.ExperimentWhereInput {
-  return { OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }] }
+  return {
+    visibility: { not: "PRIVATE" },
+    OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }],
+  }
 }
 
 function buildExperimentWhere(
@@ -126,8 +180,12 @@ function buildExperimentWhere(
   if (params.species.length) and.push({ speciesId: { in: params.species } })
   if (params.tissue.length) and.push({ tissueId: { in: params.tissue } })
   if (params.condition.length) and.push({ conditionId: { in: params.condition } })
-  if (params.method.length)
-    and.push({ method: { in: params.method as Prisma.EnumMultiplexMethodNullableFilter["in"] } })
+  if (params.method.length) {
+    // Filter values arrive either as an ImagingMethod id or as a legacy enum value from an old link, so
+    // every incoming term is resolved against the catalog before it reaches the column.
+    const methodIds = params.method.map((value) => resolveImagingMethodId(value)).filter((id): id is string => !!id)
+    and.push(methodIds.length ? { imagingMethodId: { in: methodIds } } : { id: "__no_match__" })
+  }
   if (params.fixation.length) and.push({ fixation: { in: params.fixation as Prisma.EnumFixationNullableFilter["in"] } })
   if (params.lab.length) and.push({ owningLabId: { in: params.lab } })
 
@@ -156,13 +214,14 @@ function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
     const markerName = report.antibody?.targetName ?? report.antibody?.name ?? undefined
     const links: CarouselImageLink[] = []
     if (report.antibody?.targetProteinId && report.antibody.targetName) {
-      links.push({ label: report.antibody.targetName, href: `/marker/${report.antibody.targetProteinId}` })
+      links.push({ label: report.antibody.targetName, href: markerHref(report.antibody.targetProteinId) })
     }
-    if (report.antibody?.rrid) {
-      links.push({ label: report.antibody.name, href: `/antibody/${report.antibody.rrid.replace(/^RRID:/, "")}` })
+    const abHref = antibodyHref(report.antibody?.rrid)
+    if (abHref && report.antibody) {
+      links.push({ label: report.antibody.name, href: abHref })
     }
     for (const link of report.cellTypes) {
-      links.push({ label: link.cellType.label, href: `/celltype/${link.cellType.id}` })
+      links.push({ label: link.cellType.label, href: cellTypeHref(link.cellType.id) })
     }
     for (const image of report.images) {
       if (seenImages.has(image.url) || images.length >= MAX_ENTRY_IMAGES) continue
@@ -176,7 +235,7 @@ function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
     citation: exp.citation ?? null,
     pmid: exp.pmid ?? null,
     doi: exp.doi ?? null,
-    method: exp.method ? (METHOD_LABELS[exp.method] ?? exp.method) : "Unknown",
+    method: exp.imagingMethod?.shortLabel ?? "Unknown",
     species: exp.species?.label ?? "Unknown",
     tissue: exp.tissue?.label ?? "Unknown",
     condition: exp.condition?.label ?? null,

@@ -1,11 +1,15 @@
-import { auth } from "@/auth"
 import Orcid from "@/components/icons/orcid"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
+import { NotAvailable } from "@/components/shared/not-available"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { isUserAdmin } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
+import { VALIDATION_STATUS_LABELS } from "@/lib/constants"
+import { formatDate, getInitials } from "@/lib/format"
+import type { ValidationStatus } from "@/lib/generated/prisma/enums"
+import { antibodyHref, markerHref } from "@/lib/routes"
 import {
   getContributionTier,
   getLeaderboard,
@@ -16,7 +20,7 @@ import {
 } from "@/models/user"
 import { Building2, Calendar, FlaskConical } from "lucide-react"
 import type { Metadata } from "next"
-import { cacheLife } from "next/cache"
+import { cacheLife, cacheTag } from "next/cache"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
@@ -31,39 +35,40 @@ export async function generateMetadata({ params }: ProfilePageProps): Promise<Me
   if (!user) return { title: "Profile Not Found | PanelMaker" }
   const name = user.name ?? "Unnamed User"
   return {
-    title: `${name} — Contributor Profile | PanelMaker`,
-    description: `View ${name}&apos;s contributions to the PanelMaker spatial proteomics community.`,
+    title: `${name}: contributor profile | PanelMaker`,
+    description: `View ${name}'s contributions to the PanelMaker spatial proteomics community.`,
   }
 }
 
-function getInitials(name: string | null): string {
-  if (!name) return "?"
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
+const STATUS_STYLES: Record<string, string> = {
+  PUBLISHED: "bg-success/10 text-success",
+  PENDING: "bg-warning/10 text-warning",
+  REJECTED: "bg-destructive/10 text-destructive",
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  PUBLISHED: "bg-green-100 text-green-700",
-  PENDING: "bg-amber-100 text-amber-700",
-  REJECTED: "bg-red-100 text-red-700",
+function ReportRridCell({ rrid }: { rrid: string | null }) {
+  const href = antibodyHref(rrid)
+  if (!href) return <NotAvailable />
+  return (
+    <Link href={href} className="text-primary hover:underline">
+      {rrid}
+    </Link>
+  )
 }
 
 async function ProfileContent({ id, isAdmin }: { id: string; isAdmin: boolean }) {
   "use cache"
   cacheLife("hours")
+  cacheTag("browse")
 
-  const user = await getUserProfile(id)
-  if (!user) notFound()
-
-  const [stats, recentReports, leaderboard] = await Promise.all([
+  const [user, stats, recentReports, leaderboard] = await Promise.all([
+    getUserProfile(id),
     getUserStats(id, isAdmin),
     getUserRecentReports(id, 10, isAdmin),
     getLeaderboard(50),
   ])
+
+  if (!user) notFound()
 
   const rank = leaderboard.findIndex((e) => e.userId === id) + 1
   const displayRank = rank > 0 ? rank : null
@@ -89,7 +94,7 @@ async function ProfileContent({ id, isAdmin }: { id: string; isAdmin: boolean })
             </h1>
             <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${tier.color}`}>{tier.label}</span>
             {displayRank && (
-              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700">
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                 #{displayRank} overall
               </span>
             )}
@@ -147,7 +152,7 @@ async function ProfileContent({ id, isAdmin }: { id: string; isAdmin: boolean })
           <span className="text-muted-foreground">Total reports</span>
         </span>
         <span>
-          <span className="text-lg font-semibold tabular-nums text-green-600">{stats.publishedReports}</span>{" "}
+          <span className="text-lg font-semibold tabular-nums text-success">{stats.publishedReports}</span>{" "}
           <span className="text-muted-foreground">Published</span>
         </span>
         <span>
@@ -155,7 +160,7 @@ async function ProfileContent({ id, isAdmin }: { id: string; isAdmin: boolean })
           <span className="text-muted-foreground">Panels</span>
         </span>
         <span>
-          <span className="text-lg font-semibold tabular-nums">{displayRank ? `#${displayRank}` : "N/A"}</span>{" "}
+          <span className="text-lg font-semibold tabular-nums">{displayRank ? `#${displayRank}` : "Not ranked"}</span>{" "}
           <span className="text-muted-foreground">Rank</span>
         </span>
       </div>
@@ -221,7 +226,7 @@ async function ProfileContent({ id, isAdmin }: { id: string; isAdmin: boolean })
                   <TableRow key={report.id} className="text-xs">
                     <TableCell className="py-2 font-medium">
                       {report.proteinId ? (
-                        <Link href={`/marker/${report.proteinId}`} className="text-primary hover:underline">
+                        <Link href={markerHref(report.proteinId)} className="text-primary hover:underline">
                           {report.markerName}
                         </Link>
                       ) : (
@@ -229,34 +234,19 @@ async function ProfileContent({ id, isAdmin }: { id: string; isAdmin: boolean })
                       )}
                     </TableCell>
                     <TableCell className="py-2 font-mono text-muted-foreground">
-                      {report.antibodyRrid ? (
-                        <Link
-                          href={`/antibody/${report.antibodyRrid.replace(/^RRID:/i, "")}`}
-                          className="text-primary hover:underline"
-                        >
-                          {report.antibodyRrid}
-                        </Link>
-                      ) : (
-                        "N/A"
-                      )}
+                      <ReportRridCell rrid={report.antibodyRrid} />
                     </TableCell>
-                    <TableCell className="py-2 text-muted-foreground">{report.cellType ?? "N/A"}</TableCell>
-                    <TableCell className="py-2">{report.method ?? "N/A"}</TableCell>
-                    <TableCell className="py-2">{report.species ?? "N/A"}</TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{report.cellType ?? "Not available"}</TableCell>
+                    <TableCell className="py-2">{report.method ?? "Not available"}</TableCell>
+                    <TableCell className="py-2">{report.species ?? "Not available"}</TableCell>
                     <TableCell className="py-2">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[report.status] ?? "bg-zinc-100 text-zinc-700"}`}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_STYLES[report.status] ?? "bg-muted text-muted-foreground"}`}
                       >
-                        {report.status}
+                        {VALIDATION_STATUS_LABELS[report.status as ValidationStatus] ?? report.status}
                       </span>
                     </TableCell>
-                    <TableCell className="py-2 text-muted-foreground">
-                      {new Date(report.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </TableCell>
+                    <TableCell className="py-2 text-muted-foreground">{formatDate(report.createdAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -291,8 +281,8 @@ function ProfileContentSkeleton() {
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { id } = await params
-  const session = await auth()
-  const isAdmin = session?.user?.id ? await isUserAdmin(session.user.id) : false
+  const user = await getSessionUser()
+  const isAdmin = user?.isAdmin ?? false
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">

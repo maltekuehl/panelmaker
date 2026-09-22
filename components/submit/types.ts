@@ -1,10 +1,15 @@
 import type { AntibodyRegistryValue } from "@/components/antibody-registry-combobox"
 import type { FluorophoreOption } from "@/components/fluorophore-combobox"
-import { AntigenRetrieval, MultiplexMethod } from "@/lib/generated/prisma/enums"
+import type { ImagingMethodOption } from "@/components/imaging-method-select"
+import { DONOR_SEX_LABELS, PRESERVATION_LABELS, SAMPLE_TYPE_LABELS } from "@/lib/constants"
+import { AntigenRetrieval, DonorSex, Preservation, SampleType, type Visibility } from "@/lib/generated/prisma/enums"
+import { parseTaxonUid } from "@/models/taxon/id"
 
-export type OntologyValue = { id: string; label: string }
+import type { OntologyValue } from "@/components/ontology-combobox"
+
+export type { OntologyValue }
 export type ProteinValue = { id: string; label: string; geneSymbol?: string | null }
-export type ReportImageInput = { url: string; cellTypeIds: string[] }
+export type ReportImageInput = { url: string; caption: string; cellTypeIds: string[] }
 
 export type ExperimentContext = {
   name: string
@@ -14,12 +19,56 @@ export type ExperimentContext = {
   doi: string
   species: OntologyValue | null
   tissue: OntologyValue | null
-  fixation: string
-  method: MultiplexMethod | ""
+  preservation: string
+  imagingMethodId: string
   antigenRetrieval: AntigenRetrieval | ""
   condition: OntologyValue | null
-  visibility: "PRIVATE" | "LAB" | "PUBLIC"
+  visibility: Visibility
   sharedLabIds: string[]
+  protocolDoi: string
+  specimen: SpecimenContext
+}
+
+// Every field here is optional on the server and lives behind one collapsed section in the form.
+export type SpecimenContext = {
+  preservationText: string
+  fixative: OntologyValue | null
+  fixativeConcentration: string
+  antigenRetrievalText: string
+  sampleType: string
+  sectionThicknessUm: string
+  donorSex: string
+  donorAge: string
+  developmentalStage: OntologyValue | null
+}
+
+// One serialisation for the specimen fields, shared by the submit form and the experiment edit dialog.
+export function specimenPayload(specimen: SpecimenContext) {
+  return {
+    preservationText: specimen.preservationText.trim() || undefined,
+    fixative: specimen.fixative ?? undefined,
+    fixativeConcentration: specimen.fixativeConcentration.trim() || undefined,
+    antigenRetrievalText: specimen.antigenRetrievalText.trim() || undefined,
+    sampleType: specimen.sampleType || undefined,
+    sectionThicknessUm: specimen.sectionThicknessUm.trim() || undefined,
+    donorSex: specimen.donorSex || undefined,
+    donorAge: specimen.donorAge.trim() || undefined,
+    developmentalStage: specimen.developmentalStage ?? undefined,
+  }
+}
+
+export function emptySpecimen(): SpecimenContext {
+  return {
+    preservationText: "",
+    fixative: null,
+    fixativeConcentration: "",
+    antigenRetrievalText: "",
+    sampleType: "",
+    sectionThicknessUm: "",
+    donorSex: "",
+    donorAge: "",
+    developmentalStage: null,
+  }
 }
 
 export type AntibodyRow = {
@@ -56,12 +105,14 @@ export function emptyContext(): ExperimentContext {
     doi: "",
     species: null,
     tissue: null,
-    fixation: "FFPE",
-    method: "",
+    preservation: "FFPE",
+    imagingMethodId: "",
     antigenRetrieval: "",
     condition: null,
     visibility: "PRIVATE",
     sharedLabIds: [],
+    protocolDoi: "",
+    specimen: emptySpecimen(),
   }
 }
 
@@ -100,61 +151,50 @@ export function duplicateRow(row: AntibodyRow): AntibodyRow {
   return { ...row, key: `row-${rowCounter}`, cellTypes: [...row.cellTypes], images: [] }
 }
 
-const FLUOROPHORE_METHODS = new Set<MultiplexMethod>([
-  MultiplexMethod.PATHOPLEX,
-  MultiplexMethod.CODEX,
-  MultiplexMethod.CYCIF,
-  MultiplexMethod.IBEX,
-])
-const METAL_TAG_METHODS = new Set<MultiplexMethod>([MultiplexMethod.IMC, MultiplexMethod.MIBI])
-const CYCLE_NUMBER_METHODS = new Set<MultiplexMethod>([
-  MultiplexMethod.PATHOPLEX,
-  MultiplexMethod.CODEX,
-  MultiplexMethod.CYCIF,
-  MultiplexMethod.IBEX,
-])
-
-export function methodNeedsFluorophore(method: MultiplexMethod | ""): boolean {
-  return !!method && FLUOROPHORE_METHODS.has(method)
+export function methodNeedsFluorophore(method: ImagingMethodOption | null): boolean {
+  return method?.detection === "FLUORESCENCE"
 }
 
-export function methodNeedsMetal(method: MultiplexMethod | ""): boolean {
-  return !!method && METAL_TAG_METHODS.has(method)
+export function methodNeedsMetalTag(method: ImagingMethodOption | null): boolean {
+  return method?.detection === "MASS"
 }
 
-export function methodNeedsCycle(method: MultiplexMethod | ""): boolean {
-  return !!method && CYCLE_NUMBER_METHODS.has(method)
+export function methodNeedsCycle(method: ImagingMethodOption | null): boolean {
+  return method?.cyclic === true
 }
 
 export function extractOrganismId(speciesId: string): number | undefined {
-  const match = speciesId.match(/txid(\d+)/)
-  if (match?.[1]) return parseInt(match[1], 10)
-  const numericMatch = speciesId.match(/(\d+)$/)
-  if (numericMatch?.[1]) return parseInt(numericMatch[1], 10)
-  return undefined
+  const uid = parseTaxonUid(speciesId)
+  return uid ? parseInt(uid, 10) : undefined
 }
 
 export function isContextComplete(context: ExperimentContext): boolean {
   return context.name.trim().length > 0
 }
 
-export const FIXATION_OPTIONS: { value: string; label: string }[] = [
-  { value: "FFPE", label: "FFPE" },
-  { value: "FRESH_FROZEN", label: "Fresh Frozen" },
-  { value: "PFA", label: "PFA" },
-  { value: "METHANOL", label: "Methanol" },
-  { value: "ACETONE", label: "Acetone" },
-  { value: "OTHER", label: "Other" },
-]
+export const PRESERVATION_OPTIONS: { value: string; label: string }[] = Object.values(Preservation).map((value) => ({
+  value,
+  label: PRESERVATION_LABELS[value],
+}))
 
-export const METHOD_OPTIONS: { value: MultiplexMethod; label: string }[] = [
-  { value: MultiplexMethod.PATHOPLEX, label: "PathoPlex" },
-  { value: MultiplexMethod.CODEX, label: "CODEX / PhenoCycler" },
-  { value: MultiplexMethod.CYCIF, label: "CyCIF" },
-  { value: MultiplexMethod.IMC, label: "Imaging Mass Cytometry (IMC)" },
-  { value: MultiplexMethod.MIBI, label: "MIBI-ToF" },
-  { value: MultiplexMethod.IBEX, label: "IBEX" },
-]
+export const SAMPLE_TYPE_OPTIONS: { value: string; label: string }[] = Object.values(SampleType).map((value) => ({
+  value,
+  label: SAMPLE_TYPE_LABELS[value],
+}))
+
+export const DONOR_SEX_OPTIONS: { value: string; label: string }[] = Object.values(DonorSex).map((value) => ({
+  value,
+  label: DONOR_SEX_LABELS[value],
+}))
+
+// HsapDv for a human donor, MmusDv for a mouse one. Any other species has no species-specific
+// developmental stage ontology on OLS4, so the field is offered only for those two.
+export function developmentalStageOntology(species: OntologyValue | null): "hsapdv" | "mmusdv" | null {
+  const uid = species ? parseTaxonUid(species.id) : null
+  if (uid === "9606") return "hsapdv"
+  if (uid === "10090") return "mmusdv"
+  return null
+}
 
 export const ANTIGEN_RETRIEVAL_OPTIONS: { value: AntigenRetrieval; label: string }[] = [
   { value: AntigenRetrieval.CITRATE_PH6, label: "Citrate pH 6.0" },
@@ -163,12 +203,8 @@ export const ANTIGEN_RETRIEVAL_OPTIONS: { value: AntigenRetrieval; label: string
   { value: AntigenRetrieval.NONE, label: "None" },
 ]
 
-export function fixationLabel(value: string): string {
-  return FIXATION_OPTIONS.find((o) => o.value === value)?.label ?? value
-}
-
-export function methodLabel(value: MultiplexMethod | ""): string {
-  return METHOD_OPTIONS.find((o) => o.value === value)?.label ?? value
+export function preservationOptionLabel(value: string): string {
+  return PRESERVATION_OPTIONS.find((o) => o.value === value)?.label ?? value
 }
 
 export type RowValidationError = { key: string; field: keyof AntibodyRow; message: string }
@@ -192,19 +228,21 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       doi: context.doi.trim() || undefined,
       species: context.species ?? undefined,
       tissue: context.tissue ?? undefined,
-      fixation: context.fixation || undefined,
-      method: context.method || undefined,
+      preservation: context.preservation || undefined,
+      imagingMethodId: context.imagingMethodId || undefined,
       antigenRetrieval: context.antigenRetrieval || undefined,
       condition: context.condition ?? undefined,
       visibility: context.visibility,
       sharedLabIds: context.sharedLabIds,
+      protocolDoi: context.protocolDoi.trim() || undefined,
+      ...specimenPayload(context.specimen),
     },
     antibodies: rows.map((row) => ({
       antibodyData: row.antibodyRegistry ?? undefined,
       proteinData: row.markerProtein ?? undefined,
       markerName: row.markerName.trim(),
       rrid: row.rrid || row.antibodyRegistry?.citation || undefined,
-      vendor: row.antibodyVendor || undefined,
+      antibodyVendor: row.antibodyVendor || undefined,
       catalogNumber: row.catalogNumber || undefined,
       cloneId: row.cloneId || undefined,
       hostSpecies: row.hostSpecies ?? undefined,
@@ -219,7 +257,11 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       specificity: row.specificity || undefined,
       subcellularLocation: row.locationNotDiscernible ? undefined : (row.subcellularLocation ?? undefined),
       notes: row.notes || undefined,
-      images: row.images.map((img) => ({ url: img.url, cellTypeIds: img.cellTypeIds })),
+      images: row.images.map((img) => ({
+        url: img.url,
+        caption: img.caption.trim() || undefined,
+        cellTypeIds: img.cellTypeIds,
+      })),
     })),
   }
 }

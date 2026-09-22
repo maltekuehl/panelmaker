@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Copy, Loader2, Send } from "lucide-react"
+import { Copy, Link as LinkIcon, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -81,14 +81,14 @@ export function InviteMemberForm({ labId }: InviteMemberFormProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Leave blank to create a shareable invite link</p>
+          <p className="text-xs text-muted-foreground">Optional. If set, only this address can accept the link.</p>
         </div>
 
         <div className="flex flex-wrap gap-3">
           <div className="space-y-1.5 flex-1 min-w-32">
-            <Label>Role</Label>
+            <Label htmlFor="invite-role">Role</Label>
             <Select value={role} onValueChange={setRole}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="invite-role" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -113,8 +113,8 @@ export function InviteMemberForm({ labId }: InviteMemberFormProps) {
         </div>
 
         <Button type="submit" disabled={loading} size="sm">
-          {loading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          {email.trim() ? "Send invitation" : "Create invite link"}
+          {loading ? <Loader2 className="size-4 animate-spin" /> : <LinkIcon className="size-4" />}
+          Create invitation
         </Button>
       </form>
 

@@ -10,7 +10,7 @@ interface LogContext {
   [key: string]: any
 }
 
-export enum LogLevel {
+enum LogLevel {
   DEBUG = 0,
   INFO = 1,
   WARN = 2,
@@ -85,34 +85,6 @@ class Logger {
       type: "api_request",
     })
   }
-
-  apiResponse(method: string, endpoint: string, statusCode: number, duration: number, context?: LogContext) {
-    this.info(`API Response: ${method} ${endpoint} ${statusCode}`, {
-      ...context,
-      method,
-      endpoint,
-      statusCode,
-      duration,
-      type: "api_response",
-    })
-  }
-
-  security(event: string, context?: LogContext) {
-    this.warn(`Security Event: ${event}`, {
-      ...context,
-      type: "security",
-    })
-  }
-
-  database(operation: string, table: string, duration?: number, context?: LogContext) {
-    this.debug(`Database: ${operation} on ${table}`, {
-      ...context,
-      operation,
-      table,
-      duration,
-      type: "database",
-    })
-  }
 }
 
 export const logger = new Logger()
@@ -126,64 +98,27 @@ export function getRequestContext(request: Request): LogContext {
     endpoint: url.pathname,
     ip: requestHeaders.get("x-forwarded-for") || requestHeaders.get("x-real-ip") || "unknown",
     userAgent: requestHeaders.get("user-agent") || "unknown",
-    requestId: crypto.randomUUID(),
-  }
-}
-
-// Performance monitoring
-export class PerformanceMonitor {
-  private startTime: number
-
-  constructor() {
-    this.startTime = Date.now()
-  }
-
-  end(): number {
-    return Date.now() - this.startTime
-  }
-
-  static time<T>(operation: string, fn: () => Promise<T>): Promise<T> {
-    const monitor = new PerformanceMonitor()
-    return fn().finally(() => {
-      const duration = monitor.end()
-      logger.debug(`Performance: ${operation} took ${duration}ms`, {
-        operation,
-        duration,
-        type: "performance",
-      })
-    })
+    requestId: requestHeaders.get("x-request-id") ?? crypto.randomUUID(),
   }
 }
 
 // Health check utilities
 export interface HealthStatus {
-  status: "healthy" | "unhealthy" | "degraded"
-  checks: Record<string, boolean>
+  status: "healthy" | "unhealthy"
   timestamp: string
-  uptime: number
 }
 
 export async function getHealthStatus(): Promise<HealthStatus> {
-  const checks: Record<string, boolean> = {}
-
-  // Database check
+  let database = false
   try {
     await prisma.$queryRaw`SELECT 1`
-    checks.database = true
+    database = true
   } catch {
-    checks.database = false
+    database = false
   }
 
-  // External API checks
-  checks.gemini_api = !!process.env.GEMINI_API_KEY
-
-  const allHealthy = Object.values(checks).every(Boolean)
-  const someHealthy = Object.values(checks).some(Boolean)
-
   return {
-    status: allHealthy ? "healthy" : someHealthy ? "degraded" : "unhealthy",
-    checks,
+    status: database ? "healthy" : "unhealthy",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
   }
 }

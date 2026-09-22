@@ -5,10 +5,16 @@ import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { aggregateMarkerEntries, getConditionById, getReportsForCondition } from "@/models/experimental-report"
+import {
+  aggregateMarkerEntries,
+  getConditionById,
+  getReportsForCondition,
+  reportUsageImages,
+  toReportUsage,
+} from "@/models/experimental-report"
 import { ExternalLink } from "lucide-react"
 import type { Metadata } from "next"
-import { cacheLife } from "next/cache"
+import { cacheLife, cacheTag } from "next/cache"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
 
@@ -23,7 +29,7 @@ export async function generateMetadata({ params }: ConditionPageProps): Promise<
   const condition = await getConditionById(decodeURIComponent(id))
   if (!condition) return { title: "Condition Not Found | PanelMaker" }
   return {
-    title: `${condition.label} — Condition Markers | PanelMaker`,
+    title: `${condition.label}: condition markers | PanelMaker`,
     description: `Validated antibody markers and experimental reports for ${condition.label} in spatial proteomics and multiplex imaging.`,
   }
 }
@@ -31,105 +37,114 @@ export async function generateMetadata({ params }: ConditionPageProps): Promise<
 async function ConditionContent({ id }: { id: string }) {
   "use cache"
   cacheLife("hours")
+  cacheTag("browse")
 
-  const condition = await getConditionById(id)
+  const [condition, reports] = await Promise.all([getConditionById(id), getReportsForCondition(id)])
 
   if (!condition) {
     notFound()
   }
 
-  const reports = await getReportsForCondition(id)
   const markers = aggregateMarkerEntries(reports)
+  const images = reports.map(toReportUsage).flatMap(reportUsageImages)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-2 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">{condition.label}</h1>
-          <div className="flex items-center gap-2 text-muted-foreground mb-4">
-            <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{condition.id}</span>
-            {markers.length > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {markers.length} marker{markers.length !== 1 ? "s" : ""}
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-4 border-t pt-6">
+    <>
+      <CustomBreadcrumbs items={[{ label: "Conditions", href: "/browse" }, { label: condition.label }]} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
           <div>
-            <h2 className="text-lg font-semibold">Related Markers</h2>
-            <p className="text-sm text-muted-foreground">Validated markers reported in {condition.label}.</p>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">{condition.label}</h1>
+            <div className="flex items-center gap-2 text-muted-foreground mb-4">
+              <span className="font-mono text-sm bg-muted px-2 py-0.5 rounded">{condition.id}</span>
+              {markers.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {markers.length} marker{markers.length !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
           </div>
-          <DetailsDataTable columns={columns} data={markers} />
-        </div>
 
-        <div className="space-y-3 border-t pt-6">
-          <h2 className="text-lg font-semibold">External Resources</h2>
-          <a
-            href={`https://www.ebi.ac.uk/ols4/ontologies/doid/classes?obo_id=${encodeURIComponent(condition.id)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm text-primary hover:underline"
-          >
-            <ExternalLink className="h-4 w-4" />
-            View in Disease Ontology (OLS)
-          </a>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <h3 className="font-semibold">Images</h3>
-          <ImageCarouselDialog images={[]} title={condition.label} />
-        </div>
-
-        {markers.length > 0 && (
-          <div className="space-y-3 border-t pt-6">
+          <div className="space-y-4 border-t pt-6">
             <div>
-              <h3 className="font-semibold">Add Markers to Panel</h3>
-              <p className="text-xs text-muted-foreground">Add {condition.label} markers directly to your panel.</p>
+              <h2 className="text-lg font-semibold">Related Markers</h2>
+              <p className="text-sm text-muted-foreground">Validated markers reported in {condition.label}.</p>
             </div>
-            <div className="space-y-1">
-              {markers.map((m) => (
-                <div key={m.id} className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/50">
-                  <span className="text-sm font-medium">{m.marker}</span>
-                  <AddToPanelButton
-                    proteinId={m.id}
-                    label={m.marker}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                  />
-                </div>
-              ))}
-            </div>
+            <DetailsDataTable columns={columns} data={markers} />
           </div>
-        )}
+
+          <div className="space-y-3 border-t pt-6">
+            <h2 className="text-lg font-semibold">External Resources</h2>
+            <a
+              href={`https://www.ebi.ac.uk/ols4/ontologies/doid/classes?obo_id=${encodeURIComponent(condition.id)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" />
+              View in Disease Ontology (OLS)
+            </a>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {images.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="font-semibold">Images</h3>
+              <ImageCarouselDialog images={images} title={condition.label} />
+            </div>
+          )}
+
+          {markers.length > 0 && (
+            <div className="space-y-3 border-t pt-6">
+              <div>
+                <h3 className="font-semibold">Add Markers to Panel</h3>
+                <p className="text-xs text-muted-foreground">Add {condition.label} markers directly to your panel.</p>
+              </div>
+              <div className="space-y-1">
+                {markers.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between rounded px-2 py-1.5 hover:bg-muted/50">
+                    <span className="text-sm font-medium">{m.marker}</span>
+                    <AddToPanelButton
+                      proteinId={m.id}
+                      label={m.marker}
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
 function ConditionContentSkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-2 space-y-6">
-        <div>
-          <Skeleton className="h-9 w-64 mb-2" />
-          <div className="flex gap-2 mb-4">
-            <Skeleton className="h-6 w-28" />
-            <Skeleton className="h-6 w-16" />
+    <>
+      <Skeleton className="h-5 w-64" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
+          <div>
+            <Skeleton className="h-9 w-64 mb-2" />
+            <div className="flex gap-2 mb-4">
+              <Skeleton className="h-6 w-28" />
+              <Skeleton className="h-6 w-16" />
+            </div>
           </div>
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-24 w-full" />
         </div>
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-24 w-full" />
+        <div className="space-y-6">
+          <Skeleton className="h-48 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
       </div>
-      <div className="space-y-6">
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-20 w-full" />
-      </div>
-    </div>
+    </>
   )
 }
 
@@ -139,7 +154,6 @@ export default async function ConditionPage({ params }: ConditionPageProps) {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      <CustomBreadcrumbs items={[{ label: "Conditions", href: "/browse" }, { label: decodedId }]} />
       <Suspense fallback={<ConditionContentSkeleton />}>
         <ConditionContent id={decodedId} />
       </Suspense>

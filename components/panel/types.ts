@@ -1,3 +1,5 @@
+import type { Visibility } from "@/lib/generated/prisma/enums"
+
 export { FIXATION_LABELS } from "@/lib/constants"
 
 export interface PanelMarker {
@@ -46,9 +48,18 @@ export interface Panel {
   description: string | null
   species: { id: string; label: string } | null
   fixation: string | null
+  imagingMethodId: string | null
+  imagingMethod: {
+    id: string
+    label: string
+    shortLabel: string
+    efoId: string | null
+    detection: "FLUORESCENCE" | "MASS" | "OTHER"
+    cyclic: boolean
+  } | null
   condition: { id: string; label: string } | null
   ownerId: string
-  visibility: string
+  visibility: Visibility
   sharedLabIds: string[]
   owningLab: { id: string; name: string; slug: string } | null
   createdAt: string

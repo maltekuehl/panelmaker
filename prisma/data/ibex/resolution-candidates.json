@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-09-22",
+  "uncovered": {
+    "targetTissues": [],
+    "tissueStates": [],
+    "targetSpecies": [],
+    "hostOrganisms": [],
+    "methods": [],
+    "fixations": [],
+    "antigenRetrievals": [],
+    "reagentTypes": [
+      "Avidin/Biotin Blocking Kit",
+      "Blocking Reagent",
+      "Cell Structure Reagent",
+      "FlexAble CoraLite Plus 488 Antibody Labeling Kit for Rabbit IgG",
+      "FlexAble CoraLite Plus 550 Antibody Labeling Kit for Rabbit IgG",
+      "FlexAble CoraLite Plus 555 Antibody Labeling Kit for Mouse IgG1",
+      "FlexAble CoraLite Plus 647 Antibody Labeling Kit for Mouse IgG1",
+      "FlexAble CoraLite Plus 750 Antibody Labeling Kit for Rabbit IgG",
+      "Lectin",
+      "Nuclear Dye",
+      "Primary Antibody",
+      "Secondary Antibody",
+      "Streptavidin Conjugate",
+      "Zenon Labeling Kit"
+    ]
+  },
+  "candidates": {
+    "targetTissues": {},
+    "tissueStates": {},
+    "taxa": {}
+  }
+}

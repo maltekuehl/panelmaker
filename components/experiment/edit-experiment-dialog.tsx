@@ -1,5 +1,12 @@
 "use client"
 
+import { SpecimenSection } from "@/components/submit/specimen-section"
+import {
+  PRESERVATION_OPTIONS,
+  specimenPayload,
+  type OntologyValue,
+  type SpecimenContext,
+} from "@/components/submit/types"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,6 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2, Pencil } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -25,6 +33,9 @@ export type EditableExperiment = {
   citation: string | null
   pmid: string | null
   doi: string | null
+  species: OntologyValue | null
+  preservation: string | null
+  specimen: SpecimenContext
 }
 
 export function EditExperimentDialog({ experiment, canEdit }: { experiment: EditableExperiment; canEdit: boolean }) {
@@ -36,6 +47,8 @@ export function EditExperimentDialog({ experiment, canEdit }: { experiment: Edit
   const [citation, setCitation] = useState(experiment.citation ?? "")
   const [pmid, setPmid] = useState(experiment.pmid ?? "")
   const [doi, setDoi] = useState(experiment.doi ?? "")
+  const [preservation, setPreservation] = useState(experiment.preservation ?? "")
+  const [specimen, setSpecimen] = useState<SpecimenContext>(experiment.specimen)
 
   if (!canEdit) return null
 
@@ -55,6 +68,8 @@ export function EditExperimentDialog({ experiment, canEdit }: { experiment: Edit
           citation: citation.trim() || undefined,
           pmid: pmid.trim() || undefined,
           doi: doi.trim() || undefined,
+          preservation: preservation || undefined,
+          ...specimenPayload(specimen),
         }),
       })
       if (!res.ok) {
@@ -81,10 +96,10 @@ export function EditExperimentDialog({ experiment, canEdit }: { experiment: Edit
           Edit
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit experiment</DialogTitle>
-          <DialogDescription>Update the name, description, and publication details.</DialogDescription>
+          <DialogDescription>Update the name, publication details and specimen metadata.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -115,6 +130,22 @@ export function EditExperimentDialog({ experiment, canEdit }: { experiment: Edit
               rows={2}
             />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="exp-preservation">Preservation (optional)</Label>
+            <Select value={preservation} onValueChange={setPreservation}>
+              <SelectTrigger id="exp-preservation">
+                <SelectValue placeholder="Select preservation" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRESERVATION_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <SpecimenSection specimen={specimen} species={experiment.species} onChange={setSpecimen} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="exp-pmid">PMID (optional)</Label>
@@ -144,7 +175,7 @@ export function EditExperimentDialog({ experiment, canEdit }: { experiment: Edit
             {saving ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Saving...
+                Saving…
               </>
             ) : (
               "Save changes"

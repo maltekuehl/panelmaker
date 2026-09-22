@@ -14,12 +14,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "B-1",
-    "uniprotId": null,
     "registryName": "ABCG2 Antibody (B-1)",
     "registryTarget": "ABCG2",
     "registryVendor": "Santa Cruz Biotechnology",
     "registryCatalog": "sc-377176",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -38,12 +36,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human/Mouse/Rat/Hamster ACE-2 Antibody",
     "registryTarget": "ACE-2",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF933",
-    "registryApplications": [],
     "citationCount": 58
   },
   {
@@ -61,12 +57,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone 19F1",
-    "uniprotId": null,
     "registryName": "Adiponectin Monoclonal Antibody (19F1)",
     "registryTarget": "Adiponectin",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "MA1-054",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -85,12 +79,10 @@
     "host": "rabbit",
     "clonality": "recombinant monoclonal",
     "cloneId": "D39D2",
-    "uniprotId": null,
     "registryName": "AIF (D39D2) XP Rabbit mAb",
     "registryTarget": "AIF",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "5318",
-    "registryApplications": [],
     "citationCount": 17
   },
   {
@@ -109,12 +101,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "AKAP12 antibody",
     "registryTarget": "AKAP12",
     "registryVendor": "Proteintech",
     "registryCatalog": "25199-1-AP",
-    "registryApplications": [],
     "citationCount": 1
   },
   {
@@ -132,12 +122,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "AKR1B1 Polyclonal Antibody",
     "registryTarget": "AKR1B1",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "PA5-82915",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -155,12 +143,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone 5-F10",
-    "uniprotId": null,
     "registryName": "AKR1C1 Monoclonal Antibody (5-F10)",
     "registryTarget": "AKR1C1",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "MA5-32842",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -178,12 +164,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone 1B4C3",
-    "uniprotId": null,
     "registryName": "Alpha B Crystallin Antibody",
     "registryTarget": "Alpha B Crystallin",
     "registryVendor": "Proteintech",
     "registryCatalog": "68001-1-Ig",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -202,12 +186,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Anti-ANXA3 antibody produced in rabbit",
     "registryTarget": "ANXA3 antibody produced in rabbit",
     "registryVendor": "Sigma-Aldrich",
     "registryCatalog": "HPA013398",
-    "registryApplications": [],
     "citationCount": 1
   },
   {
@@ -228,12 +210,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone 1A4",
-    "uniprotId": null,
     "registryName": "Monoclonal Anti-Actin, α-Smooth Muscle - FITC antibody produced in mouse",
     "registryTarget": "Actin, α-Smooth Muscle",
     "registryVendor": "Sigma-Aldrich",
     "registryCatalog": "F3777",
-    "registryApplications": [],
     "citationCount": 75
   },
   {
@@ -252,12 +232,10 @@
     "host": "rabbit",
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Anti-Aquaporin 2 Antibody",
     "registryTarget": "Aquaporin 2 Channel",
     "registryVendor": "Alomone Labs",
     "registryCatalog": "AQP-002",
-    "registryApplications": [],
     "citationCount": 4
   },
   {
@@ -276,12 +254,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "AC-15",
-    "uniprotId": null,
     "registryName": "Anti-β-Actin Antibody",
     "registryTarget": "β-Actin",
     "registryVendor": "Sigma-Aldrich",
     "registryCatalog": "A5441",
-    "registryApplications": [],
     "citationCount": 985
   },
   {
@@ -299,12 +275,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "beta Catenin antibody",
     "registryTarget": "beta Catenin antibody",
     "registryVendor": "Abcam",
     "registryCatalog": "ab6302",
-    "registryApplications": [],
     "citationCount": 17
   },
   {
@@ -322,12 +296,10 @@
     "host": "rabbit",
     "clonality": "recombinant monoclonal",
     "cloneId": "Clone 9F3",
-    "uniprotId": null,
     "registryName": "β-Tubulin (9F3) Rabbit mAb",
     "registryTarget": "beta-Tubulin",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "2128",
-    "registryApplications": [],
     "citationCount": 115
   },
   {
@@ -345,12 +317,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone CB-955",
-    "uniprotId": null,
     "registryName": "Mouse Anti-Bovine Calbindin-D-28K Monoclonal Antibody, Unconjugated, Clone CB-955",
     "registryTarget": "Calbindin-D-28K",
     "registryVendor": "Sigma-Aldrich",
     "registryCatalog": "C9848",
-    "registryApplications": [],
     "citationCount": 168
   },
   {
@@ -368,12 +338,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "Clone EPR3324",
-    "uniprotId": null,
     "registryName": "Rabbit Anti-Calpain S1 Monoclonal Antibody, Unconjugated, Clone EPR3324",
     "registryTarget": "Calpain S1",
     "registryVendor": "Abcam",
     "registryCatalog": "ab92333",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -391,12 +359,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -415,12 +381,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Calreticulin antibody [EPR3924]",
     "registryTarget": "Calreticulin antibody [EPR3924]",
     "registryVendor": "Abcam",
     "registryCatalog": "ab92516",
-    "registryApplications": [],
     "citationCount": 12
   },
   {
@@ -438,12 +402,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human Carbonic Anhydrase IX/CA9 Antibody",
     "registryTarget": "Carbonic Anhydrase IX/CA9",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF2188",
-    "registryApplications": [],
     "citationCount": 9
   },
   {
@@ -461,12 +423,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "1F8D7",
-    "uniprotId": null,
     "registryName": "Catalase antibody",
     "registryTarget": "Catalase",
     "registryVendor": "Proteintech",
     "registryCatalog": "66765-1-Ig",
-    "registryApplications": [],
     "citationCount": 1
   },
   {
@@ -484,12 +444,10 @@
     "host": null,
     "clonality": "monoclonal",
     "cloneId": "CD3-12",
-    "uniprotId": null,
     "registryName": "Anti-CD3 antibody [CD3-12]",
     "registryTarget": "CD3",
     "registryVendor": "Abcam",
     "registryCatalog": "ab11089",
-    "registryApplications": [],
     "citationCount": 19
   },
   {
@@ -507,12 +465,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human CD4 Antibody",
     "registryTarget": "CD4",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF-379-NA",
-    "registryApplications": [],
     "citationCount": 8
   },
   {
@@ -530,12 +486,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "C8/144B",
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -553,12 +507,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "QBEnd 10",
-    "uniprotId": null,
     "registryName": "CD34 Class II",
     "registryTarget": "CD34",
     "registryVendor": "Agilent",
     "registryCatalog": "GA632",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -577,12 +529,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "CD41 Polyclonal Antibody",
     "registryTarget": "CD41",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "PA5-79526",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -601,12 +551,10 @@
     "host": "rabbit",
     "clonality": "recombinant monoclonal",
     "cloneId": "SP202",
-    "uniprotId": null,
     "registryName": "Recombinant Anti-CD42b antibody [SP202]",
     "registryTarget": "CD42b",
     "registryVendor": "Abcam",
     "registryCatalog": "ab227669",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -624,12 +572,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "CD44 (8E2) Mouse mAb",
     "registryTarget": "CD44 (8E2) Mouse mAb",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "5640",
-    "registryApplications": [],
     "citationCount": 6
   },
   {
@@ -649,12 +595,10 @@
     "host": "rat",
     "clonality": "monoclonal",
     "cloneId": "Clone IM7",
-    "uniprotId": null,
     "registryName": "Alexa Fluor(R) 647 anti-mouse/human CD44",
     "registryTarget": "CD44",
     "registryVendor": "BioLegend",
     "registryCatalog": "103018",
-    "registryApplications": [],
     "citationCount": 4
   },
   {
@@ -672,12 +616,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone KP1",
-    "uniprotId": null,
     "registryName": "Purified anti-CD68",
     "registryTarget": "CD68",
     "registryVendor": "BioLegend",
     "registryCatalog": "916104",
-    "registryApplications": [],
     "citationCount": 10
   },
   {
@@ -695,12 +637,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -718,12 +658,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human/Mouse/Rat CD200 Antibody",
     "registryTarget": "CD200/OX2",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF2724",
-    "registryApplications": [],
     "citationCount": 3
   },
   {
@@ -741,12 +679,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "2A6A10",
-    "uniprotId": null,
     "registryName": "CD206 antibody",
     "registryTarget": "CD206",
     "registryVendor": "Proteintech",
     "registryCatalog": "60143-1-Ig",
-    "registryApplications": [],
     "citationCount": 6
   },
   {
@@ -765,12 +701,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "anti-c-FOS antibody",
     "registryTarget": "FOS",
     "registryVendor": "Abcam",
     "registryCatalog": "ab190289",
-    "registryApplications": [],
     "citationCount": 74
   },
   {
@@ -788,12 +722,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Claudin 1 antibody",
     "registryTarget": "Claudin 1",
     "registryVendor": "Abcam",
     "registryCatalog": "ab15098",
-    "registryApplications": [],
     "citationCount": 14
   },
   {
@@ -811,12 +743,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Claudin 10 Polyclonal Antibody",
     "registryTarget": "Claudin 10",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "38-8400",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -835,12 +765,10 @@
     "host": "goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Goat Anti-Type I Collagen",
     "registryTarget": "Type I Collagen",
     "registryVendor": "SouthernBiotech",
     "registryCatalog": "1310-01",
-    "registryApplications": [],
     "citationCount": 30
   },
   {
@@ -858,12 +786,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Rabbit Anti-Collagen III Polyclonal Antibody, Unconjugated",
     "registryTarget": "Collagen III",
     "registryVendor": "Abcam",
     "registryCatalog": "ab7778",
-    "registryApplications": [],
     "citationCount": 28
   },
   {
@@ -882,12 +808,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Rabbit Anti-Collagen IV Polyclonal Antibody, Unconjugated",
     "registryTarget": "Collagen IV",
     "registryVendor": "Abcam",
     "registryCatalog": "ab6586",
-    "registryApplications": [],
     "citationCount": 88
   },
   {
@@ -905,12 +829,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Collagen V antibody",
     "registryTarget": "Collagen V antibody",
     "registryVendor": "Abcam",
     "registryCatalog": "ab7046",
-    "registryApplications": [],
     "citationCount": 1
   },
   {
@@ -928,12 +850,10 @@
     "host": "Sheep",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human/Mouse/Rat Cubilin Antibody",
     "registryTarget": "Cubilin",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF3700",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -951,12 +871,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "D5C10",
-    "uniprotId": null,
     "registryName": "Cyclin B1 (D5C10) XP®",
     "registryTarget": "Cyclin B1",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "12231",
-    "registryApplications": [],
     "citationCount": 29
   },
   {
@@ -975,12 +893,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Cytochrome C antibody [37BA11]",
     "registryTarget": "Cytochrome C antibody [37BA11]",
     "registryVendor": "Abcam",
     "registryCatalog": "ab110325",
-    "registryApplications": [],
     "citationCount": 7
   },
   {
@@ -998,12 +914,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "OV-TL 12/30",
-    "uniprotId": null,
     "registryName": "Cytokeratin 7 (Dako Omnis) Clone OV-TL 12/30",
     "registryTarget": "CK-7",
     "registryVendor": "Agilent",
     "registryCatalog": "GA619",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -1021,12 +935,10 @@
     "host": "Mouse",
     "clonality": "monoclonal",
     "cloneId": "LP3K",
-    "uniprotId": null,
     "registryName": "Human Cytokeratin 8 Antibody",
     "registryTarget": "Cytokeratin 8",
     "registryVendor": "R and D Systems",
     "registryCatalog": "MAB3165",
-    "registryApplications": [],
     "citationCount": 1
   },
   {
@@ -1044,12 +956,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Cytokeratin 19 antibody [EP1580Y]",
     "registryTarget": "Cytokeratin 19 antibody [EP1580Y]",
     "registryVendor": "Abcam",
     "registryCatalog": "ab52625",
-    "registryApplications": [],
     "citationCount": 48
   },
   {
@@ -1067,12 +977,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "1B10E3",
-    "uniprotId": null,
     "registryName": "C1QA antibody",
     "registryTarget": "C1QA",
     "registryVendor": "Proteintech",
     "registryCatalog": "67063-1-Ig",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1091,12 +999,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Anti-DACH1 antibody produced in rabbit",
     "registryTarget": "DACH1 antibody produced in rabbit",
     "registryVendor": "Sigma-Aldrich",
     "registryCatalog": "HPA012672",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1114,12 +1020,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human Decorin Antibody",
     "registryTarget": "Decorin",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF143",
-    "registryApplications": [],
     "citationCount": 3
   },
   {
@@ -1138,12 +1042,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human/Mouse E-Cadherin Antibody",
     "registryTarget": "E-Cadherin",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF648",
-    "registryApplications": [],
     "citationCount": 21
   },
   {
@@ -1161,12 +1063,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Mouse Anti-EEA1 Monoclonal Antibody, Unconjugated, Clone G-4",
     "registryTarget": "EEA1",
     "registryVendor": "Santa Cruz Biotechnology",
     "registryCatalog": "sc-137130",
-    "registryApplications": [],
     "citationCount": 3
   },
   {
@@ -1184,12 +1084,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Anti-EHD3",
     "registryTarget": "EHD3",
     "registryVendor": "LSBio (LifeSpan)",
     "registryCatalog": "LS-C133741-100",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1207,12 +1105,10 @@
     "host": "rabbit",
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Anti-EMCN antibody produced in rabbit",
     "registryTarget": "EMCN",
     "registryVendor": "Sigma-Aldrich",
     "registryCatalog": "HPA005928",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1230,12 +1126,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "eNOS antibody [M221]",
     "registryTarget": "eNOS antibody [M221]",
     "registryVendor": "Abcam",
     "registryCatalog": "ab76198",
-    "registryApplications": [],
     "citationCount": 6
   },
   {
@@ -1253,12 +1147,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Ezrin Antibody",
     "registryTarget": "Ezr",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "3145",
-    "registryApplications": [],
     "citationCount": 20
   },
   {
@@ -1276,12 +1168,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "FAM189A2 Polyclonal Antibody",
     "registryTarget": "FAM189A2",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "PA5-63414",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1300,12 +1190,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Fibronectin antibody",
     "registryTarget": "Fibronectin",
     "registryVendor": "Abcam",
     "registryCatalog": "ab2413",
-    "registryApplications": [],
     "citationCount": 66
   },
   {
@@ -1323,12 +1211,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human/Mouse/Rat FKBP51 Antibody",
     "registryTarget": "FKBP51/FKBP5",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF4094",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1346,12 +1232,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "FXYD4 Polyclonal Antibody",
     "registryTarget": "FXYD4",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "PA5-63570",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1369,12 +1253,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone GA5",
-    "uniprotId": null,
     "registryName": "GFAP Monoclonal Antibody (GA5), eBioscience",
     "registryTarget": "GFAP",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "14-9892-82",
-    "registryApplications": [],
     "citationCount": 13
   },
   {
@@ -1392,12 +1274,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Glucocorticoid Receptor (D8H2) XP Rabbit mAb",
     "registryTarget": "Glucocorticoid Receptor (D8H2) XP Rabbit mAb",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "3660",
-    "registryApplications": [],
     "citationCount": 22
   },
   {
@@ -1415,12 +1295,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human/Mouse/Rat Glutathione Peroxidase 1/GPX1 Antibody",
     "registryTarget": "Glutathione Peroxidase 1/GPX1",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF3798",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -1438,12 +1316,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human/Mouse/Rat Glutathione Peroxidase 3/GPX3 Antibody",
     "registryTarget": "Glutathione Peroxidase 3/GPX3",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF4199",
-    "registryApplications": [],
     "citationCount": 4
   },
   {
@@ -1461,12 +1337,10 @@
     "host": "Mouse",
     "clonality": "monoclonal",
     "cloneId": "R10",
-    "uniprotId": null,
     "registryName": "Human Glycophorin A Antibody",
     "registryTarget": "Glycophorin A",
     "registryVendor": "R and D Systems",
     "registryCatalog": "MAB1228",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1484,12 +1358,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "GRP78/BIP antibody",
     "registryTarget": "GRP78/BIP",
     "registryVendor": "Proteintech",
     "registryCatalog": "11587-1-AP",
-    "registryApplications": [],
     "citationCount": 22
   },
   {
@@ -1507,12 +1379,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human HB-EGF Antibody",
     "registryTarget": "HB-EGF",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF-259-NA",
-    "registryApplications": [],
     "citationCount": 14
   },
   {
@@ -1531,12 +1401,10 @@
     "host": "rabbit",
     "clonality": "recombinant monoclonal",
     "cloneId": "D1H2",
-    "uniprotId": null,
     "registryName": "Histone H3 (D1H2) XP Rabbit mAb",
     "registryTarget": "Histone H3",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "4499",
-    "registryApplications": [],
     "citationCount": 253
   },
   {
@@ -1554,12 +1422,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone HO-1-1",
-    "uniprotId": null,
     "registryName": "HMOX1 Monoclonal Antibody (HO-1-1)",
     "registryTarget": "HMOX1",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "MA1-112",
-    "registryApplications": [],
     "citationCount": 5
   },
   {
@@ -1577,12 +1443,10 @@
     "host": "Mouse",
     "clonality": "monoclonal",
     "cloneId": "921215",
-    "uniprotId": null,
     "registryName": "Human 11 beta-HSD2 Antibody",
     "registryTarget": "HSD11B2",
     "registryVendor": "R and D Systems",
     "registryCatalog": "MAB8630",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1600,12 +1464,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human TIM-1/KIM-1/HAVCR Antibody",
     "registryTarget": "TIM-1/KIM-1/HAVCR",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF1750",
-    "registryApplications": [],
     "citationCount": 4
   },
   {
@@ -1624,12 +1486,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone GT10312",
-    "uniprotId": null,
     "registryName": "IBA1 Monoclonal Antibody (GT10312)",
     "registryTarget": "IBA1",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "MA5-27726",
-    "registryApplications": [],
     "citationCount": 12
   },
   {
@@ -1647,12 +1507,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "H09",
-    "uniprotId": null,
-    "registryName": "Anti-IDH1 R132H (Hu) from Mouse (H09) – unconj",
+    "registryName": "Anti-IDH1 R132H (Hu) from Mouse (H09) - unconj",
     "registryTarget": "IDH1 R132H",
     "registryVendor": "Dianova",
     "registryCatalog": "DIA-H09",
-    "registryApplications": [],
     "citationCount": 14
   },
   {
@@ -1672,12 +1530,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "IL1RA antagonist antibody [EPR6483]",
     "registryTarget": "IL1RA antagonist antibody [EPR6483]",
     "registryVendor": "Abcam",
     "registryCatalog": "ab124962",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -1695,12 +1551,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "clone C1",
-    "uniprotId": null,
     "registryName": "iNOS Monoclonal Antibody (C1)",
     "registryTarget": "iNOS",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "MA5-41652",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1718,12 +1572,10 @@
     "host": "Sheep",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human Integrin alpha 1/CD49a Antibody",
     "registryTarget": "Integrin alpha 1/CD49a",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF5676",
-    "registryApplications": [],
     "citationCount": 1
   },
   {
@@ -1741,12 +1593,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "3F9G4",
-    "uniprotId": null,
     "registryName": "Integrin Alpha 3 antibody",
     "registryTarget": "Integrin Alpha 3",
     "registryVendor": "Proteintech",
     "registryCatalog": "66070-1-Ig",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1764,12 +1614,10 @@
     "host": "rabbit",
     "clonality": "recombinant",
     "cloneId": "EPR16895",
-    "uniprotId": null,
     "registryName": "Recombinant Anti-Integrin beta 1 antibody [EPR16895]",
     "registryTarget": "Integrin beta 1",
     "registryVendor": "Abcam",
     "registryCatalog": "ab179471",
-    "registryApplications": [],
     "citationCount": 8
   },
   {
@@ -1787,12 +1635,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "MIB-1",
-    "uniprotId": null,
     "registryName": "Mouse Anti-Human Ki-67 Antibody",
     "registryTarget": "Ki-67",
     "registryVendor": "Agilent",
     "registryCatalog": "M724029",
-    "registryApplications": [],
     "citationCount": 6
   },
   {
@@ -1811,12 +1657,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Laminin antibody",
     "registryTarget": "Laminin antibody",
     "registryVendor": "Abcam",
     "registryCatalog": "ab11575",
-    "registryApplications": [],
     "citationCount": 98
   },
   {
@@ -1834,12 +1678,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "D2D11",
-    "uniprotId": null,
     "registryName": "LAMP1 (D2D11) XP Rabbit Antibody",
     "registryTarget": "LAMP1",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "9091",
-    "registryApplications": [],
     "citationCount": 105
   },
   {
@@ -1857,12 +1699,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "LC3B (D11) XP Rabbit mAb",
     "registryTarget": "LC3B (D11) XP Rabbit mAb",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "3868",
-    "registryApplications": [],
     "citationCount": 124
   },
   {
@@ -1882,12 +1722,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -1908,12 +1746,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Lotus tetragonolobus lectin (LTL)",
     "registryTarget": null,
     "registryVendor": "Vector Laboratories",
     "registryCatalog": "B-1325",
-    "registryApplications": [],
     "citationCount": 16
   },
   {
@@ -1931,12 +1767,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone P14612",
-    "uniprotId": null,
     "registryName": "MCT1 Monoclonal Antibody (P14612)",
     "registryTarget": "MCT1",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "MA5-18288",
-    "registryApplications": [],
     "citationCount": 5
   },
   {
@@ -1954,12 +1788,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Mouse Mer Antibody",
     "registryTarget": "Mer",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF591",
-    "registryApplications": [],
     "citationCount": 12
   },
   {
@@ -1977,12 +1809,10 @@
     "host": "Mouse",
     "clonality": "monoclonal",
     "cloneId": "392105",
-    "uniprotId": null,
     "registryName": "Human Myeloperoxidase/MPO Antibody",
     "registryTarget": "Myeloperoxidase/MPO",
     "registryVendor": "R and D Systems",
     "registryCatalog": "MAB3174",
-    "registryApplications": [],
     "citationCount": 1
   },
   {
@@ -2001,12 +1831,10 @@
     "host": "guinea pig",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "anti-Nephrin guinea pig polyclonal, serum",
     "registryTarget": "Nephrin",
     "registryVendor": "Progen",
     "registryCatalog": "GP-N2",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -2024,12 +1852,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "2F11",
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2047,12 +1873,10 @@
     "host": "Mouse",
     "clonality": "monoclonal",
     "cloneId": "996715",
-    "uniprotId": null,
     "registryName": "Human Nox4 Antibody",
     "registryTarget": "Nox4",
     "registryVendor": "R and D Systems",
     "registryCatalog": "MAB8158",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2070,12 +1894,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "1E5G7",
-    "uniprotId": null,
     "registryName": "NQO1 antibody",
     "registryTarget": "NQO1",
     "registryVendor": "Proteintech",
     "registryCatalog": "67240-1-Ig",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2093,12 +1915,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2116,12 +1936,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "Clone D1Q5S",
-    "uniprotId": null,
     "registryName": "SQSTM1/p62 (D1Q5S) Rabbit mAb",
     "registryTarget": "SQSTM1",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "39749",
-    "registryApplications": [],
     "citationCount": 18
   },
   {
@@ -2139,12 +1957,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "2F11B5",
-    "uniprotId": null,
     "registryName": "PCK1 antibody",
     "registryTarget": "PCK1",
     "registryVendor": "Proteintech",
     "registryCatalog": "66862-1-Ig",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2163,12 +1979,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "PC10",
-    "uniprotId": null,
     "registryName": "Anti-PCNA antibody [PC10]",
     "registryTarget": "PCNA",
     "registryVendor": "Abcam",
     "registryCatalog": "ab29",
-    "registryApplications": [],
     "citationCount": 62
   },
   {
@@ -2186,12 +2000,10 @@
     "host": "Rabbit",
     "clonality": "monoclonal",
     "cloneId": "28E1",
-    "uniprotId": null,
     "registryName": "PDGF Receptor β (28E1) Rabbit mAb",
     "registryTarget": "PDGF Receptor β",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "3169",
-    "registryApplications": [],
     "citationCount": 48
   },
   {
@@ -2210,12 +2022,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2233,12 +2043,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human Periostin/OSF-2 Antibody",
     "registryTarget": "Periostin/OSF-2",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF3548",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2256,12 +2064,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "Clone 40H9",
-    "uniprotId": null,
     "registryName": "Rabbit Anti-AMPK-alpha, phospho (Thr172) Monoclonal Antibody, Unconjugated, Clone 40H9",
     "registryTarget": "AMPK-alpha, phospho (Thr172)",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "2535",
-    "registryApplications": [],
     "citationCount": 438
   },
   {
@@ -2279,12 +2085,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "c-Jun (phospho S63) antibody [Y172]",
     "registryTarget": "c-Jun (phospho S63) antibody [Y172]",
     "registryVendor": "Abcam",
     "registryCatalog": "ab32385",
-    "registryApplications": [],
     "citationCount": 6
   },
   {
@@ -2302,12 +2106,10 @@
     "host": "rabbit",
     "clonality": "recombinant monoclonal",
     "cloneId": "D13.14.4E",
-    "uniprotId": null,
     "registryName": "Phospho-p44/42 MAPK (Erk1/2) (Thr202/Tyr204) (D13.14.4E) XP® Rabbit mAb",
     "registryTarget": "Phospho-p44/42 MAPK (Erk1/2) (Thr202/Tyr204)",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "4370",
-    "registryApplications": [],
     "citationCount": 1024
   },
   {
@@ -2326,12 +2128,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Phospho-Ezrin (Thr567)/Radixin (Thr564)/Moesin (Thr558) (48G2) Rabbit mAb (ELISA Specific)",
     "registryTarget": "Phospho-Ezrin (Thr567)/Radixin (Thr564)/Moesin (Thr558) (48G2) Rabbit mAb (ELISA Specific)",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "3726",
-    "registryApplications": [],
     "citationCount": 14
   },
   {
@@ -2349,12 +2149,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "5B3",
-    "uniprotId": null,
     "registryName": "Phospho-GSK-3beta (Ser9) (5B3) Rabbit mAb",
     "registryTarget": "Phospho-GSK-3beta (Ser9)",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "9323",
-    "registryApplications": [],
     "citationCount": 50
   },
   {
@@ -2372,12 +2170,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Phospho-Histone H3 (Ser10) Antibody",
     "registryTarget": "Phospho-Histone H3 (Ser10)",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "9701",
-    "registryApplications": [],
     "citationCount": 173
   },
   {
@@ -2395,12 +2191,10 @@
     "host": "rabbit",
     "clonality": "recombinant monoclonal",
     "cloneId": "clone SY24-03",
-    "uniprotId": null,
     "registryName": "Phospho-JAK2 (Tyr1007, Tyr1008) Recombinant Rabbit Monoclonal Antibody (SY24-03)",
     "registryTarget": "Phospho-JAK2 (Tyr1007, Tyr1008)",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "MA5-42424",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2418,12 +2212,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Phospho-S6 Ribosomal Protein (Ser235/236) (D57.2.2E) XP Rabbit mAb",
     "registryTarget": "Phospho-S6 Ribosomal Protein (Ser235/236) (D57.2.2E) XP Rabbit mAb",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "4858",
-    "registryApplications": [],
     "citationCount": 290
   },
   {
@@ -2441,12 +2233,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Phospho-SMAD2 (Ser465, Ser467) Polyclonal Antibody",
     "registryTarget": "Phospho-SMAD2 (Ser465, Ser467)",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "44-244G",
-    "registryApplications": [],
     "citationCount": 5
   },
   {
@@ -2464,12 +2254,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Phospho-Smad3 (Thr179) Polyclonal Antibody",
     "registryTarget": "Phospho-Smad3 (Thr179)",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "PA5-104940",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2487,12 +2275,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "58D6",
-    "uniprotId": null,
     "registryName": "Rabbit Anti-Stat1, phospho (Tyr701) Monoclonal Antibody, Unconjugated, Clone 58D6",
     "registryTarget": "Stat1, phospho (Tyr701)",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "9167",
-    "registryApplications": [],
     "citationCount": 174
   },
   {
@@ -2510,12 +2296,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "STAT3 (phospho Y705) antibody [EP2147Y]",
     "registryTarget": "STAT3 (phospho Y705) antibody [EP2147Y]",
     "registryVendor": "Abcam",
     "registryCatalog": "ab76315",
-    "registryApplications": [],
     "citationCount": 28
   },
   {
@@ -2533,12 +2317,10 @@
     "host": null,
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human PITX2 Affinity Purified PAb",
     "registryTarget": "Human PITX2 Affinity Purified PAb",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF7388",
-    "registryApplications": [],
     "citationCount": 4
   },
   {
@@ -2557,12 +2339,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Anti-Podocin antibody produced in rabbit",
     "registryTarget": "Podocin antibody produced in rabbit",
     "registryVendor": "Sigma-Aldrich",
     "registryCatalog": "P0372",
-    "registryApplications": [],
     "citationCount": 13
   },
   {
@@ -2580,12 +2360,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Rabbit Anti-Proteasome 20S LMP7 Polyclonal Antibody, Unconjugated",
     "registryTarget": "Proteasome 20S LMP7",
     "registryVendor": "Abcam",
     "registryCatalog": "ab3329",
-    "registryApplications": [],
     "citationCount": 5
   },
   {
@@ -2603,12 +2381,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "Clone E6N8S",
-    "uniprotId": null,
     "registryName": "Rab5 (E6N8S) Mouse mAb",
     "registryTarget": "RAB5A",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "46449",
-    "registryApplications": [],
     "citationCount": 11
   },
   {
@@ -2626,12 +2402,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "EPR7589",
-    "uniprotId": null,
     "registryName": "Anti-RAB7 antibody [EPR7589] (ab137029)",
     "registryTarget": "RAB7",
     "registryVendor": "Abcam",
     "registryCatalog": "ab137029",
-    "registryApplications": [],
     "citationCount": 27
   },
   {
@@ -2649,12 +2423,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2672,12 +2444,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "D2B6N",
-    "uniprotId": null,
     "registryName": "RCAS1 XP®",
     "registryTarget": "RCAS1",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "12290",
-    "registryApplications": [],
     "citationCount": 12
   },
   {
@@ -2695,12 +2465,10 @@
     "host": "goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Sclerostin Polyclonal Antibody",
     "registryTarget": "Sclerostin",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "PA5-37943",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2718,12 +2486,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "1F3",
-    "uniprotId": null,
     "registryName": "SirT1 (1F3)",
     "registryTarget": "SirT1",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "8469",
-    "registryApplications": [],
     "citationCount": 16
   },
   {
@@ -2741,12 +2507,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "clone C2",
-    "uniprotId": null,
     "registryName": "SLC12A3 Monoclonal Antibody (C2)",
     "registryTarget": "SLC12A3",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "MA5-41643",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2764,12 +2528,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "2F10G1",
-    "uniprotId": null,
     "registryName": "SOD1 antibody",
     "registryTarget": "SOD1",
     "registryVendor": "Proteintech",
     "registryCatalog": "67480-1-Ig",
-    "registryApplications": [],
     "citationCount": 1
   },
   {
@@ -2787,12 +2549,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "SOD2 Polyclonal Antibody",
     "registryTarget": "SOD2",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "PA5-30604",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2810,12 +2570,10 @@
     "host": "rabbit",
     "clonality": "recombinant monoclonal",
     "cloneId": "EPR20190",
-    "uniprotId": null,
     "registryName": "Anti-Scavenging Receptor SR-BI antibody [EPR20190]",
     "registryTarget": "Scavenging Receptor SR-BI",
     "registryVendor": "Abcam",
     "registryCatalog": "ab217318",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2833,12 +2591,10 @@
     "host": "Mouse",
     "clonality": "monoclonal",
     "cloneId": "545103",
-    "uniprotId": null,
     "registryName": "Human STAT2 Antibody",
     "registryTarget": "STAT2",
     "registryVendor": "R and D Systems",
     "registryCatalog": "MAB16661",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2856,12 +2612,10 @@
     "host": "rabbit",
     "clonality": "recombinant monoclonal",
     "cloneId": "Clone 71G4B7",
-    "uniprotId": null,
     "registryName": "Survivin (71G4B7) Rabbit mAb",
     "registryTarget": "Survivin",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "2808",
-    "registryApplications": [],
     "citationCount": 26
   },
   {
@@ -2879,12 +2633,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Talin 1 antibody",
     "registryTarget": "Talin 1 antibody",
     "registryVendor": "Abcam",
     "registryCatalog": "ab71333",
-    "registryApplications": [],
     "citationCount": 6
   },
   {
@@ -2902,12 +2654,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2926,12 +2676,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Ubiquityl-Histone H2B (Lys120) (D11) XP Rabbit mAb",
     "registryTarget": "Ubiquityl-Histone H2B (Lys120) (D11) XP Rabbit mAb",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "5546",
-    "registryApplications": [],
     "citationCount": 19
   },
   {
@@ -2949,12 +2697,10 @@
     "host": "Sheep",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Human Uromodulin Antibody",
     "registryTarget": "Uromodulin",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF5144",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2972,12 +2718,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Villin antibody",
     "registryTarget": "Villin antibody",
     "registryVendor": "Abcam",
     "registryCatalog": "ab52102",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -2996,12 +2740,10 @@
     "host": "guinea pig",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "anti-Vimentin Antibody",
     "registryTarget": "Vimentin",
     "registryVendor": "Progen",
     "registryCatalog": "GP53",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -3020,12 +2762,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -3043,12 +2783,10 @@
     "host": null,
     "clonality": null,
     "cloneId": null,
-    "uniprotId": null,
     "registryName": null,
     "registryTarget": null,
     "registryVendor": null,
     "registryCatalog": null,
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -3066,12 +2804,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "ZO-1 Polyclonal Antibody",
     "registryTarget": "ZO-1",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "61-7300",
-    "registryApplications": [],
     "citationCount": 107
   },
   {
@@ -3089,12 +2825,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Caspase 1 p20 (Cleaved Asp296) Polyclonal Antibody",
     "registryTarget": "Caspase 1 p20 (Cleaved Asp296)",
     "registryVendor": "Thermo Fisher Scientific",
     "registryCatalog": "PA5-99390",
-    "registryApplications": [],
     "citationCount": 2
   },
   {
@@ -3112,12 +2846,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Cyclin E antibody",
     "registryTarget": "Cyclin E antibody",
     "registryVendor": "Abcam",
     "registryCatalog": "ab1108",
-    "registryApplications": [],
     "citationCount": 0
   },
   {
@@ -3135,12 +2867,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "EPR19514",
-    "uniprotId": null,
     "registryName": "Anti-CD4 antibody [EPR19514]",
     "registryTarget": "CD4",
     "registryVendor": "Abcam",
     "registryCatalog": "ab183685",
-    "registryApplications": [],
     "citationCount": 64
   },
   {
@@ -3158,12 +2888,10 @@
     "host": "rabbit",
     "clonality": "monoclonal",
     "cloneId": "Clone D3F8Q",
-    "uniprotId": null,
     "registryName": "CD45 (D3F8Q) Rabbit mAb",
     "registryTarget": "CD45",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "70257",
-    "registryApplications": [],
     "citationCount": 26
   },
   {
@@ -3181,12 +2909,10 @@
     "host": "rat",
     "clonality": "monoclonal",
     "cloneId": "V.7C7",
-    "uniprotId": null,
     "registryName": "Endomucin (V.7C7)",
     "registryTarget": "Mouse Endomucin",
     "registryVendor": "Santa Cruz Biotechnology",
     "registryCatalog": "sc-65495",
-    "registryApplications": [],
     "citationCount": 56
   },
   {
@@ -3204,12 +2930,10 @@
     "host": "rabbit",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Anti-Ki67 antibody",
     "registryTarget": "Ki67",
     "registryVendor": "Abcam",
     "registryCatalog": "ab15580",
-    "registryApplications": [],
     "citationCount": 781
   },
   {
@@ -3227,12 +2951,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Lamin B (B-10)",
     "registryTarget": "Lamin B (B-10)",
     "registryVendor": "Santa Cruz Biotechnology",
     "registryCatalog": "sc-374015",
-    "registryApplications": [],
     "citationCount": 23
   },
   {
@@ -3250,12 +2972,10 @@
     "host": "Goat",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Mouse Podoplanin Antibody",
     "registryTarget": "Podoplanin",
     "registryVendor": "R and D Systems",
     "registryCatalog": "AF3244",
-    "registryApplications": [],
     "citationCount": 15
   },
   {
@@ -3273,12 +2993,10 @@
     "host": "guinea pig",
     "clonality": "polyclonal",
     "cloneId": null,
-    "uniprotId": null,
     "registryName": "Anti-Synaptopodin",
     "registryTarget": "Synaptopodin",
     "registryVendor": "Synaptic Systems",
     "registryCatalog": "163 004",
-    "registryApplications": [],
     "citationCount": 5
   },
   {
@@ -3296,12 +3014,10 @@
     "host": "mouse",
     "clonality": "monoclonal",
     "cloneId": "LNC1",
-    "uniprotId": null,
     "registryName": "Tyrosine Hydroxylase (LNC1) Mouse mAb",
     "registryTarget": "Tyrosine Hydroxylase",
     "registryVendor": "Cell Signaling Technology",
     "registryCatalog": "45648",
-    "registryApplications": [],
     "citationCount": 0
   }
 ]

@@ -1,5 +1,6 @@
 "use client"
 
+import { NotAvailable } from "@/components/shared/not-available"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,14 +17,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { LAB_ROLE_LABELS } from "@/lib/constants"
+import { formatDate, getInitials } from "@/lib/format"
+import type { LabRole } from "@/lib/generated/prisma/enums"
+import { profileHref } from "@/lib/routes"
 import { ROLE_RANK } from "@/models/lab/access"
 import { ChevronDown, Loader2, Trash2, UserMinus } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
-
-type LabRole = "OWNER" | "ADMIN" | "MEMBER" | "VIEWER"
 
 interface Member {
   id: string
@@ -53,23 +56,6 @@ interface MemberManagerProps {
   viewerRole: LabRole
   members: Member[]
   invitations: Invitation[]
-}
-
-function getInitials(name: string | null): string {
-  if (!name) return "?"
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  OWNER: "Owner",
-  ADMIN: "Admin",
-  MEMBER: "Member",
-  VIEWER: "Viewer",
 }
 
 const ROLE_BADGE_VARIANTS: Record<string, "default" | "secondary" | "outline"> = {
@@ -176,7 +162,7 @@ export function MemberManager({ labId, currentUserId, viewerRole, members, invit
               <TableHead className="h-8 py-1 text-xs">Institution</TableHead>
               <TableHead className="h-8 py-1 text-xs">Role</TableHead>
               <TableHead className="h-8 py-1 text-xs">Joined</TableHead>
-              {isAdminOrOwner && <TableHead className="h-8 py-1 text-xs" />}
+              <TableHead className="h-8 py-1 text-xs" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -193,14 +179,14 @@ export function MemberManager({ labId, currentUserId, viewerRole, members, invit
                         <AvatarImage src={member.user.image ?? undefined} alt={member.user.name ?? "Member"} />
                         <AvatarFallback>{getInitials(member.user.name)}</AvatarFallback>
                       </Avatar>
-                      <Link href={`/profile/${member.user.id}`} className="font-medium text-primary hover:underline">
+                      <Link href={profileHref(member.user.id)} className="font-medium text-primary hover:underline">
                         {member.user.name ?? "Unnamed user"}
                       </Link>
                       {isSelf && <span className="text-xs text-muted-foreground">(you)</span>}
                     </div>
                   </TableCell>
                   <TableCell className="py-2 text-sm text-muted-foreground">
-                    {member.user.institution ?? <span className="text-muted-foreground/50">N/A</span>}
+                    {member.user.institution ?? <NotAvailable />}
                   </TableCell>
                   <TableCell className="py-2">
                     {showRoleControls ? (
@@ -211,7 +197,7 @@ export function MemberManager({ labId, currentUserId, viewerRole, members, invit
                               <Loader2 className="size-4 animate-spin" />
                             ) : (
                               <>
-                                {ROLE_LABELS[member.role] ?? member.role}
+                                {LAB_ROLE_LABELS[member.role as LabRole] ?? member.role}
                                 <ChevronDown className="size-4" />
                               </>
                             )}
@@ -224,67 +210,62 @@ export function MemberManager({ labId, currentUserId, viewerRole, members, invit
                               onSelect={() => changeRole(member.user.id, r)}
                               disabled={member.role === r}
                             >
-                              {ROLE_LABELS[r]}
+                              {LAB_ROLE_LABELS[r]}
                             </DropdownMenuItem>
                           ))}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     ) : (
                       <Badge variant={ROLE_BADGE_VARIANTS[member.role] ?? "outline"}>
-                        {ROLE_LABELS[member.role] ?? member.role}
+                        {LAB_ROLE_LABELS[member.role as LabRole] ?? member.role}
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="py-2 text-sm text-muted-foreground">
-                    {new Date(member.joinedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </TableCell>
-                  {isAdminOrOwner && (
-                    <TableCell className="py-2 text-right">
-                      {showRemove && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              disabled={removing === member.user.id}
-                              className="text-muted-foreground hover:text-destructive"
+                  <TableCell className="py-2 text-sm text-muted-foreground">{formatDate(member.joinedAt)}</TableCell>
+                  <TableCell className="py-2 text-right">
+                    {showRemove && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={removing === member.user.id}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            {removing === member.user.id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : isSelf ? (
+                              <UserMinus className="size-4" />
+                            ) : (
+                              <Trash2 className="size-4" />
+                            )}
+                            <span className="sr-only">
+                              {isSelf ? "Leave lab" : `Remove ${member.user.name ?? "member"}`}
+                            </span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent size="sm">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{isSelf ? "Leave lab?" : "Remove member?"}</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {isSelf
+                                ? "You will lose access to this lab and its resources."
+                                : `Remove ${member.user.name ?? "this member"} from the lab? They will lose access immediately.`}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              onClick={() => removeMember(member.user.id, isSelf)}
                             >
-                              {removing === member.user.id ? (
-                                <Loader2 className="size-4 animate-spin" />
-                              ) : isSelf ? (
-                                <UserMinus className="size-4" />
-                              ) : (
-                                <Trash2 className="size-4" />
-                              )}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent size="sm">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>{isSelf ? "Leave lab?" : "Remove member?"}</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {isSelf
-                                  ? "You will lose access to this lab and its resources."
-                                  : `Remove ${member.user.name ?? "this member"} from the lab? They will lose access immediately.`}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="destructive"
-                                onClick={() => removeMember(member.user.id, isSelf)}
-                              >
-                                {isSelf ? "Leave" : "Remove"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </TableCell>
-                  )}
+                              {isSelf ? "Leave" : "Remove"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </TableCell>
                 </TableRow>
               )
             })}
@@ -318,19 +299,13 @@ export function MemberManager({ labId, currentUserId, viewerRole, members, invit
                     </TableCell>
                     <TableCell className="py-2">
                       <Badge variant={ROLE_BADGE_VARIANTS[inv.role] ?? "outline"}>
-                        {ROLE_LABELS[inv.role] ?? inv.role}
+                        {LAB_ROLE_LABELS[inv.role as LabRole] ?? inv.role}
                       </Badge>
                     </TableCell>
                     <TableCell className="py-2 text-sm text-muted-foreground">
                       {inv.useCount}/{inv.maxUses ?? "any"}
                     </TableCell>
-                    <TableCell className="py-2 text-sm text-muted-foreground">
-                      {new Date(inv.expiresAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </TableCell>
+                    <TableCell className="py-2 text-sm text-muted-foreground">{formatDate(inv.expiresAt)}</TableCell>
                     {isAdminOrOwner && (
                       <TableCell className="py-2 text-right">
                         <Button
@@ -345,6 +320,7 @@ export function MemberManager({ labId, currentUserId, viewerRole, members, invit
                           ) : (
                             <Trash2 className="size-4" />
                           )}
+                          <span className="sr-only">Revoke invitation</span>
                         </Button>
                       </TableCell>
                     )}

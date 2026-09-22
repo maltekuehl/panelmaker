@@ -1,17 +1,17 @@
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
-import { getPublicPanels, toPanelResponse } from "@/models/panel"
+import { getPublicPanels, panelQueryParamsSchema, toPanelResponse } from "@/models/panel"
 import { NextRequest } from "next/server"
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = request.nextUrl
-    const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 100)
-    const cursorParam = searchParams.get("cursor")
-    const cursor = cursorParam ?? undefined
+    const params = panelQueryParamsSchema.parse(Object.fromEntries(request.nextUrl.searchParams))
 
-    const panels = await getPublicPanels({ limit, cursor })
+    const panels = await getPublicPanels(params)
+    const data = panels.map(toPanelResponse)
 
-    return createSuccessResponse({ panels: panels.map(toPanelResponse) })
+    const nextCursor = data.length === params.limit ? data[data.length - 1]?.id : undefined
+
+    return createSuccessResponse({ panels: data, nextCursor })
   } catch (error) {
     return createErrorResponse(error, "Failed to fetch public panels")
   }

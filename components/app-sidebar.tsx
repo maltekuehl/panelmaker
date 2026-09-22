@@ -86,7 +86,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild isActive={isActive(pathname, item.href)} tooltip={item.title}>
-                    <Link href={item.href}>
+                    <Link href={item.href} aria-current={isActive(pathname, item.href) ? "page" : undefined}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -132,7 +132,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </Link>
             ))}
           </div>
-          <span>© 2025 – now · PanelMaker</span>
+          <span>© 2025 to now, PanelMaker</span>
         </div>
       </SidebarFooter>
       <SidebarRail />

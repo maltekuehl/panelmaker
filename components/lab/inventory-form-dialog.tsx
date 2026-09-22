@@ -1,7 +1,8 @@
 "use client"
 
 import { AntibodyRegistryCombobox, type AntibodyRegistryValue } from "@/components/antibody-registry-combobox"
-import { OntologyCombobox } from "@/components/ontology-combobox"
+import { OntologyCombobox, type OntologyValue } from "@/components/ontology-combobox"
+import { Field } from "@/components/shared/field"
 import { ProteinCombobox } from "@/components/submit/protein-combobox"
 import type { ProteinValue } from "@/components/submit/types"
 import { Button } from "@/components/ui/button"
@@ -14,7 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2 } from "lucide-react"
@@ -22,8 +22,6 @@ import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import type { InventoryItem } from "./inventory-columns"
-
-type OntologyValue = { id: string; label: string }
 
 const STATUS_OPTIONS = [
   { value: "IN_STOCK", label: "In stock" },
@@ -38,16 +36,6 @@ interface InventoryFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   item?: InventoryItem | null
-}
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-sm font-medium">{label}</Label>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      {children}
-    </div>
-  )
 }
 
 export function InventoryFormDialog({ labId, mode, open, onOpenChange, item }: InventoryFormDialogProps) {
@@ -218,11 +206,11 @@ export function InventoryFormDialog({ labId, mode, open, onOpenChange, item }: I
             </div>
           ) : (
             <div className="space-y-4">
-              <Field label="Antibody">
-                <AntibodyRegistryCombobox value={registry} onChange={handleRegistry} showDetails={false} />
+              <Field labelClassName="text-sm font-medium" label="Antibody">
+                <AntibodyRegistryCombobox value={registry} onChange={handleRegistry} />
               </Field>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="RRID">
+                <Field labelClassName="text-sm font-medium" label="RRID">
                   <Input
                     value={rrid}
                     onChange={(e) => setRrid(e.target.value)}
@@ -230,22 +218,26 @@ export function InventoryFormDialog({ labId, mode, open, onOpenChange, item }: I
                     className="font-mono"
                   />
                 </Field>
-                <Field label="Marker name">
+                <Field labelClassName="text-sm font-medium" label="Marker name">
                   <Input
                     value={markerName}
                     onChange={(e) => setMarkerName(e.target.value)}
                     placeholder="CD3e, Ki-67, PanCK"
                   />
                 </Field>
-                <Field label="Target protein">
+                <Field labelClassName="text-sm font-medium" label="Target protein">
                   <ProteinCombobox value={markerProtein} onChange={setMarkerProtein} />
                 </Field>
-                <Field label="Host species" hint="The species this antibody was raised in.">
+                <Field
+                  labelClassName="text-sm font-medium"
+                  label="Host species"
+                  hint="The species this antibody was raised in."
+                >
                   <OntologyCombobox
                     ontologyType="ncbi_taxonomy"
                     value={hostSpecies}
                     onChange={setHostSpecies}
-                    placeholder="Raised in..."
+                    placeholder="Raised in…"
                   />
                 </Field>
               </div>
@@ -253,50 +245,52 @@ export function InventoryFormDialog({ labId, mode, open, onOpenChange, item }: I
           )}
 
           <div className="grid grid-cols-1 gap-4 border-t pt-5 sm:grid-cols-2">
-            <Field label="Status">
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Field labelClassName="text-sm font-medium" label="Status">
+              {(id) => (
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger id={id} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </Field>
-            <Field label="Aliquots remaining">
+            <Field labelClassName="text-sm font-medium" label="Aliquots remaining">
               <Input type="number" min={0} value={aliquots} onChange={(e) => setAliquots(e.target.value)} />
             </Field>
-            <Field label="Storage location">
+            <Field labelClassName="text-sm font-medium" label="Storage location">
               <Input
                 value={storageLocation}
                 onChange={(e) => setStorageLocation(e.target.value)}
                 placeholder="Fridge A, shelf 2"
               />
             </Field>
-            <Field label="Freezer location">
+            <Field labelClassName="text-sm font-medium" label="Freezer location">
               <Input
                 value={freezerLocation}
                 onChange={(e) => setFreezerLocation(e.target.value)}
                 placeholder="-20C, box 4"
               />
             </Field>
-            <Field label="Lot number">
+            <Field labelClassName="text-sm font-medium" label="Lot number">
               <Input value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} className="font-mono" />
             </Field>
-            <Field label="Vendor catalog #">
+            <Field labelClassName="text-sm font-medium" label="Vendor catalog #">
               <Input value={vendorCatalog} onChange={(e) => setVendorCatalog(e.target.value)} className="font-mono" />
             </Field>
           </div>
 
-          <Field label="Notes">
+          <Field labelClassName="text-sm font-medium" label="Notes">
             <Textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Working dilution, troubleshooting, anything else worth noting..."
+              placeholder="Working dilution, troubleshooting, anything else worth noting…"
               className="min-h-[60px]"
             />
           </Field>

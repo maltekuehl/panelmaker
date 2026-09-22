@@ -1,5 +1,6 @@
 "use client"
 
+import { ImagingMethodSelect } from "@/components/imaging-method-select"
 import { OntologyCombobox } from "@/components/ontology-combobox"
 import { Button } from "@/components/ui/button"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
@@ -21,6 +22,7 @@ const panelFormSchema = z.object({
   description: z.string().optional(),
   species: ontologyValueSchema.nullable().optional(),
   fixation: z.string().optional(),
+  imagingMethodId: z.string().nullable().optional(),
   condition: ontologyValueSchema.nullable().optional(),
 })
 
@@ -32,6 +34,7 @@ export interface CreatePanelFormData {
   speciesId?: string
   speciesLabel?: string
   fixation?: string
+  imagingMethodId?: string
   conditionId?: string
   conditionLabel?: string
 }
@@ -50,6 +53,7 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
       description: "",
       species: null,
       fixation: undefined,
+      imagingMethodId: null,
       condition: null,
     },
   })
@@ -61,10 +65,10 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
       speciesId: data.species?.id,
       speciesLabel: data.species?.label,
       fixation: data.fixation,
+      imagingMethodId: data.imagingMethodId ?? undefined,
       conditionId: data.condition?.id,
       conditionLabel: data.condition?.label,
     })
-    form.reset()
   }
 
   return (
@@ -90,7 +94,7 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Describe the panel..." {...field} />
+                <Textarea placeholder="Describe the panel…" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -103,12 +107,14 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
               control={form.control}
               name="species"
               render={({ field }) => (
-                <OntologyCombobox
-                  ontologyType="ncbi_taxonomy"
-                  value={field.value ?? null}
-                  onChange={field.onChange}
-                  placeholder="Search species..."
-                />
+                <FormControl>
+                  <OntologyCombobox
+                    ontologyType="ncbi_taxonomy"
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    placeholder="Search species…"
+                  />
+                </FormControl>
               )}
             />
           </FormItem>
@@ -138,17 +144,31 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
           />
         </div>
         <FormItem>
+          <FormLabel>Imaging method</FormLabel>
+          <Controller
+            control={form.control}
+            name="imagingMethodId"
+            render={({ field }) => (
+              <FormControl>
+                <ImagingMethodSelect value={field.value ?? null} onChange={field.onChange} />
+              </FormControl>
+            )}
+          />
+        </FormItem>
+        <FormItem>
           <FormLabel>Condition</FormLabel>
           <Controller
             control={form.control}
             name="condition"
             render={({ field }) => (
-              <OntologyCombobox
-                ontologyType="doid"
-                value={field.value ?? null}
-                onChange={field.onChange}
-                placeholder="Search disease conditions..."
-              />
+              <FormControl>
+                <OntologyCombobox
+                  ontologyType="doid"
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  placeholder="Search disease conditions…"
+                />
+              </FormControl>
             )}
           />
         </FormItem>
@@ -159,7 +179,7 @@ export function PanelForm({ onSubmit, onCancel, isSubmitting }: PanelFormProps) 
             </Button>
           )}
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Panel"}
+            {isSubmitting ? "Creating…" : "Create Panel"}
           </Button>
         </div>
       </form>

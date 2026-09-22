@@ -48,13 +48,13 @@ export default function DataExportSection() {
         <p className="text-sm text-muted-foreground">Download a copy of all your personal data in JSON format</p>
       </div>
       <p className="text-sm text-muted-foreground">
-        This export includes your profile information, reviews, panels, blog posts, and all associated data stored in
-        our system. Please note that chat messages are stored locally in your browser and are not included in this
-        export.
+        The export contains your profile, linked accounts, blog posts, experiments and their reports, panels with cycles
+        and markers, lab memberships and invitations, chat conversations, and the labels of any saved API keys. Key
+        secrets are never included.
       </p>
       <Button onClick={handleExport} disabled={isExporting} className="w-full sm:w-auto">
-        <Download className="mr-2 h-4 w-4" />
-        {isExporting ? "Exporting..." : "Export My Data"}
+        <Download className="h-4 w-4" />
+        {isExporting ? "Exporting…" : "Export My Data"}
       </Button>
     </section>
   )

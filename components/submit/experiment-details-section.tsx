@@ -5,15 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { VISIBILITY_LABELS } from "@/lib/constants"
 import { Check, Pencil } from "lucide-react"
 import { StepBadge } from "./step-badge"
 import { isContextComplete, type ExperimentContext } from "./types"
-
-const VISIBILITY_LABELS: Record<ExperimentContext["visibility"], string> = {
-  PRIVATE: "Private",
-  LAB: "Lab",
-  PUBLIC: "Public",
-}
 
 export function ExperimentDetailsSection({
   context,
@@ -33,7 +28,12 @@ export function ExperimentDetailsSection({
   const collapsed = state !== "active"
   const cited = Boolean(context.citation.trim() || context.pmid.trim() || context.doi.trim())
 
-  const summary = [context.name, VISIBILITY_LABELS[context.visibility], cited ? "Cited" : null].filter(Boolean)
+  const summary = [
+    context.name,
+    VISIBILITY_LABELS[context.visibility],
+    cited ? "Cited" : null,
+    context.protocolDoi.trim() ? "Protocol linked" : null,
+  ].filter(Boolean)
 
   return (
     <section className={collapsed ? "bg-muted/30" : undefined}>
@@ -43,7 +43,7 @@ export function ExperimentDetailsSection({
           <div className="min-w-0">
             <h2 className="text-sm font-semibold">Experiment details</h2>
             {collapsed ? (
-              <p className="truncate text-xs text-muted-foreground">{summary.join(" · ")}</p>
+              <p className="truncate text-xs text-muted-foreground">{summary.join(", ")}</p>
             ) : (
               <p className="text-xs text-muted-foreground">Name, description, publication, and who can see it.</p>
             )}
@@ -60,8 +60,9 @@ export function ExperimentDetailsSection({
       {state === "active" && (
         <div className="space-y-4 px-4 pb-4">
           <div className="space-y-1.5">
-            <Label>Experiment name</Label>
+            <Label htmlFor="experiment-name">Experiment name</Label>
             <Input
+              id="experiment-name"
               value={context.name}
               onChange={(event) => onChange({ ...context, name: event.target.value })}
               placeholder="e.g. Tonsil CODEX immune panel"
@@ -69,8 +70,9 @@ export function ExperimentDetailsSection({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Description (optional)</Label>
+            <Label htmlFor="experiment-description">Description (optional)</Label>
             <Textarea
+              id="experiment-description"
               value={context.description}
               onChange={(event) => onChange({ ...context, description: event.target.value })}
               placeholder="Briefly describe this experiment so it can be cited from a publication."
@@ -81,8 +83,9 @@ export function ExperimentDetailsSection({
           <div className="space-y-3 rounded-md border bg-muted/30 p-3">
             <p className="text-xs font-medium text-muted-foreground">Publication (optional)</p>
             <div className="space-y-1.5">
-              <Label>Citation (APA format)</Label>
+              <Label htmlFor="experiment-citation">Citation (APA format)</Label>
               <Textarea
+                id="experiment-citation"
                 value={context.citation}
                 onChange={(event) => onChange({ ...context, citation: event.target.value })}
                 placeholder="Author, A. A. (Year). Title of work. Journal, Volume(Issue), pages."
@@ -91,21 +94,35 @@ export function ExperimentDetailsSection({
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>PMID</Label>
+                <Label htmlFor="experiment-pmid">PMID</Label>
                 <Input
+                  id="experiment-pmid"
                   value={context.pmid}
                   onChange={(event) => onChange({ ...context, pmid: event.target.value })}
                   placeholder="e.g. 38000000"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>DOI</Label>
+                <Label htmlFor="experiment-doi">DOI</Label>
                 <Input
+                  id="experiment-doi"
                   value={context.doi}
                   onChange={(event) => onChange({ ...context, doi: event.target.value })}
                   placeholder="e.g. 10.1038/s41586-024-00000-0"
                 />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="experiment-protocol-doi">Protocol DOI</Label>
+              <Input
+                id="experiment-protocol-doi"
+                value={context.protocolDoi}
+                onChange={(event) => onChange({ ...context, protocolDoi: event.target.value })}
+                placeholder="e.g. 10.17504/protocols.io.81wgb1m3yvpk/v3"
+              />
+              <p className="text-xs text-muted-foreground">
+                A protocols.io DOI for the staining protocol, if you have one.
+              </p>
             </div>
           </div>
 

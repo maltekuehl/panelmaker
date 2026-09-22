@@ -1,6 +1,7 @@
 import "server-only"
 
 import { DEFAULT_PAGE_SIZE, type LabInventoryParams } from "@/lib/data-table"
+import { ForbiddenError, NotFoundError } from "@/lib/error-handling"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import type {
   Clonality,
@@ -11,6 +12,7 @@ import type {
 } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { type AntibodyRow, resolveAntibodyByRrid } from "@/models/antibody"
+import { normalizeEmail } from "@/models/user/transforms"
 import { createHash, randomBytes } from "node:crypto"
 import type { AddLabAntibodyData, CreateLabData, UpdateLabAntibodyData, UpdateLabData } from "./schema"
 
@@ -207,7 +209,8 @@ export type ResolvedVisibility = {
 
 // Resolves a resource's visibility/attribution/share set from the owner's memberships. Never trusts
 // client-supplied lab ids: every share and owning lab must be one the owner belongs to. Falls back to
-// PRIVATE when a LAB resource has no lab to share with.
+// PRIVATE when a LAB resource has no lab to share with, and a PRIVATE resource is never attributed
+// to a lab.
 export async function resolveResourceVisibility(opts: {
   ownerId: string
   defaultVisibility: Visibility
@@ -223,21 +226,26 @@ export async function resolveResourceVisibility(opts: {
 
   let owningLabId = opts.owningLabId ?? null
   if (owningLabId && !memberLabIds.has(owningLabId)) {
-    throw new Error("You are not a member of the selected lab")
+    throw new ForbiddenError("You are not a member of the selected lab", "LAB_NOT_MEMBER")
   }
-  if (!owningLabId && memberLabIds.size === 1) owningLabId = [...memberLabIds][0]
+  if (!owningLabId && visibility !== "PRIVATE" && memberLabIds.size === 1) owningLabId = [...memberLabIds][0]
 
   let sharedLabIds: string[] = []
   if (visibility === "LAB") {
     const requested = opts.sharedLabIds ?? [...memberLabIds]
     for (const labId of requested) {
-      if (!memberLabIds.has(labId)) throw new Error("You can only share with labs you belong to")
+      if (!memberLabIds.has(labId))
+        throw new ForbiddenError("You can only share with labs you belong to", "LAB_NOT_MEMBER")
     }
     const set = new Set(requested)
     if (owningLabId) set.add(owningLabId)
     sharedLabIds = [...set]
     if (sharedLabIds.length === 0) visibility = "PRIVATE"
   }
+
+  // PRIVATE means private: attribution would put the resource in the lab overview and in the lab
+  // ADMIN edit set, so a downgrade to PRIVATE drops it.
+  if (visibility === "PRIVATE") owningLabId = null
 
   return { visibility, owningLabId, sharedLabIds }
 }
@@ -279,7 +287,7 @@ export interface CreateInvitationInput {
 export async function createInvitation(
   input: CreateInvitationInput,
 ): Promise<{ invitation: LabInvitationRow; token: string }> {
-  const email = input.email?.trim().toLowerCase() || null
+  const email = input.email ? normalizeEmail(input.email) : null
   const isLink = email === null
 
   if (input.role === "OWNER") {
@@ -295,16 +303,8 @@ export async function createInvitation(
     throw new Error("Admin invitations must have a limited number of uses")
   }
 
-  // Replace any prior pending invitation for the same lab and email.
-  if (email) {
-    await prisma.labInvitation.updateMany({
-      where: { labId: input.labId, email, status: "PENDING" },
-      data: { status: "REVOKED" },
-    })
-  }
-
   const token = randomBytes(32).toString("base64url")
-  const invitation = await prisma.labInvitation.create({
+  const createInvitationOp = prisma.labInvitation.create({
     data: {
       labId: input.labId,
       email,
@@ -317,14 +317,19 @@ export async function createInvitation(
     select: labInvitationSelect,
   })
 
-  return { invitation, token }
-}
+  // Replacing any prior pending invitation for the same lab and email has to happen with the new
+  // one, otherwise a failure in between leaves the address with no pending invitation at all.
+  if (!email) return { invitation: await createInvitationOp, token }
 
-export async function getInvitationByToken(rawToken: string): Promise<LabInvitationRow | null> {
-  return prisma.labInvitation.findUnique({
-    where: { tokenHash: hashToken(rawToken) },
-    select: labInvitationSelect,
-  })
+  const [, invitation] = await prisma.$transaction([
+    prisma.labInvitation.updateMany({
+      where: { labId: input.labId, email, status: "PENDING" },
+      data: { status: "REVOKED" },
+    }),
+    createInvitationOp,
+  ])
+
+  return { invitation, token }
 }
 
 export interface InvitationView {
@@ -362,7 +367,7 @@ export async function getInvitationView(rawToken: string): Promise<InvitationVie
 
 export async function listLabInvitations(labId: string): Promise<LabInvitationRow[]> {
   return prisma.labInvitation.findMany({
-    where: { labId, status: "PENDING" },
+    where: { labId, status: "PENDING", expiresAt: { gt: new Date() } },
     select: labInvitationSelect,
     orderBy: { createdAt: "desc" },
   })
@@ -374,14 +379,6 @@ export async function revokeInvitation(labId: string, invitationId: string): Pro
     data: { status: "REVOKED" },
   })
   if (result.count === 0) throw new Error("Resource not found")
-}
-
-export async function sweepExpiredInvitations(): Promise<number> {
-  const result = await prisma.labInvitation.updateMany({
-    where: { status: "PENDING", expiresAt: { lt: new Date() } },
-    data: { status: "EXPIRED" },
-  })
-  return result.count
 }
 
 export type AcceptInvitationResult = { labId: string; slug: string; labName: string; role: LabRole }
@@ -416,7 +413,7 @@ export async function acceptInvitation(
       await tx.labInvitation.update({ where: { id: invitation.id }, data: { status: "EXPIRED" } })
       throw new Error("Invitation has expired")
     }
-    if (invitation.email && userEmail && invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
+    if (invitation.email && userEmail && invitation.email !== normalizeEmail(userEmail)) {
       throw new Error("This invitation was sent to a different email address")
     }
 
@@ -457,7 +454,7 @@ export async function declineInvitation(rawToken: string, userEmail: string | nu
   })
   if (!invitation || invitation.status !== "PENDING") throw new Error("Invitation is no longer valid")
   if (!invitation.email) throw new Error("Open invite links cannot be declined")
-  if (userEmail && invitation.email.toLowerCase() !== userEmail.toLowerCase()) {
+  if (userEmail && invitation.email !== normalizeEmail(userEmail)) {
     throw new Error("This invitation was sent to a different email address")
   }
   await prisma.labInvitation.update({ where: { id: invitation.id }, data: { status: "DECLINED" } })
@@ -756,14 +753,16 @@ export async function upsertLabAntibody(
 
   return prisma.labAntibody.upsert({
     where: { labId_antibodyId: { labId, antibodyId: antibody.id } },
+    // Only fields the caller actually sent are applied, so re-adding an antibody someone else
+    // already stocked refreshes what was filled in and leaves the rest alone.
     update: {
-      storageLocation: data.storageLocation || null,
-      freezerLocation: data.freezerLocation || null,
-      lotNumber: data.lotNumber || null,
-      vendorCatalog: data.vendorCatalog || null,
-      aliquotsRemaining: data.aliquotsRemaining ?? null,
-      status: data.status ?? "IN_STOCK",
-      notes: data.notes || null,
+      ...(data.storageLocation !== undefined ? { storageLocation: data.storageLocation || null } : {}),
+      ...(data.freezerLocation !== undefined ? { freezerLocation: data.freezerLocation || null } : {}),
+      ...(data.lotNumber !== undefined ? { lotNumber: data.lotNumber || null } : {}),
+      ...(data.vendorCatalog !== undefined ? { vendorCatalog: data.vendorCatalog || null } : {}),
+      ...(data.aliquotsRemaining !== undefined ? { aliquotsRemaining: data.aliquotsRemaining } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
     },
     create: {
       labId,
@@ -788,22 +787,23 @@ export async function updateLabAntibody(
   itemId: string,
   data: UpdateLabAntibodyData,
 ): Promise<LabAntibodyRow> {
-  const result = await prisma.labAntibody.updateMany({
-    where: { id: itemId, labId },
-    data: {
-      ...(data.storageLocation !== undefined ? { storageLocation: data.storageLocation || null } : {}),
-      ...(data.freezerLocation !== undefined ? { freezerLocation: data.freezerLocation || null } : {}),
-      ...(data.lotNumber !== undefined ? { lotNumber: data.lotNumber || null } : {}),
-      ...(data.vendorCatalog !== undefined ? { vendorCatalog: data.vendorCatalog || null } : {}),
-      ...(data.aliquotsRemaining !== undefined ? { aliquotsRemaining: data.aliquotsRemaining } : {}),
-      ...(data.status !== undefined ? { status: data.status } : {}),
-      ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
-    },
-  })
-  if (result.count === 0) throw new Error("Resource not found")
-  const item = await prisma.labAntibody.findUnique({ where: { id: itemId }, select: labAntibodySelect })
-  if (!item) throw new Error("Resource not found")
-  return item
+  try {
+    return await prisma.labAntibody.update({
+      where: { id: itemId, labId },
+      data: {
+        ...(data.storageLocation !== undefined ? { storageLocation: data.storageLocation || null } : {}),
+        ...(data.freezerLocation !== undefined ? { freezerLocation: data.freezerLocation || null } : {}),
+        ...(data.lotNumber !== undefined ? { lotNumber: data.lotNumber || null } : {}),
+        ...(data.vendorCatalog !== undefined ? { vendorCatalog: data.vendorCatalog || null } : {}),
+        ...(data.aliquotsRemaining !== undefined ? { aliquotsRemaining: data.aliquotsRemaining } : {}),
+        ...(data.status !== undefined ? { status: data.status } : {}),
+        ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
+      },
+      select: labAntibodySelect,
+    })
+  } catch {
+    throw new NotFoundError()
+  }
 }
 
 export async function removeLabAntibody(labId: string, itemId: string): Promise<void> {

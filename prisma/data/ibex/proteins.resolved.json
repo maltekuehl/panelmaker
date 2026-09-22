@@ -1,0 +1,1576 @@
+{
+  "resolvedAt": "2026-09-22",
+  "source": "UniProtKB REST, fields accession,protein_name,gene_primary",
+  "accessions": {
+    "O00329": {
+      "label": "Phosphatidylinositol 4,5-bisphosphate 3-kinase catalytic subunit delta isoform",
+      "geneSymbol": "PIK3CD",
+      "organismId": null
+    },
+    "P01877": {
+      "label": "Immunoglobulin heavy constant alpha 2",
+      "geneSymbol": "IGHA2",
+      "organismId": null
+    },
+    "P03999": {
+      "label": "Short-wave-sensitive opsin 1",
+      "geneSymbol": "OPN1SW",
+      "organismId": null
+    },
+    "P04275": {
+      "label": "von Willebrand factor",
+      "geneSymbol": "VWF",
+      "organismId": null
+    },
+    "P05362": {
+      "label": "Intercellular adhesion molecule 1",
+      "geneSymbol": "ICAM1",
+      "organismId": null
+    },
+    "P06734": {
+      "label": "Low affinity immunoglobulin epsilon Fc receptor",
+      "geneSymbol": "FCER2",
+      "organismId": null
+    },
+    "P08670": {
+      "label": "Vimentin",
+      "geneSymbol": "VIM",
+      "organismId": null
+    },
+    "P09936": {
+      "label": "Ubiquitin carboxyl-terminal hydrolase isozyme L1",
+      "geneSymbol": "UCHL1",
+      "organismId": null
+    },
+    "P10645": {
+      "label": "Chromogranin-A",
+      "geneSymbol": "CHGA",
+      "organismId": null
+    },
+    "P10721": {
+      "label": "Mast/stem cell growth factor receptor Kit",
+      "geneSymbol": "KIT",
+      "organismId": null
+    },
+    "O15393": {
+      "label": "Transmembrane protease serine 2",
+      "geneSymbol": "TMPRSS2",
+      "organismId": null
+    },
+    "P01730": {
+      "label": "T-cell surface glycoprotein CD4",
+      "geneSymbol": "CD4",
+      "organismId": null
+    },
+    "P01903": {
+      "label": "HLA class II histocompatibility antigen, DR alpha chain",
+      "geneSymbol": "HLA-DRA",
+      "organismId": null
+    },
+    "P02533": {
+      "label": "Keratin, type I cytoskeletal 14",
+      "geneSymbol": "KRT14",
+      "organismId": null
+    },
+    "P02671": {
+      "label": "Fibrinogen alpha chain",
+      "geneSymbol": "FGA",
+      "organismId": null
+    },
+    "P04234": {
+      "label": "T-cell surface glycoprotein CD3 delta chain",
+      "geneSymbol": "CD3D",
+      "organismId": null
+    },
+    "P05089": {
+      "label": "Arginase-1",
+      "geneSymbol": "ARG1",
+      "organismId": null
+    },
+    "P08100": {
+      "label": "Rhodopsin",
+      "geneSymbol": "RHO",
+      "organismId": null
+    },
+    "P08246": {
+      "label": "Neutrophil elastase",
+      "geneSymbol": "ELANE",
+      "organismId": null
+    },
+    "P08571": {
+      "label": "Monocyte differentiation antigen CD14",
+      "geneSymbol": "CD14",
+      "organismId": null
+    },
+    "P01833": {
+      "label": "Polymeric immunoglobulin receptor",
+      "geneSymbol": "PIGR",
+      "organismId": null
+    },
+    "P04000": {
+      "label": "Long-wave-sensitive opsin 1",
+      "geneSymbol": "OPN1LW",
+      "organismId": null
+    },
+    "P07196": {
+      "label": "Neurofilament light polypeptide",
+      "geneSymbol": "NEFL",
+      "organismId": null
+    },
+    "P07711": {
+      "label": "Procathepsin L",
+      "geneSymbol": "CTSL",
+      "organismId": null
+    },
+    "P08473": {
+      "label": "Neprilysin",
+      "geneSymbol": "MME",
+      "organismId": null
+    },
+    "P08729": {
+      "label": "Keratin, type II cytoskeletal 7",
+      "geneSymbol": "KRT7",
+      "organismId": null
+    },
+    "P10144": {
+      "label": "Granzyme B",
+      "geneSymbol": "GZMB",
+      "organismId": null
+    },
+    "P10415": {
+      "label": "Apoptosis regulator Bcl-2",
+      "geneSymbol": "BCL2",
+      "organismId": null
+    },
+    "O43318": {
+      "label": "Mitogen-activated protein kinase kinase kinase 7",
+      "geneSymbol": "MAP3K7",
+      "organismId": null
+    },
+    "P01589": {
+      "label": "Interleukin-2 receptor subunit alpha",
+      "geneSymbol": "IL2RA",
+      "organismId": null
+    },
+    "P01911": {
+      "label": "HLA class II histocompatibility antigen, DRB1 beta chain",
+      "geneSymbol": "HLA-DRB1",
+      "organismId": null
+    },
+    "P07766": {
+      "label": "T-cell surface glycoprotein CD3 epsilon chain",
+      "geneSymbol": "CD3E",
+      "organismId": null
+    },
+    "P00966": {
+      "label": "Argininosuccinate synthase",
+      "geneSymbol": "ASS1",
+      "organismId": null
+    },
+    "P01106": {
+      "label": "Myc proto-oncogene protein",
+      "geneSymbol": "MYC",
+      "organismId": null
+    },
+    "P01137": {
+      "label": "Transforming growth factor beta-1 proprotein",
+      "geneSymbol": "TGFB1",
+      "organismId": null
+    },
+    "P01880": {
+      "label": "Immunoglobulin heavy constant delta",
+      "geneSymbol": "IGHD",
+      "organismId": null
+    },
+    "P04271": {
+      "label": "Protein S100-B",
+      "geneSymbol": "S100B",
+      "organismId": null
+    },
+    "P07476": {
+      "label": "Involucrin",
+      "geneSymbol": "IVL",
+      "organismId": null
+    },
+    "P08138": {
+      "label": "Tumor necrosis factor receptor superfamily member 16",
+      "geneSymbol": "NGFR",
+      "organismId": null
+    },
+    "P09486": {
+      "label": "SPARC",
+      "geneSymbol": "SPARC",
+      "organismId": null
+    },
+    "P11047": {
+      "label": "Laminin subunit gamma-1",
+      "geneSymbol": "LAMC1",
+      "organismId": null
+    },
+    "P01732": {
+      "label": "T-cell surface glycoprotein CD8 alpha chain",
+      "geneSymbol": "CD8A",
+      "organismId": null
+    },
+    "P05106": {
+      "label": "Integrin beta-3",
+      "geneSymbol": "ITGB3",
+      "organismId": null
+    },
+    "P01876": {
+      "label": "Immunoglobulin heavy constant alpha 1",
+      "geneSymbol": "IGHA1",
+      "organismId": null
+    },
+    "P02462": {
+      "label": "Collagen alpha-1(IV) chain",
+      "geneSymbol": "COL4A1",
+      "organismId": null
+    },
+    "P05023": {
+      "label": "Sodium/potassium-transporting ATPase subunit alpha-1",
+      "geneSymbol": "ATP1A1",
+      "organismId": null
+    },
+    "P05937": {
+      "label": "Calbindin",
+      "geneSymbol": "CALB1",
+      "organismId": null
+    },
+    "P08575": {
+      "label": "Receptor-type tyrosine-protein phosphatase C",
+      "geneSymbol": "PTPRC",
+      "organismId": null
+    },
+    "O15444": {
+      "label": "C-C motif chemokine 25",
+      "geneSymbol": "CCL25",
+      "organismId": null
+    },
+    "P02724": {
+      "label": "Glycophorin-A",
+      "geneSymbol": "GYPA",
+      "organismId": null
+    },
+    "P02545": {
+      "label": "Prelamin-A/C",
+      "geneSymbol": "LMNA",
+      "organismId": null
+    },
+    "P07911": {
+      "label": "Uromodulin",
+      "geneSymbol": "UMOD",
+      "organismId": null
+    },
+    "O15075": {
+      "label": "Serine/threonine-protein kinase DCLK1",
+      "geneSymbol": "DCLK1",
+      "organismId": null
+    },
+    "P04637": {
+      "label": "Cellular tumor antigen p53",
+      "geneSymbol": "TP53",
+      "organismId": null
+    },
+    "P02751": {
+      "label": "Fibronectin",
+      "geneSymbol": "FN1",
+      "organismId": null
+    },
+    "E9PVX6": {
+      "label": "Proliferation marker protein Ki-67",
+      "geneSymbol": "Mki67",
+      "organismId": null
+    },
+    "O09126": {
+      "label": "Semaphorin-4D",
+      "geneSymbol": "Sema4d",
+      "organismId": null
+    },
+    "O88713": {
+      "label": "Killer cell lectin-like receptor subfamily G member 1",
+      "geneSymbol": "Klrg1",
+      "organismId": null
+    },
+    "P05784": {
+      "label": "Keratin, type I cytoskeletal 18",
+      "geneSymbol": "Krt18",
+      "organismId": null
+    },
+    "P02463": {
+      "label": "Collagen alpha-1(IV) chain",
+      "geneSymbol": "Col4a1",
+      "organismId": null
+    },
+    "P09803": {
+      "label": "Cadherin-1",
+      "geneSymbol": "Cdh1",
+      "organismId": null
+    },
+    "A0A0B4J1G0": {
+      "label": "Low affinity immunoglobulin gamma Fc region receptor III-A",
+      "geneSymbol": "Fcgr4",
+      "organismId": null
+    },
+    "P01878": {
+      "label": "Ig alpha chain C region",
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "P09055": {
+      "label": "Integrin beta-1",
+      "geneSymbol": "Itgb1",
+      "organismId": null
+    },
+    "P01590": {
+      "label": "Interleukin-2 receptor subunit alpha",
+      "geneSymbol": "Il2ra",
+      "organismId": null
+    },
+    "P01731": {
+      "label": "T-cell surface glycoprotein CD8 alpha chain",
+      "geneSymbol": "Cd8a",
+      "organismId": null
+    },
+    "P01831": {
+      "label": "Thy-1 membrane glycoprotein",
+      "geneSymbol": "Thy1",
+      "organismId": null
+    },
+    "P02468": {
+      "label": "Laminin subunit gamma-1",
+      "geneSymbol": "Lamc1",
+      "organismId": null
+    },
+    "P05532": {
+      "label": "Mast/stem cell growth factor receptor Kit",
+      "geneSymbol": "Kit",
+      "organismId": null
+    },
+    "P06336": {
+      "label": "Immunoglobulin heavy constant epsilon",
+      "geneSymbol": "IGHE",
+      "organismId": null
+    },
+    "P06800": {
+      "label": "Receptor-type tyrosine-protein phosphatase C",
+      "geneSymbol": "Ptprc",
+      "organismId": null
+    },
+    "P06332": {
+      "label": "T-cell surface glycoprotein CD4",
+      "geneSymbol": "Cd4",
+      "organismId": null
+    },
+    "P03995": {
+      "label": "Glial fibrillary acidic protein",
+      "geneSymbol": "Gfap",
+      "organismId": null
+    },
+    "P08101": {
+      "label": "Low affinity immunoglobulin gamma Fc region receptor II",
+      "geneSymbol": "Fcgr2",
+      "organismId": null
+    },
+    "O97799": {
+      "label": "Mast/stem cell growth factor receptor Kit",
+      "geneSymbol": "KIT",
+      "organismId": null
+    },
+    "P02302": {
+      "label": "Histone H3.3C",
+      "geneSymbol": "h3-5",
+      "organismId": null
+    },
+    "P01868": {
+      "label": "Ig gamma-1 chain C region secreted form",
+      "geneSymbol": "Ighg1",
+      "organismId": null
+    },
+    "O42583": {
+      "label": "Peripherin-2",
+      "geneSymbol": "prph2",
+      "organismId": null
+    },
+    "P01881": {
+      "label": "Ig delta chain C region secreted form",
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "A0A5F7Z8X0": {
+      "label": "Platelet endothelial cell adhesion molecule",
+      "geneSymbol": "PECAM1",
+      "organismId": null
+    },
+    "F7DRX3": {
+      "label": "Galactosylgalactosylxylosylprotein 3-beta-glucuronosyltransferase",
+      "geneSymbol": "b3gat1l",
+      "organismId": null
+    },
+    "F7AVS7": {
+      "label": "Lymphatic vessel endothelial hyaluronic acid receptor 1",
+      "geneSymbol": "LYVE1",
+      "organismId": null
+    },
+    "G7NCB9": {
+      "label": "T-cell surface glycoprotein CD3 epsilon chain",
+      "geneSymbol": "CD3E",
+      "organismId": null
+    },
+    "F7CLT4": {
+      "label": "Chymotrypsin",
+      "geneSymbol": "GZMB",
+      "organismId": null
+    },
+    "E9QJF8": {
+      "label": "Calbindin",
+      "geneSymbol": "calb1",
+      "organismId": null
+    },
+    "E9PVX7": {
+      "label": "NAD(P)(+)--arginine ADP-ribosyltransferase",
+      "geneSymbol": "Art3",
+      "organismId": null
+    },
+    "A0A8C6NQP0": {
+      "label": "Glutamine synthetase",
+      "geneSymbol": "GLUL",
+      "organismId": null
+    },
+    "A0A024FCJ9": {
+      "label": "Programmed death 1",
+      "geneSymbol": "PD-1",
+      "organismId": null
+    },
+    "A0A1A8U8H3": {
+      "label": "Calretinin",
+      "geneSymbol": "CALB2",
+      "organismId": null
+    },
+    "A0A8C6NQH8": {
+      "label": "Paired box protein Pax-6",
+      "geneSymbol": "PAX6",
+      "organismId": null
+    },
+    "A0A8C6KR86": {
+      "label": "Peripherin-2",
+      "geneSymbol": "PRPH2",
+      "organismId": null
+    },
+    "F7DAU3": {
+      "label": "Scavenger receptor cysteine-rich type 1 protein M130",
+      "geneSymbol": "CD163",
+      "organismId": null
+    },
+    "H9YXP1": {
+      "label": "B-lymphocyte antigen CD20",
+      "geneSymbol": "MS4A1",
+      "organismId": null
+    },
+    "A0A8C0Q9Z4": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "A0A8C0S4Q3": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "A0A8C0SV20": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "A0A8P0NA08": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "D0PNI2": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "E9PVX8": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "E9PVX9": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "P12036": {
+      "label": "Neurofilament heavy polypeptide",
+      "geneSymbol": "NEFH",
+      "organismId": null
+    },
+    "P12830": {
+      "label": "Cadherin-1",
+      "geneSymbol": "CDH1",
+      "organismId": null
+    },
+    "P13591": {
+      "label": "Neural cell adhesion molecule 1",
+      "geneSymbol": "NCAM1",
+      "organismId": null
+    },
+    "P13647": {
+      "label": "Keratin, type II cytoskeletal 5",
+      "geneSymbol": "KRT5",
+      "organismId": null
+    },
+    "P15104": {
+      "label": "Glutamine synthetase",
+      "geneSymbol": "GLUL",
+      "organismId": null
+    },
+    "P15391": {
+      "label": "B-lymphocyte antigen CD19",
+      "geneSymbol": "CD19",
+      "organismId": null
+    },
+    "P17252": {
+      "label": "Protein kinase C alpha type",
+      "geneSymbol": "PRKCA",
+      "organismId": null
+    },
+    "P19367": {
+      "label": "Hexokinase-1",
+      "geneSymbol": "HK1",
+      "organismId": null
+    },
+    "P22897": {
+      "label": "Macrophage mannose receptor 1",
+      "geneSymbol": "MRC1",
+      "organismId": null
+    },
+    "P29017": {
+      "label": "T-cell surface glycoprotein CD1c",
+      "geneSymbol": "CD1C",
+      "organismId": null
+    },
+    "P41181": {
+      "label": "Aquaporin-2",
+      "geneSymbol": "AQP2",
+      "organismId": null
+    },
+    "P51884": {
+      "label": "Lumican",
+      "geneSymbol": "LUM",
+      "organismId": null
+    },
+    "P11836": {
+      "label": "B-lymphocyte antigen CD20",
+      "geneSymbol": "MS4A1",
+      "organismId": null
+    },
+    "P13645": {
+      "label": "Keratin, type I cytoskeletal 10",
+      "geneSymbol": "KRT10",
+      "organismId": null
+    },
+    "P18627": {
+      "label": "Lymphocyte activation gene 3 protein",
+      "geneSymbol": "LAG3",
+      "organismId": null
+    },
+    "P20702": {
+      "label": "Integrin alpha-X",
+      "geneSymbol": "ITGAX",
+      "organismId": null
+    },
+    "P28907": {
+      "label": "ADP-ribosyl cyclase/cyclic ADP-ribose hydrolase 1",
+      "geneSymbol": "CD38",
+      "organismId": null
+    },
+    "P32249": {
+      "label": "G protein-coupled receptor 183",
+      "geneSymbol": "GPR183",
+      "organismId": null
+    },
+    "P33681": {
+      "label": "T-lymphocyte activation antigen CD80",
+      "geneSymbol": "CD80",
+      "organismId": null
+    },
+    "P34810": {
+      "label": "Macrosialin",
+      "geneSymbol": "CD68",
+      "organismId": null
+    },
+    "P35226": {
+      "label": "Polycomb complex protein BMI-1",
+      "geneSymbol": "BMI1",
+      "organismId": null
+    },
+    "P42081": {
+      "label": "T-lymphocyte activation antigen CD86",
+      "geneSymbol": "CD86",
+      "organismId": null
+    },
+    "P48539": {
+      "label": "Calmodulin regulator protein PCP4",
+      "geneSymbol": "PCP4",
+      "organismId": null
+    },
+    "P51449": {
+      "label": "Nuclear receptor ROR-gamma",
+      "geneSymbol": "RORC",
+      "organismId": null
+    },
+    "P15863": {
+      "label": "Paired box protein Pax-1",
+      "geneSymbol": "PAX1",
+      "organismId": null
+    },
+    "P17661": {
+      "label": "Desmin",
+      "geneSymbol": "DES",
+      "organismId": null
+    },
+    "P18827": {
+      "label": "Syndecan-1",
+      "geneSymbol": "SDC1",
+      "organismId": null
+    },
+    "P23771": {
+      "label": "Trans-acting T-cell-specific transcription factor GATA-3",
+      "geneSymbol": "GATA3",
+      "organismId": null
+    },
+    "P31997": {
+      "label": "Cell adhesion molecule CEACAM8",
+      "geneSymbol": "CEACAM8",
+      "organismId": null
+    },
+    "P41182": {
+      "label": "B-cell lymphoma 6 protein",
+      "geneSymbol": "BCL6",
+      "organismId": null
+    },
+    "P42229": {
+      "label": "Signal transducer and activator of transcription 5A",
+      "geneSymbol": "STAT5A",
+      "organismId": null
+    },
+    "P16104": {
+      "label": "Histone H2AX",
+      "geneSymbol": "H2AX",
+      "organismId": null
+    },
+    "P28906": {
+      "label": "Hematopoietic progenitor cell antigen CD34",
+      "geneSymbol": "CD34",
+      "organismId": null
+    },
+    "P32248": {
+      "label": "C-C chemokine receptor type 7",
+      "geneSymbol": "CCR7",
+      "organismId": null
+    },
+    "P33151": {
+      "label": "Cadherin-5",
+      "geneSymbol": "CDH5",
+      "organismId": null
+    },
+    "P37173": {
+      "label": "TGF-beta receptor type-2",
+      "geneSymbol": "TGFBR2",
+      "organismId": null
+    },
+    "P38570": {
+      "label": "Integrin alpha-E",
+      "geneSymbol": "ITGAE",
+      "organismId": null
+    },
+    "P11215": {
+      "label": "Integrin alpha-M",
+      "geneSymbol": "ITGAM",
+      "organismId": null
+    },
+    "P16422": {
+      "label": "Epithelial cell adhesion molecule",
+      "geneSymbol": "EPCAM",
+      "organismId": null
+    },
+    "P17813": {
+      "label": "Endoglin",
+      "geneSymbol": "ENG",
+      "organismId": null
+    },
+    "P17927": {
+      "label": "Complement receptor type 1",
+      "geneSymbol": "CR1",
+      "organismId": null
+    },
+    "P19320": {
+      "label": "Vascular cell adhesion protein 1",
+      "geneSymbol": "VCAM1",
+      "organismId": null
+    },
+    "P22083": {
+      "label": "Alpha-(1,3)-fucosyltransferase 4",
+      "geneSymbol": "FUT4",
+      "organismId": null
+    },
+    "P31751": {
+      "label": "RAC-beta serine/threonine-protein kinase",
+      "geneSymbol": "AKT2",
+      "organismId": null
+    },
+    "P36575": {
+      "label": "Arrestin-C",
+      "geneSymbol": "ARR3",
+      "organismId": null
+    },
+    "P49682": {
+      "label": "C-X-C chemokine receptor type 3",
+      "geneSymbol": "CXCR3",
+      "organismId": null
+    },
+    "P49840": {
+      "label": "Glycogen synthase kinase-3 alpha",
+      "geneSymbol": "GSK3A",
+      "organismId": null
+    },
+    "P55008": {
+      "label": "Allograft inflammatory factor 1",
+      "geneSymbol": "AIF1",
+      "organismId": null
+    },
+    "P14136": {
+      "label": "Glial fibrillary acidic protein",
+      "geneSymbol": "GFAP",
+      "organismId": null
+    },
+    "P20023": {
+      "label": "Complement receptor type 2",
+      "geneSymbol": "CR2",
+      "organismId": null
+    },
+    "P13569": {
+      "label": "Cystic fibrosis transmembrane conductance regulator",
+      "geneSymbol": "CFTR",
+      "organismId": null
+    },
+    "P32302": {
+      "label": "C-X-C chemokine receptor type 5",
+      "geneSymbol": "CXCR5",
+      "organismId": null
+    },
+    "P51686": {
+      "label": "C-C chemokine receptor type 9",
+      "geneSymbol": "CCR9",
+      "organismId": null
+    },
+    "P19838": {
+      "label": "Nuclear factor NF-kappa-B p105 subunit",
+      "geneSymbol": "NFKB1",
+      "organismId": null
+    },
+    "P25054": {
+      "label": "Adenomatous polyposis coli protein",
+      "geneSymbol": "APC",
+      "organismId": null
+    },
+    "P29972": {
+      "label": "Aquaporin-1",
+      "geneSymbol": "AQP1",
+      "organismId": null
+    },
+    "P16284": {
+      "label": "Platelet endothelial cell adhesion molecule",
+      "geneSymbol": "PECAM1",
+      "organismId": null
+    },
+    "P16410": {
+      "label": "Cytotoxic T-lymphocyte protein 4",
+      "geneSymbol": "CTLA4",
+      "organismId": null
+    },
+    "P22736": {
+      "label": "Nuclear receptor subfamily 4immunitygroup A member 1",
+      "geneSymbol": "NR4A1",
+      "organismId": null
+    },
+    "P42771": {
+      "label": "Cyclin-dependent kinase inhibitor 2A",
+      "geneSymbol": "CDKN2A",
+      "organismId": null
+    },
+    "P13688": {
+      "label": "Cell adhesion molecule CEACAM1",
+      "geneSymbol": "CEACAM1",
+      "organismId": null
+    },
+    "P16070": {
+      "label": "CD44 antigen",
+      "geneSymbol": "CD44",
+      "organismId": null
+    },
+    "P15105": {
+      "label": "Glutamine synthetase",
+      "geneSymbol": "Glul",
+      "organismId": null
+    },
+    "P15409": {
+      "label": "Rhodopsin",
+      "geneSymbol": "Rho",
+      "organismId": null
+    },
+    "P35359": {
+      "label": "Rhodopsin",
+      "geneSymbol": "rho",
+      "organismId": null
+    },
+    "P42082": {
+      "label": "T-lymphocyte activation antigen CD86",
+      "geneSymbol": "Cd86",
+      "organismId": null
+    },
+    "P15379": {
+      "label": "CD44 antigen",
+      "geneSymbol": "Cd44",
+      "organismId": null
+    },
+    "P26151": {
+      "label": "High affinity immunoglobulin gamma Fc receptor I",
+      "geneSymbol": "Fcgr1",
+      "organismId": null
+    },
+    "P29533": {
+      "label": "Vascular cell adhesion protein 1",
+      "geneSymbol": "Vcam1",
+      "organismId": null
+    },
+    "P30548": {
+      "label": "Substance-P receptor",
+      "geneSymbol": "Tacr1",
+      "organismId": null
+    },
+    "P35762": {
+      "label": "CD81 antigen",
+      "geneSymbol": "Cd81",
+      "organismId": null
+    },
+    "P50114": {
+      "label": "Protein S100-B",
+      "geneSymbol": "S100b",
+      "organismId": null
+    },
+    "P51480": {
+      "label": "Cyclin-dependent kinase inhibitor 2A",
+      "geneSymbol": "Cdkn2a",
+      "organismId": null
+    },
+    "P12658": {
+      "label": "Calbindin",
+      "geneSymbol": "Calb1",
+      "organismId": null
+    },
+    "P17710": {
+      "label": "Hexokinase-1",
+      "geneSymbol": "Hk1",
+      "organismId": null
+    },
+    "P19137": {
+      "label": "Laminin subunit alpha-1",
+      "geneSymbol": "Lama1",
+      "organismId": null
+    },
+    "P25918": {
+      "label": "B-lymphocyte antigen CD19",
+      "geneSymbol": "Cd19",
+      "organismId": null
+    },
+    "P42225": {
+      "label": "Signal transducer and activator of transcription 1",
+      "geneSymbol": "Stat1",
+      "organismId": null
+    },
+    "P51491": {
+      "label": "Short-wave-sensitive opsin 1",
+      "geneSymbol": "Opn1sw",
+      "organismId": null
+    },
+    "P18828": {
+      "label": "Syndecan-1",
+      "geneSymbol": "Sdc1",
+      "organismId": null
+    },
+    "P19437": {
+      "label": "B-lymphocyte antigen CD20",
+      "geneSymbol": "Ms4a1",
+      "organismId": null
+    },
+    "P20444": {
+      "label": "Protein kinase C alpha type",
+      "geneSymbol": "Prkca",
+      "organismId": null
+    },
+    "P22646": {
+      "label": "T-cell surface glycoprotein CD3 epsilon chain",
+      "geneSymbol": "Cd3e",
+      "organismId": null
+    },
+    "P31001": {
+      "label": "Desmin",
+      "geneSymbol": "Des",
+      "organismId": null
+    },
+    "P11609": {
+      "label": "Antigen-presenting glycoprotein CD1d1",
+      "geneSymbol": "Cd1d1",
+      "organismId": null
+    },
+    "P20152": {
+      "label": "Vimentin",
+      "geneSymbol": "Vim",
+      "organismId": null
+    },
+    "P26630": {
+      "label": "Paired box protein Pax-6",
+      "geneSymbol": "pax6a",
+      "organismId": null
+    },
+    "P31996": {
+      "label": "Macrosialin",
+      "geneSymbol": "Cd68",
+      "organismId": null
+    },
+    "P41183": {
+      "label": "B-cell lymphoma 6 protein homolog",
+      "geneSymbol": "Bcl6",
+      "organismId": null
+    },
+    "P55772": {
+      "label": "Ectonucleoside triphosphate diphosphohydrolase 1",
+      "geneSymbol": "Entpd1",
+      "organismId": null
+    },
+    "P20693": {
+      "label": "Low affinity immunoglobulin epsilon Fc receptor",
+      "geneSymbol": "Fcer2",
+      "organismId": null
+    },
+    "P14719": {
+      "label": "Interleukin-1 receptor-like 1",
+      "geneSymbol": "Il1rl1",
+      "organismId": null
+    },
+    "P24788": {
+      "label": "Cyclin-dependent kinase 11B",
+      "geneSymbol": "Cdk11b",
+      "organismId": null
+    },
+    "P42212": {
+      "label": "Green fluorescent protein",
+      "geneSymbol": "GFP",
+      "organismId": null
+    },
+    "P16003": {
+      "label": "T-cell surface glycoprotein CD4",
+      "geneSymbol": "CD4",
+      "organismId": null
+    },
+    "P18248": {
+      "label": "DNA sliding clamp PCNA",
+      "geneSymbol": "pcna",
+      "organismId": null
+    },
+    "P22676": {
+      "label": "Calretinin",
+      "geneSymbol": "CALB2",
+      "organismId": null
+    },
+    "P27597": {
+      "label": "T-cell surface glycoprotein CD3 epsilon chain",
+      "geneSymbol": "CD3E",
+      "organismId": null
+    },
+    "P51121": {
+      "label": "Glutamine synthetase",
+      "geneSymbol": "glul",
+      "organismId": null
+    },
+    "P55864": {
+      "label": "Paired box protein Pax-6",
+      "geneSymbol": "pax6",
+      "organismId": null
+    },
+    "Q01151": {
+      "label": "CD83 antigen",
+      "geneSymbol": "CD83",
+      "organismId": null
+    },
+    "Q06945": {
+      "label": "Transcription factor SOX-4",
+      "geneSymbol": "SOX4",
+      "organismId": null
+    },
+    "Q07108": {
+      "label": "Early activation antigen CD69",
+      "geneSymbol": "CD69",
+      "organismId": null
+    },
+    "Q13509": {
+      "label": "Tubulin beta-3 chain",
+      "geneSymbol": "TUBB3",
+      "organismId": null
+    },
+    "Q14246": {
+      "label": "Adhesion G protein-coupled receptor E1",
+      "geneSymbol": "ADGRE1",
+      "organismId": null
+    },
+    "Q14392": {
+      "label": "Transforming growth factor beta activator LRRC32",
+      "geneSymbol": "LRRC32",
+      "organismId": null
+    },
+    "Q6UXN8": {
+      "label": "C-type lectin domain family 9 member A",
+      "geneSymbol": "CLEC9A",
+      "organismId": null
+    },
+    "Q02556": {
+      "label": "Interferon regulatory factor 8",
+      "geneSymbol": "IRF8",
+      "organismId": null
+    },
+    "Q04206": {
+      "label": "Transcription factor p65",
+      "geneSymbol": "RELA",
+      "organismId": null
+    },
+    "Q15306": {
+      "label": "Interferon regulatory factor 4",
+      "geneSymbol": "IRF4",
+      "organismId": null
+    },
+    "Q15796": {
+      "label": "SMAD family member 2",
+      "geneSymbol": "SMAD2",
+      "organismId": null
+    },
+    "Q86WV6": {
+      "label": "Stimulator of interferon genes protein",
+      "geneSymbol": "STING1",
+      "organismId": null
+    },
+    "Q9BYF1": {
+      "label": "Angiotensin-converting enzyme 2",
+      "geneSymbol": "ACE2",
+      "organismId": null
+    },
+    "P68431": {
+      "label": "Histone H3.1",
+      "geneSymbol": "H3C1",
+      "organismId": null
+    },
+    "Q12912": {
+      "label": "Inositol 1,4,5-triphosphate receptor associated 2",
+      "geneSymbol": "IRAG2",
+      "organismId": null
+    },
+    "Q12951": {
+      "label": "Forkhead box protein I1",
+      "geneSymbol": "FOXI1",
+      "organismId": null
+    },
+    "Q13562": {
+      "label": "Neurogenic differentiation factor 1",
+      "geneSymbol": "NEUROD1",
+      "organismId": null
+    },
+    "Q15116": {
+      "label": "Programmed cell death protein 1",
+      "geneSymbol": "PDCD1",
+      "organismId": null
+    },
+    "Q16832": {
+      "label": "Discoidin domain-containing receptor 2",
+      "geneSymbol": "DDR2",
+      "organismId": null
+    },
+    "Q86VB7": {
+      "label": "Scavenger receptor cysteine-rich type 1 protein M130",
+      "geneSymbol": "CD163",
+      "organismId": null
+    },
+    "Q8TDQ0": {
+      "label": "Hepatitis A virus cellular receptor 2",
+      "geneSymbol": "HAVCR2",
+      "organismId": null
+    },
+    "Q9BYG3": {
+      "label": "MKI67 FHA domain-interacting nucleolar phosphoprotein",
+      "geneSymbol": "NIFK",
+      "organismId": null
+    },
+    "P61626": {
+      "label": "Lysozyme C",
+      "geneSymbol": "LYZ",
+      "organismId": null
+    },
+    "P62736": {
+      "label": "Actin, aortic smooth muscle",
+      "geneSymbol": "ACTA2",
+      "organismId": null
+    },
+    "Q15506": {
+      "label": "Sperm surface protein Sp17",
+      "geneSymbol": "SPA17",
+      "organismId": null
+    },
+    "Q15661": {
+      "label": "Tryptase alpha/beta-1",
+      "geneSymbol": "TPSAB1",
+      "organismId": null
+    },
+    "Q99731": {
+      "label": "C-C motif chemokine 19",
+      "geneSymbol": "CCL19",
+      "organismId": null
+    },
+    "Q9GZX7": {
+      "label": "Single-stranded DNA cytosine deaminase",
+      "geneSymbol": "AICDA",
+      "organismId": null
+    },
+    "P56199": {
+      "label": "Integrin alpha-1",
+      "geneSymbol": "ITGA1",
+      "organismId": null
+    },
+    "P58304": {
+      "label": "Visual system homeobox 2",
+      "geneSymbol": "VSX2",
+      "organismId": null
+    },
+    "Q9H334": {
+      "label": "Forkhead box protein P1",
+      "geneSymbol": "FOXP1",
+      "organismId": null
+    },
+    "Q9HAT0": {
+      "label": "Ropporin-1A",
+      "geneSymbol": "ROPN1",
+      "organismId": null
+    },
+    "Q9NP85": {
+      "label": "Podocin",
+      "geneSymbol": "NPHS2",
+      "organismId": null
+    },
+    "Q13241": {
+      "label": "Natural killer cells antigen CD94",
+      "geneSymbol": "KLRD1",
+      "organismId": null
+    },
+    "Q13421": {
+      "label": "Mesothelin",
+      "geneSymbol": "MSLN",
+      "organismId": null
+    },
+    "P84022": {
+      "label": "SMAD family member 3",
+      "geneSymbol": "SMAD3",
+      "organismId": null
+    },
+    "Q13740": {
+      "label": "CD166 antigen",
+      "geneSymbol": "ALCAM",
+      "organismId": null
+    },
+    "Q9BZS1": {
+      "label": "Forkhead box protein P3",
+      "geneSymbol": "FOXP3",
+      "organismId": null
+    },
+    "P59901": {
+      "label": "Leukocyte immunoglobulin-like receptor subfamily A member 4",
+      "geneSymbol": "LILRA4",
+      "organismId": null
+    },
+    "Q92823": {
+      "label": "Neuronal cell adhesion molecule",
+      "geneSymbol": "NRCAM",
+      "organismId": null
+    },
+    "Q12884": {
+      "label": "Prolyl endopeptidase FAP",
+      "geneSymbol": "FAP",
+      "organismId": null
+    },
+    "Q86YL7": {
+      "label": "Podoplanin",
+      "geneSymbol": "PDPN",
+      "organismId": null
+    },
+    "Q9BWP8": {
+      "label": "Collectin-11",
+      "geneSymbol": "COLEC11",
+      "organismId": null
+    },
+    "Q9NNX6": {
+      "label": "CD209 antigen",
+      "geneSymbol": "CD209",
+      "organismId": null
+    },
+    "P56485": {
+      "label": "Atypical chemokine receptor 3",
+      "geneSymbol": "Ackr3",
+      "organismId": null
+    },
+    "P63038": {
+      "label": "60 kDa heat shock protein, mitochondrial",
+      "geneSymbol": "Hspd1",
+      "organismId": null
+    },
+    "P63158": {
+      "label": "High mobility group protein B1",
+      "geneSymbol": "Hmgb1",
+      "organismId": null
+    },
+    "P70658": {
+      "label": "C-X-C chemokine receptor type 4",
+      "geneSymbol": "Cxcr4",
+      "organismId": null
+    },
+    "P97797": {
+      "label": "Tyrosine-protein phosphatase non-receptor type substrate 1",
+      "geneSymbol": "Sirpa",
+      "organismId": null
+    },
+    "Q62011": {
+      "label": "Podoplanin",
+      "geneSymbol": "Pdpn",
+      "organismId": null
+    },
+    "Q9EQP6": {
+      "label": "Arrestin-C",
+      "geneSymbol": "Arr3",
+      "organismId": null
+    },
+    "P70194": {
+      "label": "C-type lectin domain family 4 member F",
+      "geneSymbol": "Clec4f",
+      "organismId": null
+    },
+    "Q4QRB4": {
+      "label": "Tubulin beta-3 chain",
+      "geneSymbol": "Tubb3",
+      "organismId": null
+    },
+    "Q64287": {
+      "label": "Interferon regulatory factor 4",
+      "geneSymbol": "Irf4",
+      "organismId": null
+    },
+    "Q6U7R4": {
+      "label": "T-cell immunoglobulin and mucin domain-containing protein 4",
+      "geneSymbol": "Timd4",
+      "organismId": null
+    },
+    "Q7SY24": {
+      "label": "Protein kinase C beta type",
+      "geneSymbol": "prkcbb",
+      "organismId": null
+    },
+    "Q8C567": {
+      "label": "Natural cytotoxicity triggering receptor 1",
+      "geneSymbol": "Ncr1",
+      "organismId": null
+    },
+    "Q99JW5": {
+      "label": "Epithelial cell adhesion molecule",
+      "geneSymbol": "Epcam",
+      "organismId": null
+    },
+    "Q08331": {
+      "label": "Calretinin",
+      "geneSymbol": "Calb2",
+      "organismId": null
+    },
+    "Q61503": {
+      "label": "5'-nucleotidase",
+      "geneSymbol": "Nt5e",
+      "organismId": null
+    },
+    "Q8R2S8": {
+      "label": "CD177 antigen",
+      "geneSymbol": "Cd177",
+      "organismId": null
+    },
+    "Q9EP73": {
+      "label": "Programmed cell death 1 ligand 1",
+      "geneSymbol": "Cd274",
+      "organismId": null
+    },
+    "Q9JLM8": {
+      "label": "Serine/threonine-protein kinase DCLK1",
+      "geneSymbol": "Dclk1",
+      "organismId": null
+    },
+    "P56528": {
+      "label": "ADP-ribosyl cyclase/cyclic ADP-ribose hydrolase 1",
+      "geneSymbol": "Cd38",
+      "organismId": null
+    },
+    "Q02242": {
+      "label": "Programmed cell death protein 1",
+      "geneSymbol": "Pdcd1",
+      "organismId": null
+    },
+    "Q8BHC0": {
+      "label": "Lymphatic vessel endothelial hyaluronic acid receptor 1",
+      "geneSymbol": "Lyve1",
+      "organismId": null
+    },
+    "P62737": {
+      "label": "Actin, aortic smooth muscle",
+      "geneSymbol": "Acta2",
+      "organismId": null
+    },
+    "Q02650": {
+      "label": "Paired box protein Pax-5",
+      "geneSymbol": "Pax5",
+      "organismId": null
+    },
+    "Q61830": {
+      "label": "Macrophage mannose receptor 1",
+      "geneSymbol": "Mrc1",
+      "organismId": null
+    },
+    "Q64525": {
+      "label": "Histone H2B type 2-B",
+      "geneSymbol": "H2bc18",
+      "organismId": null
+    },
+    "Q920G3": {
+      "label": "Sialic acid-binding Ig-like lectin 5",
+      "geneSymbol": "Siglec5",
+      "organismId": null
+    },
+    "Q99JB6": {
+      "label": "Forkhead box protein P3",
+      "geneSymbol": "Foxp3",
+      "organismId": null
+    },
+    "Q9ERD7": {
+      "label": "Tubulin beta-3 chain",
+      "geneSymbol": "Tubb3",
+      "organismId": null
+    },
+    "Q9ES57": {
+      "label": "Cell surface glycoprotein CD200 receptor 1",
+      "geneSymbol": "Cd200r1",
+      "organismId": null
+    },
+    "Q08481": {
+      "label": "Platelet endothelial cell adhesion molecule",
+      "geneSymbol": "Pecam1",
+      "organismId": null
+    },
+    "Q62230": {
+      "label": "Sialoadhesin",
+      "geneSymbol": "Siglec1",
+      "organismId": null
+    },
+    "Q76IQ4": {
+      "label": "Ghrelin",
+      "geneSymbol": "ghrl",
+      "organismId": null
+    },
+    "Q14576": {
+      "label": "ELAV-like protein 3",
+      "geneSymbol": "ELAVL3",
+      "organismId": null
+    },
+    "Q8TBJ5": {
+      "label": "Fez family zinc finger protein 2",
+      "geneSymbol": "FEZF2",
+      "organismId": null
+    },
+    "Q6PBW5": {
+      "label": "Retinoid isomerohydrolase",
+      "geneSymbol": "rpe65a",
+      "organismId": null
+    },
+    "Q8VBX4": {
+      "label": "C-type lectin domain family 4 member K",
+      "geneSymbol": "Cd207",
+      "organismId": null
+    },
+    "Q9EQ16": {
+      "label": "C-X-C chemokine receptor type 6",
+      "geneSymbol": "Cxcr6",
+      "organismId": null
+    },
+    "Q58EE9": {
+      "label": "Glial fibrillary acidic protein",
+      "geneSymbol": "gfap",
+      "organismId": null
+    },
+    "Q60767": {
+      "label": "Lymphocyte antigen 75",
+      "geneSymbol": "Ly75",
+      "organismId": null
+    },
+    "Q6P698": {
+      "label": "Plastin-2",
+      "geneSymbol": "lcp1",
+      "organismId": null
+    },
+    "Q9EQX4": {
+      "label": "Allograft inflammatory factor 1-like",
+      "geneSymbol": "Aif1l",
+      "organismId": null
+    },
+    "Q3C2E2": {
+      "label": "B-lymphocyte antigen CD20",
+      "geneSymbol": "MS4A1",
+      "organismId": null
+    },
+    "Q53X90": {
+      "label": "C-X-C motif chemokine",
+      "geneSymbol": "CXCL13",
+      "organismId": null
+    },
+    "Q6FHL8": {
+      "label": "CCN family member 2",
+      "geneSymbol": "CTGF",
+      "organismId": null
+    },
+    "Q7ZVF2": {
+      "label": "Glutamine synthetase",
+      "geneSymbol": "glulb",
+      "organismId": null
+    },
+    "Q3S4B0": {
+      "label": "Cell surface glycoprotein F4/80",
+      "geneSymbol": "Adgre1",
+      "organismId": null
+    },
+    "Q6DH07": {
+      "label": "Arrestin-C",
+      "geneSymbol": "arr3a",
+      "organismId": null
+    },
+    "Q6PBM9": {
+      "label": "Arrestin-C",
+      "geneSymbol": "arr3b",
+      "organismId": null
+    },
+    "Q6PC44": {
+      "label": "Calretinin",
+      "geneSymbol": "calb2a",
+      "organismId": null
+    },
+    "Q90WX5": {
+      "label": "Cone transducin alpha subunit",
+      "geneSymbol": "gnat2",
+      "organismId": null
+    },
+    "Q66HW7": {
+      "label": "Peripherin-2",
+      "geneSymbol": "prph2a",
+      "organismId": null
+    },
+    "Q6P027": {
+      "label": "Cellular retinaldehyde-binding protein b",
+      "geneSymbol": "rlbp1b",
+      "organismId": null
+    },
+    "P79192": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "Q6ICW0": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "Q9BZS2": {
+      "label": null,
+      "geneSymbol": null,
+      "organismId": null
+    },
+    "Q9UKI9": {
+      "label": "POU domain, class 2, transcription factor 3",
+      "geneSymbol": "POU2F3",
+      "organismId": null
+    },
+    "Q9NXV6": {
+      "label": "CDKN2A-interacting protein",
+      "geneSymbol": "CDKN2AIP",
+      "organismId": null
+    },
+    "Q9UEW3": {
+      "label": "Macrophage receptor MARCO",
+      "geneSymbol": "MARCO",
+      "organismId": null
+    },
+    "Q9UJ71": {
+      "label": "C-type lectin domain family 4 member K",
+      "geneSymbol": "CD207",
+      "organismId": null
+    },
+    "Q9Y5Y7": {
+      "label": "Lymphatic vessel endothelial hyaluronic acid receptor 1",
+      "geneSymbol": "LYVE1",
+      "organismId": null
+    },
+    "Q9UIF3": {
+      "label": "Tektin-2",
+      "geneSymbol": "TEKT2",
+      "organismId": null
+    },
+    "Q9UQ88": {
+      "label": "Cyclin-dependent kinase 11A",
+      "geneSymbol": "CDK11A",
+      "organismId": null
+    },
+    "Q9Y6W8": {
+      "label": "Inducible T-cell costimulator",
+      "geneSymbol": "ICOS",
+      "organismId": null
+    },
+    "Q9W6A8": {
+      "label": "Opsin-1, short-wave-sensitive 2",
+      "geneSymbol": "opn1sw2",
+      "organismId": null
+    },
+    "Q9QXH4": {
+      "label": "Integrin alpha-X",
+      "geneSymbol": "Itgax",
+      "organismId": null
+    },
+    "Q9W6A7": {
+      "label": "Red-sensitive opsin-1",
+      "geneSymbol": "opn1lw1",
+      "organismId": null
+    },
+    "Q9W6A9": {
+      "label": "Opsin-1, short-wave-sensitive 1",
+      "geneSymbol": "opn1sw1",
+      "organismId": null
+    },
+    "Q9W6A5": {
+      "label": "Green-sensitive opsin-1",
+      "geneSymbol": "opn1mw1",
+      "organismId": null
+    },
+    "Q9PTP1": {
+      "label": "DNA sliding clamp PCNA",
+      "geneSymbol": "pcna",
+      "organismId": null
+    }
+  }
+}

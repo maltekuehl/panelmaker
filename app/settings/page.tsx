@@ -1,6 +1,7 @@
-import { auth } from "@/auth"
 import { ApiKeysSection } from "@/components/settings/api-keys-section"
-import { isUserAdmin } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
+import { profileHref, signInUrl } from "@/lib/routes"
+import { getUserProfile } from "@/models/user"
 import { ArrowRight } from "lucide-react"
 import { Metadata } from "next"
 import Link from "next/link"
@@ -10,18 +11,18 @@ import DeleteAccountSection from "./delete-account-section"
 import ProfileSection from "./profile-section"
 
 export const metadata: Metadata = {
-  title: "Settings",
+  title: "Settings | PanelMaker",
   description: "Manage your account settings",
 }
 
 export default async function SettingsPage() {
-  const session = await auth()
+  const user = await getSessionUser()
 
-  if (!session?.user?.id) {
-    redirect("/signin")
+  if (!user) {
+    redirect(signInUrl("/settings"))
   }
 
-  const isAdmin = await isUserAdmin(session.user.id)
+  const profile = await getUserProfile(user.id)
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
@@ -29,7 +30,7 @@ export default async function SettingsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">Manage your account settings and preferences</p>
         <Link
-          href={`/profile/${session.user.id}`}
+          href={profileHref(user.id)}
           className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
         >
           View your public profile
@@ -38,13 +39,19 @@ export default async function SettingsPage() {
       </div>
 
       <div className="space-y-8">
-        <ProfileSection name={session.user.name ?? null} email={session.user.email ?? null} />
+        <ProfileSection
+          email={user.email ?? null}
+          name={profile?.name ?? user.name ?? null}
+          orcid={profile?.orcid ?? null}
+          institution={profile?.institution ?? null}
+          institutionId={profile?.institutionId ?? null}
+        />
 
         <ApiKeysSection endpoint="/api/settings/api-keys" />
 
         <DataExportSection />
 
-        {!isAdmin && <DeleteAccountSection />}
+        {!user.isAdmin && <DeleteAccountSection />}
       </div>
     </div>
   )

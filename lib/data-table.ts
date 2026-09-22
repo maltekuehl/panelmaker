@@ -23,7 +23,7 @@ export type FilterDimension = {
 export const FILTER_DIMENSIONS: FilterDimension[] = [
   { key: "species", title: "Species", tabs: ["markers", "antibodies", "reports", "experiments", "panels"] },
   { key: "tissue", title: "Tissue", tabs: ["markers", "reports", "experiments"] },
-  { key: "method", title: "Method", tabs: ["markers", "reports", "experiments"] },
+  { key: "method", title: "Method", tabs: ["markers", "reports", "experiments", "panels"] },
   { key: "fixation", title: "Fixation", tabs: ["markers", "reports", "experiments", "panels"] },
   { key: "vendor", title: "Vendor", tabs: ["markers", "antibodies", "reports"] },
   { key: "host", title: "Host", tabs: ["markers", "antibodies", "reports"] },
@@ -154,4 +154,33 @@ export function isLabContentParamsActive(params: LabContentParams): boolean {
   return LAB_FILTER_DIMENSIONS.some(
     (dimension) => (params[dimension.key as keyof LabContentParams] as string[]).length > 0,
   )
+}
+
+// Community leaderboard: the same faceted multi-select surface as browse, minus search, sort and paging.
+// A lab value is a lab slug (matched against the viewer's memberships server side); species, tissue and
+// method values are the same ontology ids browse filters on, so a link means the same thing in both places.
+export const LEADERBOARD_FILTER_KEYS = ["lab", "species", "tissue", "method"] as const
+
+export type LeaderboardFilterKey = (typeof LEADERBOARD_FILTER_KEYS)[number]
+
+export const leaderboardParsers = {
+  lab: filterArrayParser,
+  species: filterArrayParser,
+  tissue: filterArrayParser,
+  method: filterArrayParser,
+}
+
+export type LeaderboardParams = Record<LeaderboardFilterKey, string[]>
+
+// Reuses the browse dimension titles, reordered so the lab a viewer belongs to leads.
+export const LEADERBOARD_FILTER_DIMENSIONS: FilterDimension[] = FILTER_DIMENSIONS.filter((dimension) =>
+  LEADERBOARD_FILTER_KEYS.includes(dimension.key as LeaderboardFilterKey),
+).sort(
+  (a, b) =>
+    LEADERBOARD_FILTER_KEYS.indexOf(a.key as LeaderboardFilterKey) -
+    LEADERBOARD_FILTER_KEYS.indexOf(b.key as LeaderboardFilterKey),
+)
+
+export function isLeaderboardParamsActive(params: LeaderboardParams): boolean {
+  return LEADERBOARD_FILTER_KEYS.some((key) => params[key].length > 0)
 }

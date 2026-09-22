@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="container py-6">
-      <div className="prose prose-zinc dark:prose-invert">{children}</div>
+      <div className="prose">{children}</div>
     </div>
   )
 }

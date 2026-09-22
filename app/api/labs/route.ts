@@ -3,7 +3,6 @@ import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { createLab, createLabSchema, getLabsForUser, toLabResponse } from "@/models/lab"
 import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
 
 // GET /api/labs - List the labs the current user belongs to
 export async function GET(request: NextRequest) {
@@ -43,9 +42,6 @@ export async function POST(request: NextRequest) {
 
     return createSuccessResponse({ lab: toLabResponse(lab, "OWNER") }, 201)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return createErrorResponse(error, "Validation error")
-    }
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to create lab")
   }
 }

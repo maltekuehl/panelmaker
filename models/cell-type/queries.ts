@@ -68,28 +68,19 @@ export async function searchCellTypes(query: string): Promise<CellTypeRow[]> {
   })
 }
 
-// `parentIds` is a JSON string of a cell type's DIRECT parents only. To answer "T cell" with CD4/CD8
-// reports we need the whole subtree, so we load every cell type once, invert parent->child, and walk.
+// `parentIds` holds a cell type's DIRECT parents only. To answer "T cell" with CD4/CD8 reports we
+// need the whole subtree, so we load every cell type once, invert parent->child, and walk.
 const loadParentEdges = cache(
-  async (): Promise<{ id: string; parentIds: string }[]> =>
+  async (): Promise<{ id: string; parentIds: string[] }[]> =>
     prisma.cellType.findMany({ select: { id: true, parentIds: true } }),
 )
-
-function parseParentIds(raw: string): string[] {
-  try {
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : []
-  } catch {
-    return []
-  }
-}
 
 // Returns the root id plus every descendant id (transitive children). Memoized per request.
 export async function getCellTypeDescendantIds(rootId: string): Promise<string[]> {
   const all = await loadParentEdges()
   const childrenByParent = new Map<string, string[]>()
   for (const cellType of all) {
-    for (const parentId of parseParentIds(cellType.parentIds)) {
+    for (const parentId of cellType.parentIds) {
       const children = childrenByParent.get(parentId)
       if (children) children.push(cellType.id)
       else childrenByParent.set(parentId, [cellType.id])

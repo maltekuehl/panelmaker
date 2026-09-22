@@ -1,33 +1,16 @@
 "use client"
 
 import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
+import { DebouncedSearchInput } from "@/components/data-table/search-input"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { browseMarkerParsers, FILTER_DIMENSIONS, FILTER_KEYS, isBrowseParamsActive } from "@/lib/data-table"
 import type { BrowseFacets } from "@/models/experimental-report"
 import { X } from "lucide-react"
 import { useQueryStates } from "nuqs"
-import { useEffect, useRef, useState } from "react"
 import { BrowseModeTabs } from "./browse-mode-tabs"
-
-const SEARCH_DEBOUNCE_MS = 300
 
 export function MarkerTableToolbar({ facets }: { facets: BrowseFacets }) {
   const [params, setParams] = useQueryStates(browseMarkerParsers, { shallow: false })
-  const [search, setSearch] = useState(params.q)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  useEffect(() => {
-    setSearch(params.q)
-  }, [params.q])
-
-  const onSearchChange = (value: string) => {
-    setSearch(value)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      setParams({ q: value || null, page: 1 })
-    }, SEARCH_DEBOUNCE_MS)
-  }
 
   const isActive = isBrowseParamsActive(params)
 
@@ -48,10 +31,10 @@ export function MarkerTableToolbar({ facets }: { facets: BrowseFacets }) {
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <BrowseModeTabs />
-        <Input
-          placeholder="Search markers, cell types, tissues..."
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
+        <DebouncedSearchInput
+          placeholder="Search markers, cell types, tissues…"
+          value={params.q}
+          onCommit={(q) => setParams({ q: q || null, page: 1 })}
           className="h-8 w-[180px] lg:w-[280px]"
         />
       </div>

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Loader2, Save } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { useMemo, useState } from "react"
+import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { AntibodyAccordion } from "./antibody-accordion"
 import { ExperimentDetailsSection } from "./experiment-details-section"
@@ -29,6 +30,7 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
   const [rows, setRows] = useState<AntibodyRow[]>(() => [emptyRow()])
   const [showErrors, setShowErrors] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submittedExperimentId, setSubmittedExperimentId] = useState<string | null>(null)
 
   const antibodiesReached = furthest >= 3
   const organismId = context.species ? extractOrganismId(context.species.id) : undefined
@@ -40,6 +42,15 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
     setStep(n)
     setFurthest((f) => Math.max(f, n))
   }
+
+  const hasUnsavedWork = rows.some((r) => r.markerName || r.images.length > 0) || context.name.trim().length > 0
+
+  useEffect(() => {
+    if (!hasUnsavedWork || isSubmitting) return
+    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault()
+    window.addEventListener("beforeunload", onBeforeUnload)
+    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+  }, [hasUnsavedWork, isSubmitting])
 
   const rowErrors = useMemo(() => validateRows(rows), [rows])
   const invalidSet = useMemo(() => new Set(rowErrors.map((e) => `${e.key}:${e.field}`)), [rowErrors])
@@ -64,7 +75,11 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
     if (rowErrors.length > 0) {
       setShowErrors(true)
       const affected = new Set(rowErrors.map((e) => e.key)).size
-      toast.error(`Fix ${rowErrors.length} issue(s) across ${affected} antibody row(s) before submitting.`)
+      toast.error(
+        `Fix ${rowErrors.length} ${rowErrors.length === 1 ? "issue" : "issues"} across ${affected} antibody ${
+          affected === 1 ? "row" : "rows"
+        } before submitting.`,
+      )
       return
     }
 
@@ -99,14 +114,16 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
         const failedIndices = new Set(failed.map((f) => f.index))
         setRows((prev) => prev.filter((_, i) => failedIndices.has(i)))
         toast.error(
-          `${createdCount} report(s) submitted. ${failed.length} failed: ${failed
+          `${createdCount} ${createdCount === 1 ? "report" : "reports"} submitted. ${failed.length} failed: ${failed
             .map((f) => `${f.markerName} (${f.error})`)
             .join("; ")}`,
         )
         return
       }
 
-      toast.success(`${createdCount} report(s) submitted, pending review.`)
+      const experimentId: string | undefined = body?.created?.[0]?.experimentId
+      toast.success(`${createdCount} ${createdCount === 1 ? "report" : "reports"} submitted, pending review.`)
+      setSubmittedExperimentId(experimentId ?? null)
       setRows([emptyRow()])
       setShowErrors(false)
     } catch {
@@ -138,7 +155,7 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
 
         <section className={cn(!antibodiesReached && "opacity-60")}>
           <div className="flex items-center gap-3 px-4 py-3">
-            <StepBadge n={3} state={antibodiesReached ? "active" : "disabled"} />
+            <StepBadge n={3} state={sectionState(3)} />
             <div className="min-w-0">
               <h2 className="text-sm font-semibold">Antibodies{antibodiesReached ? ` (${rows.length})` : ""}</h2>
               <p className="text-xs text-muted-foreground">
@@ -149,12 +166,39 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
             </div>
           </div>
 
-          {antibodiesReached && (
+          {antibodiesReached && submittedExperimentId && (
+            <div className="space-y-3 border-t px-4 py-4">
+              <p className="text-sm">Your reports were submitted and are pending review.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/experiment/${submittedExperimentId}`}>View experiment</Link>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setSubmittedExperimentId(null)}>
+                  Add more antibodies to this run
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSubmittedExperimentId(null)
+                    setContext(emptyContext)
+                    setRows([emptyRow()])
+                    setStep(1)
+                    setFurthest(1)
+                  }}
+                >
+                  Start a new run
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {antibodiesReached && !submittedExperimentId && (
             <div className="px-4 pb-4">
               <AntibodyAccordion
                 rows={rows}
                 onChange={setRows}
-                method={context.method}
+                imagingMethodId={context.imagingMethodId}
                 organismId={organismId}
                 invalid={invalid}
                 hasLabs={labs.length > 0}
@@ -168,7 +212,7 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
         <div className="container mx-auto flex items-center justify-between gap-4 px-0">
           <p className="text-sm text-muted-foreground">
             {antibodiesReached
-              ? `${rows.length} antibod${rows.length === 1 ? "y" : "ies"} · shared context applied to all`
+              ? `${rows.length} antibod${rows.length === 1 ? "y" : "ies"}, shared context applied to all`
               : "Complete the steps above to begin"}
           </p>
           <Button
@@ -180,7 +224,7 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
             {isSubmitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Submitting...
+                Submitting…
               </>
             ) : !session?.user ? (
               "Sign in to submit"

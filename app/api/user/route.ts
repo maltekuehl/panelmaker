@@ -1,31 +1,12 @@
 import { createAuthHandler, getAllUsers } from "@/lib/auth"
-import { logger } from "@/lib/monitoring"
+import { createErrorResponse } from "@/lib/error-handling"
 import { connection, NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
-// Search query validation schema
 const userSearchSchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .default("1")
-    .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(1000)),
-  pageSize: z
-    .string()
-    .optional()
-    .default("10")
-    .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100)),
-  search: z
-    .string()
-    .max(200, "Search query too long")
-    .trim()
-    .transform((val) => {
-      return val.replace(/[<>{}[\]]/g, "")
-    })
-    .nullable()
-    .optional(),
+  page: z.coerce.number().int().min(1).max(1000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+  search: z.string().max(200, "Search query too long").trim().optional(),
 })
 
 // GET /api/user - List all users with pagination (admin only)
@@ -33,24 +14,12 @@ export const GET = createAuthHandler(
   async (request: NextRequest) => {
     await connection()
     try {
-      const { searchParams } = new URL(request.url)
+      const params = userSearchSchema.parse(Object.fromEntries(request.nextUrl.searchParams))
 
-      // Validate search parameters
-      const validatedParams = userSearchSchema.parse({
-        page: searchParams.get("page"),
-        pageSize: searchParams.get("pageSize"),
-        search: searchParams.get("search"),
-      })
-
-      const result = await getAllUsers(
-        validatedParams.page,
-        validatedParams.pageSize,
-        validatedParams.search ?? undefined,
-      )
+      const result = await getAllUsers(params.page, params.pageSize, params.search || undefined)
       return NextResponse.json(result)
     } catch (error) {
-      logger.error("Error fetching users", error instanceof Error ? error : new Error(String(error)))
-      return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
+      return createErrorResponse(error, "Failed to fetch users")
     }
   },
   true, // Require admin access
