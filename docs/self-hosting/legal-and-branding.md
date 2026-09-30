@@ -52,7 +52,7 @@ Indexing is off by default. With `INSTANCE_ALLOW_INDEXING` unset or anything oth
 - `/sitemap.xml` is empty
 - pages carry a `noindex, nofollow` robots meta tag
 
-With `INSTANCE_ALLOW_INDEXING=true`, robots.txt allows public pages, keeps `/api/`, `/admin/`, `/auth/`, `/settings`, `/labs`, `/lab/` and `/chat` closed, blocks a list of AI training crawlers, and points to a sitemap of public content. Only enable it for a public instance you want listed. The basic auth gate in the [deployment guide](./deployment.md#optional-basic-auth-gate) is the stronger option if an instance should not be reachable at all.
+With `INSTANCE_ALLOW_INDEXING=true`, robots.txt allows public pages, keeps `/api/`, `/admin/`, `/auth/`, `/settings`, `/labs`, `/lab/` and `/chat` closed, blocks a list of AI training crawlers, and points to a sitemap of public content. Only enable it for a public instance you want listed. The basic auth gate in the [deployment guide](./deployment.md#the-basic-auth-gate) is the stronger option if an instance should not be reachable at all.
 
 ## Build-time caveat
 

@@ -49,6 +49,7 @@ function buildSecurityHeaders(requireHttps: boolean): { key: string; value: stri
 const nextConfig: NextConfig = {
   cacheComponents: true,
   output: process.env.NEXT_OUTPUT_STANDALONE === "1" ? "standalone" : undefined,
+  typescript: { ignoreBuildErrors: process.env.NEXT_SKIP_TYPECHECK === "1" },
   serverExternalPackages: ["pg", "@prisma/adapter-pg", "sharp"],
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   trailingSlash: false,

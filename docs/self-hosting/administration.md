@@ -4,7 +4,7 @@
 
 Every account has a site role, `USER` or `ADMIN`, and a status, `ACTIVE` or `BLOCKED`.
 
-Anyone who can reach the instance can sign up with email and password, or with GitHub if it is configured. There is no invitation-only mode and no email verification. To restrict who can reach the instance at all, use network controls or the [basic auth gate](./deployment.md#optional-basic-auth-gate).
+Anyone who can reach the instance can sign up with email and password, or with GitHub if it is configured. There is no invitation-only mode and no email verification. To restrict who can reach the instance at all, use network controls or the [basic auth gate](./deployment.md#the-basic-auth-gate).
 
 Any signed-in, non-blocked user can submit reports, design panels and create labs.
 

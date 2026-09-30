@@ -29,7 +29,7 @@ Edit `.env`:
 - `AUTH_SECRET`: output of `openssl rand -hex 32`
 - `POSTGRES_PASSWORD`: output of `openssl rand -hex 32` (required)
 - `NEXT_PUBLIC_BASE_URL`: the public URL, or `http://localhost:8080` for a local trial (the example value `http://localhost:3000` is for the dev server)
-- On a server with its own domain: `SITE_ADDRESS` set to the hostname, `HTTP_PORT="80"` and `HTTPS_PORT="443"`, and the bundled Caddy proxy gets a TLS certificate by itself. See [Deployment](docs/self-hosting/deployment.md#example-a-single-vps).
+- On a server with its own domain: `SITE_ADDRESS` set to the hostname, `HTTP_PORT="80"` and `HTTPS_PORT="443"`, and the bundled Caddy proxy gets a TLS certificate by itself. For a production server, follow the [step-by-step deployment guide](docs/self-hosting/deployment.md) instead, which also covers the firewall, a service user and basic auth.
 
 Start the stack and create the first admin:
 

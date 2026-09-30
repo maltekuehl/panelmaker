@@ -31,13 +31,21 @@ RUN npm ci
 # The non-DB env vars below are placeholders that satisfy lib/env.ts
 # validation (which throws in production) and bake NEXT_PUBLIC_* into the
 # client bundle. Real runtime secrets are injected by docker-compose.
+#
+# Node sizes its heap from physical RAM (about 480 MB on a 1 GB server), which
+# is not enough for `next build`. BUILD_MEMORY_MB raises the cap so a small
+# server can use swap instead of crashing. The type check is skipped here:
+# CI runs it, and it is the most memory-hungry build phase.
 FROM base AS builder
 ARG NEXT_PUBLIC_BASE_URL=http://localhost:8080
+ARG BUILD_MEMORY_MB=4096
 ENV NODE_ENV=production \
   NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL} \
   DATABASE_URL=postgresql://postgres@127.0.0.1:5432/panelmaker_build \
   AUTH_SECRET=build_time_placeholder_secret_min_32_chars \
-  NEXT_OUTPUT_STANDALONE=1
+  NEXT_OUTPUT_STANDALONE=1 \
+  NEXT_SKIP_TYPECHECK=1 \
+  NODE_OPTIONS=--max-old-space-size=${BUILD_MEMORY_MB}
 RUN apt-get update \
   && apt-get install -y --no-install-recommends postgresql \
   && rm -rf /var/lib/apt/lists/*
@@ -46,7 +54,7 @@ COPY . .
 RUN set -eux; \
   PGBIN="$(ls -d /usr/lib/postgresql/*/bin)"; \
   su postgres -c "$PGBIN/initdb --auth=trust -D /tmp/pgdata"; \
-  su postgres -c "$PGBIN/pg_ctl -D /tmp/pgdata -o '-c listen_addresses=127.0.0.1 -p 5432' -w start"; \
+  su postgres -c "$PGBIN/pg_ctl -D /tmp/pgdata -o '-c listen_addresses=127.0.0.1 -p 5432 -c shared_buffers=16MB -c max_connections=20' -w start"; \
   su postgres -c "$PGBIN/createdb -h 127.0.0.1 panelmaker_build"; \
   npx prisma generate; \
   npx prisma migrate deploy; \

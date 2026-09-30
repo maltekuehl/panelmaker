@@ -61,6 +61,7 @@ services:
       target: runner
       args:
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:8080}
+        BUILD_MEMORY_MB: ${BUILD_MEMORY_MB:-4096}
     image: panelmaker-app
     container_name: panelmaker-app
     restart: unless-stopped

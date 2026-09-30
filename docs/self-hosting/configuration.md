@@ -101,3 +101,4 @@ Read by `docker-compose.yml` and `docker-compose.dev.yml`, not by the app.
 | `BASIC_AUTH_PASSWORD` | empty                                  | See `BASIC_AUTH_USER`.                                                                                           |
 | `POSTGRES_PORT`       | `5433` (dev only)                      | Host port for Postgres in `docker-compose.dev.yml`, bound to `127.0.0.1`. The production stack never publishes Postgres. |
 | `APP_PORT`            | `3000`                                 | Host port for the dev server in `docker-compose.dev.yml`, bound to `127.0.0.1`.                                  |
+| `BUILD_MEMORY_MB`     | `4096`                                 | Node heap limit in MB for `next build` inside the image build. Needs RAM plus swap of at least this much.        |

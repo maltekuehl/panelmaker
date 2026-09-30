@@ -33,7 +33,7 @@ export function getInstanceConfig(): InstanceConfig {
 }
 
 function getConfigDir(): string {
-  return path.resolve(process.cwd(), env.INSTANCE_CONFIG_DIR)
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), env.INSTANCE_CONFIG_DIR)
 }
 
 // Returns the operator-provided override markdown for a legal document, or null when the

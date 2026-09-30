@@ -35,7 +35,7 @@ export class InvalidImageError extends Error {
 }
 
 export function getUploadsDir(): string {
-  return path.resolve(process.cwd(), env.UPLOADS_DIR)
+  return path.resolve(/*turbopackIgnore: true*/ process.cwd(), env.UPLOADS_DIR)
 }
 
 async function ensureUploadsDir(): Promise<string> {
@@ -49,7 +49,7 @@ export function resolveUploadPath(filename: string): string {
   if (base !== filename || base.includes("..") || base.includes("/") || base.includes("\\")) {
     throw new InvalidImageError("Invalid file name.")
   }
-  return path.join(getUploadsDir(), base)
+  return path.join(/*turbopackIgnore: true*/ getUploadsDir(), base)
 }
 
 export async function saveUploadedImage(buffer: Buffer): Promise<{ url: string; filename: string }> {
@@ -80,7 +80,7 @@ export async function saveUploadedImage(buffer: Buffer): Promise<{ url: string; 
 
   const filename = `${randomBytes(16).toString("hex")}.webp`
   const dir = await ensureUploadsDir()
-  await writeFile(path.join(dir, filename), output)
+  await writeFile(path.join(/*turbopackIgnore: true*/ dir, filename), output)
 
   return { url: `/uploads/${filename}`, filename }
 }
