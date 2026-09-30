@@ -128,7 +128,13 @@ export default function Chat({ conversationId, initialMessages, conversations, n
                     onRegenerateFromHere={
                       isUserMessage ? (newContent) => handleRegenerateFromHere(m.id, newContent) : undefined
                     }
-                    message={<MessageParts message={m} isStreaming={isStreaming} />}
+                    message={
+                      isUserMessage ? (
+                        <p className="whitespace-pre-wrap break-words">{extractMessageText(m)}</p>
+                      ) : (
+                        <MessageParts message={m} isStreaming={isStreaming} />
+                      )
+                    }
                   />
                 )
               })}

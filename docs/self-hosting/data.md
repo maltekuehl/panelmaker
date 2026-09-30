@@ -32,10 +32,10 @@ Run these with `npm run <script>` on a bare-metal install, or `docker compose ru
 | `fpbase:sync`      | Re-syncs the spectra of every fluorophore from FPbase, not only missing ones                                                                                    | no (updates spectra in place) | every instance   |
 | `ibex:import`      | Imports the IBEX knowledge base from committed files. See [below](#ibex-knowledge-base)                                                                         | no                            | optional         |
 | `ibex:fetch`       | Downloads a fresh copy of the IBEX source tables into `prisma/data/ibex/` and regenerates lookups. Changes files, not the database                              | no (database)                 | maintainers      |
-| `seed:demo`        | **Deletes every row in the database**, then loads reference data plus fictional users, labs, antibodies, reports and panels                                     | **yes**                       | development only |
+| `seed:demo`        | **Deletes every row in the database**, then loads reference data plus fictional users, labs, antibodies, reports and panels                                     | **yes**                       | development, demo servers |
 | `seed:demo-user`   | Creates the `demo@panelmaker.local` admin with a known password and writes it to `DEMO_CREDENTIALS.txt`                                                         | no                            | development only |
 | `pathoplex:lookup` | Resolves RRIDs for the PathoPlex reagent list against the Antibody Registry. Needs `SCICRUNCH_API_KEY`. Writes `prisma/data/pathoplex-antibodies.resolved.json` | no (database)                 | maintainers      |
-| `pathoplex:seed`   | Adds the PathoPlex antibody inventory and two kidney experiments to the demo Puelles lab. Needs `seed:demo` first                                               | no                            | development only |
+| `pathoplex:seed`   | Adds the PathoPlex antibody inventory and two kidney experiments to the demo Puelles lab. Needs `seed:demo` first                                               | no                            | development, demo servers |
 | `seed:all`         | Runs `seed:demo`, `seed:demo-user`, `pathoplex:seed`, `ibex:import` and `fpbase:sync` in order                                                                  | **yes**                       | development only |
 
 `seed:demo` refuses to run when `NODE_ENV=production` unless `SEED_ALLOW_RESET=1` is set. `seed:demo-user` refuses when `NODE_ENV=production` unless `DEMO_USER_PASSWORD` is set. In Docker, `NODE_ENV` is `production` in the `migrate` image. On a bare-metal install, set `NODE_ENV=production` in `.env` to get the same protection.
@@ -60,7 +60,20 @@ The PathoPlex scripts load the real antibody panels from the PathoPlex paper (Ku
 
 ## Demo data
 
-`npm run seed:all` builds a complete local demo: fictional researchers and labs, antibodies with RRIDs, experiments and reports across several imaging methods, two panels, a demo admin login, PathoPlex, IBEX and FPbase spectra. It starts by wiping the database. Never point it at an instance with real data.
+Demo data wipes the database first. Never load it on an instance with real data.
+
+**Local development.** `npm run seed:all` builds a complete demo: fictional researchers and labs, antibodies with RRIDs, experiments and reports across several imaging methods, two panels, a demo admin login (`seed:demo-user`), PathoPlex, IBEX and FPbase spectra.
+
+**A demo or test server in Docker.** Run the steps one by one in the `migrate` container, and create a real admin instead of the known-password demo login:
+
+```bash
+docker compose run --rm -e SEED_ALLOW_RESET=1 migrate npm run seed:demo
+docker compose run --rm migrate npm run pathoplex:seed
+docker compose run --rm migrate npm run ibex:import
+docker compose run --rm migrate npm run admin:create -- --email you@example.edu --name "Your Name"
+```
+
+`seed:demo` also generates sample report images. The `migrate` service mounts the app's uploads volume, so they end up where the app serves them from. `fpbase:sync` is not needed: `seed:demo` loads the reference data and spectra itself.
 
 ## Outbound network access
 

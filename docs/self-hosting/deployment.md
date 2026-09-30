@@ -198,13 +198,28 @@ docker compose run --rm migrate npm run admin:create -- --email you@example.edu 
 
 The password is printed once and stored nowhere, so save it straight away. To choose it yourself, add `-e ADMIN_PASSWORD=...` after `run` (12 to 128 characters). Running the command for an existing account promotes it to admin; `--reset-password` issues it a new password. See [Administration](./administration.md).
 
-### 12. Optional: import the IBEX knowledge base
+### 12. Load data
+
+The reference data (ontology terms, marker proteins, imaging methods, fluorophores and their spectra) is already in place: `migrate` loads it on every start. What else to load depends on what the instance is for.
+
+**A real instance.** Optionally import the IBEX knowledge base, 104 experiments with 1,277 published antibody validation reports from the IBEX Imaging Community (CC BY 4.0). It makes no network calls, deletes nothing and is safe to run again:
 
 ```bash
 docker compose run --rm migrate npm run ibex:import
 ```
 
-This adds 104 experiments with 1,277 published antibody validation reports from the IBEX Imaging Community (CC BY 4.0). It makes no network calls and is safe to run again. See [Data](./data.md#ibex-knowledge-base).
+Everything else comes from your users.
+
+**A demo or test instance.** To fill it with the fictional sample data used in development (researchers, labs, antibodies, experiments, reports, panels), the PathoPlex inventory and IBEX:
+
+```bash
+docker compose run --rm -e SEED_ALLOW_RESET=1 migrate npm run seed:demo
+docker compose run --rm migrate npm run pathoplex:seed
+docker compose run --rm migrate npm run ibex:import
+docker compose run --rm migrate npm run admin:create -- --email you@example.edu --name "Your Name"
+```
+
+`seed:demo` **deletes every row in the database**, including your admin account, which is why the last command creates it again with a new password. Never run it on an instance with real data. Skip `seed:demo-user` on a server: it creates an admin with a publicly known password. More in [Data](./data.md#demo-data).
 
 ### 13. Check everything
 

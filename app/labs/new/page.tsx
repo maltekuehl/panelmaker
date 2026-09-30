@@ -20,7 +20,9 @@ export default async function NewLabPage() {
         <p className="text-muted-foreground">Create a lab to share panels and antibody inventory with your team.</p>
       </div>
 
-      <LabForm mode="create" />
+      <div className="rounded-xl border p-4 sm:p-6">
+        <LabForm mode="create" />
+      </div>
     </div>
   )
 }
