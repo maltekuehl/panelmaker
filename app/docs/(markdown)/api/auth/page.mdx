@@ -2,7 +2,6 @@ export const metadata = {
   title: "Authentication | PanelMaker API Documentation",
   description:
     "Learn about authentication for PanelMaker authenticated API endpoints, OAuth sign-in, and rate limits for panel and report operations.",
-  keywords: ["PanelMaker authentication", "OAuth", "GitHub login", "LinkedIn login", "API auth", "rate limiting"],
 }
 
 # Authentication
@@ -15,7 +14,6 @@ Sign in with your email address and password on the sign-in page. If the deploym
 use OAuth:
 
 - **GitHub**: click _Sign in with GitHub_ on the sign-in page
-- **LinkedIn**: click _Sign in with LinkedIn_ on the sign-in page
 
 After signing in, your session is stored in an HTTP-only cookie.
 
@@ -40,10 +38,12 @@ Calling these endpoints without a valid session returns `401 Unauthorized`:
 
 Authenticated write operations are rate-limited to prevent abuse:
 
-| Operation                      | Limit                    |
-| ------------------------------ | ------------------------ |
-| Report submission              | 10 requests per 24 hours |
-| Panel create / update / delete | 50 requests per 24 hours |
+| Operation         | Limit                    |
+| ----------------- | ------------------------ |
+| Report submission | 50 requests per 24 hours |
+| Panel creation    | 50 requests per 24 hours |
+
+Panel updates and deletes are not separately rate-limited beyond the normal session-based auth check.
 
 When a rate limit is exceeded, the API returns `429 Too Many Requests` with a `Retry-After` header indicating how many seconds until the limit resets:
 

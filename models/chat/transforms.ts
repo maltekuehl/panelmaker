@@ -16,6 +16,7 @@ export interface ConversationWithMessages {
   title: string | null
   model: string | null
   pinned: boolean
+  labId: string | null
   messages: UIMessage[]
 }
 

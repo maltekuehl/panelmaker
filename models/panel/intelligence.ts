@@ -97,29 +97,6 @@ export type PanelValidationResult = {
   warningCount: number
 }
 
-export type PanelReport = {
-  title: string
-  generatedAt: string
-  summary: {
-    totalMarkers: number
-    totalCycles: number
-    species: string | null
-    fixation: string | null
-    method: string | null
-    methodEfoId: string | null
-  }
-  cycles: {
-    name: string
-    markers: {
-      protein: string
-      antibody: string | null
-      fluorophore: string | null
-      metalTag: string | null
-    }[]
-  }[]
-  warnings: PanelWarning[]
-}
-
 type MarkerWithFluorophore = PanelMarkerRow & { fluorophore: NonNullable<PanelMarkerRow["fluorophore"]> }
 
 function resolveSpectralFluorophore(
@@ -383,33 +360,6 @@ export function validatePanel(panel: PanelRow, spectra?: FluorophoreSpectraMap):
     warnings,
     errorCount,
     warningCount,
-  }
-}
-
-export function generatePanelReport(panel: PanelRow, warnings: PanelWarning[]): PanelReport {
-  const totalMarkers = panel.cycles.reduce((sum, cycle) => sum + cycle.markers.length, 0)
-
-  return {
-    title: panel.name,
-    generatedAt: new Date().toISOString(),
-    summary: {
-      totalMarkers,
-      totalCycles: panel.cycles.length,
-      species: panel.species?.label ?? null,
-      fixation: panel.fixation ?? null,
-      method: panel.imagingMethod?.label ?? null,
-      methodEfoId: panel.imagingMethod?.efoId ?? null,
-    },
-    cycles: panel.cycles.map((cycle) => ({
-      name: cycle.name,
-      markers: cycle.markers.map((marker) => ({
-        protein: marker.protein?.label ?? String(marker.proteinId ?? ""),
-        antibody: marker.antibody?.name ?? null,
-        fluorophore: marker.fluorophore?.name ?? null,
-        metalTag: marker.metalTag ?? null,
-      })),
-    })),
-    warnings,
   }
 }
 

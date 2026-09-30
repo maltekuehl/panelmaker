@@ -45,3 +45,10 @@ DEMO_CREDENTIALS.txt
 
 # Playwright saved auth state
 tests/.auth/
+
+# Operator-supplied instance config overrides (may contain real institution/contact details)
+config/legal/*.md
+!config/legal/*.md.example
+
+# Agent skill lockfile (local tooling)
+skills-lock.json

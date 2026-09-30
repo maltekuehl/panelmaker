@@ -1,4 +1,4 @@
-import { authErrorResponse, canSubmit, requireAuth } from "@/lib/auth"
+import { authErrorResponse, requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import {
@@ -14,10 +14,6 @@ import { NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth(request)
-
-    if (!(await canSubmit(user.id))) {
-      return NextResponse.json({ error: "Your account is not verified for uploads" }, { status: 403 })
-    }
 
     const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.UPLOADS)
     if (!rateLimitResult.allowed) {

@@ -1,5 +1,6 @@
 import { blockUser, createAuthHandler, unblockUser } from "@/lib/auth"
 import { createErrorResponse } from "@/lib/error-handling"
+import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -19,10 +20,22 @@ export const PATCH = createAuthHandler(
 
       if (action === "block") {
         await blockUser(userId)
+        await logSecurityEventFromRequest(request, SecurityEventType.USER_BLOCKED, {
+          userId: user.id,
+          action: "user_block",
+          success: true,
+          metadata: { targetUserId: userId },
+        })
         return NextResponse.json({ message: "User blocked successfully" })
       }
 
       await unblockUser(userId)
+      await logSecurityEventFromRequest(request, SecurityEventType.USER_BLOCKED, {
+        userId: user.id,
+        action: "user_unblock",
+        success: true,
+        metadata: { targetUserId: userId },
+      })
       return NextResponse.json({ message: "User unblocked successfully" })
     } catch (error) {
       return createErrorResponse(error, "Failed to update user status")

@@ -48,10 +48,6 @@ export async function searchFluorophores(query: string): Promise<FluorophoreRow[
   )
 }
 
-export async function getFluorophoreById(id: string): Promise<FluorophoreRow | null> {
-  return prisma.fluorophore.findUnique({ where: { id }, select: fluorophoreSelect })
-}
-
 export async function fluorophoreExists(id: string): Promise<boolean> {
   const found = await prisma.fluorophore.findUnique({ where: { id }, select: { id: true } })
   return found !== null

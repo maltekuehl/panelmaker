@@ -82,7 +82,7 @@ cp .env.local.example .env.local
 
 Edit `.env.local` and add your configuration:
 
-- Authentication providers (GitHub, LinkedIn OAuth credentials)
+- Authentication providers (GitHub OAuth credentials)
 - API keys (Gemini)
 - Cloudflare R2 credentials for image storage (optional for local development)
 - Other required secrets

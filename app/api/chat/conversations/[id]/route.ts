@@ -1,6 +1,7 @@
-import { authErrorResponse, requireAuth } from "@/lib/auth"
+import { authErrorResponse, requireAuth, resolveViewerContext } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import {
+  canUseLabCredential,
   conversationBelongsToUser,
   deleteConversation,
   getConversation,
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest, context: Context) {
   }
 }
 
-// PATCH /api/chat/conversations/[id] - Rename / set model / pin (owner only)
+// PATCH /api/chat/conversations/[id] - Rename / set model / set lab context / pin (owner only)
 export async function PATCH(request: NextRequest, context: Context) {
   try {
     const { id } = await context.params
@@ -36,6 +37,12 @@ export async function PATCH(request: NextRequest, context: Context) {
       return NextResponse.json({ error: "Resource not found" }, { status: 404 })
     }
     const data = updateConversationSchema.parse(await request.json())
+    if (data.labId) {
+      const viewer = await resolveViewerContext(user.id)
+      if (!canUseLabCredential(viewer, data.labId)) {
+        return NextResponse.json({ error: "Lab membership required", code: "LAB_ACCESS_DENIED" }, { status: 403 })
+      }
+    }
     await updateConversation(user.id, id, data)
     return createSuccessResponse({ success: true })
   } catch (error) {

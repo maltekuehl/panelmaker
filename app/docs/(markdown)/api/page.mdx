@@ -2,21 +2,13 @@ export const metadata = {
   title: "Public API | PanelMaker Documentation",
   description:
     "PanelMaker public REST API documentation. Programmatic access to proteins, antibodies, validation reports, cell types, and panels.",
-  keywords: [
-    "PanelMaker API",
-    "REST API",
-    "antibody API",
-    "spatial proteomics API",
-    "public API",
-    "programmatic access",
-  ],
 }
 
 # Public API
 
-PanelMaker provides a read-only public REST API for programmatic access to all community data. No API key is required for public endpoints.
+PanelMaker provides a read-only public REST API for programmatic access to all public data on this instance. No API key is required for public endpoints.
 
-**Base URL:** `https://panelmaker.ai/api`
+**Base URL:** `https://<your-instance>/api`, for example `https://panelmaker.example.edu/api`
 
 All responses are JSON. A list endpoint returns its rows under the resource name, plus a cursor when more rows are
 available:
@@ -60,7 +52,7 @@ GET /api/proteins
 **Example:**
 
 ```bash
-curl "https://panelmaker.ai/api/proteins?q=CD3&limit=10"
+curl "https://<your-instance>/api/proteins?q=CD3&limit=10"
 ```
 
 **Response:**
@@ -109,7 +101,7 @@ GET /api/antibodies
 **Example:**
 
 ```bash
-curl "https://panelmaker.ai/api/antibodies?q=SP6"
+curl "https://<your-instance>/api/antibodies?q=SP6"
 ```
 
 ### Get a single antibody
@@ -143,7 +135,7 @@ GET /api/reports
 **Example:**
 
 ```bash
-curl "https://panelmaker.ai/api/reports?species=NCBI:txid9606&method=CODEX&fixation=FFPE"
+curl "https://<your-instance>/api/reports?species=NCBI:txid9606&method=CODEX&fixation=FFPE"
 ```
 
 **Response:**
@@ -218,6 +210,56 @@ endpoint that lists your own panels.
 | --------- | ------- | -------------------------------------- |
 | `limit`   | integer | Results per page (default 20, max 100) |
 | `cursor`  | string  | Pagination cursor                      |
+
+---
+
+## Fluorophores
+
+### List fluorophores
+
+```
+GET /api/fluorophores
+```
+
+**Query parameters:**
+
+| Parameter | Type   | Description                               |
+| --------- | ------ | ----------------------------------------- |
+| `q`       | string | Text search by fluorophore name, optional |
+
+Returns the full fluorophore reference table when `q` is omitted. Not paginated.
+
+---
+
+## Ontology lookup
+
+### Search a controlled vocabulary
+
+```
+GET /api/ontology
+```
+
+Used to resolve species, tissue, cell type, and other ontology-backed fields to their term id. Backed by OLS4, NCBI, and other upstream ontology services.
+
+**Query parameters:**
+
+| Parameter | Type    | Description                                                                             |
+| --------- | ------- | --------------------------------------------------------------------------------------- |
+| `type`    | string  | `cl`, `uberon`, `ncbi_taxonomy`, `go_cc`, `doid`, `ror`, `chebi`, `hsapdv`, or `mmusdv` |
+| `q`       | string  | Search term, 1 to 200 characters                                                        |
+| `limit`   | integer | Max results, 1 to 50                                                                    |
+
+**Example:**
+
+```bash
+curl "https://<your-instance>/api/ontology?type=cl&q=b+cell"
+```
+
+**Response:**
+
+```json
+{ "results": [{ "id": "CL:0000236", "label": "B cell" }] }
+```
 
 ---
 

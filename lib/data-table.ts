@@ -12,7 +12,7 @@ export const sortParsers = {
 
 export type BrowseMode = "markers" | "antibodies" | "reports" | "experiments" | "panels"
 
-export const BROWSE_MODES: BrowseMode[] = ["markers", "antibodies", "reports", "experiments", "panels"]
+const BROWSE_MODES: BrowseMode[] = ["markers", "antibodies", "reports", "experiments", "panels"]
 
 export type FilterDimension = {
   key: string
@@ -122,7 +122,7 @@ export function isInventoryParamsActive(params: LabInventoryParams): boolean {
 // and DataTablePagination drive sort/order/page out of the box.
 export type LabView = "experiments" | "reports" | "panels"
 
-export const LAB_VIEWS: LabView[] = ["experiments", "reports", "panels"]
+const LAB_VIEWS: LabView[] = ["experiments", "reports", "panels"]
 
 export const labContentParsers = {
   ...sortParsers,

@@ -66,8 +66,8 @@ export default function DeleteAccountSection() {
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will permanently delete your account and remove all your data from
-                our servers, including your profile, experiments and reports, panels, lab memberships, chat
-                conversations, and blog posts.
+                our servers, including your profile, experiments and reports, panels, lab memberships, and chat
+                conversations.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

@@ -1,8 +1,11 @@
+import { getInstanceConfig } from "@/lib/instance"
 import type { Metadata } from "next"
 
+const instanceName = getInstanceConfig().name
+
 export const metadata: Metadata = {
-  title: "Legal | PanelMaker",
-  description: "Legal information, terms of service, privacy policy, and legal notices for PanelMaker",
+  title: `Legal | ${instanceName}`,
+  description: `Legal information, terms of service, privacy policy, and legal notices for ${instanceName}`,
   robots: {
     index: true,
     follow: true,

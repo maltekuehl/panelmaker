@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Linkedin, User } from "lucide-react"
+import { User } from "lucide-react"
 import { signIn } from "next-auth/react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -161,7 +161,6 @@ export default function SignIn({ providerMap }: { providerMap: ProviderInfo[] })
                     <form key={provider.id} onSubmit={handleOAuthSubmit.bind(null, provider.id)}>
                       <Button type="submit" variant="outline" className="w-full" disabled={isPending}>
                         {provider.name === "GitHub" && <GitHub className="size-4" />}
-                        {provider.name === "LinkedIn" && <Linkedin className="size-4" />}
                         Sign in with {provider.name}
                       </Button>
                     </form>

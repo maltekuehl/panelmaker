@@ -1,15 +1,16 @@
 // Creates (or updates) a local demo login you can sign in with via email/password.
-// Idempotent and non-destructive: safe to re-run. After a full `prisma db seed` (which resets the
-// DB) re-run this to recreate the demo user: `npm run seed:demo-user`.
+// Idempotent and non-destructive: safe to re-run. After `npm run seed:demo` (which wipes the DB)
+// re-run this to recreate the demo user: `npm run seed:demo-user`. For a real instance use
+// `npm run admin:create` instead, which never writes credentials to disk.
 //
-// The demo user is VERIFIED (can submit reports and create labs) and ADMIN (can reach /admin), and
+// The demo user is an ADMIN (can reach /admin and review submissions), and
 // is made an OWNER of the seeded Puelles lab so the lab features are populated on first sign-in.
 import { normalizeEmail } from "@/models/user/transforms"
-import bcrypt from "bcryptjs"
 import "dotenv/config"
 import { writeFileSync } from "node:fs"
 import path from "node:path"
 import { runScript } from "../prisma/client"
+import { upsertAdminUser } from "./lib/admin-user"
 
 const DEMO_EMAIL = normalizeEmail(process.env.DEMO_USER_EMAIL ?? "demo@panelmaker.local")
 const DEMO_PASSWORD = process.env.DEMO_USER_PASSWORD ?? "PanelMakerDemo2026!"
@@ -23,28 +24,14 @@ runScript(async (prisma) => {
     )
   }
 
-  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 12)
-
-  const user = await prisma.user.upsert({
-    where: { email: DEMO_EMAIL },
-    update: { name: DEMO_NAME, password: passwordHash, role: "ADMIN", status: "ACTIVE", accessStatus: "VERIFIED" },
-    create: {
-      name: DEMO_NAME,
-      email: DEMO_EMAIL,
-      password: passwordHash,
-      role: "ADMIN",
-      status: "ACTIVE",
-      accessStatus: "VERIFIED",
-    },
-    select: { id: true },
-  })
+  const user = await upsertAdminUser(prisma, { email: DEMO_EMAIL, name: DEMO_NAME, password: DEMO_PASSWORD })
 
   const homeLab = await prisma.lab.findUnique({
     where: { id: HOME_LAB_ID },
     select: { id: true, name: true, slug: true },
   })
 
-  let labNote = "No seeded lab found yet. Run `npx prisma db seed` to create the demo labs, then re-run this script."
+  let labNote = "No seeded lab found yet. Run `npm run seed:demo` to create the demo labs, then re-run this script."
   if (homeLab) {
     await prisma.labMembership.upsert({
       where: { userId_labId: { userId: user.id, labId: homeLab.id } },

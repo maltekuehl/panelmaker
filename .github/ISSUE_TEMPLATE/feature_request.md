@@ -30,7 +30,6 @@ A clear and concise description of any alternative solutions or features you've 
 - [ ] Labs/Teams
 - [ ] Browse/Search
 - [ ] Chat/AI Integration
-- [ ] Blog/Content Management
 - [ ] Admin Dashboard
 - [ ] API/Backend
 - [ ] Database Schema

@@ -10,7 +10,7 @@ Working docs for the lab/team feature: many-to-many lab membership with roles, i
 - **Visibility** per experiment/panel: `PRIVATE` (owner), `LAB` (one or more labs), `PUBLIC`. Reports inherit from their experiment.
 - **Antibody inventory** per lab (`LabAntibody`), joined to the global `Antibody` catalog.
 - **AI** lab-scoped queries, e.g. "any T cell marker our lab stocks that a labmate used successfully on mouse tissue?"
-- **Verified-access gate**: one unified `accessStatus` (VERIFIED) unlocks both report submission and lab creation; site admins grant it.
+- **No access gate**: any signed-in, non-blocked user can submit reports and create labs. Public reports still wait for admin review through `ValidationStatus`.
 
 ## Docs in this folder
 
@@ -18,7 +18,6 @@ Working docs for the lab/team feature: many-to-many lab membership with roles, i
 - [access-control.md](./access-control.md) - RBAC matrix, the two-lane visibility model, the visibility predicate.
 - [decisions.md](./decisions.md) - locked decisions and the adversarial-review fixes folded in.
 - [ai-queries.md](./ai-queries.md) - Phase 7 design: 20 target queries and the composable primitive toolkit.
-- [TODO.md](./TODO.md) - living checkbox tracker, grouped by phase.
 
 ## Hard constraint to remember
 
@@ -26,7 +25,7 @@ Next 16 `cacheComponents` forbids calling `auth()` inside a `"use cache"` bounda
 
 ## Status
 
-All phases (1-8) are done and verified: schema/migrations, access control + RBAC, invitations, two-lane visibility cutover, the full lab UI, the per-lab antibody inventory, the submit-side import, the lab-overview panels tab, the AI lab-scoped query toolkit, and the Phase 8 cutover that dropped the transitional `isPublic` mirror (`visibility` is now the sole source of truth). The inventory has server-side pagination, search, sorting, and Status/Host/Clonality faceted filters; the AI assistant composes ~14 viewer-scoped primitives (see [ai-queries.md](./ai-queries.md)). The `/browse` Lab facet and the ROR institution picker are in. See [TODO.md](./TODO.md) for the full checklist.
+All phases (1-8) are done and verified: schema/migrations, access control + RBAC, invitations, two-lane visibility cutover, the full lab UI, the per-lab antibody inventory, the submit-side import, the lab-overview panels tab, the AI lab-scoped query toolkit, and the Phase 8 cutover that dropped the transitional `isPublic` mirror (`visibility` is now the sole source of truth). The inventory has server-side pagination, search, sorting, and Status/Host/Clonality faceted filters; the AI assistant composes ~14 viewer-scoped primitives (see [ai-queries.md](./ai-queries.md)). The `/browse` Lab facet and the ROR institution picker are in.
 
 ## Local development
 

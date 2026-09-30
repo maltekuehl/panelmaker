@@ -28,7 +28,7 @@ import type { UserRole, UserStatus } from "@/lib/generated/prisma/enums"
 import { profileHref } from "@/lib/routes"
 import { ColumnDef } from "@tanstack/react-table"
 import { format } from "date-fns"
-import { BadgeCheck, Clock, Loader2, MoreHorizontal, Shield, ShieldCheck, ShieldOff, Trash2, User } from "lucide-react"
+import { Loader2, MoreHorizontal, Shield, ShieldOff, Trash2, User } from "lucide-react"
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -40,14 +40,11 @@ interface User {
   image: string | null
   role: "USER" | "ADMIN"
   status: "ACTIVE" | "BLOCKED"
-  accessStatus: "NONE" | "REQUESTED" | "VERIFIED"
-  accessRequestedAt: string | null
   createdAt: string
   updatedAt: string
   _count: {
     panels: number
     experiments: number
-    blogPosts: number
   }
 }
 
@@ -64,42 +61,10 @@ interface BuildColumnsOptions {
   actionLoading: string | null
   onBlock: (user: User) => void
   onUnblock: (user: User) => void
-  onAccess: (user: User, action: "grant" | "revoke") => void
   onDelete: (user: User) => void
 }
 
-function AccessBadge({ user }: { user: User }) {
-  if (user.role === "ADMIN") return null
-  if (user.accessStatus === "VERIFIED") {
-    return (
-      <Badge variant="outline" className="border-success/40 text-success">
-        <BadgeCheck className="size-3" />
-        Verified
-      </Badge>
-    )
-  }
-  if (user.accessStatus === "REQUESTED") {
-    return (
-      <Badge variant="outline" className="border-warning/40 text-warning">
-        <Clock className="size-3" />
-        Requested
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="outline" className="text-muted-foreground">
-      Unverified
-    </Badge>
-  )
-}
-
-function buildUserColumns({
-  actionLoading,
-  onBlock,
-  onUnblock,
-  onAccess,
-  onDelete,
-}: BuildColumnsOptions): ColumnDef<User>[] {
+function buildUserColumns({ actionLoading, onBlock, onUnblock, onDelete }: BuildColumnsOptions): ColumnDef<User>[] {
   return [
     {
       id: "user",
@@ -143,11 +108,6 @@ function buildUserColumns({
       ),
     },
     {
-      id: "access",
-      header: "Submission access",
-      cell: ({ row }) => <AccessBadge user={row.original} />,
-    },
-    {
       id: "panels",
       header: () => <div className="text-right">Panels</div>,
       cell: ({ row }) => <div className="text-right font-mono text-sm">{row.original._count.panels}</div>,
@@ -156,11 +116,6 @@ function buildUserColumns({
       id: "experiments",
       header: () => <div className="text-right">Experiments</div>,
       cell: ({ row }) => <div className="text-right font-mono text-sm">{row.original._count.experiments}</div>,
-    },
-    {
-      id: "blogPosts",
-      header: () => <div className="text-right">Posts</div>,
-      cell: ({ row }) => <div className="text-right font-mono text-sm">{row.original._count.blogPosts}</div>,
     },
     {
       id: "joined",
@@ -175,15 +130,8 @@ function buildUserColumns({
       cell: ({ row }) => {
         const user = row.original
         const isLoading = actionLoading === user.id
-        const canChangeAccess = user.role !== "ADMIN"
         return (
           <div className="flex items-center justify-end gap-1">
-            {canChangeAccess && user.accessStatus === "REQUESTED" && (
-              <Button size="sm" variant="outline" onClick={() => onAccess(user, "grant")} disabled={isLoading}>
-                <ShieldCheck className="size-4" />
-                Approve
-              </Button>
-            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon-sm" className="text-muted-foreground" disabled={isLoading}>
@@ -192,18 +140,6 @@ function buildUserColumns({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {canChangeAccess &&
-                  (user.accessStatus === "VERIFIED" ? (
-                    <DropdownMenuItem onSelect={() => onAccess(user, "revoke")}>
-                      <ShieldOff className="size-4" />
-                      Revoke access
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onSelect={() => onAccess(user, "grant")}>
-                      <ShieldCheck className="size-4" />
-                      {user.accessStatus === "REQUESTED" ? "Approve access" : "Verify user"}
-                    </DropdownMenuItem>
-                  ))}
                 {user.status === "ACTIVE" ? (
                   <DropdownMenuItem onSelect={() => onBlock(user)}>
                     <ShieldOff className="size-4" />
@@ -295,14 +231,6 @@ export default function UserList() {
       "Failed to update user status",
     )
 
-  const handleSubmissionAccess = (userId: string, action: "grant" | "revoke") =>
-    runAction(
-      userId,
-      patchJson(`/api/user/${userId}/submission-access`, { action }),
-      action === "grant" ? "Submission access granted" : "Submission access revoked",
-      "Failed to update submission access",
-    )
-
   const handleDeleteUser = (userId: string) =>
     runAction(
       userId,
@@ -317,7 +245,6 @@ export default function UserList() {
         actionLoading,
         onBlock: (user) => setPendingConfirm({ user, action: "block" }),
         onUnblock: (user) => handleBlockUser(user.id, "unblock"),
-        onAccess: (user, action) => handleSubmissionAccess(user.id, action),
         onDelete: (user) => setPendingConfirm({ user, action: "delete" }),
       }),
     [actionLoading, pagination.page, searchQuery], // eslint-disable-line react-hooks/exhaustive-deps
@@ -360,7 +287,7 @@ export default function UserList() {
             <AlertDialogTitle>{isDelete ? "Delete user" : "Block user"}</AlertDialogTitle>
             <AlertDialogDescription>
               {isDelete
-                ? `Are you sure you want to permanently delete ${confirmName}? This action cannot be undone and will remove all their data including panels, reports, and blog posts.`
+                ? `Are you sure you want to permanently delete ${confirmName}? This action cannot be undone and will remove all their data including panels and reports.`
                 : `Are you sure you want to block ${confirmName}? They will not be able to sign in until unblocked.`}
             </AlertDialogDescription>
           </AlertDialogHeader>

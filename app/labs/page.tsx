@@ -1,7 +1,7 @@
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { getAccessState, getSessionUser } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
 import { LAB_ROLE_LABELS } from "@/lib/constants"
 import type { LabRole } from "@/lib/generated/prisma/enums"
 import { signInUrl } from "@/lib/routes"
@@ -24,7 +24,7 @@ export default async function LabsPage() {
     redirect(signInUrl("/labs"))
   }
 
-  const [labsWithRoles, accessState] = await Promise.all([getLabsForUser(user.id), getAccessState(user.id)])
+  const labsWithRoles = await getLabsForUser(user.id)
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -35,25 +35,13 @@ export default async function LabsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Your labs</h1>
           <p className="text-muted-foreground">Labs you belong to and the panels and inventory they share.</p>
         </div>
-        {accessState.verified && (
-          <Button asChild>
-            <Link href="/labs/new">
-              <Plus className="size-4" />
-              New lab
-            </Link>
-          </Button>
-        )}
-      </div>
-
-      {!accessState.verified && (
-        <div className="rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-          Account verification is required before you can create a lab. You can request verification on the{" "}
-          <Link href="/submit" className="font-medium underline underline-offset-4">
-            submit page
+        <Button asChild>
+          <Link href="/labs/new">
+            <Plus className="size-4" />
+            New lab
           </Link>
-          . You can still browse and join labs you have been invited to.
-        </div>
-      )}
+        </Button>
+      </div>
 
       {labsWithRoles.length === 0 ? (
         <div className="rounded-md border py-16 text-center space-y-4">
@@ -67,14 +55,12 @@ export default async function LabsPage() {
               to invite you.
             </p>
           </div>
-          {accessState.verified && (
-            <Button asChild>
-              <Link href="/labs/new">
-                <Plus className="size-4" />
-                Create a lab
-              </Link>
-            </Button>
-          )}
+          <Button asChild>
+            <Link href="/labs/new">
+              <Plus className="size-4" />
+              Create a lab
+            </Link>
+          </Button>
         </div>
       ) : (
         <div className="rounded-md border divide-y">

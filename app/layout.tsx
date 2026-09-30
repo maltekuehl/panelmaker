@@ -1,7 +1,6 @@
 import { auth } from "@/auth"
 import { AIAssistantFloating } from "@/components/ai-assistant-floating"
 import { AppSidebar } from "@/components/app-sidebar"
-import { CookieNotice } from "@/components/cookie/cookie-notice"
 import { PanelDrawer } from "@/components/panel/panel-drawer"
 import Providers from "@/components/providers"
 import { SiteHeader } from "@/components/site-header"
@@ -9,17 +8,16 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import UserButton from "@/components/user-button"
 import { env } from "@/lib/env"
+import { getInstanceConfig } from "@/lib/instance"
 import { cn } from "@/lib/utils"
 import type { Metadata, Viewport } from "next"
-import { DM_Sans, Outfit } from "next/font/google"
+import { Outfit } from "next/font/google"
 import localFont from "next/font/local"
 import { cookies } from "next/headers"
 import { Suspense } from "react"
 import "./globals.css"
 
 const outfitHeading = Outfit({ subsets: ["latin"], variable: "--font-heading" })
-
-const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" })
 
 const inter = localFont({
   src: [
@@ -34,46 +32,33 @@ const inter = localFont({
       style: "italic",
     },
   ],
-  variable: "--font-inter",
+  variable: "--font-sans",
   display: "swap",
 })
 
+const instanceConfig = getInstanceConfig()
+
 export const metadata: Metadata = {
-  metadataBase: new URL(env.NEXT_PUBLIC_BASE_URL || "https://panelmaker.ai"),
-  title: "PanelMaker",
+  metadataBase: new URL(env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"),
+  title: instanceConfig.name,
   description:
-    "A community-driven database of validated antibodies and cell type markers for spatial proteomics, including PathoPlex, MIBI-ToF, CODEX, and IMC.",
-  keywords: [
-    "PanelMaker",
-    "spatial proteomics",
-    "antibody panel",
-    "cell type markers",
-    "immunofluorescence",
-    "MIBI-ToF",
-    "CODEX",
-    "IMC",
-    "multiplex imaging",
-    "antibody validation",
-    "panel design",
-    "spatial biology",
-  ],
+    "Antibody panel design and validation data for multiplexed tissue imaging, including PathoPlex, CyCIF, CODEX, IBEX, MIBI and IMC.",
   robots: {
-    index: true,
-    follow: true,
+    index: instanceConfig.allowIndexing,
+    follow: instanceConfig.allowIndexing,
   },
   openGraph: {
-    title: "PanelMaker",
-    description:
-      "Community-driven database of validated antibodies and cell type markers for spatial proteomics panel design.",
+    title: instanceConfig.name,
+    description: "Antibody panel design and validation data for multiplexed tissue imaging.",
     type: "website",
     url: "/",
-    siteName: "PanelMaker",
+    siteName: instanceConfig.name,
     images: [
       {
-        url: "/ms-icon-310x310.png",
-        width: 310,
-        height: 310,
-        alt: "PanelMaker - Validated Spatial Proteomics Marker Database",
+        url: "/icon-512.png",
+        width: 512,
+        height: 512,
+        alt: "PanelMaker",
       },
     ],
   },
@@ -93,25 +78,7 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: React.PropsWithChildren) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", dmSans.variable, outfitHeading.variable)}>
-      <head>
-        <link rel="apple-touch-icon" sizes="57x57" href="/apple-icon-57x57.png" />
-        <link rel="apple-touch-icon" sizes="60x60" href="/apple-icon-60x60.png" />
-        <link rel="apple-touch-icon" sizes="72x72" href="/apple-icon-72x72.png" />
-        <link rel="apple-touch-icon" sizes="76x76" href="/apple-icon-76x76.png" />
-        <link rel="apple-touch-icon" sizes="114x114" href="/apple-icon-114x114.png" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/apple-icon-120x120.png" />
-        <link rel="apple-touch-icon" sizes="144x144" href="/apple-icon-144x144.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/apple-icon-152x152.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-icon-180x180.png" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/android-icon-192x192.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="msapplication-TileColor" content="#ffffff" />
-        <meta name="msapplication-TileImage" content="/ms-icon-144x144.png" />
-      </head>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable, outfitHeading.variable)}>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <Suspense fallback={null}>
@@ -143,7 +110,7 @@ async function SessionProvider({ children }: React.PropsWithChildren) {
   return (
     <Providers session={clientSession}>
       <SidebarProvider defaultOpen={sidebarOpen}>
-        <AppSidebar />
+        <AppSidebar instanceName={instanceConfig.name} institution={instanceConfig.institution} />
         <SidebarInset className="min-w-0">
           <SiteHeader>
             <UserButton />
@@ -152,7 +119,6 @@ async function SessionProvider({ children }: React.PropsWithChildren) {
         </SidebarInset>
         <PanelDrawer />
         <AIAssistantFloating />
-        <CookieNotice />
       </SidebarProvider>
     </Providers>
   )

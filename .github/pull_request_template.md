@@ -21,7 +21,6 @@
 - [ ] Antibodies/Markers/Cell types
 - [ ] Labs/Teams
 - [ ] Chat/AI Integration
-- [ ] Blog/Content Management
 - [ ] Browse/Search
 - [ ] Admin Dashboard
 - [ ] User Management

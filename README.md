@@ -34,7 +34,7 @@ If our work is useful to your research, please cite it as below.
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/panelmaker-ai/website.git
+git clone https://github.com/complextissue/panelmaker.git
 cd website
 nvm use
 npm install

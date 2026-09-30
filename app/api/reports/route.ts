@@ -1,4 +1,4 @@
-import { authErrorResponse, canSubmit, requireAuth } from "@/lib/auth"
+import { authErrorResponse, requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import {
@@ -29,16 +29,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth(request)
-
-    if (!(await canSubmit(user.id))) {
-      return NextResponse.json(
-        {
-          error: "Your account needs to be verified by an admin before you can submit.",
-          code: "SUBMISSION_NOT_VERIFIED",
-        },
-        { status: 403 },
-      )
-    }
 
     const body = await request.json()
     const validated = createReportSchema.parse(body)

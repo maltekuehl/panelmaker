@@ -8,7 +8,7 @@
 //   - stocks the union of all antibodies in the lab inventory,
 //   - adds the real Aarhus lab members so the roster matches the paper.
 //
-// Idempotent and non-destructive to the rest of the DB. Run AFTER `npx prisma db seed` (which
+// Idempotent and non-destructive to the rest of the DB. Run AFTER `npm run seed:demo` (which
 // creates the Puelles lab) and AFTER `npm run pathoplex:lookup`:  `npm run pathoplex:seed`.
 import "dotenv/config"
 import { readFileSync } from "node:fs"
@@ -349,7 +349,7 @@ function loadResolved(): ResolvedReagent[] {
 
 runScript(async (prisma) => {
   const lab = await prisma.lab.findUnique({ where: { id: LAB_ID }, select: { id: true, name: true, slug: true } })
-  if (!lab) throw new Error(`Lab ${LAB_ID} not found. Run \`npx prisma db seed\` first to create the Puelles lab.`)
+  if (!lab) throw new Error(`Lab ${LAB_ID} not found. Run \`npm run seed:demo\` first to create the Puelles lab.`)
 
   // Example data has to be good data: an antibody without an RRID cannot be resolved against the
   // Antibody Registry, so it would show up as unlinkable free text. Same rule as the IBEX import.

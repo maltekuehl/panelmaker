@@ -1,4 +1,4 @@
-export { getAllProteins, getProteinById, getProteinsForCellType, searchProteins } from "./queries"
+export { getAllProteins, getProteinById, searchProteins } from "./queries"
 export type { ProteinQueryParams, ProteinRow } from "./queries"
 export { searchParamsSchema } from "./schema"
 export type { SearchParams } from "./schema"

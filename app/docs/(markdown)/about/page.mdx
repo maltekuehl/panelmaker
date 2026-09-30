@@ -1,0 +1,72 @@
+export const metadata = {
+  title: "About | PanelMaker Documentation",
+  description:
+    "About the PanelMaker open-source project: what it is, how this deployment relates to the upstream project, the team, how to cite it, and how to contribute.",
+}
+
+# About PanelMaker
+
+## What is PanelMaker?
+
+PanelMaker is an open-source platform for designing, validating, and sharing antibody panels for spatial proteomics experiments. It helps researchers working with multiplexed imaging technologies (CODEX, IBEX, CyCIF, IMC, MIBI, and others) build optimal marker panels, backed by a marker and antibody database with experimental validation reports.
+
+The project is released under the Apache-2.0 license and developed in the open on [GitHub](https://github.com/complextissue/panelmaker).
+
+## This instance
+
+You are using a self-hosted instance of PanelMaker, deployed and operated by your institution. Each instance has its own users, labs, and data: reports, panels, and inventory submitted here are shared within this instance and are not sent to any other deployment or to a central PanelMaker service. The PanelMaker software itself is a shared, upstream open-source project that any research group can deploy for its own institution.
+
+## Project status
+
+PanelMaker is under active development. Already available:
+
+- **Marker and antibody database** with experimental validation reports
+- **Panel designer** with fluorophore overlap detection and host species cross-reactivity checks
+- **Labs**: shared panel libraries and antibody inventory for a research group
+- **Image uploads** attached to reports (PNG, JPEG, WebP, TIFF up to 80 MB)
+- **CSV and JSON export** of panels
+- **AI assistant** with direct, tool-based access to the instance database
+- **Public read-only API** for proteins, antibodies, cell types, reports, and public panels
+
+Development happens in the open. See the [issue tracker](https://github.com/complextissue/panelmaker/issues) on GitHub for planned work, and open an issue or discussion to suggest a feature.
+
+## Team
+
+PanelMaker is maintained by an interdisciplinary, multi-institute team:
+
+| Name                                                 | Role                   | Bio                                                                                                                                                                     |
+| ---------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Victor Puelles](https://github.com/vpuelles)        | Principal Investigator | Project lead and principal investigator. Head of the Complex Tissue Lab at the University of Aachen. Also on the web at [complextissue.com](https://complextissue.com). |
+| [Malte Kuehl](https://github.com/maltekuehl)         | Project Lead           | Platform development and project management.                                                                                                                            |
+| [Darius P. Schaub](https://github.com/dschaub95)     | Maintainer             | Data models and API development.                                                                                                                                        |
+| [Camila Fernández Zapata](https://github.com/camifz) | Maintainer             | Biological use case evaluation and community engagement.                                                                                                                |
+| [Nico Kaiser](https://github.com/nnnkaiser)          | Maintainer             | Platform maintenance and infrastructure.                                                                                                                                |
+
+## How to cite
+
+If PanelMaker is useful to your research, please cite our Nature Biotechnology correspondence:
+
+```bibtex
+@article{BioContext_AI_Kuehl_Schaub_2025,
+  title={BioContextAI is a community hub for agentic biomedical systems},
+  url={http://dx.doi.org/10.1038/s41587-025-02900-9},
+  urldate = {2025-11-06},
+  doi={10.1038/s41587-025-02900-9},
+  journal={Nature Biotechnology},
+  publisher={Springer Science and Business Media LLC},
+  author={Kuehl, Malte and Schaub, Darius P. and Carli, Francesco and Heumos, Lukas and Hellmig, Malte and Fernández-Zapata, Camila and Kaiser, Nico and Schaul, Jonathan and Kulaga, Anton and Usanov, Nikolay and Koutrouli, Mikaela and Ergen, Can and Palla, Giovanni and Krebs, Christian F. and Panzer, Ulf and Bonn, Stefan and Lobentanzer, Sebastian and Saez-Rodriguez, Julio and Puelles, Victor G.},
+  year={2025},
+  month=nov,
+  language={en},
+}
+```
+
+See the full citation metadata in [`CITATION.cff`](https://github.com/complextissue/panelmaker/blob/main/CITATION.cff) in the repository.
+
+## License
+
+PanelMaker is licensed under [Apache-2.0](https://github.com/complextissue/panelmaker/blob/main/LICENSE).
+
+## Contributing
+
+Contributions go to the upstream project on GitHub. See [`CONTRIBUTING.md`](https://github.com/complextissue/panelmaker/blob/main/CONTRIBUTING.md) in the repository for how to set up a development environment, coding conventions, and how to propose a change. Please also read the [Code of Conduct](/docs/community/conduct), which applies to all project spaces including this instance.

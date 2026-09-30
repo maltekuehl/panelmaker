@@ -2,8 +2,12 @@
 
 import ChatAbout from "@/components/chat/chat-about"
 import { ChatSidebarDesktop, ChatSidebarMobile } from "@/components/chat/chat-sidebar"
+import { ChatErrorNotice, MissingKeyNotice } from "@/components/chat/key-notice"
 import { MessageParts } from "@/components/chat/message-parts"
+import { ModelPicker, ReasoningPicker } from "@/components/chat/model-picker"
+import { useChatSetup } from "@/components/chat/use-chat-setup"
 import { useConversation } from "@/components/chat/use-conversation"
+import { useReasoningEffort } from "@/components/chat/use-reasoning-effort"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,8 +19,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { parseChatError } from "@/models/chat/errors"
+import type { ChatSetupData } from "@/models/chat/keys"
 import { extractMessageText, type ConversationSummary } from "@/models/chat/transforms"
 import type { UIMessage } from "ai"
 import clsx from "clsx"
@@ -186,34 +191,19 @@ const MessageCard = ({
   )
 }
 
-interface ModelChoice {
-  id: string
-  label: string
-}
-
 interface ChatProps {
   conversationId: string
   initialMessages: UIMessage[]
   conversations: ConversationSummary[]
   name?: string
-  availableModels: ModelChoice[]
-  currentModel: string
+  chatSetup: ChatSetupData
 }
 
-export default function Chat({
-  conversationId,
-  initialMessages,
-  conversations,
-  name,
-  availableModels,
-  currentModel,
-}: ChatProps) {
+export default function Chat({ conversationId, initialMessages, conversations, name, chatSetup }: ChatProps) {
   const router = useRouter()
-
-  const initialModel = availableModels.some((model) => model.id === currentModel)
-    ? currentModel
-    : (availableModels[0]?.id ?? currentModel)
-  const [selectedModel, setSelectedModel] = useState(initialModel)
+  const setup = useChatSetup(conversationId, chatSetup)
+  const [reasoning, setReasoning] = useReasoningEffort()
+  const sendOptions = { model: setup.selectedModel, labId: setup.labContextId, reasoning }
 
   const { messages, setMessages, error, status, isStreaming, stop, input, setInput, send, submit } = useConversation({
     conversationId,
@@ -222,18 +212,10 @@ export default function Chat({
     onFinish: () => router.refresh(),
   })
 
-  const handleModelChange = (model: string) => {
-    setSelectedModel(model)
-    fetch(`/api/chat/conversations/${conversationId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model }),
-    })
-  }
-
   const handleSubmitAction = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault()
-    submit(selectedModel)
+    if (!setup.source) return
+    submit(sendOptions)
   }
 
   // Delete a message and everything after it (server + local), keeping the linear thread consistent.
@@ -251,7 +233,7 @@ export default function Chat({
 
     await fetch(`/api/chat/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" })
     setMessages(messages.slice(0, messageIndex))
-    send(newContent, selectedModel)
+    send(newContent, sendOptions)
   }
 
   const [scrollbarWidth, setScrollbarWidth] = useState(0)
@@ -296,6 +278,14 @@ export default function Chat({
           <div className="mt-8 w-full px-4 lg:px-8">
             <div className="mx-auto flex max-w-5xl flex-col">
               {messages.length <= 0 && <ChatAbout />}
+              {messages.length <= 0 && !setup.source && (
+                <MissingKeyNotice
+                  provider={setup.provider}
+                  inventory={setup.inventory}
+                  labContextId={setup.labContextId}
+                  className="mt-6"
+                />
+              )}
 
               {messages.map((m) => {
                 const isUserMessage = m.role === "user"
@@ -319,9 +309,11 @@ export default function Chat({
                   role="assistant"
                   author="PanelMaker AI"
                   message={
-                    <div className="text-destructive duration-300 animate-in fade-in">
-                      <strong>Error:</strong> {error.message}
-                    </div>
+                    <ChatErrorNotice
+                      error={parseChatError(error.message)}
+                      inventory={setup.inventory}
+                      labContextId={setup.labContextId}
+                    />
                   }
                 />
               )}
@@ -348,6 +340,16 @@ export default function Chat({
         <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-40 w-full bg-linear-to-t from-background via-background to-transparent"></div>
         <div className="absolute right-0 bottom-0 left-0 w-full px-4 pb-4 lg:px-8">
           <div className="mx-auto max-w-5xl">
+            {messages.length > 0 && !setup.source && (
+              <div className="mb-2">
+                <MissingKeyNotice
+                  provider={setup.provider}
+                  inventory={setup.inventory}
+                  labContextId={setup.labContextId}
+                  compact
+                />
+              </div>
+            )}
             <div className="overflow-hidden rounded-2xl border bg-background/95 shadow-lg backdrop-blur-sm transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/40 supports-backdrop-filter:bg-background/60">
               <form className="flex flex-col" onSubmit={handleSubmitAction}>
                 <textarea
@@ -368,26 +370,9 @@ export default function Chat({
                   placeholder="E.g., which markers work for resident memory T cells in human kidney?"
                 />
                 <div className="flex items-center justify-between gap-2 px-4 pt-1 pb-2.5">
-                  {availableModels.length > 1 ? (
-                    <Select value={selectedModel} onValueChange={handleModelChange}>
-                      <SelectTrigger
-                        size="sm"
-                        aria-label="Model"
-                        className="-ml-2 h-7 w-auto gap-1 border-0 bg-transparent px-2 text-xs text-muted-foreground shadow-none hover:bg-muted hover:text-foreground focus-visible:ring-0"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableModels.map((model) => (
-                          <SelectItem key={model.id} value={model.id}>
-                            {model.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <span />
-                  )}
+                  <ModelPicker setup={setup} disabled={isStreaming}>
+                    <ReasoningPicker value={reasoning} onChange={setReasoning} disabled={isStreaming} />
+                  </ModelPicker>
                   {isStreaming ? (
                     <Button type="button" size="sm" onClick={() => stop()} className="size-8 shrink-0 rounded-full p-0">
                       <StopCircle className="size-4" />
@@ -397,7 +382,7 @@ export default function Chat({
                     <Button
                       type="submit"
                       size="sm"
-                      disabled={!input.trim()}
+                      disabled={!input.trim() || !setup.source}
                       className="size-8 shrink-0 rounded-full p-0"
                     >
                       <ArrowUp className="size-4" />

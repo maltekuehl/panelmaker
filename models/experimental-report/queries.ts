@@ -256,17 +256,20 @@ export function paginate<T>(rows: T[], page = 1, pageSize = 20): EntriesPage<T> 
   return { rows: rows.slice((current - 1) * pageSize, current * pageSize), total, page: current, pageSize, pageCount }
 }
 
-async function fetchBrowseReports(params: BrowseQueryParams): Promise<ReportRow[]> {
+async function fetchBrowseReports(
+  params: BrowseQueryParams,
+  scope: Prisma.ExperimentalReportWhereInput = BROWSE_REPORT_SCOPE,
+): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
     select: reportSelect,
-    where: buildReportWhere(params.q, browseFilters(params)),
+    where: buildReportWhere(params.q, browseFilters(params), scope),
     orderBy: { createdAt: "desc" },
     take: BROWSE_AGGREGATION_CAP,
   })
 }
 
 export async function getMarkerEntriesPage(params: BrowseQueryParams): Promise<EntriesPage<MarkerEntry>> {
-  const reports = await fetchBrowseReports(params)
+  const reports = await fetchBrowseReports(params, { AND: [BROWSE_REPORT_SCOPE, { cellTypes: { some: {} } }] })
   const sorted = sortMarkerEntries(aggregateMarkerEntries(reports), params.sort, params.order)
   return paginate(sorted, params.page, params.pageSize)
 }

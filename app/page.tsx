@@ -10,21 +10,7 @@ import { Suspense } from "react"
 export const metadata: Metadata = {
   title: "PanelMaker - Validated Spatial Proteomics Marker Database",
   description:
-    "A community-driven database of validated cell type markers for spatial proteomics, including PathoPlex, CODEX, MIBI-ToF, IMC, and CyCIF. Bridge the gap between single-cell transcriptomics and spatial biology.",
-  keywords: [
-    "PanelMaker",
-    "Spatial Proteomics",
-    "Immunofluorescence",
-    "PathoPlex",
-    "MIBI-Tof",
-    "CODEX",
-    "IMC",
-    "Multiplex Imaging",
-    "Antibody Validation",
-    "Spatial Biology",
-    "Panel Design",
-    "Cell Markers",
-  ],
+    "A database of validated cell type markers for spatial proteomics, including PathoPlex, CODEX, MIBI-ToF, IMC, and CyCIF. Bridge the gap between single-cell transcriptomics and spatial biology.",
 }
 
 function formatCount(count: number): string {
@@ -94,7 +80,7 @@ const destinations = [
     href: "/submit",
     icon: Plus,
     title: "Submit a Marker",
-    description: "Contribute your validated markers and staining protocols to the community atlas.",
+    description: "Contribute your validated markers and staining protocols to this instance's marker database.",
   },
   {
     href: "/docs",

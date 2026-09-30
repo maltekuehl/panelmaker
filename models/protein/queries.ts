@@ -55,15 +55,3 @@ export async function searchProteins(query: string): Promise<ProteinRow[]> {
     orderBy: { label: "asc" },
   })
 }
-
-export async function getProteinsForCellType(cellTypeId: string): Promise<ProteinRow[]> {
-  const markers = await prisma.cellTypeMarker.findMany({
-    where: { cellTypeId },
-    select: {
-      protein: { select: proteinSelect },
-    },
-    orderBy: { isCanonical: "desc" },
-  })
-
-  return markers.map((m) => m.protein)
-}

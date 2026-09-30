@@ -59,7 +59,6 @@ export const TEST_DATA = {
     { path: "/", name: "Home", heading: "antibody validation" },
     { path: "/browse", name: "Browse", heading: "Browse" },
     { path: "/panel", name: "Panel Designer", heading: "Panel Designer" },
-    { path: "/blog", name: "Blog", heading: "Blog" },
     { path: "/docs", name: "Documentation", heading: "PanelMaker Introduction" },
     { path: "/leaderboard", name: "Community", heading: "Community Leaderboard" },
   ],

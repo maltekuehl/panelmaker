@@ -7,7 +7,7 @@ test.describe("Navigation and Layout", () => {
     await page.goto("/")
 
     const sidebar = page.locator(SIDEBAR)
-    for (const item of ["Browse", "Panel Designer", "AI Assistant", "Labs", "Documentation", "Community", "Blog"]) {
+    for (const item of ["Browse", "Panel Designer", "AI Assistant", "Labs", "Documentation", "Community"]) {
       await expect(sidebar.getByRole("link", { name: item, exact: true })).toBeVisible()
     }
   })

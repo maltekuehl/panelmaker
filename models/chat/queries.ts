@@ -1,13 +1,23 @@
 import "server-only"
 
-import { decryptSecret, encryptSecret, maskSecret } from "@/lib/crypto"
-import { env } from "@/lib/env"
-import type { ApiCredentialScope } from "@/lib/generated/prisma/enums"
+import { getInstanceKey, getInstanceProviders } from "@/lib/ai/config"
+import { decryptSecret, encryptSecret, isEncryptionConfigured, maskSecret } from "@/lib/crypto"
+import type { Prisma } from "@/lib/generated/prisma/client"
+import type { ApiCredentialScope, ApiCredentialStatus } from "@/lib/generated/prisma/enums"
 import { logger } from "@/lib/monitoring"
 import { prisma } from "@/lib/prisma"
 import type { ViewerContext } from "@/models/lab/access"
 import type { LanguageModelUsage, UIMessage } from "ai"
-import { PROVIDER_IDS, type ProviderId } from "./schema"
+import {
+  canManageLabCredentials,
+  canUseLabCredential,
+  isProviderId,
+  rankKeySources,
+  type KeyInventory,
+  type KeySource,
+  type LabKeyInventory,
+} from "./keys"
+import type { ProviderId } from "./schema"
 import {
   deriveRole,
   parseStoredMessage,
@@ -20,13 +30,6 @@ import {
 interface UsageInfo {
   inputTokens?: number
   outputTokens?: number
-}
-
-export type KeySource = "user" | "lab" | "community"
-
-export interface ResolvedProviderKey {
-  key: string
-  source: KeySource
 }
 
 export async function getConversationsForUser(userId: string): Promise<ConversationSummary[]> {
@@ -57,6 +60,7 @@ export async function getConversation(
       title: true,
       model: true,
       pinned: true,
+      labId: true,
       messages: { orderBy: { createdAt: "asc" }, select: { content: true } },
     },
   })
@@ -81,6 +85,7 @@ export async function getConversation(
     title: conversation.title,
     model: conversation.model,
     pinned: conversation.pinned,
+    labId: conversation.labId,
     messages,
   }
 }
@@ -107,23 +112,19 @@ export async function conversationBelongsToUser(userId: string, conversationId: 
 export async function getOwnedConversation(
   userId: string,
   conversationId: string,
-): Promise<{ id: string; title: string | null; model: string | null } | null> {
+): Promise<{ id: string; title: string | null; model: string | null; labId: string | null } | null> {
   return prisma.chatConversation.findFirst({
     where: { id: conversationId, userId, deleted: false },
-    select: { id: true, title: true, model: true },
+    select: { id: true, title: true, model: true, labId: true },
   })
 }
 
 export async function createConversation(userId: string, opts?: { title?: string; model?: string }) {
   const conversation = await prisma.chatConversation.create({
     data: { userId, title: opts?.title ?? null, model: opts?.model ?? null },
-    select: { id: true, title: true, model: true, pinned: true, createdAt: true, updatedAt: true },
+    select: { id: true, title: true, model: true, pinned: true, labId: true, createdAt: true, updatedAt: true },
   })
-  return toConversationSummary(conversation, 0)
-}
-
-export async function countMessages(conversationId: string): Promise<number> {
-  return prisma.chatConversationMessage.count({ where: { conversationId } })
+  return { ...toConversationSummary(conversation, 0), labId: conversation.labId }
 }
 
 // The single append path: every stored message goes through here so a new per-message column only
@@ -190,7 +191,7 @@ export async function setConversationTitle(conversationId: string, title: string
 export async function updateConversation(
   userId: string,
   conversationId: string,
-  data: { title?: string; model?: string; pinned?: boolean },
+  data: { title?: string; model?: string; pinned?: boolean; labId?: string | null },
 ): Promise<void> {
   await prisma.chatConversation.updateMany({ where: { id: conversationId, userId, deleted: false }, data })
 }
@@ -225,12 +226,16 @@ export interface CredentialView {
   label: string | null
   last4: string | null
   labId: string | null
+  status: ApiCredentialStatus
+  checkedAt: Date | null
+  updatedAt: Date
 }
 
 interface UpsertCredentialInput {
-  provider: string
+  provider: ProviderId
   apiKey: string
   label?: string
+  status: ApiCredentialStatus
 }
 
 const credentialSelect = {
@@ -240,6 +245,9 @@ const credentialSelect = {
   label: true,
   last4: true,
   labId: true,
+  status: true,
+  checkedAt: true,
+  updatedAt: true,
 } as const
 
 export async function getUserApiCredentials(userId: string): Promise<CredentialView[]> {
@@ -258,13 +266,22 @@ export async function getLabApiCredentials(labId: string): Promise<CredentialVie
   })
 }
 
+function credentialData(input: UpsertCredentialInput) {
+  return {
+    ciphertext: encryptSecret(input.apiKey),
+    last4: maskSecret(input.apiKey),
+    label: input.label ?? null,
+    status: input.status,
+    checkedAt: input.status === "UNVERIFIED" ? null : new Date(),
+  }
+}
+
 export async function upsertUserApiCredential(userId: string, input: UpsertCredentialInput): Promise<void> {
-  const ciphertext = encryptSecret(input.apiKey)
-  const last4 = maskSecret(input.apiKey)
+  const data = credentialData(input)
   await prisma.apiCredential.upsert({
     where: { userId_provider: { userId, provider: input.provider } },
-    create: { scope: "USER", userId, provider: input.provider, label: input.label ?? null, ciphertext, last4 },
-    update: { ciphertext, last4, label: input.label ?? null },
+    create: { scope: "USER", userId, createdById: userId, provider: input.provider, ...data },
+    update: data,
   })
 }
 
@@ -273,29 +290,45 @@ export async function upsertLabApiCredential(
   createdById: string,
   input: UpsertCredentialInput,
 ): Promise<void> {
-  const ciphertext = encryptSecret(input.apiKey)
-  const last4 = maskSecret(input.apiKey)
+  const data = credentialData(input)
   await prisma.apiCredential.upsert({
     where: { labId_provider: { labId, provider: input.provider } },
-    create: {
-      scope: "LAB",
-      labId,
-      createdById,
-      provider: input.provider,
-      label: input.label ?? null,
-      ciphertext,
-      last4,
-    },
-    update: { ciphertext, last4, label: input.label ?? null },
+    create: { scope: "LAB", labId, createdById, provider: input.provider, ...data },
+    update: { ...data, createdById },
   })
 }
 
-export async function deleteUserApiCredential(userId: string, credentialId: string): Promise<void> {
-  await prisma.apiCredential.deleteMany({ where: { id: credentialId, userId, scope: "USER" } })
+export async function deleteUserApiCredential(userId: string, credentialId: string): Promise<boolean> {
+  const result = await prisma.apiCredential.deleteMany({ where: { id: credentialId, userId, scope: "USER" } })
+  return result.count > 0
 }
 
-export async function deleteLabApiCredential(labId: string, credentialId: string): Promise<void> {
-  await prisma.apiCredential.deleteMany({ where: { id: credentialId, labId, scope: "LAB" } })
+export async function deleteLabApiCredential(labId: string, credentialId: string): Promise<boolean> {
+  const result = await prisma.apiCredential.deleteMany({ where: { id: credentialId, labId, scope: "LAB" } })
+  return result.count > 0
+}
+
+export type StoredSecret = { provider: ProviderId; key: string } | { provider: ProviderId; key: null }
+
+async function readStoredSecret(where: Prisma.ApiCredentialWhereInput): Promise<StoredSecret | null> {
+  const row = await prisma.apiCredential.findFirst({ where, select: { provider: true, ciphertext: true } })
+  if (!row || !isProviderId(row.provider)) return null
+  return { provider: row.provider, key: safeDecrypt(row.ciphertext) ?? null }
+}
+
+export async function getUserCredentialSecret(userId: string, credentialId: string): Promise<StoredSecret | null> {
+  return readStoredSecret({ id: credentialId, userId, scope: "USER" })
+}
+
+export async function getLabCredentialSecret(labId: string, credentialId: string): Promise<StoredSecret | null> {
+  return readStoredSecret({ id: credentialId, labId, scope: "LAB" })
+}
+
+export async function setCredentialStatus(credentialId: string, status: ApiCredentialStatus): Promise<void> {
+  await prisma.apiCredential.updateMany({
+    where: { id: credentialId },
+    data: { status, checkedAt: new Date() },
+  })
 }
 
 function safeDecrypt(blob: string): string | undefined {
@@ -306,58 +339,104 @@ function safeDecrypt(blob: string): string | undefined {
   }
 }
 
-// Resolve a decrypted provider key. Precedence: the viewer's own credential, then their labs' shared
-// credentials (oldest first, so the choice is stable for multi-lab members), then the community env
-// key (Google only). The source lets the caller charge the free-tier quota to community use only.
-export async function resolveProviderKey(
-  provider: string,
-  viewer: ViewerContext | null,
-): Promise<ResolvedProviderKey | undefined> {
-  if (viewer?.userId) {
-    const userCredential = await prisma.apiCredential.findFirst({
-      where: { scope: "USER", userId: viewer.userId, provider },
-      select: { ciphertext: true },
-    })
-    if (userCredential) {
-      const key = safeDecrypt(userCredential.ciphertext)
-      if (key) return { key, source: "user" }
-    }
-    if (viewer.labIds.length > 0) {
-      const labCredential = await prisma.apiCredential.findFirst({
-        where: { scope: "LAB", labId: { in: viewer.labIds }, provider },
-        orderBy: { createdAt: "asc" },
-        select: { ciphertext: true },
-      })
-      if (labCredential) {
-        const key = safeDecrypt(labCredential.ciphertext)
-        if (key) return { key, source: "lab" }
-      }
+// Which providers the viewer can reach at each level, in two queries. Stored keys only count when the
+// server can decrypt them at all (ENCRYPTION_KEY set); lab entries are limited to the viewer's labs.
+export async function getKeyInventory(viewer: ViewerContext | null): Promise<KeyInventory> {
+  const instance = getInstanceProviders()
+  if (!viewer) return { user: [], labs: [], instance }
+
+  const canDecrypt = isEncryptionConfigured()
+  const [credentials, labs] = await Promise.all([
+    canDecrypt
+      ? prisma.apiCredential.findMany({
+          where: {
+            OR: [
+              { scope: "USER", userId: viewer.userId },
+              { scope: "LAB", labId: { in: viewer.labIds } },
+            ],
+          },
+          select: { scope: true, labId: true, provider: true },
+        })
+      : Promise.resolve([]),
+    viewer.labIds.length > 0
+      ? prisma.lab.findMany({ where: { id: { in: viewer.labIds } }, select: { id: true, name: true, slug: true } })
+      : Promise.resolve([]),
+  ])
+
+  const user: ProviderId[] = []
+  const labProviders = new Map<string, ProviderId[]>()
+  for (const credential of credentials) {
+    if (!isProviderId(credential.provider)) continue
+    if (credential.scope === "USER") user.push(credential.provider)
+    else if (credential.labId && canUseLabCredential(viewer, credential.labId)) {
+      labProviders.set(credential.labId, [...(labProviders.get(credential.labId) ?? []), credential.provider])
     }
   }
-  if (provider === "google" && env.GEMINI_API_KEY) return { key: env.GEMINI_API_KEY, source: "community" }
-  return undefined
+
+  const labById = new Map(labs.map((lab) => [lab.id, lab]))
+  const labEntries: LabKeyInventory[] = viewer.labIds.flatMap((labId) => {
+    const lab = labById.get(labId)
+    if (!lab) return []
+    return [
+      {
+        id: lab.id,
+        name: lab.name,
+        slug: lab.slug,
+        canManage: canManageLabCredentials(viewer, lab.id),
+        providers: labProviders.get(lab.id) ?? [],
+      },
+    ]
+  })
+
+  return { user, labs: labEntries, instance }
 }
 
-// Which providers the viewer could run, in one query instead of a credential lookup per provider.
-// An existence check only: a stored key that no longer decrypts is reported as available and the
-// stream route surfaces the clear "No API key available" error when it is actually used.
-export async function listAvailableProviders(viewer: ViewerContext | null): Promise<Set<ProviderId>> {
-  const available = new Set<ProviderId>()
-  if (env.GEMINI_API_KEY) available.add("google")
-  if (!viewer?.userId) return available
-  const rows = await prisma.apiCredential.findMany({
-    where: {
-      OR: [
-        { scope: "USER", userId: viewer.userId },
-        { scope: "LAB", labId: { in: viewer.labIds } },
-      ],
-    },
-    select: { provider: true },
-    distinct: ["provider"],
-  })
-  for (const row of rows) {
-    const provider = PROVIDER_IDS.find((id) => id === row.provider)
-    if (provider) available.add(provider)
+export interface ResolvedProviderKey {
+  key: string
+  source: KeySource
+  credentialId: string | null
+}
+
+export type ProviderKeyResult =
+  | { ok: true; resolved: ResolvedProviderKey }
+  | { ok: false; code: "NO_KEY_CONFIGURED" | "KEY_UNREADABLE" }
+
+// Walk the ranked sources (user, then the chat's lab, then instance) and return the first key that
+// decrypts. A stored key that no longer decrypts is skipped, and reported only when nothing else works.
+export async function resolveProviderKey(
+  provider: ProviderId,
+  viewer: ViewerContext | null,
+  labContextId: string | null,
+): Promise<ProviderKeyResult> {
+  const inventory = await getKeyInventory(viewer)
+  let unreadable = false
+  for (const source of rankKeySources(provider, inventory, labContextId)) {
+    if (source.kind === "instance") {
+      const key = getInstanceKey(provider)
+      if (key) return { ok: true, resolved: { key, source, credentialId: null } }
+      continue
+    }
+    const where: Prisma.ApiCredentialWhereInput =
+      source.kind === "user"
+        ? { scope: "USER", userId: viewer?.userId, provider }
+        : { scope: "LAB", labId: source.labId, provider }
+    const row = await prisma.apiCredential.findFirst({ where, select: { id: true, ciphertext: true } })
+    if (!row) continue
+    const key = safeDecrypt(row.ciphertext)
+    if (key) return { ok: true, resolved: { key, source, credentialId: row.id } }
+    unreadable = true
+    logger.warn("Stored API credential could not be decrypted", { credentialId: row.id, provider })
   }
-  return available
+  return { ok: false, code: unreadable ? "KEY_UNREADABLE" : "NO_KEY_CONFIGURED" }
+}
+
+// The model and lab context the viewer used most recently, so a new conversation starts where they
+// left off on any device.
+export async function getLastChatSettings(userId: string): Promise<{ model: string | null; labId: string | null }> {
+  const conversation = await prisma.chatConversation.findFirst({
+    where: { userId, deleted: false, model: { not: null } },
+    orderBy: { updatedAt: "desc" },
+    select: { model: true, labId: true },
+  })
+  return { model: conversation?.model ?? null, labId: conversation?.labId ?? null }
 }

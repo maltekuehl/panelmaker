@@ -34,7 +34,6 @@ export function LabForm({ mode, initial }: LabFormProps) {
     initial?.institution && initial?.institutionId ? { id: initial.institutionId, label: initial.institution } : null,
   )
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [verificationError, setVerificationError] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
 
   // On create, omit empty fields (the schema treats them as optional). On edit, send null to clear.
@@ -47,7 +46,6 @@ export function LabForm({ mode, initial }: LabFormProps) {
     }
     setNameError(null)
     setIsSubmitting(true)
-    setVerificationError(false)
     try {
       const payload = {
         name: name.trim(),
@@ -68,10 +66,6 @@ export function LabForm({ mode, initial }: LabFormProps) {
       const data = await res.json()
 
       if (!res.ok) {
-        if (res.status === 403 && data.code === "NOT_VERIFIED") {
-          setVerificationError(true)
-          return
-        }
         throw new Error(data.error ?? `Failed to ${mode === "edit" ? "update" : "create"} lab`)
       }
 
@@ -97,12 +91,6 @@ export function LabForm({ mode, initial }: LabFormProps) {
         handleSave()
       }}
     >
-      {verificationError && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Your account must be verified by an admin before you can create a lab. Contact an administrator to get access.
-        </div>
-      )}
-
       <div>
         <Label htmlFor="lab-name" className="text-sm font-medium">
           Name

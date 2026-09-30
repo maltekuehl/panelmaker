@@ -1,2 +1,2 @@
-export { getAllTissues, getTissueById, searchTissues, tissueExists } from "./queries"
+export { searchTissues } from "./queries"
 export type { TissueRow } from "./queries"

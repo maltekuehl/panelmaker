@@ -1,7 +1,6 @@
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
-import { RequestSubmissionAccess } from "@/components/submit/request-submission-access"
 import { SubmissionForm } from "@/components/submit/submission-form"
-import { getAccessState, getSessionUser } from "@/lib/auth"
+import { getSessionUser } from "@/lib/auth"
 import { signInUrl } from "@/lib/routes"
 import { getLabsForUser } from "@/models/lab"
 import { Metadata } from "next"
@@ -19,7 +18,7 @@ export default async function SubmitPage() {
     redirect(signInUrl("/submit"))
   }
 
-  const [{ verified, status }, labsWithRole] = await Promise.all([getAccessState(user.id), getLabsForUser(user.id)])
+  const labsWithRole = await getLabsForUser(user.id)
 
   const labs = labsWithRole.map(({ lab }) => ({ id: lab.id, name: lab.name }))
 
@@ -35,7 +34,7 @@ export default async function SubmitPage() {
         </p>
       </div>
 
-      {verified ? <SubmissionForm labs={labs} /> : <RequestSubmissionAccess initialAccess={status} />}
+      <SubmissionForm labs={labs} />
     </div>
   )
 }

@@ -14,17 +14,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import {
-  BookOpen,
-  Boxes,
-  FlaskConical,
-  Layers,
-  MessageSquare,
-  Microscope,
-  Newspaper,
-  Search,
-  Users,
-} from "lucide-react"
+import { BookOpen, Boxes, FlaskConical, Layers, MessageSquare, Microscope, Search, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as React from "react"
@@ -36,11 +26,10 @@ const navItems = [
   { href: "/labs", title: "Labs", icon: FlaskConical },
   { href: "/docs", title: "Documentation", icon: BookOpen },
   { href: "/leaderboard", title: "Community", icon: Users },
-  { href: "/blog", title: "Blog", icon: Newspaper },
 ]
 
 const resourceItems = [
-  { href: "/docs/community/team", title: "Team", icon: Users, external: false },
+  { href: "/docs/about", title: "About", icon: Users, external: false },
   { href: "https://scverse.org", title: "scverse", icon: Boxes, external: true },
   { href: "https://github.com/complextissue/panelmaker", title: "GitHub", icon: GitHub, external: true },
 ]
@@ -55,7 +44,12 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  instanceName?: string
+  institution?: string | null
+}
+
+export function AppSidebar({ instanceName = "PanelMaker", institution, ...props }: AppSidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -132,7 +126,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </Link>
             ))}
           </div>
-          <span>© 2025 to now, PanelMaker</span>
+          <div className="flex flex-col">
+            <span>
+              © 2025 to now, {instanceName}
+              {institution ? <span> ({institution})</span> : null}
+            </span>
+            <a
+              href="https://github.com/complextissue/panelmaker"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-foreground"
+            >
+              Powered by PanelMaker
+            </a>
+          </div>
         </div>
       </SidebarFooter>
       <SidebarRail />

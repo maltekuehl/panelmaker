@@ -19,12 +19,6 @@ enum UserStatus {
   BLOCKED
 }
 
-enum AccessStatus {
-  NONE
-  REQUESTED
-  VERIFIED
-}
-
 enum Clonality {
   MONOCLONAL
   POLYCLONAL
@@ -140,28 +134,30 @@ enum ApiCredentialScope {
   LAB
 }
 
+enum ApiCredentialStatus {
+  UNVERIFIED
+  VALID
+  INVALID
+}
+
 // ─── Auth & User Models ───────────────────────────────────────────────
 
 model User {
-  id                String          @id @default(cuid())
-  name              String?
-  email             String          @unique
-  emailVerified     DateTime?
-  image             String?
-  password          String?
-  role              UserRole        @default(USER)
-  status            UserStatus      @default(ACTIVE)
-  accessStatus      AccessStatus    @default(NONE)
-  accessRequestedAt DateTime?
-  orcid             String?         @unique
-  institution       String?
-  institutionId     String?
-  accounts          Account[]
-  sessions          Session[]
-  Authenticator     Authenticator[]
-  blogPosts         BlogPost[]
-  experiments       Experiment[]
-  panels            Panel[]
+  id            String       @id @default(cuid())
+  name          String?
+  email         String       @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole     @default(USER)
+  status        UserStatus   @default(ACTIVE)
+  orcid         String?      @unique
+  institution   String?
+  institutionId String?
+  accounts      Account[]
+  sessions      Session[]
+  experiments   Experiment[]
+  panels        Panel[]
 
   labsCreated        Lab[]           @relation("LabCreatedBy")
   labMemberships     LabMembership[] @relation("LabMember")
@@ -216,21 +212,6 @@ model VerificationToken {
   @@id([identifier, token])
 }
 
-model Authenticator {
-  credentialID         String  @unique
-  userId               String
-  providerAccountId    String
-  credentialPublicKey  String
-  counter              Int
-  credentialDeviceType String
-  credentialBackedUp   Boolean
-  transports           String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@id([userId, credentialID])
-}
-
 // ─── Rate Limiting ────────────────────────────────────────────────────
 
 model RateLimit {
@@ -274,14 +255,17 @@ model ChatConversation {
   model   String?
   pinned  Boolean @default(false)
   deleted Boolean @default(false)
+  labId   String?
 
   user     User                      @relation("UserChatConversations", fields: [userId], references: [id], onDelete: Cascade)
+  lab      Lab?                      @relation("LabChatConversations", fields: [labId], references: [id], onDelete: SetNull)
   messages ChatConversationMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId, deleted, updatedAt])
+  @@index([labId])
 }
 
 model ChatConversationMessage {
@@ -301,7 +285,7 @@ model ChatConversationMessage {
 }
 
 model ApiCredential {
-  id          String             @id @default(cuid())
+  id          String              @id @default(cuid())
   scope       ApiCredentialScope
   userId      String?
   labId       String?
@@ -310,6 +294,8 @@ model ApiCredential {
   ciphertext  String
   last4       String?
   createdById String?
+  status      ApiCredentialStatus @default(UNVERIFIED)
+  checkedAt   DateTime?
 
   user User? @relation("UserApiCredentials", fields: [userId], references: [id], onDelete: Cascade)
   lab  Lab?  @relation("LabApiCredentials", fields: [labId], references: [id], onDelete: Cascade)
@@ -319,33 +305,6 @@ model ApiCredential {
 
   @@unique([userId, provider])
   @@unique([labId, provider])
-}
-
-// ─── Blog ─────────────────────────────────────────────────────────────
-
-model BlogPost {
-  id          String    @id @default(cuid())
-  title       String
-  slug        String    @unique
-  excerpt     String?
-  content     String
-  published   Boolean   @default(false)
-  publishedAt DateTime?
-
-  metaTitle       String?
-  metaDescription String?
-  keywords        String[]
-
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([published])
-  @@index([publishedAt])
-  @@index([authorId])
-  @@index([createdAt])
 }
 
 // ─── Spatial Proteomics: Ontology Models ──────────────────────────────
@@ -736,7 +695,6 @@ model Lab {
   description     String?
   institution     String?
   institutionId   String?
-  avatarUrl       String?
   website         String?
   isPublicProfile Boolean @default(false)
   createdById     String?
@@ -750,6 +708,7 @@ model Lab {
   owningExperiments Experiment[]         @relation("ExperimentOwningLab")
   owningPanels      Panel[]              @relation("PanelOwningLab")
   apiCredentials    ApiCredential[]      @relation("LabApiCredentials")
+  chatConversations ChatConversation[]   @relation("LabChatConversations")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -815,7 +774,6 @@ model LabAntibody {
   status            LabAntibodyStatus @default(IN_STOCK)
   notes             String?
   addedById         String?
-  lastValidatedAt   DateTime?
 
   lab      Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
   antibody Antibody @relation(fields: [antibodyId], references: [id], onDelete: Cascade)

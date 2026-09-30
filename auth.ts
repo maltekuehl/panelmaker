@@ -10,7 +10,6 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import type { Provider } from "next-auth/providers"
 import Credentials from "next-auth/providers/credentials"
 import GitHub from "next-auth/providers/github"
-import LinkedIn from "next-auth/providers/linkedin"
 
 // Compared against when no account matches, so an unknown email costs the same time as a wrong password.
 const UNKNOWN_USER_HASH = "$2b$12$rborUbjV7ArM121xOcMsH.yZTnDQAbfa2NOZzl/rCQyp435R1LSim"
@@ -19,10 +18,6 @@ const providers: Provider[] = []
 
 if (process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET) {
   providers.push(GitHub)
-}
-
-if (process.env.AUTH_LINKEDIN_ID && process.env.AUTH_LINKEDIN_SECRET) {
-  providers.push(LinkedIn)
 }
 
 providers.push(

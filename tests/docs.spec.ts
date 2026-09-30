@@ -27,9 +27,9 @@ test.describe("Documentation", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Public API" })).toBeVisible()
   })
 
-  test("renders the community team page", async ({ page }) => {
-    await page.goto("/docs/community/team")
+  test("renders the about page", async ({ page }) => {
+    await page.goto("/docs/about")
 
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect(page.getByRole("heading", { level: 1, name: "About PanelMaker" })).toBeVisible()
   })
 })

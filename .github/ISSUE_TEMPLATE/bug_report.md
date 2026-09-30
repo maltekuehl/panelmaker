@@ -42,7 +42,6 @@ Steps to reproduce the behavior:
 - [ ] Labs/Teams
 - [ ] Browse/Search
 - [ ] Chat/AI Integration
-- [ ] Blog/Content Management
 - [ ] Admin Dashboard
 - [ ] User Management
 - [ ] API Routes

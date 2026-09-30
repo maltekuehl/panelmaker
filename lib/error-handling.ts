@@ -26,13 +26,6 @@ export class BadRequestError extends ApiException {
   }
 }
 
-export class UnauthorizedError extends ApiException {
-  constructor(message = "Authentication required", code?: string) {
-    super(401, { message, code })
-    this.name = "UnauthorizedError"
-  }
-}
-
 export class ForbiddenError extends ApiException {
   constructor(message: string, code?: string) {
     super(403, { message, code })
@@ -232,23 +225,4 @@ export function createErrorResponse(error: unknown, defaultMessage = "Internal s
 
 export function createSuccessResponse(data: any, status = 200): NextResponse {
   return NextResponse.json(data, { status })
-}
-
-/**
- * Wraps a route handler so anything it throws becomes a standard error response.
- * Replaces the hand-rolled try/catch plus `error.message === "..."` checks in route files:
- * throw ApiException (or NotFoundError/ForbiddenError/ConflictError/UnprocessableError) from the
- * model layer and the status, code and user-facing message come through untouched.
- */
-export function withApiErrors<TArgs extends unknown[]>(
-  handler: (...args: TArgs) => Promise<NextResponse>,
-  defaultMessage = "Internal server error",
-): (...args: TArgs) => Promise<NextResponse> {
-  return async (...args: TArgs) => {
-    try {
-      return await handler(...args)
-    } catch (error) {
-      return createErrorResponse(error, defaultMessage)
-    }
-  }
 }

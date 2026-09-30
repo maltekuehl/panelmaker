@@ -48,9 +48,9 @@ export default function DataExportSection() {
         <p className="text-sm text-muted-foreground">Download a copy of all your personal data in JSON format</p>
       </div>
       <p className="text-sm text-muted-foreground">
-        The export contains your profile, linked accounts, blog posts, experiments and their reports, panels with cycles
-        and markers, lab memberships and invitations, chat conversations, and the labels of any saved API keys. Key
-        secrets are never included.
+        The export contains your profile, linked accounts, experiments and their reports, panels with cycles and
+        markers, lab memberships and invitations, chat conversations, and the labels of any saved API keys. Key secrets
+        are never included.
       </p>
       <Button onClick={handleExport} disabled={isExporting} className="w-full sm:w-auto">
         <Download className="h-4 w-4" />

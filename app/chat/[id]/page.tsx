@@ -1,7 +1,7 @@
 import Chat from "@/components/chat/chat"
-import { DEFAULT_MODEL, listAvailableModels } from "@/lib/ai/models"
+import { getChatSetup } from "@/lib/ai/models"
 import { getSessionUser, resolveViewerContext } from "@/lib/auth"
-import { getConversation, getConversationsForUser } from "@/models/chat"
+import { getConversation, getConversationsForUser, getLastChatSettings, resolveLabContext } from "@/models/chat"
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
@@ -22,15 +22,22 @@ export default async function ChatConversationPage({ params }: Props) {
     redirect("/chat")
   }
 
-  const [conversation, conversations, availableModels] = await Promise.all([
+  const [conversation, conversations, viewer, last] = await Promise.all([
     getConversation(user.id, id),
     getConversationsForUser(user.id),
-    resolveViewerContext(user.id).then(listAvailableModels),
+    resolveViewerContext(user.id),
+    getLastChatSettings(user.id),
   ])
 
   if (!conversation) {
     notFound()
   }
+
+  const labContext = resolveLabContext(viewer, null, conversation.labId ?? last.labId)
+  const chatSetup = await getChatSetup(viewer, {
+    labContextId: labContext.ok ? labContext.labId : null,
+    preferredModels: [conversation.model, last.model],
+  })
 
   return (
     <Chat
@@ -39,8 +46,7 @@ export default async function ChatConversationPage({ params }: Props) {
       initialMessages={conversation.messages}
       conversations={conversations}
       name={user.name ?? undefined}
-      availableModels={availableModels.map((model) => ({ id: model.id, label: model.label }))}
-      currentModel={conversation.model ?? DEFAULT_MODEL}
+      chatSetup={chatSetup}
     />
   )
 }

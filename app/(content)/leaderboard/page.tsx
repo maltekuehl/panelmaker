@@ -20,9 +20,8 @@ import { createLoader, type SearchParams } from "nuqs/server"
 import { cache, Suspense } from "react"
 
 export const metadata: Metadata = {
-  title: "Community Leaderboard | PanelMaker",
-  description:
-    "Top contributors to the PanelMaker spatial proteomics community. See who is driving knowledge in multiplex imaging.",
+  title: "Leaderboard | PanelMaker",
+  description: "Top contributors on this instance. See who is driving spatial proteomics knowledge here.",
 }
 
 const LEADERBOARD_LIMIT = 50
@@ -232,9 +231,9 @@ export default function LeaderboardPage({ searchParams }: LeaderboardPageProps) 
     <div className="container mx-auto space-y-6 px-4 py-6">
       <CustomBreadcrumbs items={[{ label: "Community" }]} />
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Community Leaderboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Leaderboard</h1>
         <p className="mt-1 text-muted-foreground">
-          Recognising the contributors building open spatial proteomics knowledge.
+          Recognising the contributors building spatial proteomics knowledge on this instance.
         </p>
       </div>
       <Suspense fallback={<FilterSkeleton />}>

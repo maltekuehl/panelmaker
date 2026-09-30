@@ -21,18 +21,6 @@ export async function getAllImagingMethods(): Promise<ImagingMethodRow[]> {
   return prisma.imagingMethod.findMany({ select: imagingMethodSelect, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] })
 }
 
-export async function getFluorescenceImagingMethods(): Promise<ImagingMethodRow[]> {
-  return prisma.imagingMethod.findMany({
-    select: imagingMethodSelect,
-    where: { detection: "FLUORESCENCE" },
-    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-  })
-}
-
-export async function getImagingMethodById(id: string): Promise<ImagingMethodRow | null> {
-  return prisma.imagingMethod.findUnique({ where: { id }, select: imagingMethodSelect })
-}
-
 export async function imagingMethodExists(id: string): Promise<boolean> {
   const found = await prisma.imagingMethod.findUnique({ where: { id }, select: { id: true } })
   return found !== null

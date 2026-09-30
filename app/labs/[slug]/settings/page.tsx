@@ -48,8 +48,9 @@ export default async function LabSettingsPage({ params }: LabSettingsPageProps) 
 
         <ApiKeysSection
           endpoint={`/api/labs/${lab.id}/api-keys`}
-          title="Shared model API keys"
-          description="Provider keys shared with every member of this lab. Members can use these models in the assistant without adding their own keys. Keys are encrypted at rest and never shown again."
+          scope="lab"
+          title="Lab AI provider keys"
+          description={`Shared with every member of ${lab.name} when the assistant acts in this lab. A member's own key takes precedence. Keys are encrypted at rest, and only the last 4 characters are shown.`}
         />
 
         {role === "OWNER" && (

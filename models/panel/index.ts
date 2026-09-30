@@ -7,7 +7,6 @@ export {
   exportPanelCsv,
   exportPanelJson,
   exportPanelOrderCsv,
-  generatePanelReport,
   validatePanel,
 } from "./intelligence"
 export type {
@@ -15,7 +14,6 @@ export type {
   CrossReactivityIssue,
   FluorophoreOverlapIssue,
   PairOverlap,
-  PanelReport,
   PanelValidationResult,
   PanelWarning,
   TaggingIssue,

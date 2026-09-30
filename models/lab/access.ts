@@ -36,6 +36,7 @@ export type LabAction =
   | "manage_inventory"
   | "create_resource"
   | "manage_shares"
+  | "manage_api_keys"
 
 export function canDoLabAction(role: LabRole | undefined, action: LabAction): boolean {
   if (!role) return false
@@ -47,6 +48,7 @@ export function canDoLabAction(role: LabRole | undefined, action: LabAction): bo
     case "change_role":
     case "remove_member":
     case "manage_shares":
+    case "manage_api_keys":
       return ROLE_RANK[role] >= ROLE_RANK.ADMIN
     case "manage_inventory":
     case "create_resource":

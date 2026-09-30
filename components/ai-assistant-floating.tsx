@@ -1,11 +1,15 @@
 "use client"
 
+import { ChatErrorNotice, MissingKeyNotice } from "@/components/chat/key-notice"
 import { MessageParts } from "@/components/chat/message-parts"
 import { useConversation } from "@/components/chat/use-conversation"
+import { useReasoningEffort } from "@/components/chat/use-reasoning-effort"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { parseChatError } from "@/models/chat/errors"
+import { describeKeySource, parseModelId, type ChatSetupData } from "@/models/chat/keys"
 import { extractMessageText } from "@/models/chat/transforms"
 import type { UIMessage } from "ai"
 import {
@@ -68,6 +72,21 @@ function FloatingConversation({
     conversationId,
     initialMessages,
   })
+  const [chatSetup, setChatSetup] = useState<ChatSetupData | null>(null)
+  const [reasoning] = useReasoningEffort()
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/chat/setup?conversationId=${encodeURIComponent(conversationId)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((json: ChatSetupData | null) => {
+        if (!cancelled && json) setChatSetup(json)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [conversationId])
 
   // Auto-scroll only while the user is already at the bottom, so reading an earlier tool card is not
   // undone by the next streamed chunk.
@@ -85,8 +104,11 @@ function FloatingConversation({
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     stickToBottom.current = true
-    submit()
+    submit(chatSetup ? { model: chatSetup.selectedModel, labId: chatSetup.labContextId, reasoning } : { reasoning })
   }
+
+  const selected = chatSetup?.models.find((model) => model.id === chatSetup.selectedModel) ?? null
+  const blocked = Boolean(chatSetup && !selected?.source)
 
   return (
     <>
@@ -142,10 +164,21 @@ function FloatingConversation({
           </div>
         )}
 
+        {chatSetup && blocked && (
+          <MissingKeyNotice
+            provider={parseModelId(chatSetup.selectedModel)?.provider ?? null}
+            inventory={chatSetup.inventory}
+            labContextId={chatSetup.labContextId}
+            compact
+          />
+        )}
+
         {error && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-            {error.message}
-          </div>
+          <ChatErrorNotice
+            error={parseChatError(error.message)}
+            inventory={chatSetup?.inventory ?? { user: [], labs: [], instance: [] }}
+            labContextId={chatSetup?.labContextId ?? null}
+          />
         )}
 
         <div ref={messagesEndRef} />
@@ -165,11 +198,23 @@ function FloatingConversation({
               <StopCircle className="size-4" />
             </Button>
           ) : (
-            <Button type="submit" size="icon" className="size-9" disabled={!input.trim()} aria-label="Send message">
+            <Button
+              type="submit"
+              size="icon"
+              className="size-9"
+              disabled={!input.trim() || blocked}
+              aria-label="Send message"
+            >
               <Send className="size-4" />
             </Button>
           )}
         </form>
+        {selected?.source && (
+          <p className="mt-1.5 flex min-w-0 gap-3 text-[11px] text-muted-foreground">
+            <span className="truncate">{selected.label}</span>
+            <span className="truncate">{describeKeySource(selected.source)}</span>
+          </p>
+        )}
       </div>
     </>
   )

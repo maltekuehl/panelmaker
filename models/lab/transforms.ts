@@ -8,7 +8,6 @@ export interface LabResponse {
   description: string | null
   institution: string | null
   institutionId: string | null
-  avatarUrl: string | null
   website: string | null
   isPublicProfile: boolean
   createdById: string | null
@@ -41,7 +40,6 @@ export function toLabResponse(lab: LabRow, role?: LabRole): LabResponse {
     description: lab.description,
     institution: lab.institution,
     institutionId: lab.institutionId,
-    avatarUrl: lab.avatarUrl,
     website: lab.website,
     isPublicProfile: lab.isPublicProfile,
     createdById: lab.createdById,
@@ -100,7 +98,6 @@ export interface LabAntibodyResponse {
   vendorCatalog: string | null
   aliquotsRemaining: number | null
   notes: string | null
-  lastValidatedAt: string | null
   addedAt: string
   addedBy: { id: string; name: string | null } | null
   antibody: {
@@ -125,7 +122,6 @@ export function toLabAntibodyResponse(item: LabAntibodyRow): LabAntibodyResponse
     vendorCatalog: item.vendorCatalog,
     aliquotsRemaining: item.aliquotsRemaining,
     notes: item.notes,
-    lastValidatedAt: item.lastValidatedAt ? item.lastValidatedAt.toISOString() : null,
     addedAt: item.addedAt.toISOString(),
     addedBy: item.addedBy,
     antibody: {

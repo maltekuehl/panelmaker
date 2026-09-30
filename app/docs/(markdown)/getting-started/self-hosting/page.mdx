@@ -1,0 +1,39 @@
+export const metadata = {
+  title: "Running Your Own Instance | PanelMaker Documentation",
+  description:
+    "PanelMaker is open source and self-hosted. Learn how to deploy your own instance for your lab or institution.",
+}
+
+# Running Your Own Instance
+
+PanelMaker is open source and designed to be self-hosted. Any research group or institution can run its own instance, with its own users, labs, panels, and validation reports, independent of any other deployment.
+
+## Before you start
+
+An instance needs, at minimum:
+
+- A PostgreSQL database
+- Node.js 24+ (for a manual deployment) or Docker (for a containerized deployment)
+- A domain or internal URL to host the app on
+
+Authentication works out of the box with email and password. OAuth sign-in (GitHub) and the AI assistant are optional and configured through environment variables.
+
+Search engines are kept out by default: robots.txt disallows everything, the sitemap is empty and pages are marked `noindex`. Set `INSTANCE_ALLOW_INDEXING=true` only for a public instance you want listed.
+
+## Getting the source
+
+```bash
+git clone https://github.com/complextissue/panelmaker.git
+cd panelmaker
+```
+
+## Detailed setup
+
+The full operator guide, including environment variables, database migrations, Docker Compose deployment, and production configuration, lives in the repository:
+
+- [README](https://github.com/complextissue/panelmaker/blob/main/README.md) for local development setup
+- [`docs/self-hosting/`](https://github.com/complextissue/panelmaker/tree/main/docs/self-hosting) for the operator guide
+
+## Getting help
+
+If you run into issues deploying your own instance, open an issue on [GitHub](https://github.com/complextissue/panelmaker/issues).

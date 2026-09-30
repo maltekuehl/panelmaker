@@ -1,51 +1,62 @@
-import { DEFAULT_MODEL, resolveLanguageModel, type ResolvedModel } from "@/lib/ai/models"
+import { getInstanceDailyLimit } from "@/lib/ai/config"
+import { getDefaultModel, resolveLanguageModel, type ResolvedModel } from "@/lib/ai/models"
 import { getSessionUser, resolveViewerContext } from "@/lib/auth"
 import { createChatTools } from "@/lib/chat-tools"
-import { sanitizeError } from "@/lib/error-handling"
 import { logger } from "@/lib/monitoring"
 import { checkUserRateLimit, RATE_LIMITS } from "@/lib/rate-limiting"
 import {
+  ChatError,
+  chatErrorStatus,
   chatRequestSchema,
+  classifyProviderError,
   createConversation,
+  DEFAULT_REASONING_EFFORT,
+  describeProviderError,
   extractMessageText,
+  getLastChatSettings,
   getOwnedConversation,
   logChatUsage,
+  resolveLabContext,
   saveAssistantMessages,
   saveUserMessage,
+  serializeChatError,
   setConversationTitle,
+  setCredentialStatus,
+  updateConversation,
+  type ChatErrorPayload,
 } from "@/models/chat"
-import { convertToModelMessages, createIdGenerator, generateText, stepCountIs, streamText, type UIMessage } from "ai"
+import {
+  convertToModelMessages,
+  createIdGenerator,
+  createUIMessageStreamResponse,
+  generateText,
+  isStepCount,
+  streamText,
+  toUIMessageStream,
+  type UIMessage,
+} from "ai"
 import { after, NextRequest, NextResponse } from "next/server"
 
-// Plain-text bodies with a real status code: DefaultChatTransport throws `new Error(await
-// response.text())` for any non-2xx response, which useChat exposes as `error.message`.
-function errorResponse(message: string, status: number, headers: Record<string, string> = {}): NextResponse {
-  return new NextResponse(message, {
-    status,
-    headers: { "Content-Type": "text/plain; charset=utf-8", ...headers },
+// Every failure is a JSON ChatErrorPayload with a real status code. DefaultChatTransport throws
+// `new Error(await response.text())` for any non-2xx response, and the client parses that text back
+// with parseChatError.
+function errorResponse(
+  payload: Omit<ChatErrorPayload, "message"> & { message?: string },
+  headers: Record<string, string> = {},
+): NextResponse {
+  const error = new ChatError(payload)
+  return new NextResponse(serializeChatError(error.payload), {
+    status: chatErrorStatus(error.payload.code),
+    headers: { "Content-Type": "application/json; charset=utf-8", ...headers },
   })
 }
 
-function describeProviderError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error)
-  if (message.includes("API key")) {
-    return "Invalid or missing API key. Please check your configuration and try again."
-  }
-  if (message.includes("rate limit") || message.includes("quota")) {
-    return "API rate limit exceeded. Please try again later."
-  }
-  if (message.includes("model") && message.includes("not found")) {
-    return "The specified model is not available. Please try again later."
-  }
-  return "Your message could not be processed. Please try again."
-}
-
-async function generateConversationTitle(text: string, viewer: Parameters<typeof createChatTools>[0]): Promise<string> {
+async function generateConversationTitle(text: string, resolved: ResolvedModel): Promise<string> {
   try {
-    const { model } = await resolveLanguageModel(DEFAULT_MODEL, viewer)
     const { text: title } = await generateText({
-      model,
-      system:
+      model: resolved.model,
+      reasoning: "none",
+      instructions:
         "You write a short, specific 3 to 6 word title for a chat based on the user's first message. Reply with only the title, no surrounding quotes, max 60 characters.",
       prompt: text.slice(0, 500),
     })
@@ -54,9 +65,17 @@ async function generateConversationTitle(text: string, viewer: Parameters<typeof
       .replace(/^["']|["']$/g, "")
       .slice(0, 80)
     return cleaned || "New conversation"
-  } catch {
+  } catch (error) {
+    logProviderError("Title generation failed", error, resolved.modelId)
     return "New conversation"
   }
+}
+
+function logProviderError(message: string, error: unknown, modelId: string): void {
+  logger.error(message, error instanceof Error ? error : new Error(String(error)), {
+    model: modelId,
+    provider: describeProviderError(error) ?? undefined,
+  })
 }
 
 const SYSTEM_PROMPT = `<core_identity>
@@ -107,7 +126,7 @@ Only ever surface data the requester is allowed to see. The tools enforce this s
   </input>
 
   <external_information>
-  Limit links to the panelmaker.ai domain and well-trusted public biomedical sources, and never ask for sensitive or confidential user information.
+  Limit links to this instance and well-trusted public biomedical sources, and never ask for sensitive or confidential user information.
   </external_information>
 </safety>
 
@@ -121,70 +140,63 @@ Maintain technical precision concisely. Clearly distinguish between established 
 
 const generateMessageId = createIdGenerator({ prefix: "msg", size: 16 })
 
+// The instance keys are paid for by the operator, so they carry a per-user daily budget
+// (AI_INSTANCE_DAILY_LIMIT, 0 = unlimited). Requests on a user or lab key are never counted.
+async function checkInstanceBudget(userId: string): Promise<NextResponse | null> {
+  const limit = getInstanceDailyLimit(RATE_LIMITS.CHAT_INSTANCE_KEY.maxRequests)
+  if (limit === 0) return null
+  const rateLimit = await checkUserRateLimit(userId, { ...RATE_LIMITS.CHAT_INSTANCE_KEY, maxRequests: limit })
+  if (rateLimit.allowed) return null
+  const retryAfter = Math.max(1, Math.ceil((rateLimit.resetTime.getTime() - Date.now()) / 1000))
+  return errorResponse(
+    { code: "INSTANCE_LIMIT_REACHED", source: "instance", resetAt: rateLimit.resetTime.toISOString() },
+    { "Retry-After": String(retryAfter) },
+  )
+}
+
 export async function POST(req: NextRequest) {
   try {
     const sessionUser = await getSessionUser()
-    if (!sessionUser) {
-      return errorResponse("Authentication required to use chat", 401)
-    }
+    if (!sessionUser) return errorResponse({ code: "UNAUTHENTICATED" })
     const userId = sessionUser.id
 
     const requestBody = await req.json().catch(() => null)
     const parsed = chatRequestSchema.safeParse(requestBody)
-    if (!parsed.success) {
-      return errorResponse("Invalid request format", 400)
-    }
+    if (!parsed.success) return errorResponse({ code: "INVALID_REQUEST" })
     const messages = parsed.data.messages as unknown as UIMessage[]
-    const requestedModel = parsed.data.model
 
     const viewer = await resolveViewerContext(userId)
-    if (!viewer) {
-      return errorResponse("Authentication required to use chat", 401)
-    }
+    if (!viewer) return errorResponse({ code: "UNAUTHENTICATED" })
 
     // Resolve and ownership-check the conversation this turn belongs to (create one if none was sent).
     const conversation = parsed.data.conversationId
       ? await getOwnedConversation(userId, parsed.data.conversationId)
       : await createConversation(userId)
-    if (!conversation) {
-      return errorResponse("Conversation not found", 404)
-    }
+    if (!conversation) return errorResponse({ code: "CONVERSATION_NOT_FOUND" })
     const convId = conversation.id
 
-    // The widget has no model picker, so it inherits whatever the full page persisted for the thread.
-    let modelId = requestedModel || conversation.model || DEFAULT_MODEL
+    const labContext = resolveLabContext(viewer, parsed.data.labId, conversation.labId)
+    if (!labContext.ok) return errorResponse({ code: labContext.code })
+
+    // The widget has no model picker, so it inherits the thread's model, then the user's last choice.
+    const modelId =
+      parsed.data.model || conversation.model || (await getLastChatSettings(userId)).model || getDefaultModel()
+
     let resolved: ResolvedModel
     try {
-      resolved = await resolveLanguageModel(modelId, viewer)
+      resolved = await resolveLanguageModel(modelId, viewer, labContext.labId)
     } catch (error) {
-      // A stored model whose key has since been removed must not lock the user out of the thread.
-      if (requestedModel || modelId === DEFAULT_MODEL) {
-        return errorResponse(error instanceof Error ? error.message : "The selected model is unavailable.", 503)
-      }
-      try {
-        resolved = await resolveLanguageModel(DEFAULT_MODEL, viewer)
-        modelId = DEFAULT_MODEL
-      } catch (fallbackError) {
-        return errorResponse(
-          fallbackError instanceof Error ? fallbackError.message : "The selected model is unavailable.",
-          503,
-        )
-      }
+      if (error instanceof ChatError) return errorResponse(error.payload)
+      throw error
     }
 
-    // The free tier exists to protect the shared community key; a viewer running on their own or
-    // their lab's key is not charged against it.
-    if (resolved.keySource === "community") {
-      const rateLimit = await checkUserRateLimit(userId, RATE_LIMITS.CHAT_FREE)
-      if (!rateLimit.allowed) {
-        const retryAfter = Math.max(1, Math.ceil((rateLimit.resetTime.getTime() - Date.now()) / 1000))
-        return errorResponse(
-          `You have reached the daily limit of ${RATE_LIMITS.CHAT_FREE.maxRequests} free chat requests. ` +
-            `Your limit will reset at ${rateLimit.resetTime.toLocaleString()}.`,
-          429,
-          { "Retry-After": String(retryAfter) },
-        )
-      }
+    if (resolved.source.kind === "instance") {
+      const limited = await checkInstanceBudget(userId)
+      if (limited) return limited
+    }
+
+    if (modelId !== conversation.model || labContext.labId !== conversation.labId) {
+      await updateConversation(userId, convId, { model: modelId, labId: labContext.labId })
     }
 
     const chatTools = createChatTools(viewer)
@@ -195,62 +207,79 @@ export async function POST(req: NextRequest) {
       await saveUserMessage(convId, latestMessage)
     }
 
+    const describeStreamError = (error: unknown): string => {
+      const code = classifyProviderError(error)
+      if (code === "PROVIDER_AUTH_FAILED" && resolved.credentialId) {
+        setCredentialStatus(resolved.credentialId, "INVALID").catch(() => undefined)
+      }
+      return serializeChatError(
+        new ChatError({
+          code,
+          provider: resolved.provider,
+          source: resolved.source.kind,
+          labName: resolved.source.labName,
+        }).payload,
+      )
+    }
+
+    const reasoning = parsed.data.reasoning ?? DEFAULT_REASONING_EFFORT
+
     const chatbotResult = streamText({
       model: resolved.model,
-      system: SYSTEM_PROMPT,
+      instructions: SYSTEM_PROMPT,
       seed: 3407,
       maxOutputTokens: 10000,
       temperature: 0.2,
+      reasoning,
       messages: await convertToModelMessages(messages),
       allowSystemInMessages: false,
       tools: chatTools,
-      stopWhen: stepCountIs(15),
-      onFinish: async ({ totalUsage }) => {
+      stopWhen: isStepCount(15),
+      onEnd: async ({ usage, warnings }) => {
+        if (warnings?.length) logger.warn("Model call warnings", { model: modelId, reasoning, warnings })
         after(async () => {
-          await logChatUsage(userId, totalUsage, modelId)
+          await logChatUsage(userId, usage, modelId)
         })
       },
       onError: async ({ error }) => {
-        logger.error("Stream error", error instanceof Error ? error : new Error(String(error)))
-      },
-      providerOptions: {
-        google: {
-          thinkingConfig: {
-            thinkingBudget: 0,
-            includeThoughts: false,
-          },
-        },
+        logProviderError("Stream error", error, modelId)
       },
     })
 
-    return chatbotResult.toUIMessageStreamResponse({
+    const uiStream = toUIMessageStream({
+      stream: chatbotResult.stream,
       sendReasoning: true,
       // Without these the response message is persisted with an empty id and per-message delete
       // breaks after a reload.
       originalMessages: messages,
       generateMessageId,
-      messageMetadata: ({ part }) => (part.type === "finish" ? { usage: part.totalUsage } : undefined),
-      onFinish: async ({ responseMessage }) => {
+      messageMetadata: ({ part }) => {
+        if (part.type === "start") {
+          return { keySource: resolved.source, model: modelId, reasoning }
+        }
+        if (part.type === "finish") return { usage: part.totalUsage }
+        return undefined
+      },
+      onEnd: async ({ responseMessage }) => {
         try {
           const usage = (responseMessage.metadata as { usage?: { inputTokens?: number; outputTokens?: number } })?.usage
           await saveAssistantMessages(convId, [responseMessage], usage ?? {}, modelId)
           if (conversation.title === null) {
             await setConversationTitle(
               convId,
-              await generateConversationTitle(extractMessageText(latestMessage ?? responseMessage), viewer),
+              await generateConversationTitle(extractMessageText(latestMessage ?? responseMessage), resolved),
             )
           }
         } catch (error) {
           logger.error("Failed to persist chat message", error instanceof Error ? error : new Error(String(error)))
         }
       },
-      onError: (error: unknown) => {
-        logger.error("Stream response error", error instanceof Error ? error : new Error(String(error)))
-        return describeProviderError(error)
-      },
+      onError: describeStreamError,
     })
+
+    return createUIMessageStreamResponse({ stream: uiStream })
   } catch (error: unknown) {
     logger.error("Unhandled error in chat route", error instanceof Error ? error : new Error(String(error)))
-    return errorResponse(sanitizeError(error), 500)
+    return errorResponse({ code: "INTERNAL" })
   }
 }

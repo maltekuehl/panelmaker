@@ -100,15 +100,3 @@ export async function getCellTypeDescendantIds(rootId: string): Promise<string[]
   }
   return [...result]
 }
-
-export async function getCellTypesForProtein(proteinId: string): Promise<CellTypeRow[]> {
-  const markers = await prisma.cellTypeMarker.findMany({
-    where: { proteinId },
-    select: {
-      cellType: { select: cellTypeSelect },
-    },
-    orderBy: { isCanonical: "desc" },
-  })
-
-  return markers.map((m) => m.cellType)
-}

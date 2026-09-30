@@ -1,7 +1,7 @@
 import { authErrorResponse, requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { deleteUserApiCredential } from "@/models/chat"
-import { NextRequest } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -10,7 +10,9 @@ export async function DELETE(request: NextRequest, context: Context) {
   try {
     const { id } = await context.params
     const user = await requireAuth(request)
-    await deleteUserApiCredential(user.id, id)
+    if (!(await deleteUserApiCredential(user.id, id))) {
+      return NextResponse.json({ error: "API key not found" }, { status: 404 })
+    }
     return createSuccessResponse({ success: true })
   } catch (error) {
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to delete API key")

@@ -5,7 +5,7 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
-    seed: "tsx prisma/seed.ts",
+    seed: "tsx scripts/setup.ts",
   },
   datasource: {
     // A placeholder keeps `prisma generate` (and so `npm install`) working on a fresh clone with no .env.

@@ -8,15 +8,6 @@ export const metadata: Metadata = {
   title: "Chat | PanelMaker",
   description:
     "PanelMaker's AI assistant for spatial proteomics panel design. Get help with antibody selection, marker compatibility, and panel optimization through natural conversation.",
-  keywords: [
-    "PanelMaker chat",
-    "spatial proteomics AI",
-    "antibody panel design",
-    "AI assistant",
-    "biomedical AI",
-    "panel optimization",
-    "marker selection",
-  ],
   openGraph: {
     title: "Chat | PanelMaker",
     description: "AI assistant for spatial proteomics antibody panel design and optimization",

@@ -13,8 +13,3 @@ export function parseTaxonUid(id: string): string | null {
   const match = /^(?:NCBITaxon:|NCBI:txid)(\d+)$/.exec(id.trim())
   return match ? match[1] : null
 }
-
-export function normalizeTaxonId(id: string): string | null {
-  const uid = parseTaxonUid(id)
-  return uid === null ? null : taxonId(uid)
-}

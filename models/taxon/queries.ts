@@ -11,25 +11,12 @@ const taxonSelect = {
 
 export type TaxonRow = Prisma.TaxonGetPayload<{ select: typeof taxonSelect }>
 
-export async function getAllTaxa(): Promise<TaxonRow[]> {
-  return prisma.taxon.findMany({ select: taxonSelect, orderBy: { label: "asc" } })
-}
-
 export async function searchTaxa(query: string): Promise<TaxonRow[]> {
   return prisma.taxon.findMany({
     select: taxonSelect,
     where: { label: { contains: query, mode: "insensitive" } },
     orderBy: { label: "asc" },
   })
-}
-
-export async function getTaxonById(id: string): Promise<TaxonRow | null> {
-  return prisma.taxon.findUnique({ where: { id }, select: taxonSelect })
-}
-
-export async function taxonExists(id: string): Promise<boolean> {
-  const found = await prisma.taxon.findUnique({ where: { id }, select: { id: true } })
-  return found !== null
 }
 
 /**

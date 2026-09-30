@@ -23,7 +23,6 @@ const labSelect = {
   description: true,
   institution: true,
   institutionId: true,
-  avatarUrl: true,
   website: true,
   isPublicProfile: true,
   createdById: true,
@@ -85,6 +84,7 @@ export async function getLabsForUser(userId: string): Promise<LabWithRole[]> {
 export async function getUserLabMemberships(userId: string): Promise<{ labId: string; role: LabRole }[]> {
   return prisma.labMembership.findMany({
     where: { userId },
+    orderBy: { joinedAt: "asc" },
     select: { labId: true, role: true },
   })
 }
@@ -473,7 +473,6 @@ const labAntibodySelect = {
   status: true,
   notes: true,
   addedById: true,
-  lastValidatedAt: true,
   addedAt: true,
   updatedAt: true,
   antibody: {

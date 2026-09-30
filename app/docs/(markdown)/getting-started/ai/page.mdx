@@ -2,13 +2,6 @@ export const metadata = {
   title: "AI Assistant | PanelMaker Documentation",
   description:
     "Learn how to use the PanelMaker AI assistant to get recommendations for antibody panel design, marker compatibility, and spatial proteomics workflows.",
-  keywords: [
-    "AI assistant",
-    "panel design assistant",
-    "marker recommendations",
-    "panel compatibility",
-    "spatial proteomics AI",
-  ],
 }
 
 # AI Assistant
@@ -58,6 +51,16 @@ The assistant decides which tools to call based on your question. You do not nee
 - The assistant cannot place orders, access external lab systems, or retrieve paywalled publications.
 - Conversations are saved to your account, so you can pick one up again from the chat sidebar.
 
+## API keys and models
+
+The assistant always runs on an API key that someone configured for Google Gemini, OpenAI, or Anthropic. There is no free shared key. For each provider, the first key available in this order is used:
+
+1. **Your own key**, added under [Settings](/settings#ai-keys). It is only used for your own conversations.
+2. **Your lab's key**, added by a lab admin or owner in the lab's settings. It is shared with every member of that lab. If you belong to several labs, pick which lab's keys a conversation uses from the model menu in the chat.
+3. **The instance key**, configured by the operator of this instance.
+
+The model menu in the chat groups models by provider and shows which key each one would use. Models without any key are shown as unavailable, and the chat explains how to add one. Keys are encrypted at rest, checked with the provider when you save them, and only their last 4 characters are ever shown again.
+
 ## Rate limiting
 
-The AI assistant is rate-limited to ensure fair access for all users. The free tier allows a limited number of messages per hour. If you reach the limit, the assistant will notify you and tell you when the limit resets.
+Chats that run on your own key or your lab's key are not limited by PanelMaker; your provider's own limits apply. Chats on the instance key may have a daily per-user limit set by the operator. When you reach it, the assistant tells you, and you can continue by adding your own key.

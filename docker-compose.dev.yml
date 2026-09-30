@@ -36,7 +36,7 @@ services:
       # Talk to the bundled Postgres over the compose network, overriding the
       # host-oriented DATABASE_URL in .env (which points at localhost).
       DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:-panelmaker}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
-    command: sh -c "npx prisma migrate deploy && npm run dev"
+    command: sh -c "npx prisma migrate deploy && npm run setup && npm run dev"
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:

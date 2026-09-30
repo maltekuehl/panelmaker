@@ -1,7 +1,42 @@
 export {
+  CHAT_ERROR_CODES,
+  ChatError,
+  chatErrorMessage,
+  chatErrorStatus,
+  classifyProviderError,
+  describeProviderError,
+  parseChatError,
+  serializeChatError,
+} from "./errors"
+export type { ChatErrorCode, ChatErrorPayload, ProviderErrorDetails } from "./errors"
+export {
+  PROVIDER_LABELS,
+  annotateModels,
+  canManageLabCredentials,
+  canUseLabCredential,
+  chooseDefaultModel,
+  describeKeySource,
+  groupModelsByProvider,
+  isProviderId,
+  modelLabel,
+  parseModelId,
+  pickKeySource,
+  rankKeySources,
+  resolveLabContext,
+} from "./keys"
+export type {
+  ChatSetupData,
+  KeyInventory,
+  KeySource,
+  KeySourceKind,
+  LabContextResult,
+  LabKeyInventory,
+  ModelAvailability,
+  ModelOption,
+} from "./keys"
+export {
   appendMessages,
   conversationBelongsToUser,
-  countMessages,
   createConversation,
   deleteConversation,
   deleteLabApiCredential,
@@ -9,29 +44,37 @@ export {
   deleteUserApiCredential,
   getConversation,
   getConversationsForUser,
+  getKeyInventory,
   getLabApiCredentials,
+  getLabCredentialSecret,
+  getLastChatSettings,
   getMostRecentConversationId,
   getOwnedConversation,
   getUserApiCredentials,
-  listAvailableProviders,
+  getUserCredentialSecret,
   logChatUsage,
   resolveProviderKey,
   saveAssistantMessages,
   saveUserMessage,
   setConversationTitle,
+  setCredentialStatus,
   updateConversation,
   upsertLabApiCredential,
   upsertUserApiCredential,
 } from "./queries"
-export type { CredentialView, KeySource, ResolvedProviderKey } from "./queries"
+export type { CredentialView, ProviderKeyResult, ResolvedProviderKey, StoredSecret } from "./queries"
 export {
+  DEFAULT_REASONING_EFFORT,
   PROVIDER_IDS,
+  REASONING_EFFORTS,
+  REASONING_EFFORT_LABELS,
   chatRequestSchema,
   createConversationSchema,
+  isReasoningEffort,
   updateConversationSchema,
   upsertCredentialSchema,
 } from "./schema"
-export type { ProviderId } from "./schema"
+export type { ProviderId, ReasoningEffort } from "./schema"
 export {
   deriveRole,
   extractMessageText,

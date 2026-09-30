@@ -16,8 +16,6 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
         image: true,
         role: true,
         status: true,
-        accessStatus: true,
-        accessRequestedAt: true,
         orcid: true,
         institution: true,
         institutionId: true,
@@ -25,22 +23,6 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
         updatedAt: true,
         accounts: {
           select: { provider: true, providerAccountId: true, type: true, createdAt: true, updatedAt: true },
-        },
-        blogPosts: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            excerpt: true,
-            content: true,
-            published: true,
-            publishedAt: true,
-            metaTitle: true,
-            metaDescription: true,
-            keywords: true,
-            createdAt: true,
-            updatedAt: true,
-          },
         },
         experiments: {
           include: {
@@ -95,7 +77,6 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
 
     const {
       accounts,
-      blogPosts,
       experiments,
       panels,
       labMemberships,
@@ -112,7 +93,6 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
       exportVersion: "2.0",
       user: profile,
       accounts,
-      blogPosts,
       experiments,
       panels,
       labMemberships,

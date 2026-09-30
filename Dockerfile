@@ -53,15 +53,20 @@ RUN set -eux; \
   su postgres -c "$PGBIN/pg_ctl -D /tmp/pgdata stop"
 
 # ─── migrator ────────────────────────────────────────────────────────
-# One-shot image that runs `prisma migrate deploy` against the database
-# before the app starts. Keeps the full toolchain out of the runtime image.
+# One-shot image that applies migrations and then loads the reference data
+# (`npm run setup`: upserts only, safe on every deploy) before the app
+# starts. It carries the full toolchain (tsx, scripts/, prisma/data, the
+# model and lib modules the scripts import) so it also runs the operator
+# commands, e.g. `docker compose run --rm migrate npm run admin:create -- --email ...`.
+# Keeps all of that out of the runtime image.
 FROM base AS migrator
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+  NPM_CONFIG_UPDATE_NOTIFIER=false
 COPY --from=deps /app/node_modules ./node_modules
-COPY package.json package-lock.json prisma.config.ts ./
-COPY prisma ./prisma
+COPY . .
+COPY --from=deps /app/lib/generated ./lib/generated
 USER node
-CMD ["npx", "prisma", "migrate", "deploy"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run setup"]
 
 # ─── dev ─────────────────────────────────────────────────────────────
 # Hot-reloading dev server. Source is bind-mounted by docker-compose.dev.yml;
@@ -82,7 +87,8 @@ ENV NODE_ENV=production \
   PORT=3000 \
   HOSTNAME=0.0.0.0
 
-# Uploads are written here by the app and shared with nginx via a volume.
+# Uploads are written here by the app (a named volume in docker-compose.yml).
+# They are only ever served through the app route, which applies visibility.
 RUN mkdir -p /app/data/uploads && chown -R node:node /app/data
 
 COPY --from=builder --chown=node:node /app/public ./public

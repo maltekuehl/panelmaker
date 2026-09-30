@@ -1,5 +1,6 @@
 import { createAuthHandler, deleteUser } from "@/lib/auth"
 import { createErrorResponse } from "@/lib/error-handling"
+import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { NextRequest, NextResponse } from "next/server"
 
 // DELETE /api/user/[id] - Delete a user (admin only)
@@ -14,6 +15,12 @@ export const DELETE = createAuthHandler(
       }
 
       await deleteUser(userId)
+      await logSecurityEventFromRequest(request, SecurityEventType.USER_DELETED, {
+        userId: user.id,
+        action: "user_delete",
+        success: true,
+        metadata: { targetUserId: userId },
+      })
       return NextResponse.json({ message: "User deleted successfully" })
     } catch (error) {
       return createErrorResponse(error, "Failed to delete user")

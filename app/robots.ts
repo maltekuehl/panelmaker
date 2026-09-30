@@ -1,8 +1,14 @@
-import { env } from "@/lib/env"
+import { getInstanceConfig } from "@/lib/instance"
 import { MetadataRoute } from "next"
+import { connection } from "next/server"
 
-export default function robots(): MetadataRoute.Robots {
-  const baseUrl = env.NEXT_PUBLIC_BASE_URL || "https://panelmaker.ai"
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  await connection()
+  const { baseUrl, allowIndexing } = getInstanceConfig()
+
+  if (!allowIndexing) {
+    return { rules: [{ userAgent: "*", disallow: "/" }] }
+  }
 
   return {
     rules: [

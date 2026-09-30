@@ -8,7 +8,7 @@
 4. **Edit rights:** A lab `ADMIN`/`OWNER` may edit any experiment/panel shared with (or owned by) that lab. `MEMBER` edits own resources. `VIEWER` edits nothing.
 5. **Default submission privacy:** New experiments/reports default to `LAB` when the submitter belongs to at least one lab, otherwise `PRIVATE`. The user opts in to make something public.
 6. **Execution:** Phases 1-4 (data model, lab CRUD/membership, invitations, visibility cutover) -> review checkpoint -> Phases 5-8 (UI, inventory, AI, cleanup).
-7. **Verified-access gate (rename + join):** One unified verified-access status gates both report submission and lab creation. Rename `SubmissionAccess` -> `AccessStatus`, `User.submissionAccess` -> `accessStatus`, `submissionRequestedAt` -> `accessRequestedAt`. `VERIFIED` unlocks both. Site admins grant it and can always create labs.
+7. **Verified-access gate (rename + join):** One unified verified-access status gates both report submission and lab creation. Rename `SubmissionAccess` -> `AccessStatus`, `User.submissionAccess` -> `accessStatus`, `submissionRequestedAt` -> `accessRequestedAt`. `VERIFIED` unlocks both. Site admins grant it and can always create labs. **Superseded:** the gate and `AccessStatus` were removed; any signed-in, non-blocked user can submit reports and create labs.
 
 ## Key abstraction calls
 

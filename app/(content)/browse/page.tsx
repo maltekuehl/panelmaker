@@ -22,21 +22,6 @@ export const metadata: Metadata = {
   title: "Browse markers, antibodies and reports | PanelMaker",
   description:
     "Browse validated cell type markers, antibodies, and experimental reports to design antibody panels for spatial proteomics experiments.",
-  keywords: [
-    "PanelMaker",
-    "spatial proteomics",
-    "antibody panel",
-    "markers",
-    "cell types",
-    "experimental reports",
-    "CODEX",
-    "CyCIF",
-    "IMC",
-    "MIBI",
-    "Visium",
-    "bioinformatics",
-    "computational biology",
-  ],
   openGraph: {
     title: "Browse markers, antibodies and reports | PanelMaker",
     description:

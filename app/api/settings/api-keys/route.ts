@@ -1,33 +1,34 @@
-import { authErrorResponse, requireAuth } from "@/lib/auth"
+import { saveCredentialFromRequest } from "@/lib/ai/credential-api"
+import { authErrorResponse, requireAuth, resolveViewerContext } from "@/lib/auth"
 import { isEncryptionConfigured } from "@/lib/crypto"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
-import { getUserApiCredentials, upsertCredentialSchema, upsertUserApiCredential } from "@/models/chat"
-import { NextRequest, NextResponse } from "next/server"
+import { getKeyInventory, getUserApiCredentials, upsertUserApiCredential } from "@/models/chat"
+import { NextRequest } from "next/server"
 
-// GET /api/settings/api-keys - List the current user's saved provider keys (masked)
+// GET /api/settings/api-keys - The current user's provider keys (masked) and the lab and instance
+// keys they fall back to when they have none of their own
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth(request)
-    const credentials = await getUserApiCredentials(user.id)
-    return createSuccessResponse({ credentials, encryptionConfigured: isEncryptionConfigured() })
+    const [credentials, inventory] = await Promise.all([
+      getUserApiCredentials(user.id),
+      resolveViewerContext(user.id).then(getKeyInventory),
+    ])
+    return createSuccessResponse({
+      credentials,
+      encryptionConfigured: isEncryptionConfigured(),
+      fallbacks: { labs: inventory.labs, instance: inventory.instance },
+    })
   } catch (error) {
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch API keys")
   }
 }
 
-// POST /api/settings/api-keys - Save (or replace) a provider key for the current user
+// POST /api/settings/api-keys - Verify and save (or replace) a provider key for the current user
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth(request)
-    if (!isEncryptionConfigured()) {
-      return NextResponse.json(
-        { error: "Server encryption is not configured. Contact an administrator." },
-        { status: 503 },
-      )
-    }
-    const validated = upsertCredentialSchema.parse(await request.json())
-    await upsertUserApiCredential(user.id, validated)
-    return createSuccessResponse({ success: true }, 201)
+    return await saveCredentialFromRequest(request, (input) => upsertUserApiCredential(user.id, input))
   } catch (error) {
     return authErrorResponse(error) ?? createErrorResponse(error, "Failed to save API key")
   }

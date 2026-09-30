@@ -19,7 +19,7 @@ We recommend always using the latest version to ensure you have the most recent 
 
 For security vulnerabilities that could potentially expose user data or compromise system integrity, please use GitHub's private vulnerability reporting feature:
 
-1. Go to the [Security tab](https://github.com/panelmaker-ai/website/security) of our repository
+1. Go to the [Security tab](https://github.com/complextissue/panelmaker/security) of our repository
 2. Click "Report a vulnerability"
 3. Fill out the private vulnerability report form
 
@@ -27,7 +27,7 @@ For security vulnerabilities that could potentially expose user data or compromi
 
 For less sensitive security issues or general security improvements, you can:
 
-1. Create a [security issue](https://github.com/panelmaker-ai/website/issues/new?template=security.md) using our security template
+1. Create a [security issue](https://github.com/complextissue/panelmaker/issues/new?template=security.md) using our security template
 2. Email us directly at contact@panelmaker.ai
 
 ### What to Include

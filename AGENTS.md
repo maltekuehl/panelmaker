@@ -35,7 +35,6 @@ models/
     index.ts        -- Re-exports: types + query functions
   antibody/         -- same structure
   cell-type/        -- same structure
-  cellular-component/
   chat/             -- conversations, messages, encrypted provider credentials
   evidence/         -- viewer-scoped report search and aggregation used by the AI tools
   experiment/
@@ -117,8 +116,6 @@ await prisma.protein.findMany({
 All read-only enrichment in `lib/integrations/`:
 - `antibody-registry.ts` — RRID lookup, auto-fill vendor/host/clone
 - `uniprot.ts` — protein metadata by UniProt ID or gene name
-- `hpa.ts` — Human Protein Atlas tissue expression and subcellular location (written, not yet wired to any caller)
-- `ensembl.ts` — Ensembl gene ID resolution (written, not yet wired to any caller)
 - `scicrunch.ts` — RRID resolver plus the optional Elasticsearch index behind `SCICRUNCH_API_KEY`
 
 ### AI Chat: Vercel AI SDK (Direct Tools)
@@ -127,6 +124,7 @@ All read-only enrichment in `lib/integrations/`:
 - System prompt: spatial proteomics panel design context, in `app/api/chat/route.ts`
 - `lib/chat-tools.ts` exports `createChatTools(viewer)`, a viewer-scoped toolkit: resolve helpers for markers, cell types, species, tissues and antibodies, plus `findReports`, `aggregateReports`, `listMyLabs`, `getLabInventory`, `getLabPanels`, `analyzePanel` and panel editing. Every tool closes over the viewer and intersects any model-supplied lab scope with the viewer's real memberships.
 - Conversations and messages are persisted through `models/chat/`; provider API keys are encrypted at rest with `ENCRYPTION_KEY`.
+- No free or shared fallback key. Key precedence per provider is the user's own key, then the key of the lab the conversation acts in (`ChatConversation.labId`, members only), then the operator's instance env key. The pure rules live in `models/chat/keys.ts`, error codes in `models/chat/errors.ts`.
 - Model ids follow the `provider:model` convention. Any such string works at request time, so the catalog in `lib/ai/models.ts` is a convenience, not a whitelist.
 
 ### Public API: app/api/
@@ -136,12 +134,12 @@ The versioned `app/api/(versions)/v1/` tree described in earlier plans was never
 Conventions for these routes:
 - Validate query params with a Zod schema in the matching `models/<entity>/schema.ts`
 - `?q=` text search, `?limit=` (bounded), `?cursor=` for cursor pagination, returning `nextCursor`
-- Respond with `createSuccessResponse()` / `createErrorResponse()` from `lib/error-handling.ts`. `lib/api-response.ts` is a second, unused implementation with a different envelope: do not import it.
+- Respond with `createSuccessResponse()` / `createErrorResponse()` from `lib/error-handling.ts`.
 - Public endpoints read the public lane only (`visibility: "PUBLIC"`), never the viewer-scoped lane
 
 ### Rate Limiting
 
-Current entries in `RATE_LIMITS` (`lib/rate-limiting.ts`), all on a 24 hour window: `CHAT_FREE` 30, `REVIEWS` 20, `REPORTS_SUBMIT` 50, `PANELS_CREATE` 50, `UPLOADS` 200, plus the lab limits `LABS_CREATE`, `LAB_INVITATIONS_SEND` and `INVENTORY_MUTATE`. Keep this list and the code in step when you add one.
+Current entries in `RATE_LIMITS` (`lib/rate-limiting.ts`), all on a 24 hour window: `CHAT_INSTANCE_KEY` 200 (only chat turns running on an operator instance key; overridden by `AI_INSTANCE_DAILY_LIMIT`, 0 disables it; turns on a user or lab key are never limited), `REPORTS_SUBMIT` 50, `PANELS_CREATE` 50, `UPLOADS` 200, `UPLOAD_BYTES` 2048 MB, plus the lab limits `LABS_CREATE`, `LAB_INVITATIONS_SEND` and `INVENTORY_MUTATE`. Keep this list and the code in step when you add one.
 
 ---
 
@@ -300,45 +298,30 @@ These are the house style for app pages. Follow them by default; deviate only wi
 #### Route Structure
 ```typescript
 // app/api/resource/route.ts
-import { auth } from "@/auth"
-import { createErrorResponse, createSuccessResponse } from "@/lib/api-response"
-import { prisma } from "@/lib/prisma"
-import { NextRequest, NextResponse } from "next/server"
-import { z } from "zod"
-
-// Validation schema
-const requestSchema = z.object({
-  field: z.string().min(1),
-})
+import { authErrorResponse, requireAuth } from "@/lib/auth"
+import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
+import { createResource, createResourceSchema, toResourceResponse } from "@/models/resource"
+import { NextRequest } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Auth check
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    }
+    const user = await requireAuth(request)
 
-    // 2. Parse & validate
-    const body = await request.json()
-    const validated = requestSchema.parse(body)
+    const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.PANELS_CREATE)
+    if (!rateLimitResult.allowed) return createRateLimitError(rateLimitResult)
 
-    // 3. Business logic
-    const result = await prisma.model.create({
-      data: validated,
-    })
+    const validated = createResourceSchema.parse(await request.json())
+    const resource = await createResource(validated, user.id)
 
-    // 4. Return response
-    return NextResponse.json({ success: true, data: result })
+    return createSuccessResponse({ resource: toResourceResponse(resource) }, 201)
   } catch (error) {
-    // Use standard error handling
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Validation error", details: error.errors }, { status: 400 })
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to create resource")
   }
 }
 ```
+
+`createErrorResponse()` maps `ZodError` to 400, Prisma known errors and `ApiException` subclasses (`NotFoundError`, `ForbiddenError`, `ConflictError`, ...) to their status codes. Throw those from the model layer instead of hand-rolling status checks.
 
 #### Authentication Patterns
 - Use `requireAuth()` for protected routes
@@ -354,7 +337,7 @@ export async function POST(request: NextRequest) {
 
 #### Rate Limiting
 - Import rate limit configs from `@/lib/rate-limiting`
-- Use predefined limits: `RATE_LIMITS.CHAT_FREE`, `RATE_LIMITS.REVIEWS`, etc.
+- Use predefined limits: `RATE_LIMITS.REPORTS_SUBMIT`, `RATE_LIMITS.UPLOADS`, etc.
 - Check rate limits before expensive operations
 - Return 429 with reset time when exceeded
 
@@ -429,19 +412,19 @@ await prisma.$transaction([
   - `SHADOW_DATABASE_URL`: PostgreSQL shadow DB for `migrate dev`
   - `AUTH_SECRET`: Auth.js secret (32+ chars)
   - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`: OAuth
-  - `AUTH_LINKEDIN_ID`, `AUTH_LINKEDIN_SECRET`: OAuth
-  - `GEMINI_API_KEY`: AI features
   - `CRON_SECRET`: Cron job auth
 - **Also required or optional**:
   - `UPLOADS_DIR` (local image storage, default `./data/uploads`)
   - `ENCRYPTION_KEY` (encrypts stored provider API keys; the key routes return 503 without it)
   - `SHADOW_DATABASE_URL` (separate disposable database for `migrate dev`)
   - `SCICRUNCH_API_KEY` (optional, richer antibody search; the keyless resolver is used without it)
+  - `INSTANCE_ALLOW_INDEXING` (default `false`: robots.txt disallows everything, the sitemap is empty and root metadata is `noindex, nofollow`; `true` restores normal indexing)
+  - `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (optional instance-wide AI keys, the last fallback after a user key and a lab key), `AI_DEFAULT_MODEL` (`provider:model`), `AI_INSTANCE_DAILY_LIMIT` (per-user daily chat turns on the instance keys, default 200, 0 = unlimited). See `docs/chat-persistence/README.md`.
 - `.env.local.example` is the authoritative list. Keep it in step with `lib/env.ts`.
 - **Never hardcode secrets** in code or commit to git
 
 ### Security Headers
-- CSP configured in `next.config.ts`
+- CSP configured in `next.config.ts`. Production sends HSTS and `upgrade-insecure-requests`, except when the request host is `localhost`, `127.0.0.1` or `*.localhost`, so `npm run build && npm start` works over plain http locally
 - Security headers: X-Frame-Options, X-Content-Type-Options, HSTS, etc.
 - Content sanitization using `isomorphic-dompurify` and `sanitize-html`
 - Rate limiting on public endpoints
@@ -522,7 +505,7 @@ npm run start        # Start production server
 - **Form state**: `react-hook-form` with `@hookform/resolvers` and Zod
 
 ### AI & Chat
-- **Vercel AI SDK**: `ai` v6 and `@ai-sdk/react` v3 for streaming chat responses
+- **Vercel AI SDK**: `ai` v7 and `@ai-sdk/react` v4 (providers `@ai-sdk/google`, `@ai-sdk/openai`, `@ai-sdk/anthropic` v4) for streaming chat responses. Use v7 names: `instructions` (not `system`), `isStepCount`, `onEnd`/`onStepEnd`, `usage` (covers all steps), `toUIMessageStream` + `createUIMessageStreamResponse`, `createGoogle`. Reasoning goes through the top-level `reasoning` option chosen in the UI, not provider-specific `providerOptions`.
 - **No MCP**: Tools call internal model query functions directly (no `@ai-sdk/mcp` or `@modelcontextprotocol/sdk`)
 - **Providers**: Anthropic (Claude), Google (Gemini), OpenAI via `@ai-sdk/*`
 - **Tools**: defined in `lib/chat-tools.ts`, call `models/*/queries.ts` functions directly

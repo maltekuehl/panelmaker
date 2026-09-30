@@ -1,8 +1,15 @@
 "use client"
 
+import type { ReasoningEffort } from "@/models/chat/schema"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport, type UIMessage } from "ai"
 import { useState } from "react"
+
+export interface SendOptions {
+  model?: string
+  labId?: string | null
+  reasoning?: ReasoningEffort
+}
 
 interface UseConversationOptions {
   conversationId: string
@@ -25,16 +32,20 @@ export function useConversation({ conversationId, initialMessages, onFinish }: U
 
   const isStreaming = status === "submitted" || status === "streaming"
 
-  const send = (text: string, model?: string) => {
+  const send = (text: string, options: SendOptions = {}) => {
     const trimmed = text.trim()
     if (!trimmed) return
     clearError()
-    sendMessage({ text: trimmed }, { body: { conversationId, ...(model ? { model } : {}) } })
+    const body: Record<string, string> = { conversationId }
+    if (options.model) body.model = options.model
+    if (options.labId) body.labId = options.labId
+    if (options.reasoning) body.reasoning = options.reasoning
+    sendMessage({ text: trimmed }, { body })
   }
 
-  const submit = (model?: string) => {
+  const submit = (options: SendOptions = {}) => {
     if (isStreaming || !input.trim()) return
-    send(input, model)
+    send(input, options)
     setInput("")
   }
 

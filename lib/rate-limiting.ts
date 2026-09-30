@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { headers } from "next/headers"
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import "server-only"
 
 export interface RateLimitConfig {
@@ -19,15 +18,12 @@ export interface RateLimitResult {
 
 // Predefined rate limit configurations
 export const RATE_LIMITS = {
-  CHAT_FREE: {
+  // Chat turns that run on an operator-configured instance key. maxRequests is the default; the chat
+  // route overrides it with AI_INSTANCE_DAILY_LIMIT (0 disables the limit).
+  CHAT_INSTANCE_KEY: {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    maxRequests: 30,
-    resourceType: "chat",
-  },
-  CHAT_OWN_KEY: {
-    windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    maxRequests: 500,
-    resourceType: "chat_own_key",
+    maxRequests: 200,
+    resourceType: "chat_instance_key",
   },
   REPORTS_SUBMIT: {
     windowMs: 24 * 60 * 60 * 1000, // 24 hours
@@ -67,29 +63,7 @@ export const RATE_LIMITS = {
   },
 } as const
 
-// Kept without callers: the planned read-only public API v1 is unauthenticated, so it will rate limit by IP.
-/**
- * Extract the client IP from the proxy headers.
- * x-real-ip is set by the reverse proxy itself; x-forwarded-for is appended to, so only its LAST
- * hop is trustworthy (earlier entries can be supplied by the client).
- */
-export async function getClientIp(_request: NextRequest): Promise<string> {
-  const requestHeaders = await headers()
-
-  const realIp = requestHeaders.get("x-real-ip")?.trim()
-  if (realIp) return realIp
-
-  const forwardedFor = requestHeaders.get("x-forwarded-for")
-  if (forwardedFor) {
-    const hops = forwardedFor.split(",").map((hop) => hop.trim())
-    const lastHop = hops[hops.length - 1]
-    if (lastHop) return lastHop
-  }
-
-  return "unknown"
-}
-
-type RateLimitSubject = { userId: string } | { ipAddress: string }
+type RateLimitSubject = { userId: string }
 
 /**
  * Consumes `count` units of a rate-limit budget.
@@ -167,17 +141,6 @@ async function consumeRateLimit(
  */
 export async function checkUserRateLimit(userId: string, config: RateLimitConfig, count = 1): Promise<RateLimitResult> {
   return consumeRateLimit({ userId }, config, count)
-}
-
-/**
- * Check rate limit for unauthenticated callers (IP based)
- */
-export async function checkIpRateLimit(
-  ipAddress: string,
-  config: RateLimitConfig,
-  count = 1,
-): Promise<RateLimitResult> {
-  return consumeRateLimit({ ipAddress }, config, count)
 }
 
 /**

@@ -1,13 +1,6 @@
 export { IMAGING_METHODS, resolveImagingMethodId } from "./data"
 export type { ImagingMethodSeed } from "./data"
-export {
-  findImagingMethods,
-  getAllImagingMethods,
-  getFluorescenceImagingMethods,
-  getImagingMethodById,
-  imagingMethodExists,
-  searchImagingMethods,
-} from "./queries"
+export { findImagingMethods, getAllImagingMethods, imagingMethodExists, searchImagingMethods } from "./queries"
 export type { ImagingMethodRow } from "./queries"
 export { imagingMethodIdSchema, imagingMethodQuerySchema } from "./schema"
 export type { ImagingMethodQuery } from "./schema"

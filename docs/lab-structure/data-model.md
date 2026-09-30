@@ -16,7 +16,7 @@ enum Visibility { PRIVATE LAB PUBLIC }
 - **Lab** - root entity. `slug @unique`, `institution` (display name) + `institutionId` (ROR id, optional, like the User), `createdById` SetNull, `isPublicProfile` default false. Relations: memberships, invitations, inventory, experimentShares, panelShares, owningExperiments, owningPanels.
 - **LabMembership** - User<->Lab junction. `role LabRole @default(MEMBER)`, `@@unique([userId, labId])`. `user`/`lab` onDelete Cascade, `invitedBy` SetNull.
 - **LabInvitation** - `tokenHash @unique` (sha256), `email?`, `role`, `status`, `maxUses? @default(1)`, `useCount`, `expiresAt`, `acceptedAt?`. `lab` Cascade; `invitedBy`/`acceptedBy` SetNull.
-- **LabAntibody** - inventory. `@@unique([labId, antibodyId])`, `status LabAntibodyStatus`, plus `storageLocation`, `freezerLocation`, `lotNumber`, `vendorCatalog`, `aliquotsRemaining`, `notes`, `lastValidatedAt`. `lab`/`antibody` Cascade, `addedBy` SetNull.
+- **LabAntibody** - inventory. `@@unique([labId, antibodyId])`, `status LabAntibodyStatus`, plus `storageLocation`, `freezerLocation`, `lotNumber`, `vendorCatalog`, `aliquotsRemaining`, `notes`. `lab`/`antibody` Cascade, `addedBy` SetNull.
 - **ExperimentLabShare** - `@@id([experimentId, labId])`, both Cascade, `@@index([labId])`.
 - **PanelLabShare** - `@@id([panelId, labId])`, both Cascade, `@@index([labId])`.
 

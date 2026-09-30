@@ -47,7 +47,12 @@ export default async function SettingsPage() {
           institutionId={profile?.institutionId ?? null}
         />
 
-        <ApiKeysSection endpoint="/api/settings/api-keys" />
+        <ApiKeysSection
+          endpoint="/api/settings/api-keys"
+          scope="user"
+          title="AI provider keys"
+          description="Keys you add here are used for your own chats and take precedence over lab and instance keys. They are encrypted at rest, and only the last 4 characters are shown."
+        />
 
         <DataExportSection />
 

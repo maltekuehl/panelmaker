@@ -23,7 +23,6 @@ export interface InventoryItem {
   vendorCatalog: string | null
   aliquotsRemaining: number | null
   notes: string | null
-  lastValidatedAt: string | null
   addedAt: string
   addedBy: { id: string; name: string | null } | null
   antibody: {

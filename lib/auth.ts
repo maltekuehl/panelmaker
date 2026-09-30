@@ -1,7 +1,6 @@
 import { auth } from "@/auth"
-import { env } from "@/lib/env"
 import { ApiException, createErrorResponse } from "@/lib/error-handling"
-import { AccessStatus, type LabRole, UserRole, UserStatus, Visibility } from "@/lib/generated/prisma/enums"
+import { type LabRole, UserRole, UserStatus, Visibility } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { ROLE_RANK, type ViewerContext } from "@/models/lab/access"
@@ -245,82 +244,6 @@ export async function unblockUser(userId: string): Promise<void> {
   if (count === 0) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
 }
 
-// Verified access is only enforced in production. Elsewhere everyone is treated as verified.
-// A single VERIFIED status unlocks both report submission and lab creation.
-const ACCESS_GATE_ENABLED = env.NODE_ENV === "production"
-
-export interface AccessState {
-  status: AccessStatus
-  isAdmin: boolean
-  gateEnabled: boolean
-  verified: boolean
-}
-
-export async function getAccessState(userId: string): Promise<AccessState> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true, accessStatus: true },
-  })
-
-  const isAdmin = user?.role === UserRole.ADMIN
-  const status = user?.accessStatus ?? AccessStatus.NONE
-  const verified = !ACCESS_GATE_ENABLED || isAdmin || status === AccessStatus.VERIFIED
-
-  return { status, isAdmin, gateEnabled: ACCESS_GATE_ENABLED, verified }
-}
-
-// Whether a user has verified access to extended features (report submission, lab creation)
-export async function isVerified(userId: string): Promise<boolean> {
-  if (!ACCESS_GATE_ENABLED) return true
-  return (await getAccessState(userId)).verified
-}
-
-// Whether a user is allowed to create experimental reports
-export async function canSubmit(userId: string): Promise<boolean> {
-  return isVerified(userId)
-}
-
-// Whether a user is allowed to create labs
-export async function canCreateLab(userId: string): Promise<boolean> {
-  return isVerified(userId)
-}
-
-// User requests verified access (idempotent: only NONE → REQUESTED)
-export async function requestAccess(userId: string): Promise<AccessStatus> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { accessStatus: true },
-  })
-
-  if (!user) throw new Error("User not found")
-  if (user.accessStatus !== AccessStatus.NONE) return user.accessStatus
-
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: { accessStatus: AccessStatus.REQUESTED, accessRequestedAt: new Date() },
-    select: { accessStatus: true },
-  })
-  return updated.accessStatus
-}
-
-// Admin grants verified access
-export async function grantAccess(userId: string): Promise<void> {
-  const { count } = await prisma.user.updateMany({
-    where: { id: userId },
-    data: { accessStatus: AccessStatus.VERIFIED, accessRequestedAt: null },
-  })
-  if (count === 0) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
-}
-
-// Admin revokes verified access
-export async function revokeAccess(userId: string): Promise<void> {
-  const { count } = await prisma.user.updateMany({
-    where: { id: userId },
-    data: { accessStatus: AccessStatus.NONE, accessRequestedAt: null },
-  })
-  if (count === 0) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
-}
-
 // Delete a user and all their data
 export async function deleteUser(userId: string): Promise<void> {
   const user = await prisma.user.findUnique({
@@ -390,19 +313,16 @@ export async function getAllUsers(page: number = 1, pageSize: number = 20, searc
         image: true,
         role: true,
         status: true,
-        accessStatus: true,
-        accessRequestedAt: true,
         createdAt: true,
         updatedAt: true,
         _count: {
           select: {
             panels: true,
             experiments: true,
-            blogPosts: true,
           },
         },
       },
-      orderBy: [{ accessRequestedAt: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
+      orderBy: { createdAt: "desc" },
       skip,
       take: pageSize,
     }),

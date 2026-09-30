@@ -9,12 +9,12 @@ import {
   Code2,
   FileUp,
   Home,
+  Info,
   KeyRound,
   Palette,
   Search,
+  Server,
   ShieldUser,
-  TrainTrack,
-  Users2,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -31,6 +31,7 @@ const sidebarItems = [
       { title: "Design Panels", href: "/docs/getting-started/panels", icon: Palette },
       { title: "Submit Reports", href: "/docs/getting-started/submit", icon: FileUp },
       { title: "AI Assistant", href: "/docs/getting-started/ai", icon: Bot },
+      { title: "Running Your Own Instance", href: "/docs/getting-started/self-hosting", icon: Server },
     ],
   },
   {
@@ -41,10 +42,9 @@ const sidebarItems = [
     ],
   },
   {
-    title: "Community",
+    title: "About",
     items: [
-      { title: "Team", href: "/docs/community/team", icon: Users2 },
-      { title: "Roadmap", href: "/docs/community/roadmap", icon: TrainTrack },
+      { title: "About PanelMaker", href: "/docs/about", icon: Info },
       { title: "Code of Conduct", href: "/docs/community/conduct", icon: ShieldUser },
     ],
   },

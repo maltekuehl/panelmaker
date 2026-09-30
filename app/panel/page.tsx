@@ -9,16 +9,6 @@ export const metadata: Metadata = {
   title: "Panel Designer | PanelMaker",
   description:
     "Design and optimize antibody panels for spatial proteomics experiments. Add markers, manage cycles, and check compatibility.",
-  keywords: [
-    "panel designer",
-    "antibody panel",
-    "spatial proteomics",
-    "multiplexed imaging",
-    "CODEX",
-    "CyCIF",
-    "IMC",
-    "panel optimization",
-  ],
 }
 
 export default async function PanelPage() {
