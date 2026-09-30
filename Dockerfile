@@ -74,6 +74,7 @@ ENV NODE_ENV=production \
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 COPY --from=deps /app/lib/generated ./lib/generated
+RUN mkdir -p /app/data/uploads && chown -R node:node /app/data
 USER node
 CMD ["sh", "-c", "npx prisma migrate deploy && npm run setup"]
 

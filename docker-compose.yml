@@ -47,6 +47,11 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
+      UPLOADS_DIR: /app/data/uploads
+    # Shares the app's uploads volume so scripts that write images (the demo
+    # seed) put them where the app serves them from.
+    volumes:
+      - uploads_data:/app/data/uploads
     networks:
       - database
       - web

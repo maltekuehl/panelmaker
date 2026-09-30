@@ -158,6 +158,14 @@ ENCRYPTION_KEY="<generated>"
 - `ENCRYPTION_KEY` lets users and labs store their own AI provider keys. For instance-wide keys billed to you, set `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`. See [AI assistant](./ai-assistant.md).
 - For GitHub sign-in, set `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`. The callback URL is `https://panelmaker.example.edu/auth/callback/github`.
 
+Edit the existing lines rather than adding new ones at the end. If a name appears twice, the later line wins, and an empty duplicate silently switches the setting off. This command must print nothing:
+
+```bash
+grep -vE '^\s*(#|$)' .env | cut -d= -f1 | sort | uniq -d
+```
+
+After changing `.env` later on, apply it with `docker compose up -d`. `docker compose restart` keeps the old values.
+
 Optional values can stay empty. Values you set must be valid, or the server does not start. Every variable is described in [Configuration](./configuration.md).
 
 ### 10. Build and start

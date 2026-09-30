@@ -47,7 +47,7 @@ function blobSvg(w: number, h: number, color: string, rng: () => number): string
   </svg>`
 }
 
-const SEED_UPLOADS_DIR = path.resolve(process.cwd(), process.env.UPLOADS_DIR ?? "./data/uploads")
+const SEED_UPLOADS_DIR = path.resolve(process.cwd(), process.env.UPLOADS_DIR || "./data/uploads")
 const SEED_IMAGE_POOL_SIZE = 12
 let imagePool: string[] = []
 
