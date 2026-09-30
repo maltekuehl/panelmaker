@@ -1,7 +1,8 @@
 # Production stack: Postgres + a one-shot migrate service + the standalone
-# Next.js app, all behind an nginx reverse proxy. nginx terminates client
-# traffic and forwards everything to the app, including /uploads/, which the
-# app serves itself so it can apply experiment visibility. Bring it up with:
+# Next.js app, all behind a Caddy reverse proxy. Caddy terminates client
+# traffic (HTTPS with automatic certificates when SITE_ADDRESS is a hostname)
+# and forwards everything to the app, including /uploads/, which the app
+# serves itself so it can apply experiment visibility. Bring it up with:
 #   docker compose up -d --build
 #
 # The migrate service runs `prisma migrate deploy` and then `npm run setup`
@@ -70,7 +71,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
       UPLOADS_DIR: /app/data/uploads
       INSTANCE_CONFIG_DIR: /app/config
-      # Auth.js runs behind nginx, so it cannot infer its own origin from the request.
+      # Auth.js runs behind Caddy, so it cannot infer its own origin from the request.
       AUTH_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:8080}/auth
       AUTH_TRUST_HOST: "true"
     expose:
@@ -93,26 +94,35 @@ services:
       retries: 3
       start_period: 30s
 
-  nginx:
-    image: nginx:alpine
-    container_name: panelmaker-nginx
+  caddy:
+    image: caddy:2-alpine
+    container_name: panelmaker-caddy
     restart: unless-stopped
-    # The only published port. Set NGINX_BIND=127.0.0.1 when a TLS proxy on
-    # the same host (Caddy, host nginx) forwards to it.
+    entrypoint: ["/bin/sh", "/etc/caddy/entrypoint.sh"]
+    # The only published ports. On a server with its own domain, set
+    # SITE_ADDRESS to the hostname and HTTP_PORT=80, HTTPS_PORT=443 so Caddy
+    # can obtain a certificate. Behind another TLS proxy on the same host,
+    # keep SITE_ADDRESS=:80 and set PROXY_BIND=127.0.0.1.
     ports:
-      - "${NGINX_BIND:-0.0.0.0}:${NGINX_PORT:-8080}:80"
+      - "${PROXY_BIND:-0.0.0.0}:${HTTP_PORT:-8080}:80"
+      - "${PROXY_BIND:-0.0.0.0}:${HTTPS_PORT:-8443}:443"
+      - "${PROXY_BIND:-0.0.0.0}:${HTTPS_PORT:-8443}:443/udp"
     networks:
       - web
     environment:
-      # Optional site-wide HTTP basic auth gate (e.g. for a staging instance).
-      # Off unless both are set in .env; the gate config is regenerated from
-      # them on every container start. Setting only one refuses to start.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      # Optional site-wide HTTP basic auth gate. Off unless both are set;
+      # regenerated on every container start. Setting only one refuses to start.
       BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
       BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-}
     volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      # Writes the basic auth gate config (on or off) from the BASIC_AUTH_* env vars at startup.
-      - ./docker/nginx/docker-entrypoint.d/40-basic-auth.sh:/docker-entrypoint.d/40-basic-auth.sh:ro
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/caddy/entrypoint.sh:/etc/caddy/entrypoint.sh:ro
+      # Certificates and ACME account. Keep it, or restarts request new
+      # certificates and run into Let's Encrypt rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       app:
         condition: service_healthy
@@ -125,3 +135,5 @@ networks:
 volumes:
   postgres_data:
   uploads_data:
+  caddy_data:
+  caddy_config:

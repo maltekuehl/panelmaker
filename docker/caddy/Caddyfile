@@ -1,0 +1,31 @@
+# Reverse proxy in front of the app. SITE_ADDRESS decides the mode:
+#   a hostname (panelmaker.example.edu)  -> Caddy obtains and renews a TLS
+#                                           certificate and serves HTTPS itself
+#   :80 (the default)                    -> plain HTTP, for a trial on
+#                                           localhost or behind a TLS proxy
+# The two imported files are written at container start by entrypoint.sh
+# from ACME_EMAIL and the BASIC_AUTH_* variables.
+{
+	admin off
+	import /etc/caddy/generated/global.caddy
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$SITE_ADDRESS::80} {
+	import /etc/caddy/generated/basic-auth.caddy
+
+	encode zstd gzip
+
+	# Uploaded validation images are large lossless WebP files (80 MB max).
+	request_body {
+		max_size 100MB
+	}
+
+	# Everything, including /uploads/, goes to the app, which applies
+	# experiment visibility. flush_interval -1 keeps chat answers streaming.
+	reverse_proxy app:3000 {
+		flush_interval -1
+	}
+}

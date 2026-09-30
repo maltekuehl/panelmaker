@@ -37,7 +37,7 @@ prisma/
   data/                 static data: ontology terms, proteins, fluorophores, demo users and labs, IBEX tables
 scripts/                operator and maintenance scripts (setup, admin:create, imports, syncs)
 config/                 operator overrides for the legal pages (examples only in git)
-docker/nginx/           reverse proxy config and the basic auth entrypoint
+docker/caddy/           Caddyfile and the entrypoint that writes the basic auth gate
 tests/                  Playwright specs; tests/unit/ for tsx unit tests
 ```
 

@@ -92,9 +92,12 @@ Read by `docker-compose.yml` and `docker-compose.dev.yml`, not by the app.
 | `POSTGRES_USER`       | `panelmaker`                           | Database role created on first start of the `postgres_data` volume.                                              |
 | `POSTGRES_PASSWORD`   | required (production), `panelmaker` (dev) | Password for that role. Use a hex string, since it is embedded in a URL. Only applied when the volume is first created. |
 | `POSTGRES_DB`         | `panelmaker`                           | Database name.                                                                                                   |
-| `NGINX_BIND`          | `0.0.0.0`                              | Host address nginx is published on. Set `127.0.0.1` when a TLS proxy on the same host forwards to it.            |
-| `NGINX_PORT`          | `8080`                                 | Host port for the bundled nginx (plain HTTP).                                                                    |
-| `BASIC_AUTH_USER`     | empty                                  | With `BASIC_AUTH_PASSWORD`, turns on a site-wide HTTP basic auth gate in nginx. Set both or neither.             |
+| `SITE_ADDRESS`        | `:80`                                  | Caddy site address. A hostname turns on automatic HTTPS with a Let's Encrypt certificate; `:80` serves plain HTTP. |
+| `ACME_EMAIL`          | empty                                  | Contact address for the certificate authority, used for expiry warnings. Optional.                               |
+| `HTTP_PORT`           | `8080`                                 | Host port for Caddy's HTTP listener. Must be `80` for automatic HTTPS.                                           |
+| `HTTPS_PORT`          | `8443`                                 | Host port for Caddy's HTTPS listener (TCP and UDP). Must be `443` for automatic HTTPS.                           |
+| `PROXY_BIND`          | `0.0.0.0`                              | Host address Caddy's ports are published on. Set `127.0.0.1` when another proxy on the same host forwards to it. |
+| `BASIC_AUTH_USER`     | empty                                  | With `BASIC_AUTH_PASSWORD`, turns on a site-wide HTTP basic auth gate in Caddy. Set both or neither.             |
 | `BASIC_AUTH_PASSWORD` | empty                                  | See `BASIC_AUTH_USER`.                                                                                           |
 | `POSTGRES_PORT`       | `5433` (dev only)                      | Host port for Postgres in `docker-compose.dev.yml`, bound to `127.0.0.1`. The production stack never publishes Postgres. |
 | `APP_PORT`            | `3000`                                 | Host port for the dev server in `docker-compose.dev.yml`, bound to `127.0.0.1`.                                  |

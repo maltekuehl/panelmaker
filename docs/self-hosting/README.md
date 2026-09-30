@@ -17,7 +17,7 @@ These pages are for the people who deploy and run an instance.
 ## Minimum requirements
 
 - Docker with the Compose plugin, or Node.js (version in [`.nvmrc`](../../.nvmrc)) plus PostgreSQL for a bare-metal install
-- A hostname and a TLS certificate, since production builds expect HTTPS (see [Deployment](./deployment.md#tls-and-the-reverse-proxy))
+- A hostname (Caddy obtains the TLS certificate) or an existing TLS proxy, since production builds expect HTTPS (see [Deployment](./deployment.md#https-and-the-caddy-proxy))
 - Outbound HTTPS to a few public services for ontology and antibody lookups (see [Data](./data.md#outbound-network-access))
 
 ## Shortest path

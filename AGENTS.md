@@ -424,7 +424,7 @@ await prisma.$transaction([
   - `INSTANCE_NAME`, `INSTANCE_INSTITUTION`, `INSTANCE_OPERATOR`, `INSTANCE_ADDRESS`, `INSTANCE_CONTACT_EMAIL`, `INSTANCE_CONFIG_DIR` (instance identity and legal page overrides, read in `lib/instance.ts`; server-side only, never `NEXT_PUBLIC_`)
   - `INSTANCE_ALLOW_INDEXING` (default `false`: robots.txt disallows everything, the sitemap is empty and root metadata is `noindex, nofollow`; `true` restores normal indexing)
   - `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (optional instance-wide AI keys, the last fallback after a user key and a lab key), `AI_DEFAULT_MODEL` (`provider:model`), `AI_INSTANCE_DAILY_LIMIT` (per-user daily chat turns on the instance keys, default 200, 0 = unlimited). See `docs/development/chat-persistence.md`.
-  - Script-only: `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`, `SETUP_SKIP_FPBASE`, `SEED_ALLOW_RESET`, `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD`. Compose-only: `POSTGRES_*`, `NGINX_BIND`, `NGINX_PORT`, `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`, `APP_PORT`
+  - Script-only: `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`, `SETUP_SKIP_FPBASE`, `SEED_ALLOW_RESET`, `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD`. Compose-only: `POSTGRES_*`, `SITE_ADDRESS`, `ACME_EMAIL`, `HTTP_PORT`, `HTTPS_PORT`, `PROXY_BIND`, `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`, `APP_PORT`
 - `.env.local.example` is the authoritative list. Keep it, `lib/env.ts` and `docs/self-hosting/configuration.md` in step.
 - **Never hardcode secrets** in code or commit to git
 

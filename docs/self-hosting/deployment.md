@@ -9,9 +9,9 @@ The supported production setup is the Docker Compose stack in [`docker-compose.y
 | `postgres` | `postgres:16-alpine`                        | Database. Data in the `postgres_data` volume. Never published, and only on the internal `database` network.                      |
 | `migrate`  | built from `Dockerfile` (`migrator` target) | One-shot job: `npx prisma migrate deploy && npm run setup`. Runs on every `up`, then exits. Also used for operator commands.     |
 | `app`      | built from `Dockerfile` (`runner` target)   | The Next.js server on port 3000 inside the network. Uploads in the `uploads_data` volume. Starts only after `migrate` succeeded. |
-| `nginx`    | `nginx:alpine`                              | Reverse proxy. Listens on plain HTTP, published on the host as `NGINX_BIND:NGINX_PORT` (default `0.0.0.0:8080`).                 |
+| `caddy`    | `caddy:2-alpine`                            | Reverse proxy, the only service with published ports. Automatic HTTPS for a hostname, otherwise plain HTTP on `HTTP_PORT` (8080). |
 
-Every request, including `/uploads/...`, goes through the app. Report images can belong to private or lab experiments, and only the app can check who may see them, so nginx never serves upload files from disk.
+Every request, including `/uploads/...`, goes through the app. Report images can belong to private or lab experiments, and only the app can check who may see them, so the proxy never serves upload files from disk.
 
 `npm run setup` loads the reference data (ontology terms, marker proteins, imaging methods, fluorophores) with upserts only. It never deletes anything and creates no users, so it is safe on every deploy. See [Data](./data.md).
 
@@ -38,9 +38,10 @@ Edit `.env`. At minimum:
 | `NEXT_PUBLIC_BASE_URL` | The public URL, for example `https://panelmaker.example.edu`. Baked into the build, see below.    |
 | `AUTH_SECRET`          | Output of `openssl rand -hex 32`                                                                  |
 | `POSTGRES_PASSWORD`    | Output of `openssl rand -hex 32`. Required: compose refuses to start without it.                  |
+| `SITE_ADDRESS`         | Your hostname, if this server should get its own certificate. See [HTTPS](#https-and-the-caddy-proxy). |
 | `INSTANCE_*`           | Your instance name and operator details. See [Legal pages and branding](./legal-and-branding.md). |
 
-`ENCRYPTION_KEY` and `INSTANCE_CONTACT_EMAIL` must be either set to a valid value or deleted from `.env`. Left as `""`, they fail validation and the production server does not start.
+Optional values can stay empty (`""`). Anything you do set must be valid: `ENCRYPTION_KEY` needs at least 32 characters and `INSTANCE_CONTACT_EMAIL` a valid address, otherwise the server does not start.
 
 Recommended:
 
@@ -59,13 +60,13 @@ You do not need to set `DATABASE_URL`, `UPLOADS_DIR` or `INSTANCE_CONFIG_DIR`: t
 docker compose up -d --build
 ```
 
-Compose starts Postgres, waits for it to be healthy, runs `migrate`, and then starts `app` and `nginx`. Follow progress with:
+Compose starts Postgres, waits for it to be healthy, runs `migrate`, and then starts `app` and `caddy`. Follow progress with:
 
 ```bash
 docker compose logs -f migrate app
 ```
 
-The app has a health endpoint at `/api/health`, which the compose healthcheck uses. nginx lets it through without basic auth, so external monitors can use it too.
+The app has a health endpoint at `/api/health`, which the compose healthcheck uses. Caddy lets it through without basic auth, so external monitors can use it too.
 
 On a host without internet access to FPbase, add `SETUP_SKIP_FPBASE=1` to `.env`. The spectra can be loaded later with `docker compose run --rm migrate npm run fpbase:sync`.
 
@@ -87,69 +88,70 @@ docker compose run --rm migrate npm run ibex:import
 
 This adds 104 experiments with 1,277 published antibody validation reports from the IBEX Imaging Community knowledge base (CC BY 4.0). It reads committed files, makes no network calls, and is safe to run again. See [Data](./data.md#ibex-knowledge-base).
 
-## TLS and the reverse proxy
-
-The bundled nginx listens on plain HTTP only. Put a TLS-terminating proxy in front of it: an institutional load balancer, Caddy, or nginx on the host. Forward to `http://127.0.0.1:${NGINX_PORT}`.
+## HTTPS and the Caddy proxy
 
 HTTPS is not optional for a production instance. For any host other than `localhost`, `127.0.0.1` or `*.localhost`, the app sends `Strict-Transport-Security` and a Content Security Policy with `upgrade-insecure-requests`, so browsers rewrite every asset request to HTTPS. Opening the instance over plain HTTP on a server hostname or IP address will not work. A trial on your own machine at the default `http://localhost:8080` does work.
 
-For the outer proxy:
+The bundled Caddy runs in one of two modes, chosen by `SITE_ADDRESS`:
 
-- Set `NEXT_PUBLIC_BASE_URL` to the `https://` URL visitors use. Compose derives `AUTH_URL` (`<NEXT_PUBLIC_BASE_URL>/auth`) from it and sets `AUTH_TRUST_HOST=true`.
-- Pass the original `Host` header.
-- Allow request bodies of at least 80 MB, the largest accepted image upload. The bundled nginx allows 100 MB.
-- Do not buffer responses on `/api/chat`, which streams. The bundled nginx already has `proxy_buffering off`.
-- The `nginx` service publishes `NGINX_PORT` on all host interfaces by default. When the TLS proxy runs on the same host, set `NGINX_BIND=127.0.0.1` so only that proxy can reach it.
+| Mode                  | Settings                                                                              | Use it when                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Automatic HTTPS       | `SITE_ADDRESS` = the hostname, `HTTP_PORT=80`, `HTTPS_PORT=443`, optional `ACME_EMAIL` | The server has a public IP and a DNS name, for example a VPS. See [the example below](#example-a-single-vps).   |
+| Plain HTTP (default)  | `SITE_ADDRESS=:80`, `HTTP_PORT` of your choice                                        | A trial on localhost, or another proxy (an institutional load balancer, a host nginx) terminates TLS in front.   |
 
-If you enable GitHub sign-in, the OAuth callback URL is `<NEXT_PUBLIC_BASE_URL>/auth/callback/github`.
+In automatic HTTPS mode Caddy obtains a certificate from Let's Encrypt on first start and renews it by itself. Ports 80 and 443 must reach the server from the internet for that, and the DNS record must already point at it. Certificates are kept in the `caddy_data` volume; do not delete it, or every restart requests new certificates and runs into rate limits.
+
+Behind another proxy:
+
+- Forward to `http://<host>:${HTTP_PORT}`. If that proxy runs on the same host, set `PROXY_BIND=127.0.0.1` so nothing else can reach Caddy.
+- Pass the original `Host` header. Caddy keeps `X-Forwarded-*` headers from proxies on private networks and replaces them from anywhere else.
+- Allow request bodies of at least 80 MB, the largest accepted image upload. Caddy allows 100 MB.
+- Do not buffer responses on `/api/chat`, which streams.
+
+In both modes, set `NEXT_PUBLIC_BASE_URL` to the `https://` URL visitors use. Compose derives `AUTH_URL` (`<NEXT_PUBLIC_BASE_URL>/auth`) from it and sets `AUTH_TRUST_HOST=true`. If you enable GitHub sign-in, the OAuth callback URL is `<NEXT_PUBLIC_BASE_URL>/auth/callback/github`.
+
+## What is reachable from outside
+
+Only Caddy publishes ports, on `PROXY_BIND` (default all interfaces). The app has no published port. Postgres has none either, and it sits on an internal Docker network with no route to the host or the internet, so only the `app` and `migrate` services can reach it.
+
+This matters because Docker writes its own firewall rules for published ports, which bypass host firewalls such as `ufw`. A port is private only if it is not published. Check with `docker compose ps`: only `panelmaker-caddy` should list ports.
 
 ## Optional basic auth gate
 
-To put the whole site behind one HTTP basic auth login, for example for a staging instance, set both values in `.env`:
+To put the whole site behind one HTTP basic auth login, for example while the instance is not public yet, set both values in `.env`:
 
 ```bash
-BASIC_AUTH_USER="staging"
-BASIC_AUTH_PASSWORD="a-long-random-password"
+BASIC_AUTH_USER="panelmaker"
+BASIC_AUTH_PASSWORD="output of openssl rand -hex 24"
 ```
 
-Then `docker compose up -d nginx`. The gate is off when both are empty, which is the default. Setting only one of them makes the nginx container refuse to start. `/api/health` stays open. This gate sits in front of the normal PanelMaker sign-in; it does not replace it.
+Then `docker compose up -d caddy`. The gate is off when both are empty, which is the default. Setting only one of them, or a user name with characters other than letters, digits, `.`, `_` and `-`, makes the Caddy container refuse to start. `/api/health` stays open. This gate sits in front of the normal PanelMaker sign-in; it does not replace it.
 
-- Basic auth sends the credentials with every request, readable by anyone on the path unless the connection is HTTPS. Only use it behind the TLS proxy.
+- Basic auth sends the credentials with every request, readable by anyone on the path unless the connection is HTTPS. Only use it with HTTPS.
 - The gate also applies to the public API, so API clients need the same credentials.
-- The password is stored in plain text inside the nginx container. Use a dedicated random value, not a password used anywhere else.
+- Caddy stores only a bcrypt hash, but the plain password is in `.env` and in the container environment. Use a dedicated random value, not a password used anywhere else.
+
+To open the instance to everyone, empty both values and run `docker compose up -d caddy` again.
 
 ## Example: a single VPS
 
-A small instance on one virtual server, with Caddy handling TLS and the basic auth gate on while the instance is not public yet.
+A small instance on one virtual server with its own domain, using Caddy's automatic HTTPS and the basic auth gate.
 
 1. Point a DNS record such as `panelmaker.example.edu` at the server. Allow only ports 22, 80 and 443 in the provider firewall.
 2. In `.env`, next to the required values from step 1:
 
    ```bash
    NEXT_PUBLIC_BASE_URL="https://panelmaker.example.edu"
-   NGINX_BIND="127.0.0.1"
+   SITE_ADDRESS="panelmaker.example.edu"
+   HTTP_PORT="80"
+   HTTPS_PORT="443"
+   ACME_EMAIL="you@example.edu"
    BASIC_AUTH_USER="panelmaker"
    BASIC_AUTH_PASSWORD="output of openssl rand -hex 24"
    ```
 
-3. Install Caddy on the host with this `/etc/caddy/Caddyfile`, which obtains and renews the certificate itself:
-
-   ```
-   panelmaker.example.edu {
-       request_body {
-           max_size 100MB
-       }
-       reverse_proxy 127.0.0.1:8080 {
-           flush_interval -1
-       }
-   }
-   ```
-
-4. `docker compose up -d --build`, then create the first admin as in step 3 above.
-
-What is reachable from the internet: Caddy on 80 and 443, and nothing else from the stack. nginx listens on the loopback interface only, the app has no published port, and Postgres sits on an internal network that has no route to the host or the internet. This matters because Docker writes its own firewall rules for published ports, which bypass host firewalls such as `ufw`. Check with `docker compose ps`: only `nginx` should list a port, bound to `127.0.0.1`.
-
-To open the instance to everyone later, empty both `BASIC_AUTH_*` values and run `docker compose up -d nginx`.
+3. `docker compose up -d --build`, then create the first admin as in step 3 above.
+4. `docker compose logs caddy` should show the certificate being obtained. Open `https://panelmaker.example.edu`.
 
 ## Operator commands
 
@@ -219,4 +221,4 @@ npm run admin:create -- --email you@example.edu --name "Your Name"
 npm run start
 ```
 
-`npm run build` needs the migrated database to be reachable, because Next.js prefills cached pages during the build. `npm run start` listens on port 3000 (set `PORT` to change it). Run it under a process manager such as systemd, and put a TLS-terminating reverse proxy in front of it with the settings from [TLS and the reverse proxy](#tls-and-the-reverse-proxy). Uploads are served by the app itself, so the proxy should forward `/uploads/` like any other path.
+`npm run build` needs the migrated database to be reachable, because Next.js prefills cached pages during the build. `npm run start` listens on port 3000 (set `PORT` to change it). Run it under a process manager such as systemd, and put a TLS-terminating reverse proxy in front of it with the settings under "Behind another proxy" in [HTTPS and the Caddy proxy](#https-and-the-caddy-proxy). Uploads are served by the app itself, so the proxy should forward `/uploads/` like any other path.

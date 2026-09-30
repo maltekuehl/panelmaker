@@ -27,9 +27,9 @@ cp .env.local.example .env
 Edit `.env`:
 
 - `AUTH_SECRET`: output of `openssl rand -hex 32`
-- `POSTGRES_PASSWORD`: a strong password
+- `POSTGRES_PASSWORD`: output of `openssl rand -hex 32` (required)
 - `NEXT_PUBLIC_BASE_URL`: the public URL, or `http://localhost:8080` for a local trial (the example value `http://localhost:3000` is for the dev server)
-- `ENCRYPTION_KEY` and `INSTANCE_CONTACT_EMAIL`: fill in or delete the lines (empty values stop the server)
+- On a server with its own domain: `SITE_ADDRESS` set to the hostname, `HTTP_PORT="80"` and `HTTPS_PORT="443"`, and the bundled Caddy proxy gets a TLS certificate by itself. See [Deployment](docs/self-hosting/deployment.md#example-a-single-vps).
 
 Start the stack and create the first admin:
 
