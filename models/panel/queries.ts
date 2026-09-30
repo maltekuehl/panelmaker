@@ -258,8 +258,6 @@ function buildBrowsePanelWhere(
       OR: [
         { name: { contains: params.q, mode: "insensitive" } },
         { description: { contains: params.q, mode: "insensitive" } },
-        { species: { label: { contains: params.q, mode: "insensitive" } } },
-        { imagingMethod: { label: { contains: params.q, mode: "insensitive" } } },
       ],
     })
   }

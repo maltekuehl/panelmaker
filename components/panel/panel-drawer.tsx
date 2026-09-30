@@ -97,7 +97,7 @@ export function PanelDrawer() {
       <aside
         inert={!open}
         className={cn(
-          "fixed bottom-0 right-0 top-16 z-40 flex w-[420px] max-w-[calc(100vw-1rem)] flex-col border-l bg-popover text-popover-foreground shadow-2xl transition-transform duration-300 ease-in-out motion-reduce:transition-none",
+          "fixed bottom-0 right-0 top-16 z-40 flex w-[420px] max-w-[calc(100vw-1rem)] flex-col border-l bg-popover pb-20 text-popover-foreground shadow-2xl transition-transform duration-300 ease-in-out motion-reduce:transition-none",
           open ? "translate-x-0" : "pointer-events-none translate-x-full",
         )}
       >

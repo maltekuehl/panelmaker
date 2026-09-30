@@ -177,6 +177,10 @@ function buildExperimentWhere(
 ): Prisma.ExperimentWhereInput {
   const and: Prisma.ExperimentWhereInput[] = [base]
 
+  if (params.marker.length) and.push({ reports: { some: { antibody: { targetProteinId: { in: params.marker } } } } })
+  if (params.cellType.length) {
+    and.push({ reports: { some: { cellTypes: { some: { cellTypeId: { in: params.cellType } } } } } })
+  }
   if (params.species.length) and.push({ speciesId: { in: params.species } })
   if (params.tissue.length) and.push({ tissueId: { in: params.tissue } })
   if (params.condition.length) and.push({ conditionId: { in: params.condition } })
@@ -194,8 +198,9 @@ function buildExperimentWhere(
       OR: [
         { name: { contains: params.q, mode: "insensitive" } },
         { description: { contains: params.q, mode: "insensitive" } },
-        { species: { label: { contains: params.q, mode: "insensitive" } } },
-        { tissue: { label: { contains: params.q, mode: "insensitive" } } },
+        { citation: { contains: params.q, mode: "insensitive" } },
+        { doi: { contains: params.q, mode: "insensitive" } },
+        { pmid: { contains: params.q } },
       ],
     })
   }

@@ -5,10 +5,12 @@ import { SpecificityBadge, WorksBadge } from "@/components/browse/report-badges"
 import { ReportsDialog } from "@/components/browse/reports-dialog"
 import { DataTableColumnHeader } from "@/components/data-table/column-header"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
-import { NotAvailable, ValueOrNotAvailable } from "@/components/shared/not-available"
+import { NotAvailable } from "@/components/shared/not-available"
+import { TruncatedOrNotAvailable, TruncatedText } from "@/components/shared/truncated-text"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { formatDate } from "@/lib/format"
-import { doiUrl, pubmedUrl } from "@/lib/publication"
+import { doiUrl, pubmedUrl, type PublicationRef } from "@/lib/publication"
 import { antibodyHref, cellTypeHref, markerHref, profileHref } from "@/lib/routes"
 import { ColumnDef } from "@tanstack/react-table"
 import { ImageIcon } from "lucide-react"
@@ -22,8 +24,10 @@ export type MemberRef = { id: string; name: string | null }
 
 export type MarkerReport = {
   id: string
-  submitter: string
+  submitter: string | null
   submitterId: string | null
+  lab: string | null
+  publication: PublicationRef | null
   method: string
   species: string
   works: boolean | null
@@ -94,18 +98,25 @@ export type ExperimentEntry = {
   submitter: MemberRef | null
 }
 
+const VISIBLE_CELL_TYPES = 2
+
 function CellTypeLinks({ cellTypes }: { cellTypes: OntologyRef[] }) {
   if (cellTypes.length === 0) return <NotAvailable />
+  const visible = cellTypes.slice(0, VISIBLE_CELL_TYPES)
+  const hidden = cellTypes.slice(VISIBLE_CELL_TYPES)
   return (
-    <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-      {cellTypes.map((ct, i) => (
-        <span key={ct.id}>
-          <Link href={cellTypeHref(ct.id)} className="text-primary hover:underline">
-            {ct.label}
-          </Link>
-          {i < cellTypes.length - 1 ? "," : ""}
-        </span>
+    <div className="flex max-w-[240px] flex-col gap-0.5">
+      {visible.map((ct) => (
+        <TruncatedText key={ct.id} text={ct.label} href={cellTypeHref(ct.id)} />
       ))}
+      {hidden.length > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="w-fit cursor-default text-xs text-muted-foreground">+{hidden.length} more</span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-sm">{hidden.map((ct) => ct.label).join(", ")}</TooltipContent>
+        </Tooltip>
+      )}
     </div>
   )
 }
@@ -145,16 +156,13 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   {
     accessorKey: "marker",
     header: () => <DataTableColumnHeader field="marker" title="Marker" />,
-    cell: ({ row }) =>
-      row.original.proteinId ? (
-        <Link href={markerHref(row.original.proteinId)} className="font-semibold hover:underline text-primary">
-          {row.getValue("marker")}
-        </Link>
-      ) : (
-        <span className="font-semibold" title="No UniProt accession is linked to this antibody">
-          {row.getValue("marker") as string}
-        </span>
-      ),
+    cell: ({ row }) => (
+      <TruncatedText
+        text={row.original.marker}
+        href={row.original.proteinId ? markerHref(row.original.proteinId) : undefined}
+        className="max-w-[220px] font-semibold"
+      />
+    ),
   },
   {
     accessorKey: "cellTypes",
@@ -168,23 +176,23 @@ export const columns: ColumnDef<MarkerEntry>[] = [
   },
   {
     accessorKey: "species",
-    header: () => <DataTableColumnHeader field="species" title="Species" />,
-    cell: ({ row }) => <span>{row.getValue("species") as string}</span>,
+    header: () => <DataTableColumnHeader field="species" title="Sample species" />,
+    cell: ({ row }) => <TruncatedText text={row.original.species} className="max-w-[160px]" />,
   },
   {
     accessorKey: "tissue",
     header: () => <DataTableColumnHeader field="tissue" title="Tissue" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.getValue("tissue") as string}</span>,
+    cell: ({ row }) => <TruncatedText text={row.original.tissue} className="max-w-[160px] text-muted-foreground" />,
   },
   {
     accessorKey: "validatedMethods",
     header: () => <DataTableColumnHeader field="methods" title="Methods" />,
     cell: ({ row }) => {
-      const methods = row.original.validatedMethods.join(", ")
       return (
-        <span className="block max-w-[150px] truncate text-muted-foreground" title={methods}>
-          {methods}
-        </span>
+        <TruncatedText
+          text={row.original.validatedMethods.join(", ")}
+          className="max-w-[150px] text-muted-foreground"
+        />
       )
     },
     sortingFn: (a, b) => a.original.validatedMethods.join(", ").localeCompare(b.original.validatedMethods.join(", ")),
@@ -227,14 +235,12 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
     accessorKey: "name",
     header: () => <DataTableColumnHeader field="name" title="Antibody" />,
     cell: ({ row }) => {
-      const href = antibodyHref(row.original.rrid)
-      const name = row.original.name
-      return href ? (
-        <Link href={href} className="font-semibold hover:underline text-primary">
-          {name}
-        </Link>
-      ) : (
-        <span className="font-semibold">{name}</span>
+      return (
+        <TruncatedText
+          text={row.original.name}
+          href={antibodyHref(row.original.rrid) ?? undefined}
+          className="max-w-[280px] font-semibold"
+        />
       )
     },
   },
@@ -244,12 +250,12 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
     cell: ({ row }) => {
       const { target, targetProteinId } = row.original
       if (!target) return <NotAvailable />
-      return targetProteinId ? (
-        <Link href={markerHref(targetProteinId)} className="text-primary hover:underline">
-          {target}
-        </Link>
-      ) : (
-        <span>{target}</span>
+      return (
+        <TruncatedText
+          text={target}
+          href={targetProteinId ? markerHref(targetProteinId) : undefined}
+          className="max-w-[180px]"
+        />
       )
     },
   },
@@ -270,12 +276,16 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
   {
     accessorKey: "vendor",
     header: () => <DataTableColumnHeader field="vendor" title="Vendor" />,
-    cell: ({ row }) => <ValueOrNotAvailable value={row.original.vendor} className="text-muted-foreground" />,
+    cell: ({ row }) => (
+      <TruncatedOrNotAvailable value={row.original.vendor} className="max-w-[160px] text-muted-foreground" />
+    ),
   },
   {
     accessorKey: "clone",
     header: () => <DataTableColumnHeader field="clone" title="Clone" />,
-    cell: ({ row }) => <ValueOrNotAvailable value={row.original.clone} className="text-muted-foreground" />,
+    cell: ({ row }) => (
+      <TruncatedOrNotAvailable value={row.original.clone} className="max-w-[120px] text-muted-foreground" />
+    ),
   },
   {
     accessorKey: "reportCount",
@@ -315,22 +325,23 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
     accessorKey: "marker",
     header: () => <DataTableColumnHeader field="marker" title="Marker" />,
     cell: ({ row }) => (
-      <Link href={`/report/${row.original.id}`} className="font-semibold hover:underline text-primary">
-        {row.original.marker}
-      </Link>
+      <TruncatedText
+        text={row.original.marker}
+        href={`/report/${row.original.id}`}
+        className="max-w-[200px] font-semibold"
+      />
     ),
   },
   {
     accessorKey: "antibodyName",
     header: () => <DataTableColumnHeader field="antibodyName" title="Antibody" />,
     cell: ({ row }) => {
-      const href = antibodyHref(row.original.rrid)
-      return href ? (
-        <Link href={href} className="text-primary hover:underline">
-          {row.original.antibodyName}
-        </Link>
-      ) : (
-        <span>{row.original.antibodyName}</span>
+      return (
+        <TruncatedText
+          text={row.original.antibodyName}
+          href={antibodyHref(row.original.rrid) ?? undefined}
+          className="max-w-[240px]"
+        />
       )
     },
   },
@@ -347,22 +358,24 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
   {
     accessorKey: "subcellular",
     header: () => <DataTableColumnHeader field="subcellular" title="Subcellular" />,
-    cell: ({ row }) => <ValueOrNotAvailable value={row.original.subcellular} className="text-muted-foreground" />,
+    cell: ({ row }) => (
+      <TruncatedOrNotAvailable value={row.original.subcellular} className="max-w-[160px] text-muted-foreground" />
+    ),
   },
   {
     accessorKey: "species",
-    header: () => <DataTableColumnHeader field="species" title="Species" />,
-    cell: ({ row }) => <span>{row.original.species}</span>,
+    header: () => <DataTableColumnHeader field="species" title="Sample species" />,
+    cell: ({ row }) => <TruncatedText text={row.original.species} className="max-w-[160px]" />,
   },
   {
     accessorKey: "tissue",
     header: () => <DataTableColumnHeader field="tissue" title="Tissue" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.tissue}</span>,
+    cell: ({ row }) => <TruncatedText text={row.original.tissue} className="max-w-[160px] text-muted-foreground" />,
   },
   {
     accessorKey: "method",
     header: () => <DataTableColumnHeader field="method" title="Method" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.method}</span>,
+    cell: ({ row }) => <TruncatedText text={row.original.method} className="max-w-[140px] text-muted-foreground" />,
   },
   {
     accessorKey: "specificity",
@@ -413,11 +426,7 @@ export type PanelEntry = {
 
 export function MemberCell({ member }: { member: MemberRef | null }) {
   if (!member) return <NotAvailable />
-  return (
-    <Link href={profileHref(member.id)} className="text-primary hover:underline">
-      {member.name ?? "Unnamed user"}
-    </Link>
-  )
+  return <TruncatedText text={member.name ?? "Unnamed user"} href={profileHref(member.id)} className="max-w-[180px]" />
 }
 
 function panelOwner(panel: PanelEntry): MemberRef | null {
@@ -430,11 +439,9 @@ export const panelColumns: ColumnDef<PanelEntry>[] = [
     header: () => <DataTableColumnHeader field="name" title="Panel" />,
     cell: ({ row }) => (
       <div className="max-w-[320px] space-y-0.5">
-        <Link href={`/panel/${row.original.id}`} className="font-semibold text-primary hover:underline">
-          {row.original.name}
-        </Link>
+        <TruncatedText text={row.original.name} href={`/panel/${row.original.id}`} className="font-semibold" />
         {row.original.description && (
-          <p className="truncate text-xs text-muted-foreground">{row.original.description}</p>
+          <TruncatedText text={row.original.description} className="text-xs text-muted-foreground" />
         )}
       </div>
     ),
@@ -446,14 +453,15 @@ export const panelColumns: ColumnDef<PanelEntry>[] = [
   },
   {
     accessorKey: "species",
-    header: () => <DataTableColumnHeader field="species" title="Species" />,
-    cell: ({ row }) => (row.original.species ? <span>{row.original.species}</span> : <NotAvailable />),
+    header: () => <DataTableColumnHeader field="species" title="Sample species" />,
+    cell: ({ row }) => <TruncatedOrNotAvailable value={row.original.species} className="max-w-[160px]" />,
   },
   {
     accessorKey: "method",
     header: () => <DataTableColumnHeader field="method" title="Method" />,
-    cell: ({ row }) =>
-      row.original.method ? <span className="text-muted-foreground">{row.original.method}</span> : <NotAvailable />,
+    cell: ({ row }) => (
+      <TruncatedOrNotAvailable value={row.original.method} className="max-w-[140px] text-muted-foreground" />
+    ),
   },
   {
     accessorKey: "markerCount",
@@ -502,34 +510,34 @@ export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
     accessorKey: "name",
     header: () => <DataTableColumnHeader field="name" title="Experiment" />,
     cell: ({ row }) => (
-      <Link
+      <TruncatedText
+        text={row.original.name ?? `Experiment ${row.original.id.slice(0, 8)}`}
         href={`/experiment/${row.original.id}`}
-        className="block max-w-[360px] truncate font-semibold text-primary hover:underline"
-        title={row.original.name ?? undefined}
-      >
-        {row.original.name ?? `Experiment ${row.original.id.slice(0, 8)}`}
-      </Link>
+        className="max-w-[320px] font-semibold"
+      />
     ),
   },
   {
     accessorKey: "method",
     header: () => <DataTableColumnHeader field="method" title="Method" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.method}</span>,
+    cell: ({ row }) => <TruncatedText text={row.original.method} className="max-w-[140px] text-muted-foreground" />,
   },
   {
     accessorKey: "species",
-    header: () => <DataTableColumnHeader field="species" title="Species" />,
-    cell: ({ row }) => <span>{row.original.species}</span>,
+    header: () => <DataTableColumnHeader field="species" title="Sample species" />,
+    cell: ({ row }) => <TruncatedText text={row.original.species} className="max-w-[160px]" />,
   },
   {
     accessorKey: "tissue",
     header: () => <DataTableColumnHeader field="tissue" title="Tissue" />,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.tissue}</span>,
+    cell: ({ row }) => <TruncatedText text={row.original.tissue} className="max-w-[160px] text-muted-foreground" />,
   },
   {
     accessorKey: "condition",
     header: () => <DataTableColumnHeader field="condition" title="Condition" />,
-    cell: ({ row }) => <ValueOrNotAvailable value={row.original.condition} className="text-muted-foreground" />,
+    cell: ({ row }) => (
+      <TruncatedOrNotAvailable value={row.original.condition} className="max-w-[180px] text-muted-foreground" />
+    ),
   },
   {
     id: "publication",

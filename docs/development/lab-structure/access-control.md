@@ -24,21 +24,21 @@ Resolved per request from one indexed `LabMembership` query, memoized with React
 
 ## RBAC matrix
 
-| Action | OWNER | ADMIN | MEMBER | VIEWER |
-|---|---|---|---|---|
-| View lab content (incl. unpublished) | yes | yes | yes | yes |
-| Create lab | VERIFIED user (or site ADMIN) only; creator becomes OWNER | | | |
-| Edit lab settings / profile | yes | yes | no | no |
-| Invite member / revoke invite | yes | yes | no | no |
-| Change member role | yes | yes (not OWNER, no self-promote to OWNER) | no | no |
-| Remove member | yes | yes (not OWNER) | no | no |
-| Delete lab | yes | no | no | no |
-| Add / edit / remove inventory | yes | yes | yes | no |
-| Create experiment/panel in lab | yes | yes | yes | no |
-| Edit any LAB-shared experiment/panel | yes | yes | own only | no |
-| Set/change a resource's visibility | yes | yes | own only | no |
-| Un-share a resource from the lab | yes | yes | own only | no |
-| Run lab-scoped AI queries | yes | yes | yes | yes |
+| Action                               | OWNER                                                  | ADMIN                                     | MEMBER   | VIEWER |
+| ------------------------------------ | ------------------------------------------------------ | ----------------------------------------- | -------- | ------ |
+| View lab content (incl. unpublished) | yes                                                    | yes                                       | yes      | yes    |
+| Create lab                           | any signed-in, non-blocked user; creator becomes OWNER |                                           |          |        |
+| Edit lab settings / profile          | yes                                                    | yes                                       | no       | no     |
+| Invite member / revoke invite        | yes                                                    | yes                                       | no       | no     |
+| Change member role                   | yes                                                    | yes (not OWNER, no self-promote to OWNER) | no       | no     |
+| Remove member                        | yes                                                    | yes (not OWNER)                           | no       | no     |
+| Delete lab                           | yes                                                    | no                                        | no       | no     |
+| Add / edit / remove inventory        | yes                                                    | yes                                       | yes      | no     |
+| Create experiment/panel in lab       | yes                                                    | yes                                       | yes      | no     |
+| Edit any LAB-shared experiment/panel | yes                                                    | yes                                       | own only | no     |
+| Set/change a resource's visibility   | yes                                                    | yes                                       | own only | no     |
+| Un-share a resource from the lab     | yes                                                    | yes                                       | own only | no     |
+| Run lab-scoped AI queries            | yes                                                    | yes                                       | yes      | yes    |
 
 `ROLE_RANK = { VIEWER: 0, MEMBER: 1, ADMIN: 2, OWNER: 3 }`. Edit predicate: `resource.ownerId === viewer.userId` OR viewer holds ADMIN/OWNER in `resource.owningLabId` OR in any lab in the resource's share set.
 

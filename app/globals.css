@@ -107,6 +107,30 @@
   @apply mb-4 leading-7 text-foreground;
 }
 
+.prose-compact {
+  @apply text-[13px] leading-5;
+}
+
+.prose-compact h1,
+.prose-compact h2,
+.prose-compact h3:not(.accordion-header),
+.prose-compact h4 {
+  @apply mt-3 mb-1.5 border-none pb-0 text-sm font-semibold;
+}
+
+.prose-compact p {
+  @apply mb-2 leading-5;
+}
+
+.prose-compact ul,
+.prose-compact ol {
+  @apply mb-2 space-y-0.5;
+}
+
+.prose-compact li {
+  @apply ms-5 leading-5;
+}
+
 .prose-primary-foreground p {
   @apply text-primary-foreground;
 }

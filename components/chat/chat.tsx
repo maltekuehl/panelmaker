@@ -1,195 +1,23 @@
 "use client"
 
 import ChatAbout from "@/components/chat/chat-about"
+import { ChatMessage } from "@/components/chat/chat-message"
 import { ChatSidebarDesktop, ChatSidebarMobile } from "@/components/chat/chat-sidebar"
 import { ChatErrorNotice, MissingKeyNotice } from "@/components/chat/key-notice"
-import { MessageParts } from "@/components/chat/message-parts"
+import { hasVisibleParts, isAwaitingFirstContent, MessageParts } from "@/components/chat/message-parts"
 import { ModelPicker, ReasoningPicker } from "@/components/chat/model-picker"
 import { useChatSetup } from "@/components/chat/use-chat-setup"
 import { useConversation } from "@/components/chat/use-conversation"
 import { useReasoningEffort } from "@/components/chat/use-reasoning-effort"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { parseChatError } from "@/models/chat/errors"
 import type { ChatSetupData } from "@/models/chat/keys"
 import { extractMessageText, type ConversationSummary } from "@/models/chat/transforms"
 import type { UIMessage } from "ai"
-import clsx from "clsx"
-import { ArrowUp, Check, Copy, Edit2, StopCircle, Trash2, X } from "lucide-react"
+import { ArrowUp, StopCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState, type ReactNode } from "react"
-
-const MessageCard = ({
-  role,
-  author,
-  message,
-  rawContent,
-  onDelete,
-  onRegenerateFromHere,
-}: {
-  role: "user" | "assistant"
-  author: string
-  message: ReactNode
-  rawContent?: string
-  onDelete?: () => void
-  onRegenerateFromHere?: (newContent: string) => void
-}) => {
-  const isBot = role === "assistant"
-  const [copied, setCopied] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedContent, setEditedContent] = useState("")
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
-
-  useEffect(() => {
-    if (isEditing && rawContent) {
-      setEditedContent(rawContent)
-    }
-  }, [isEditing, rawContent])
-
-  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation()
-    if (rawContent) {
-      navigator.clipboard.writeText(rawContent)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
-  const handleRegenerateFromHere = () => {
-    if (editedContent.trim() && onRegenerateFromHere) {
-      onRegenerateFromHere(editedContent.trim())
-    }
-    setIsEditing(false)
-  }
-
-  const handleCancelEdit = () => {
-    setEditedContent(rawContent || "")
-    setIsEditing(false)
-  }
-
-  const deleteButton = onDelete && (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => setConfirmingDelete(true)}
-      className="size-7 p-0 hover:bg-destructive hover:text-destructive-foreground"
-      aria-label="Delete message"
-      title="Delete message"
-    >
-      <Trash2 className="size-3.5" />
-    </Button>
-  )
-
-  return (
-    <div className={clsx("group flex w-full items-start gap-2", isBot ? "justify-start" : "justify-end")}>
-      {!isBot && onDelete && (
-        <div className="flex flex-row gap-1 pt-7.5 opacity-0 transition-opacity group-hover:opacity-100">
-          {onRegenerateFromHere && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-              className="size-7 p-0 hover:bg-muted"
-              aria-label="Edit message"
-              title="Edit message"
-            >
-              <Edit2 className="size-3.5" />
-            </Button>
-          )}
-          {deleteButton}
-        </div>
-      )}
-
-      <div className={clsx("mb-4 flex flex-col", isBot ? "w-full items-start" : "max-w-[85%] items-end")}>
-        <span className="mb-1 px-1 text-xs font-medium text-muted-foreground">{author}</span>
-        <div
-          className={clsx(
-            "relative w-full max-w-full duration-300 animate-in fade-in",
-            isBot
-              ? "text-foreground"
-              : isEditing
-                ? "rounded-2xl bg-muted/40 p-2 text-foreground"
-                : "rounded-2xl rounded-br-md bg-primary px-4 py-3 text-primary-foreground",
-          )}
-        >
-          {isEditing ? (
-            <div className="space-y-2">
-              <Textarea
-                value={editedContent}
-                onChange={(e) => setEditedContent(e.target.value)}
-                className="min-h-25 w-full resize-none bg-background text-sm text-foreground"
-                autoFocus
-              />
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
-                  <X className="size-3.5" />
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleRegenerateFromHere}>
-                  <ArrowUp className="size-3.5" />
-                  Save and regenerate
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mb-0 max-w-none [&_.not-prose]:not-prose [&_.not-prose_*]:not-prose">
-              <div className="text-sm leading-6">{message}</div>
-            </div>
-          )}
-        </div>
-        {rawContent && !isEditing && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCopy}
-            className="mt-1 h-6 px-2 text-xs"
-            aria-label="Copy message to clipboard"
-          >
-            {copied ? <Check className="size-3!" /> : <Copy className="size-3!" />}
-            {copied && <span className="sr-only">Copied</span>}
-            <span>Copy message</span>
-          </Button>
-        )}
-      </div>
-
-      {isBot && onDelete && (
-        <div className="flex flex-col gap-1 pt-7.5 opacity-0 transition-opacity group-hover:opacity-100">
-          {deleteButton}
-        </div>
-      )}
-
-      {onDelete && (
-        <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
-          <AlertDialogContent size="sm">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete this message and everything after it?</AlertDialogTitle>
-              <AlertDialogDescription>
-                All later messages in this conversation will also be removed. This cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={() => onDelete()}>
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </div>
-  )
-}
+import { useEffect, useState } from "react"
 
 interface ChatProps {
   conversationId: string
@@ -205,7 +33,7 @@ export default function Chat({ conversationId, initialMessages, conversations, n
   const [reasoning, setReasoning] = useReasoningEffort()
   const sendOptions = { model: setup.selectedModel, labId: setup.labContextId, reasoning }
 
-  const { messages, setMessages, error, status, isStreaming, stop, input, setInput, send, submit } = useConversation({
+  const { messages, setMessages, error, isStreaming, stop, input, setInput, send, submit } = useConversation({
     conversationId,
     initialMessages,
     // The first reply names the conversation server-side; refresh so the sidebar picks it up.
@@ -289,8 +117,9 @@ export default function Chat({ conversationId, initialMessages, conversations, n
 
               {messages.map((m) => {
                 const isUserMessage = m.role === "user"
+                if (!isUserMessage && !hasVisibleParts(m)) return null
                 return (
-                  <MessageCard
+                  <ChatMessage
                     key={m.id}
                     role={isUserMessage ? "user" : "assistant"}
                     author={isUserMessage ? (name ?? "You") : "PanelMaker AI"}
@@ -304,7 +133,7 @@ export default function Chat({ conversationId, initialMessages, conversations, n
                 )
               })}
               {messages.length > 0 && error !== undefined && (
-                <MessageCard
+                <ChatMessage
                   key="error"
                   role="assistant"
                   author="PanelMaker AI"
@@ -317,7 +146,7 @@ export default function Chat({ conversationId, initialMessages, conversations, n
                   }
                 />
               )}
-              {status === "submitted" && (
+              {isAwaitingFirstContent(messages, isStreaming) && (
                 <div className="mb-4 flex w-full items-start justify-start gap-2 duration-300 animate-in fade-in">
                   <div className="flex max-w-[85%] flex-col items-start">
                     <span className="mb-1 px-1 text-xs font-medium text-muted-foreground">PanelMaker AI</span>
@@ -395,11 +224,11 @@ export default function Chat({ conversationId, initialMessages, conversations, n
             <div className="text-balance py-2 text-center text-[10px] text-muted-foreground select-none">
               Information purposes only. No medical advice. Verify responses. Do not submit personal or copyrighted
               data. By using this service, you agree to our{" "}
-              <Link href="/legal/terms" className="underline transition-colors hover:text-primary">
+              <Link href="/docs/legal/terms" className="underline transition-colors hover:text-primary">
                 Terms of Service
               </Link>{" "}
               and confirm that you have read our{" "}
-              <Link href="/legal/privacy" className="underline transition-colors hover:text-primary">
+              <Link href="/docs/legal/privacy" className="underline transition-colors hover:text-primary">
                 Privacy Policy
               </Link>{" "}
               and the{" "}
@@ -407,7 +236,7 @@ export default function Chat({ conversationId, initialMessages, conversations, n
                 Data Sources and Licensing
               </Link>{" "}
               section.{" "}
-              <Link href="/legal/notice" className="underline transition-colors hover:text-primary">
+              <Link href="/docs/legal/notice" className="underline transition-colors hover:text-primary">
                 Legal Notice and Disclaimer
               </Link>
               . Logos may be trademarked and remain the property of their respective owner.

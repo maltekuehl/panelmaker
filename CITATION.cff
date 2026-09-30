@@ -1,9 +1,10 @@
 cff-version: 1.2.0
-title: PanelMaker - Validated Spatial Proteomics Marker Database
+title: "PanelMaker: self-hosted antibody panel design for multiplexed tissue imaging"
 message: If you use this software, please cite it using the metadata from this file.
 type: software
-url: https://panelmaker.ai
-authors:
+url: https://github.com/complextissue/panelmaker
+repository-code: https://github.com/complextissue/panelmaker
+authors: &authors
   - family-names: Kuehl
     given-names: Malte
   - family-names: Schaub
@@ -46,7 +47,18 @@ date-released: 2026-02-27
 keywords:
   - spatial proteomics
   - antibody validation
+  - multiplex immunofluorescence
   - multiplex imaging
   - panel design
-  - CODEX
 license: Apache-2.0
+preferred-citation:
+  type: article
+  title: BioContextAI is a community hub for agentic biomedical systems
+  authors: *authors
+  journal: Nature Biotechnology
+  publisher:
+    name: Springer Science and Business Media LLC
+  year: 2025
+  month: 11
+  doi: 10.1038/s41587-025-02900-9
+  url: https://doi.org/10.1038/s41587-025-02900-9

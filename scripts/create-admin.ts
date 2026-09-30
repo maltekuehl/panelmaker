@@ -1,5 +1,5 @@
 // Creates the first administrator of an instance, or promotes an existing account to ADMIN.
-// The account is ACTIVE and VERIFIED (can submit reports, create labs and reach /admin).
+// The account is ACTIVE with the ADMIN role (can submit reports, create labs and reach /admin).
 //
 //   npm run admin:create -- --email admin@example.edu --name "Ada Admin"
 //

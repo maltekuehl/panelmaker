@@ -19,8 +19,8 @@ npm run ibex:import   # load the committed tables into the database
 
 ## Files
 
-| Path                                          | What it is                                                                      |
-| --------------------------------------------- | ------------------------------------------------------------------------------- |
+| Path                                          | What it is                                                                        |
+| --------------------------------------------- | --------------------------------------------------------------------------------- |
 | `prisma/data/ibex/reagent_resources.csv`      | Upstream reagent table, 1321 rows, 26 columns. Committed so the seed runs offline |
 | `prisma/data/ibex/fluorescent_probes.csv`     | Upstream probe table, 76 dyes with excitation and emission maxima                 |
 | `prisma/data/ibex/vendor_urls.csv`            | Upstream vendor table, used to fill `Antibody.vendorUrl`                          |
@@ -34,32 +34,32 @@ npm run ibex:import   # load the committed tables into the database
 
 ## Field mapping
 
-| IBEX column                    | PanelMaker target                                                              |
-| ------------------------------ | ------------------------------------------------------------------------------ |
-| UniProt Accession Number       | `Protein.id`, and `Antibody.targetProteinId`                                     |
-| Reagent Type                   | filter (see decision 2), then `ExperimentalReport.notes`                         |
-| Target Name / Protein Biomarker| `Antibody.targetName`, `Protein.label`                                           |
-| Target Species                 | `Experiment.speciesId` (Taxon), `Antibody.targetSpecies[]`                       |
-| Host Organism                  | `Antibody.hostTaxonId` (Taxon)                                                   |
-| Isotype                        | `ExperimentalReport.notes` only, no schema field                                 |
-| Clonality                      | `Antibody.clonality` + `Antibody.cloneId` (see decision 9)                        |
-| Vendor                         | `Antibody.vendorName`, plus `vendorUrl` from `vendor_urls.csv`                   |
-| Catalog Number                 | `Antibody.catalogNumber`                                                         |
-| Conjugate                      | `ExperimentalReport.fluorophoreId` (Fluorophore), `Antibody.conjugate`           |
-| RRID                           | `Antibody.rrid`, stored as `RRID:AB_xxxxxxx` to match the existing rows          |
-| Availability                   | `ExperimentalReport.notes` only                                                  |
-| Method                         | `Experiment.method` + exact string in `Experiment.name` and `description`        |
-| Tissue Preservation            | `Experiment.fixation` + exact string in `Experiment.name` and `description`      |
-| Target Tissue                  | `Experiment.tissueId` (UBERON), sometimes `conditionId` too                      |
-| Tissue State                   | `Experiment.conditionId` (DOID) + exact string in `description`                  |
-| Detergent                      | `ExperimentalReport.notes` only                                                  |
-| Antigen Retrieval Conditions   | `Experiment.antigenRetrieval` + exact string in `description`                    |
-| Dye Inactivation Conditions    | `ExperimentalReport.notes` only                                                  |
-| Recommend                      | `ExperimentalReport.works`                                                       |
-| Agree / Disagree / Contributor | `ExperimentalReport.notes` only (see decision 6)                                 |
-| Image Files                    | `ReportImage.url`, pointing at the upstream repository                           |
-| Captions                       | `ReportImage.caption`, positionally matched to `Image Files`                     |
-| MD5                            | dropped, no checksum field anywhere                                              |
+| IBEX column                     | PanelMaker target                                                           |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| UniProt Accession Number        | `Protein.id`, and `Antibody.targetProteinId`                                |
+| Reagent Type                    | filter (see decision 2), then `ExperimentalReport.notes`                    |
+| Target Name / Protein Biomarker | `Antibody.targetName`, `Protein.label`                                      |
+| Target Species                  | `Experiment.speciesId` (Taxon), `Antibody.targetSpecies[]`                  |
+| Host Organism                   | `Antibody.hostTaxonId` (Taxon)                                              |
+| Isotype                         | `ExperimentalReport.notes` only, no schema field                            |
+| Clonality                       | `Antibody.clonality` + `Antibody.cloneId` (see decision 9)                  |
+| Vendor                          | `Antibody.vendorName`, plus `vendorUrl` from `vendor_urls.csv`              |
+| Catalog Number                  | `Antibody.catalogNumber`                                                    |
+| Conjugate                       | `ExperimentalReport.fluorophoreId` (Fluorophore), `Antibody.conjugate`      |
+| RRID                            | `Antibody.rrid`, stored as `RRID:AB_xxxxxxx` to match the existing rows     |
+| Availability                    | `ExperimentalReport.notes` only                                             |
+| Method                          | `Experiment.method` + exact string in `Experiment.name` and `description`   |
+| Tissue Preservation             | `Experiment.fixation` + exact string in `Experiment.name` and `description` |
+| Target Tissue                   | `Experiment.tissueId` (UBERON), sometimes `conditionId` too                 |
+| Tissue State                    | `Experiment.conditionId` (DOID) + exact string in `description`             |
+| Detergent                       | `ExperimentalReport.notes` only                                             |
+| Antigen Retrieval Conditions    | `Experiment.antigenRetrieval` + exact string in `description`               |
+| Dye Inactivation Conditions     | `ExperimentalReport.notes` only                                             |
+| Recommend                       | `ExperimentalReport.works`                                                  |
+| Agree / Disagree / Contributor  | `ExperimentalReport.notes` only (see decision 6)                            |
+| Image Files                     | `ReportImage.url`, pointing at the upstream repository                      |
+| Captions                        | `ReportImage.caption`, positionally matched to `Image Files`                |
+| MD5                             | dropped, no checksum field anywhere                                         |
 
 ## Mapping decisions
 
@@ -132,8 +132,8 @@ fluorophores were created from the probe table, 18 matched existing rows.
 ## Ontology resolution
 
 Tissue and disease terms were resolved against OLS4 and **hand-checked**, because the automatic top hit is wrong often
-enough to poison the anatomy. Three examples caught by hand: `Skin` returns *pedal digit skin*, `Prostate` returns
-*prostate gland smooth muscle*, `Whole Foot` returns *sciatic nerve*. The curated values are `UBERON:0002097` skin of
+enough to poison the anatomy. Three examples caught by hand: `Skin` returns _pedal digit skin_, `Prostate` returns
+_prostate gland smooth muscle_, `Whole Foot` returns _sciatic nerve_. The curated values are `UBERON:0002097` skin of
 body, `UBERON:0002367` prostate gland and `UBERON:0002387` pes. Every id in `ontology.resolved.json` was fetched back
 by IRI and its label and obsolete flag checked.
 
@@ -141,7 +141,7 @@ Two source values are not anatomy at all: `Pancreatic Ductal Adenocarcinoma` bec
 `DOID:3498`, and `Tumor` becomes no tissue plus the condition `DOID:162`.
 
 Taxonomy ids come from NCBI E-utilities. One note: NCBI has reclassified the Armenian hamster under
-*Nothocricetulus migratorius*, txid 3122392. Every taxon id is built by `taxonId()` in `prisma/data/ibex/vocabulary.ts`
+_Nothocricetulus migratorius_, txid 3122392. Every taxon id is built by `taxonId()` in `prisma/data/ibex/vocabulary.ts`
 from the single constant `TAXON_ID_PREFIX`, so the queued move from `NCBI:txid9606` to `NCBITaxon:9606` is a one-line
 change.
 
@@ -162,17 +162,17 @@ authoritatively. Nothing is ever deleted.
 
 ## What had nowhere to go
 
-| Data                                            | Why it was dropped or parked in notes                                     |
-| ----------------------------------------------- | ------------------------------------------------------------------------- |
-| Isotype (12 values, e.g. IgG2a, IgY, Fab2)       | no `Antibody.isotype` field                                                |
-| Availability (Stock / Custom, 68 custom rows)    | no field for commercial availability                                       |
-| Detergent (8 values)                             | no field on `Experiment` or `ExperimentalReport`                            |
-| Dye inactivation conditions                      | no field; this is the core IBEX parameter                                   |
-| Contributor / Agree / Disagree ORCIDs            | no ORCID-keyed contributor or consensus model                               |
-| Image MD5 checksums                              | no checksum field                                                           |
-| Exact Method / Preservation / Retrieval strings  | parked in `Experiment.description`; no raw-value column exists              |
-| UniProt recommended protein name                 | `Protein` has only `label`, which holds the short marker name instead       |
-| Second accession on 2 pan-reactive antibodies    | `Antibody.targetProteinId` is single valued                                 |
+| Data                                                  | Why it was dropped or parked in notes                                         |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Isotype (12 values, e.g. IgG2a, IgY, Fab2)            | no `Antibody.isotype` field                                                   |
+| Availability (Stock / Custom, 68 custom rows)         | no field for commercial availability                                          |
+| Detergent (8 values)                                  | no field on `Experiment` or `ExperimentalReport`                              |
+| Dye inactivation conditions                           | no field; this is the core IBEX parameter                                     |
+| Contributor / Agree / Disagree ORCIDs                 | no ORCID-keyed contributor or consensus model                                 |
+| Image MD5 checksums                                   | no checksum field                                                             |
+| Exact Method / Preservation / Retrieval strings       | parked in `Experiment.description`; no raw-value column exists                |
+| UniProt recommended protein name                      | `Protein` has only `label`, which holds the short marker name instead         |
+| Second accession on 2 pan-reactive antibodies         | `Antibody.targetProteinId` is single valued                                   |
 | 6 conjugates (APC, DL488, UT014, UT015, UT016, UT019) | no cited spectrum in either the probe table or the existing fluorophore table |
 
 Two upstream quirks are carried through verbatim rather than corrected: `DL755` is listed with excitation 776 and
@@ -193,12 +193,12 @@ emission 754 in `fluorescent_probes.csv` (the maxima look swapped), and the prob
 
 ## Known gaps
 
-- Fluorophores created from the probe table have no `fpbaseId`. The memory note says the fluorophore table is
+- Fluorophores created from the probe table have no `fpbaseId`. The fluorophore table is meant to be
   FPbase-anchored; these 52 rows are anchored on the IBEX probe table instead, and an FPbase backfill is still owed.
 - `Tissue.partOfIds` is left empty on newly created tissues rather than guessed.
 - `ExperimentalReport.signalQuality` and `specificity` stay null. The source has no such grading, only the binary
   recommendation, and inventing a grade would be fabrication.
 - `prisma/data/ontology.ts` in the base seed has two wrong UBERON ids that this import does **not** touch:
-  `UBERON:0000082` is labelled "Lymph Node" but is *adult mammalian kidney*, and `UBERON:0001723` is labelled "Tonsil"
-  but is *tongue*. The IBEX import uses the correct `UBERON:0000029` and `UBERON:0002372`, so the dev database now
+  `UBERON:0000082` is labelled "Lymph Node" but is _adult mammalian kidney_, and `UBERON:0001723` is labelled "Tonsil"
+  but is _tongue_. The IBEX import uses the correct `UBERON:0000029` and `UBERON:0002372`, so the dev database now
   holds both the wrong seeded rows and the correct imported ones.

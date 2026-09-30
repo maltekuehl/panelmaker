@@ -98,7 +98,7 @@ Content and works created by the operator on this site are subject to applicable
 
 ### Data Protection
 
-See the [Privacy Policy](/legal/privacy) for details on how this instance processes personal data.`
+See the [Privacy Policy](/docs/legal/privacy) for details on how this instance processes personal data.`
 }
 
 export function buildPrivacyMarkdown(config: InstanceConfig): string {

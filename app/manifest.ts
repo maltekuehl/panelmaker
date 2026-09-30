@@ -1,7 +1,9 @@
 import { getInstanceConfig } from "@/lib/instance"
 import type { MetadataRoute } from "next"
+import { connection } from "next/server"
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  await connection()
   const { name } = getInstanceConfig()
   return {
     name,

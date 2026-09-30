@@ -1,4 +1,4 @@
-import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
+import type { AntibodyEntry, MarkerEntry, MarkerReport, ReportEntry } from "@/components/browse/columns"
 import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
 import { ANTIGEN_RETRIEVAL_LABELS, SPECIFICITY_RANK } from "@/lib/constants"
 import { antibodyHref, cellTypeHref, markerHref } from "@/lib/routes"
@@ -231,6 +231,20 @@ function collectImages(reports: ReportRow[], cap = MAX_ENTRY_IMAGES): CarouselIm
   return items
 }
 
+function toMarkerReport(r: ReportRow): MarkerReport {
+  const { citation, doi, pmid } = r.experiment
+  return {
+    id: String(r.id),
+    submitter: r.experiment.submitter?.name ?? null,
+    submitterId: r.experiment.submitter?.id ?? null,
+    lab: r.experiment.owningLab?.name ?? null,
+    publication: citation || doi || pmid ? { citation, doi, pmid } : null,
+    method: r.experiment.imagingMethod?.shortLabel ?? "Unknown",
+    species: r.experiment.species?.label ?? "Unknown",
+    works: r.works,
+  }
+}
+
 export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
   const groups = new Map<string, { reports: ReportRow[]; marker: string; id: string; proteinId: string | null }>()
 
@@ -278,14 +292,7 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
       validatedMethods: methods,
       reportCount: group.reports.length,
       images: collectImages(group.reports),
-      reports: group.reports.map((r) => ({
-        id: String(r.id),
-        submitter: r.experiment.submitter?.name ?? "Anonymous",
-        submitterId: r.experiment.submitter?.id ?? null,
-        method: r.experiment.imagingMethod?.shortLabel ?? "Unknown",
-        species: r.experiment.species?.label ?? "Unknown",
-        works: r.works,
-      })),
+      reports: group.reports.map(toMarkerReport),
     }
   })
 }
@@ -312,14 +319,7 @@ export function aggregateAntibodyEntries(reports: ReportRow[]): AntibodyEntry[] 
     clone: antibody.cloneId,
     reportCount: rows.length,
     images: collectImages(rows),
-    reports: rows.map((r) => ({
-      id: String(r.id),
-      submitter: r.experiment.submitter?.name ?? "Anonymous",
-      submitterId: r.experiment.submitter?.id ?? null,
-      method: r.experiment.imagingMethod?.shortLabel ?? "Unknown",
-      species: r.experiment.species?.label ?? "Unknown",
-      works: r.works,
-    })),
+    reports: rows.map(toMarkerReport),
   }))
 }
 

@@ -64,8 +64,8 @@ export const TEST_DATA = {
   ],
 
   LEGAL_PAGES: [
-    { path: "/legal/terms", name: "Terms", heading: "Terms and Conditions" },
-    { path: "/legal/privacy", name: "Privacy", heading: "Privacy Policy" },
-    { path: "/legal/notice", name: "Legal Notice", heading: "Legal Notice" },
+    { path: "/docs/legal/terms", name: "Terms", heading: "Terms and Conditions" },
+    { path: "/docs/legal/privacy", name: "Privacy", heading: "Privacy Policy" },
+    { path: "/docs/legal/notice", name: "Legal Notice", heading: "Legal Notice" },
   ],
 }

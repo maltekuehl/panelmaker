@@ -132,7 +132,7 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
             />
             {facets.host.length > 0 && (
               <DataTableFacetedFilter
-                title="Host"
+                title="Host species"
                 options={facets.host}
                 value={params.host}
                 onChange={(value) => setParams({ host: value.length ? value : null, page: 1 })}

@@ -14,8 +14,8 @@ test.describe("Legal Pages", () => {
     await page.goto("/")
 
     const sidebar = page.locator('[data-slot="sidebar"]')
-    await expect(sidebar.getByRole("link", { name: "Legal Notice" })).toHaveAttribute("href", "/legal/notice")
-    await expect(sidebar.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/legal/terms")
-    await expect(sidebar.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/legal/privacy")
+    await expect(sidebar.getByRole("link", { name: "Legal Notice" })).toHaveAttribute("href", "/docs/legal/notice")
+    await expect(sidebar.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/docs/legal/terms")
+    await expect(sidebar.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/docs/legal/privacy")
   })
 })

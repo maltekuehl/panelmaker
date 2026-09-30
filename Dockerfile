@@ -36,7 +36,8 @@ ARG NEXT_PUBLIC_BASE_URL=http://localhost:8080
 ENV NODE_ENV=production \
   NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL} \
   DATABASE_URL=postgresql://postgres@127.0.0.1:5432/panelmaker_build \
-  AUTH_SECRET=build_time_placeholder_secret_min_32_chars
+  AUTH_SECRET=build_time_placeholder_secret_min_32_chars \
+  NEXT_OUTPUT_STANDALONE=1
 RUN apt-get update \
   && apt-get install -y --no-install-recommends postgresql \
   && rm -rf /var/lib/apt/lists/*

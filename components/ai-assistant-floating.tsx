@@ -1,7 +1,8 @@
 "use client"
 
+import { ChatMessage } from "@/components/chat/chat-message"
 import { ChatErrorNotice, MissingKeyNotice } from "@/components/chat/key-notice"
-import { MessageParts } from "@/components/chat/message-parts"
+import { hasVisibleParts, isAwaitingFirstContent, MessageParts } from "@/components/chat/message-parts"
 import { useConversation } from "@/components/chat/use-conversation"
 import { useReasoningEffort } from "@/components/chat/use-reasoning-effort"
 import { Button } from "@/components/ui/button"
@@ -13,7 +14,6 @@ import { describeKeySource, parseModelId, type ChatSetupData } from "@/models/ch
 import { extractMessageText } from "@/models/chat/transforms"
 import type { UIMessage } from "ai"
 import {
-  Bot,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -22,7 +22,6 @@ import {
   Send,
   Sparkles,
   StopCircle,
-  User,
   X,
 } from "lucide-react"
 import { useSession } from "next-auth/react"
@@ -115,53 +114,35 @@ function FloatingConversation({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 space-y-4 overflow-y-auto bg-background p-4 text-sm"
+        className="flex-1 space-y-2 overflow-y-auto bg-background p-3 text-[13px]"
       >
         {messages.length === 0 && (
-          <div className="flex gap-3">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/10">
-              <Bot className="size-3 text-primary" />
-            </div>
-            <div className="rounded-md rounded-tl-none bg-muted p-3">
-              <p>
-                Hello! I can help you design IF panels or find markers. Try asking: &quot;Design a 4-plex panel for
-                human liver.&quot;
-              </p>
-            </div>
-          </div>
+          <p className="text-muted-foreground">
+            Hello! I can help you design IF panels or find markers. Try asking: &quot;Design a 4-plex panel for human
+            liver.&quot;
+          </p>
         )}
 
-        {messages.map((message) =>
-          message.role === "user" ? (
-            <div key={message.id} className="flex flex-row-reverse gap-3">
-              <div className="flex size-6 shrink-0 items-center justify-center rounded bg-muted">
-                <User className="size-3 text-muted-foreground" />
-              </div>
-              <div className="rounded-md rounded-tr-none bg-primary p-3 text-primary-foreground">
-                <p className="whitespace-pre-wrap">{extractMessageText(message)}</p>
-              </div>
-            </div>
-          ) : (
-            <div key={message.id} className="flex gap-3">
-              <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded bg-primary/10">
-                <Bot className="size-3 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1 space-y-2">
-                <MessageParts message={message} isStreaming={isStreaming} compact />
-              </div>
-            </div>
-          ),
-        )}
+        {messages
+          .filter((message) => message.role === "user" || hasVisibleParts(message))
+          .map((message) => (
+            <ChatMessage
+              key={message.id}
+              compact
+              role={message.role === "user" ? "user" : "assistant"}
+              rawContent={extractMessageText(message)}
+              message={
+                message.role === "user" ? (
+                  <p className="whitespace-pre-wrap break-words">{extractMessageText(message)}</p>
+                ) : (
+                  <MessageParts message={message} isStreaming={isStreaming} compact />
+                )
+              }
+            />
+          ))}
 
-        {isStreaming && messages[messages.length - 1]?.role !== "assistant" && (
-          <div className="flex gap-3">
-            <div className="flex size-6 shrink-0 items-center justify-center rounded bg-primary/10">
-              <Bot className="size-3 text-primary" />
-            </div>
-            <div className="rounded-md rounded-tl-none bg-muted p-3">
-              <Loader2 className="size-4 animate-spin text-primary" />
-            </div>
-          </div>
+        {isAwaitingFirstContent(messages, isStreaming) && (
+          <Loader2 className="size-4 animate-spin text-primary" aria-label="Assistant is responding" />
         )}
 
         {chatSetup && blocked && (

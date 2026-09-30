@@ -40,6 +40,7 @@ models/
   experiment/
   experimental-report/
   fluorophore/
+  imaging-method/   -- imaging method catalog (EFO-anchored)
   lab/
     queries.ts
     access.ts       -- pure role/permission predicates (type-only Prisma import)
@@ -74,7 +75,8 @@ datasource db {
 ```
 
 - Connection via the `@prisma/adapter-pg` driver adapter (`PrismaPg`) in `lib/prisma.ts`
-- `DATABASE_URL` and `SHADOW_DATABASE_URL` (used by `migrate dev`) are both required
+- `DATABASE_URL` is required. `SHADOW_DATABASE_URL` is optional and only used by `migrate dev`
+- Migrations start from the single squashed baseline `prisma/migrations/0_init`
 - Primary keys are `String @id @default(cuid())` — do NOT use `Int @default(autoincrement())` on any model (autoincrement sequences drift out of sync when rows are seeded with explicit ids, causing P2002 unique-constraint errors on insert)
 - Native Postgres features are available: enums, `@db.VarChar()`/`@db.Text` annotations, `String[]` array fields
 - Migrations: always `npx prisma migrate dev --create-only --name <name>`, then review SQL before applying
@@ -109,7 +111,7 @@ await prisma.protein.findMany({
 - Client-side: debounced autocomplete via `hooks/use-debounced-search.ts`
 - Wrapper: `lib/ontology.ts`, which exports `searchCellOntology()`, `searchUberon()`, `searchGoCellularComponent()`, `searchDiseaseOntology()`, `searchRor()`, `searchSpecies()`, reached through `GET /api/ontology?type=...`
 - Store the ontology id alongside the display name in every DB field
-- `docs/metadata-standards.md` holds the researched plan for where these are going (NCBITaxon CURIEs, OLS4 term lookup and hierarchy, MONDO for disease, EFO assay terms). Read it before changing ontology handling.
+- `docs/development/metadata-standards.md` holds the researched plan for where these are going (NCBITaxon CURIEs, OLS4 term lookup and hierarchy, MONDO for disease, EFO assay terms). Read it before changing ontology handling.
 
 ### External API Integrations
 
@@ -117,6 +119,8 @@ All read-only enrichment in `lib/integrations/`:
 - `antibody-registry.ts` — RRID lookup, auto-fill vendor/host/clone
 - `uniprot.ts` — protein metadata by UniProt ID or gene name
 - `scicrunch.ts` — RRID resolver plus the optional Elasticsearch index behind `SCICRUNCH_API_KEY`
+- `fpbase.ts` — FPbase dye records and spectra, used by `npm run setup` and `npm run fpbase:sync`
+- `http.ts` — shared `fetchJson` with a timeout
 
 ### AI Chat: Vercel AI SDK (Direct Tools)
 
@@ -129,7 +133,7 @@ All read-only enrichment in `lib/integrations/`:
 
 ### Public API: app/api/
 
-The versioned `app/api/(versions)/v1/` tree described in earlier plans was never built. Public read endpoints live directly under `app/api/` (`proteins`, `antibodies`, `cell-types`, `reports`, `panels/public`, `fluorophores`, `ontology`).
+The versioned `app/api/(versions)/v1/` tree described in earlier plans was never built. Public read endpoints live directly under `app/api/` (`proteins`, `antibodies`, `cell-types`, `reports`, `panels/public`, `fluorophores`, `imaging-methods`, `ontology`).
 
 Conventions for these routes:
 - Validate query params with a Zod schema in the matching `models/<entity>/schema.ts`
@@ -352,7 +356,7 @@ datasource db {
 ```
 
 - Connected through the `@prisma/adapter-pg` driver adapter (`PrismaPg`) in `lib/prisma.ts`
-- `DATABASE_URL` (runtime) and `SHADOW_DATABASE_URL` (used by `migrate dev`) are both required
+- `DATABASE_URL` is required. `SHADOW_DATABASE_URL` is optional and only used by `migrate dev`
 - Native `@db.VarChar()`/`@db.Text` column annotations and `String[]` array fields are supported
 - Enums are database-native (`CREATE TYPE`)
 
@@ -373,7 +377,8 @@ npx prisma migrate deploy
 - ALWAYS use `--create-only` first to review the generated SQL
 - NEVER use `migrate dev` on production
 - NEVER run `migrate reset` without explicit user approval (destructive)
-- `SHADOW_DATABASE_URL` must point at a separate, disposable database that `migrate dev` can drop/recreate
+- If set, `SHADOW_DATABASE_URL` must point at a separate, disposable database that `migrate dev` can drop/recreate
+- All earlier migrations were squashed into `0_init`. A database created from the pre-baseline history has to be recreated, not migrated
 
 #### Schema Patterns
 - All models have `id` (`String @id @default(cuid())`), `createdAt`, `updatedAt`
@@ -392,8 +397,8 @@ const user = await prisma.user.findUnique({
 })
 
 // Include relations
-const post = await prisma.blogPost.findMany({
-  include: { author: true },
+const panels = await prisma.panel.findMany({
+  include: { owner: true },
 })
 
 // Transactions for multiple operations
@@ -407,26 +412,26 @@ await prisma.$transaction([
 - **Validation**: All env vars validated via `@/lib/env.ts` using Zod
 - **Type-safe access**: Import `env` from `@/lib/env`
 - **Required vars**:
-  - `NEXT_PUBLIC_BASE_URL`: Public URL
+  - `NEXT_PUBLIC_BASE_URL`: Public URL (compiled into the client bundle at build time)
   - `DATABASE_URL`: PostgreSQL connection string
-  - `SHADOW_DATABASE_URL`: PostgreSQL shadow DB for `migrate dev`
   - `AUTH_SECRET`: Auth.js secret (32+ chars)
-  - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`: OAuth
-  - `CRON_SECRET`: Cron job auth
-- **Also required or optional**:
+- **Optional vars**:
+  - `SHADOW_DATABASE_URL` (separate disposable database for `migrate dev`)
+  - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` (GitHub OAuth; email and password always works)
   - `UPLOADS_DIR` (local image storage, default `./data/uploads`)
   - `ENCRYPTION_KEY` (encrypts stored provider API keys; the key routes return 503 without it)
-  - `SHADOW_DATABASE_URL` (separate disposable database for `migrate dev`)
   - `SCICRUNCH_API_KEY` (optional, richer antibody search; the keyless resolver is used without it)
+  - `INSTANCE_NAME`, `INSTANCE_INSTITUTION`, `INSTANCE_OPERATOR`, `INSTANCE_ADDRESS`, `INSTANCE_CONTACT_EMAIL`, `INSTANCE_CONFIG_DIR` (instance identity and legal page overrides, read in `lib/instance.ts`; server-side only, never `NEXT_PUBLIC_`)
   - `INSTANCE_ALLOW_INDEXING` (default `false`: robots.txt disallows everything, the sitemap is empty and root metadata is `noindex, nofollow`; `true` restores normal indexing)
-  - `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (optional instance-wide AI keys, the last fallback after a user key and a lab key), `AI_DEFAULT_MODEL` (`provider:model`), `AI_INSTANCE_DAILY_LIMIT` (per-user daily chat turns on the instance keys, default 200, 0 = unlimited). See `docs/chat-persistence/README.md`.
-- `.env.local.example` is the authoritative list. Keep it in step with `lib/env.ts`.
+  - `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (optional instance-wide AI keys, the last fallback after a user key and a lab key), `AI_DEFAULT_MODEL` (`provider:model`), `AI_INSTANCE_DAILY_LIMIT` (per-user daily chat turns on the instance keys, default 200, 0 = unlimited). See `docs/development/chat-persistence.md`.
+  - Script-only: `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`, `SETUP_SKIP_FPBASE`, `SEED_ALLOW_RESET`, `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD`. Compose-only: `POSTGRES_*`, `NGINX_BIND`, `NGINX_PORT`, `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`, `APP_PORT`
+- `.env.local.example` is the authoritative list. Keep it, `lib/env.ts` and `docs/self-hosting/configuration.md` in step.
 - **Never hardcode secrets** in code or commit to git
 
 ### Security Headers
 - CSP configured in `next.config.ts`. Production sends HSTS and `upgrade-insecure-requests`, except when the request host is `localhost`, `127.0.0.1` or `*.localhost`, so `npm run build && npm start` works over plain http locally
 - Security headers: X-Frame-Options, X-Content-Type-Options, HSTS, etc.
-- Content sanitization using `isomorphic-dompurify` and `sanitize-html`
+- Content sanitization using `isomorphic-dompurify` and `rehype-sanitize`
 - Rate limiting on public endpoints
 
 ---
@@ -487,6 +492,22 @@ npm run build        # Production build
 npm run start        # Start production server
 ```
 
+### Seeding & Scripts
+- `npm run setup` (`scripts/setup.ts`, data in `prisma/reference.ts` and `prisma/data/`): idempotent reference data plus missing FPbase spectra (`--skip-fpbase` or `SETUP_SKIP_FPBASE=1` to skip). Non-destructive; the Docker `migrate` service runs it on every deploy. `npx prisma db seed` runs the same script.
+- `npm run admin:create -- --email <email> [--name "<name>"] [--reset-password]` (`scripts/create-admin.ts`): creates or promotes an admin. Password from `ADMIN_PASSWORD`, otherwise generated and printed once.
+- `npm run seed:demo` (`prisma/seed-demo.ts`): DESTRUCTIVE, wipes every row then loads demo data. Refuses with `NODE_ENV=production` unless `SEED_ALLOW_RESET=1`.
+- `npm run seed:demo-user`: the `demo@panelmaker.local` admin, written to the gitignored `DEMO_CREDENTIALS.txt`.
+- `npm run seed:all`: dev chain of `seed:demo`, `seed:demo-user`, `pathoplex:seed`, `ibex:import`, `fpbase:sync`.
+- `npm run ibex:import` / `ibex:fetch`, `npm run pathoplex:lookup` / `pathoplex:seed`, `npm run fpbase:sync`: see `docs/self-hosting/data.md`.
+- There is no `prisma/seed.ts` any more; never reintroduce a destructive default seed.
+
+### Documentation Layout
+- `README.md`: entry point for institutions evaluating or deploying PanelMaker, quick start, short development section
+- `docs/self-hosting/`: operator guide (deployment, configuration, legal and branding, AI assistant, data, upgrading, administration)
+- `docs/development/`: architecture overview and design notes (`chat-persistence.md`, `lab-structure/`, `ibex-import.md`, `metadata-standards.md`)
+- `app/docs/`: in-app user documentation (MDX), served at `/docs` on every instance. `/docs/getting-started/self-hosting` links to `docs/self-hosting/` on GitHub
+- When you change configuration, commands or operator-visible behavior, update `docs/self-hosting/` in the same change
+
 ---
 
 ## Architecture Guidelines
@@ -512,13 +533,13 @@ npm run start        # Start production server
 
 ### MDX & Documentation
 - **MDX support**: `@next/mdx` with remark/rehype plugins
-- **Plugins in use**:
+- **Plugins in use** (MDX pages in `next.config.ts`, runtime Markdown in `components/markdown.tsx`):
   - `remark-gfm`: GitHub Flavored Markdown
-  - `remark-math`, `rehype-katex`: Math rendering
   - `remark-breaks`: Line breaks
-  - `rehype-sanitize`: XSS prevention
-  - `rehype-github-alerts`: Alert blocks
   - `remark-supersub`: Superscript/subscript
+  - `rehype-external-links`: External links open in a new tab
+  - `rehype-sanitize`: XSS prevention (runtime Markdown)
+  - `rehype-github-alerts`: Alert blocks (runtime Markdown)
 
 ### Performance & Security
 - **Bundle optimization**: Dynamic imports for heavy components

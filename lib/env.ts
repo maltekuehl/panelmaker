@@ -23,8 +23,8 @@ const envSchema = z.object({
     .transform((val) => val === "true"),
 
   // OAuth Providers (optional: email/password is the primary auth method)
-  AUTH_GITHUB_ID: z.string().optional(),
-  AUTH_GITHUB_SECRET: z.string().optional(),
+  AUTH_GITHUB_ID: optionalString,
+  AUTH_GITHUB_SECRET: optionalString,
 
   // AI assistant: instance-wide provider keys set by the operator (names follow the AI SDK defaults).
   // All optional. Users and labs can add their own keys, which take precedence over these.
@@ -43,24 +43,30 @@ const envSchema = z.object({
   AI_INSTANCE_DAILY_LIMIT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).optional()),
 
   // External APIs (optional: the app runs without them, the features that need them are disabled)
-  SCICRUNCH_API_KEY: z.string().optional(),
+  SCICRUNCH_API_KEY: optionalString,
 
-  // Image storage (local disk, served by nginx from a shared volume)
-  UPLOADS_DIR: z.string().default("./data/uploads"),
+  // Image storage (local disk, always served through the app route, which applies visibility checks)
+  UPLOADS_DIR: z.preprocess(emptyToUndefined, z.string().default("./data/uploads")),
 
   // Encryption at rest for stored API credentials (AES-256-GCM key material).
   // Optional: only required once users start saving their own provider API keys.
-  ENCRYPTION_KEY: z.string().min(32, "ENCRYPTION_KEY must be at least 32 characters").optional(),
+  ENCRYPTION_KEY: z.preprocess(
+    emptyToUndefined,
+    z.string().min(32, "ENCRYPTION_KEY must be at least 32 characters").optional(),
+  ),
 
   // Instance configuration (self-hosted deployments). All optional: the app runs with generic
   // defaults / placeholder notices when unset. Server-side only, never NEXT_PUBLIC_, because a
   // single Docker image must be able to serve any institution without a rebuild.
-  INSTANCE_NAME: z.string().optional(),
-  INSTANCE_INSTITUTION: z.string().optional(),
-  INSTANCE_OPERATOR: z.string().optional(),
-  INSTANCE_ADDRESS: z.string().optional(),
-  INSTANCE_CONTACT_EMAIL: z.string().email("INSTANCE_CONTACT_EMAIL must be a valid email").optional(),
-  INSTANCE_CONFIG_DIR: z.string().default("./config"),
+  INSTANCE_NAME: optionalString,
+  INSTANCE_INSTITUTION: optionalString,
+  INSTANCE_OPERATOR: optionalString,
+  INSTANCE_ADDRESS: optionalString,
+  INSTANCE_CONTACT_EMAIL: z.preprocess(
+    emptyToUndefined,
+    z.string().email("INSTANCE_CONTACT_EMAIL must be a valid email").optional(),
+  ),
+  INSTANCE_CONFIG_DIR: z.preprocess(emptyToUndefined, z.string().default("./config")),
   // Search engine indexing is opt-in. Unless "true", robots.txt disallows everything, the sitemap is
   // empty and every page is served as noindex, nofollow.
   INSTANCE_ALLOW_INDEXING: z

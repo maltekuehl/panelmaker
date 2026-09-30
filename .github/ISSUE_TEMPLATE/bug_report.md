@@ -32,6 +32,8 @@ Steps to reproduce the behavior:
 - Browser Version: [e.g. 22]
 - Node.js Version: [e.g. 20.0.0]
 - Device: [e.g. Desktop, Mobile, Tablet]
+- Deployment: [e.g. Docker Compose, bare metal, local development]
+- PanelMaker commit: [output of `git rev-parse --short HEAD`, if you run the instance]
 
 ## Component/Feature Area
 **Select the area where the bug occurs:**

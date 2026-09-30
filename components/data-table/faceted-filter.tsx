@@ -2,10 +2,21 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { Check, PlusCircle } from "lucide-react"
+
+const SEARCH_THRESHOLD = 7
 
 interface FacetedFilterOption {
   label: string
@@ -19,10 +30,16 @@ interface DataTableFacetedFilterProps {
   options: FacetedFilterOption[]
   value: string[]
   onChange: (value: string[]) => void
+  className?: string
 }
 
-export function DataTableFacetedFilter({ title, options, value, onChange }: DataTableFacetedFilterProps) {
+export function DataTableFacetedFilter({ title, options, value, onChange, className }: DataTableFacetedFilterProps) {
   const selected = new Set(value)
+
+  const sortedOptions = [
+    ...options.filter((option) => selected.has(option.value)),
+    ...options.filter((option) => !selected.has(option.value)),
+  ]
 
   const toggle = (optionValue: string) => {
     const next = new Set(selected)
@@ -37,16 +54,16 @@ export function DataTableFacetedFilter({ title, options, value, onChange }: Data
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 border-dashed">
+        <Button variant="outline" size="sm" className={cn("h-8 min-w-0 border-dashed", className)}>
           <PlusCircle className="h-4 w-4" />
-          {title}
+          <span className="truncate">{title}</span>
           {selected.size > 0 && (
             <>
               <Separator orientation="vertical" className="h-4" />
               <Badge variant="secondary" className="rounded-sm px-1 font-normal lg:hidden">
                 {selected.size}
               </Badge>
-              <div className="hidden space-x-1 lg:flex">
+              <div className="hidden min-w-0 space-x-1 overflow-hidden lg:flex">
                 {selected.size > 2 ? (
                   <Badge variant="secondary" className="rounded-sm px-1 font-normal">
                     {selected.size} selected
@@ -67,56 +84,55 @@ export function DataTableFacetedFilter({ title, options, value, onChange }: Data
       </PopoverTrigger>
       <PopoverContent
         aria-label={`Filter by ${title}`}
-        className="w-auto min-w-[220px] max-w-[420px] p-0"
+        className="w-[360px] max-w-[calc(100vw-2rem)] p-0"
         align="start"
       >
-        <div className="p-1">
-          {options.map((option) => {
-            const isSelected = selected.has(option.value)
-            return (
-              <div
-                key={option.value}
-                role="checkbox"
-                aria-checked={isSelected}
-                tabIndex={0}
-                className="relative flex cursor-pointer select-none items-center whitespace-nowrap rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => toggle(option.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault()
-                    toggle(option.value)
-                  }
-                }}
-              >
-                <div
-                  className={cn(
-                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                    isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible",
-                  )}
-                >
-                  <Check className="h-4 w-4" />
-                </div>
-                {option.icon && <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />}
-                <span>{option.label}</span>
-                {option.description && (
-                  <span className="ml-auto pl-2 font-mono text-xs text-muted-foreground">{option.description}</span>
-                )}
-              </div>
-            )
-          })}
-          {selected.size > 0 && (
-            <>
-              <Separator className="my-1" />
-              <button
-                type="button"
-                className="flex w-full cursor-pointer select-none items-center justify-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => onChange([])}
-              >
-                Clear filter
-              </button>
-            </>
-          )}
-        </div>
+        <Command>
+          {options.length > SEARCH_THRESHOLD && <CommandInput placeholder={`Search ${title.toLowerCase()}`} />}
+          <CommandList>
+            <CommandEmpty>No matching {title.toLowerCase()} in the data.</CommandEmpty>
+            <CommandGroup>
+              {sortedOptions.map((option) => {
+                const isSelected = selected.has(option.value)
+                return (
+                  <CommandItem
+                    key={option.value}
+                    value={option.value}
+                    keywords={[option.label, option.description ?? ""]}
+                    onSelect={() => toggle(option.value)}
+                    className="gap-0 [&>svg:last-child]:hidden"
+                  >
+                    <div
+                      className={cn(
+                        "mr-2 flex size-4 shrink-0 items-center justify-center rounded-sm border border-primary",
+                        isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible",
+                      )}
+                    >
+                      <Check className="size-4" />
+                    </div>
+                    {option.icon && <option.icon className="mr-2 size-4 text-muted-foreground" />}
+                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                    {option.description && option.description !== option.label && (
+                      <span className="shrink-0 pl-3 text-right font-mono text-xs text-muted-foreground">
+                        {option.description}
+                      </span>
+                    )}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+            {selected.size > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem onSelect={() => onChange([])} className="justify-center [&>svg:last-child]:hidden">
+                    Clear filter
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
       </PopoverContent>
     </Popover>
   )

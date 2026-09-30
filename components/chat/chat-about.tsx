@@ -31,7 +31,7 @@ export default function ChatAbout() {
         </li>
         <li>
           PanelMaker, including PanelMaker AI, is provided &quot;as is&quot; without warranties, express or implied (see{" "}
-          <Link href="/legal/terms" className="text-primary hover:underline">
+          <Link href="/docs/legal/terms" className="text-primary hover:underline">
             Terms of Service
           </Link>
           ).

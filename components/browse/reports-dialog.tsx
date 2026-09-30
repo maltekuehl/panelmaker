@@ -2,6 +2,8 @@
 
 import type { MarkerReport } from "@/components/browse/columns"
 import { WorksBadge } from "@/components/browse/report-badges"
+import { NotAvailable } from "@/components/shared/not-available"
+import { TruncatedText } from "@/components/shared/truncated-text"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -12,9 +14,69 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { doiUrl, pubmedUrl, type PublicationRef } from "@/lib/publication"
 import { profileHref } from "@/lib/routes"
 import { ExternalLink } from "lucide-react"
 import Link from "next/link"
+
+function shortCitation(citation: string): string {
+  const firstSentence = citation.split(". ")[0]
+  return firstSentence.length > 0 ? firstSentence : citation
+}
+
+function publicationHref(publication: PublicationRef): string | null {
+  if (publication.doi) return doiUrl(publication.doi)
+  if (publication.pmid) return pubmedUrl(publication.pmid)
+  return null
+}
+
+function PublicationSource({ publication }: { publication: PublicationRef }) {
+  const href = publicationHref(publication)
+  const label = publication.citation
+    ? shortCitation(publication.citation)
+    : publication.doi
+      ? `DOI ${publication.doi}`
+      : `PMID ${publication.pmid}`
+  const text = href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="block max-w-[220px] truncate text-primary hover:underline"
+    >
+      {label}
+    </a>
+  ) : (
+    <span className="block max-w-[220px] truncate">{label}</span>
+  )
+  if (!publication.citation) return text
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{text}</TooltipTrigger>
+      <TooltipContent className="max-w-sm">{publication.citation}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function ReportSource({ report }: { report: MarkerReport }) {
+  return (
+    <div className="flex max-w-[240px] flex-col gap-0.5">
+      {report.submitterId ? (
+        <TruncatedText
+          text={report.submitter ?? "Unnamed user"}
+          href={profileHref(report.submitterId)}
+          className="max-w-[220px]"
+        />
+      ) : report.publication ? (
+        <PublicationSource publication={report.publication} />
+      ) : (
+        <NotAvailable />
+      )}
+      {report.lab && <TruncatedText text={report.lab} className="max-w-[220px] text-xs text-muted-foreground" />}
+    </div>
+  )
+}
 
 interface ReportsDialogProps {
   marker: string
@@ -46,8 +108,10 @@ export function ReportsDialog({ marker, cellType, reports }: ReportsDialogProps)
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Experimental reports for {marker}</DialogTitle>
+        <DialogHeader className="min-w-0 pr-8">
+          <DialogTitle className="min-w-0">
+            <TruncatedText text={`Experimental reports for ${marker}`} />
+          </DialogTitle>
           <DialogDescription>
             {label} validating {marker} in {cellType}. Open a report for the full protocol and images.
           </DialogDescription>
@@ -58,7 +122,7 @@ export function ReportsDialog({ marker, cellType, reports }: ReportsDialogProps)
               <TableRow>
                 <TableHead>Author</TableHead>
                 <TableHead>Technology</TableHead>
-                <TableHead>Species</TableHead>
+                <TableHead>Sample species</TableHead>
                 <TableHead>Result</TableHead>
                 <TableHead className="text-right">Report</TableHead>
               </TableRow>
@@ -67,13 +131,7 @@ export function ReportsDialog({ marker, cellType, reports }: ReportsDialogProps)
               {reports.map((report) => (
                 <TableRow key={report.id}>
                   <TableCell>
-                    {report.submitterId ? (
-                      <Link href={profileHref(report.submitterId)} className="text-primary hover:underline">
-                        {report.submitter}
-                      </Link>
-                    ) : (
-                      <span className="text-muted-foreground">{report.submitter}</span>
-                    )}
+                    <ReportSource report={report} />
                   </TableCell>
                   <TableCell>{report.method}</TableCell>
                   <TableCell className="text-muted-foreground">{report.species}</TableCell>

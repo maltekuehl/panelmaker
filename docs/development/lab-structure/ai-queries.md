@@ -114,7 +114,7 @@ detection constrains host species per cycle. The layout encodes:
    historical `aggregateReports` signal-quality + works-rate for that antibody/marker.
 3. **Match fluorophore to target by empirical contrast.** Each report carries a `signalQuality`
    (contrast) paired with the `fluorophore` it was imaged with, so `aggregateReports(groupBy
-   fluorophore)` tells us which fluorophores actually produced strong contrast for a given
+fluorophore)` tells us which fluorophores actually produced strong contrast for a given
    marker/antibody. Use that empirical signal, plus the model's general fluorophore knowledge (e.g.
    lower autofluorescence at 647 than 488, brighter signal on some channels), to put hard-to-see /
    weak targets on the better channels. No curated brightness table is needed.
@@ -159,28 +159,28 @@ Detail:
 
 ## Query -> primitive mapping
 
-| # | Composition |
-|---|---|
-| 1 | resolveCellTypes(CD4,CD8) + resolveTissue + resolveSpecies -> recommendMarkersForCellTypes / findReports(groupBy marker) |
-| 2 | resolveCellTypes(TIME set) -> recommendMarkersForCellTypes(scope public) -> getLabInventory(prefer) -> suggestPanel -> analyzePanel |
-| 3 | resolveMarkers(CD68)+resolveTissue+resolveSpecies -> recommendAntibodiesForMarker(method MIBI) |
-| 4 | getPanels(panelId) -> analyzePanel |
-| 5 | (markerSet) + per-marker signals (phospho/labile flag, host species, signal strength via aggregateReports) + fluorophore brightness/spectra -> suggestPanelLayout -> analyzePanel |
-| 6 | listMyLabs -> resolveCellTypes(T cell, expand) -> getLabInventory(labIds) ∩ findReports(scope mine, cellTypes expanded, species mouse, works true) |
-| 7 | listMyLabs -> getLabInventory(labIds) \ aggregateReports(scope mine, groupBy antibody) |
-| 8 | getPanels(mine).markers -> getLabInventory(status LOW/OUT) intersect |
-| 9 | getPanels(panelId).markers -> getLabInventory(labIds) diff (own vs order) |
-| 10 | resolveAntibodies(rrid) -> findReports(scope mine, rrids) |
-| 11 | resolveMarkers(CD3)+tissue+species -> findReports(works true) + aggregateReports(groupBy clone/dilution/antigenRetrieval) |
-| 12 | resolveMarkers(Ki-67)+tissue+species -> aggregateReports(groupBy dilution, antigenRetrieval) |
-| 13 | resolveMarkers(CD20) -> aggregateReports(scope public, groupBy clone) |
-| 14 | resolveMarkers(set)+resolveTissue+resolveSpecies -> aggregateReports(scope public, filter markerIds+tissue+method CODEX, groupBy antigenRetrieval then fixation) |
-| 15 | resolveMarkers(FOXP3) -> getPanels(public/labIds) co-occurrence over panel markers |
-| 16 | listMyLabs -> getLabInventory + findReports(scope mine, works true) -> map antibodies/markers -> cell types reachable |
-| 17 | listMyLabs -> getPanels(scope labIds).markers -> count marker frequency across panels (candidate core panel) |
-| 18 | getPanels(panelId).markers + getLabInventory(labIds, status LOW/OUT) -> for each OOS antibody: findReports(same markerId, works true) ranked, prefer in-stock |
-| 19 | listMyLabs -> resolveCellTypes(T cell, expand) -> findReports(scope mine, cellTypes expanded, species mouse) |
-| 20 | getPanels(mine, visibility PUBLIC).markers -> findReports(public, markerIds) -> markers with zero evidence |
+| #   | Composition                                                                                                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | resolveCellTypes(CD4,CD8) + resolveTissue + resolveSpecies -> recommendMarkersForCellTypes / findReports(groupBy marker)                                                          |
+| 2   | resolveCellTypes(TIME set) -> recommendMarkersForCellTypes(scope public) -> getLabInventory(prefer) -> suggestPanel -> analyzePanel                                               |
+| 3   | resolveMarkers(CD68)+resolveTissue+resolveSpecies -> recommendAntibodiesForMarker(method MIBI)                                                                                    |
+| 4   | getPanels(panelId) -> analyzePanel                                                                                                                                                |
+| 5   | (markerSet) + per-marker signals (phospho/labile flag, host species, signal strength via aggregateReports) + fluorophore brightness/spectra -> suggestPanelLayout -> analyzePanel |
+| 6   | listMyLabs -> resolveCellTypes(T cell, expand) -> getLabInventory(labIds) ∩ findReports(scope mine, cellTypes expanded, species mouse, works true)                                |
+| 7   | listMyLabs -> getLabInventory(labIds) \ aggregateReports(scope mine, groupBy antibody)                                                                                            |
+| 8   | getPanels(mine).markers -> getLabInventory(status LOW/OUT) intersect                                                                                                              |
+| 9   | getPanels(panelId).markers -> getLabInventory(labIds) diff (own vs order)                                                                                                         |
+| 10  | resolveAntibodies(rrid) -> findReports(scope mine, rrids)                                                                                                                         |
+| 11  | resolveMarkers(CD3)+tissue+species -> findReports(works true) + aggregateReports(groupBy clone/dilution/antigenRetrieval)                                                         |
+| 12  | resolveMarkers(Ki-67)+tissue+species -> aggregateReports(groupBy dilution, antigenRetrieval)                                                                                      |
+| 13  | resolveMarkers(CD20) -> aggregateReports(scope public, groupBy clone)                                                                                                             |
+| 14  | resolveMarkers(set)+resolveTissue+resolveSpecies -> aggregateReports(scope public, filter markerIds+tissue+method CODEX, groupBy antigenRetrieval then fixation)                  |
+| 15  | resolveMarkers(FOXP3) -> getPanels(public/labIds) co-occurrence over panel markers                                                                                                |
+| 16  | listMyLabs -> getLabInventory + findReports(scope mine, works true) -> map antibodies/markers -> cell types reachable                                                             |
+| 17  | listMyLabs -> getPanels(scope labIds).markers -> count marker frequency across panels (candidate core panel)                                                                      |
+| 18  | getPanels(panelId).markers + getLabInventory(labIds, status LOW/OUT) -> for each OOS antibody: findReports(same markerId, works true) ranked, prefer in-stock                     |
+| 19  | listMyLabs -> resolveCellTypes(T cell, expand) -> findReports(scope mine, cellTypes expanded, species mouse)                                                                      |
+| 20  | getPanels(mine, visibility PUBLIC).markers -> findReports(public, markerIds) -> markers with zero evidence                                                                        |
 
 ## Cross-lab safety (defense in depth)
 

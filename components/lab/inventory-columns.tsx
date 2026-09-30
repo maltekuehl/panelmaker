@@ -13,7 +13,7 @@ import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
 
 // Mirrors LabAntibodyResponse structurally. Declared locally so this client module never imports the
-// server-only lab barrel (see the build-enforced client-import rule in docs/lab-structure).
+// server-only lab barrel (see the build-enforced client-import rule in docs/development/lab-structure/access-control.md).
 export interface InventoryItem {
   id: string
   status: string
@@ -95,7 +95,7 @@ export function buildInventoryColumns({
     },
     {
       id: "host",
-      header: () => <DataTableColumnHeader field="host" title="Host" />,
+      header: () => <DataTableColumnHeader field="host" title="Host species" />,
       cell: ({ row }) => {
         const host = row.original.antibody.hostTaxon
         return host ? <span className="text-sm">{host.label}</span> : <NotAvailable />

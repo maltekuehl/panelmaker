@@ -48,7 +48,7 @@ assignees: ''
 - [ ] Contributors
 - [ ] Researchers
 - [ ] Lab members and panel designers
-- [ ] System administrators
+- [ ] Instance operators
 
 ## Additional Context
 **Add any other context about the documentation issue here.**

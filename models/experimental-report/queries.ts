@@ -144,6 +144,8 @@ function resultWhere(values: string[]): Prisma.ExperimentalReportWhereInput | nu
 }
 
 const WHERE_BUILDERS: Record<string, (values: string[]) => Prisma.ExperimentalReportWhereInput | null> = {
+  marker: (v) => ({ antibody: { targetProteinId: { in: v } } }),
+  cellType: (v) => ({ cellTypes: { some: { cellTypeId: { in: v } } } }),
   species: (v) => ({ experiment: { speciesId: { in: v } } }),
   tissue: (v) => ({ experiment: { tissueId: { in: v } } }),
   // A filter value arrives as an ImagingMethod id, an EFO id, an alias or a legacy enum value from an
@@ -189,9 +191,9 @@ function buildReportWhere(
       OR: [
         { antibody: { name: { contains: q, mode: "insensitive" } } },
         { antibody: { targetName: { contains: q, mode: "insensitive" } } },
-        { antibody: { vendorName: { contains: q, mode: "insensitive" } } },
-        { cellTypes: { some: { cellType: { label: { contains: q, mode: "insensitive" } } } } },
-        { experiment: { tissue: { label: { contains: q, mode: "insensitive" } } } },
+        { antibody: { rrid: { contains: q, mode: "insensitive" } } },
+        { antibody: { cloneId: { contains: q, mode: "insensitive" } } },
+        { antibody: { catalogNumber: { contains: q, mode: "insensitive" } } },
         { experiment: { name: { contains: q, mode: "insensitive" } } },
         { notes: { contains: q, mode: "insensitive" } },
       ],
@@ -313,6 +315,18 @@ export type BrowseFacets = Record<string, FacetOption[]>
 type FacetExtractor = (report: ReportRow) => FacetOption[]
 
 const FACET_EXTRACTORS: Record<string, FacetExtractor> = {
+  marker: (r) =>
+    r.antibody?.targetProteinId
+      ? [
+          {
+            value: r.antibody.targetProteinId,
+            label: r.antibody.targetName ?? r.antibody.targetProteinId,
+            description: r.antibody.targetProteinId,
+          },
+        ]
+      : [],
+  cellType: (r) =>
+    r.cellTypes.map(({ cellType }) => ({ value: cellType.id, label: cellType.label, description: cellType.id })),
   species: (r) =>
     r.experiment.species
       ? [{ value: r.experiment.species.id, label: r.experiment.species.label, description: r.experiment.species.id }]

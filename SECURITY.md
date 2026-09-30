@@ -1,157 +1,56 @@
 # Security Policy
 
-## Supported Versions
+This policy covers the PanelMaker software in this repository. Each PanelMaker instance is run by its own operator, who is responsible for that deployment. If you found a problem with a specific instance (an exposed server, leaked data, a misconfiguration), contact that instance's operator; their details are on the instance's legal notice page (`/legal/notice`).
 
-We actively support the following versions of PanelMaker with security updates:
+## Supported versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| Latest  | :white_check_mark: |
-| < Latest| :x:                |
+Security fixes go into the `main` branch. Instances should track `main` and upgrade when a fix is released.
 
-We recommend always using the latest version to ensure you have the most recent security patches.
+## Reporting a vulnerability
 
-## Reporting a Vulnerability
+Do not report vulnerabilities in public issues, discussions or pull requests.
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+Use GitHub's private vulnerability reporting: open the [Security tab](https://github.com/complextissue/panelmaker/security) of the repository and choose "Report a vulnerability", or go directly to [the new advisory form](https://github.com/complextissue/panelmaker/security/advisories/new).
 
-### For Sensitive Security Issues
+Please include:
 
-For security vulnerabilities that could potentially expose user data or compromise system integrity, please use GitHub's private vulnerability reporting feature:
+- a description of the problem and what an attacker could do with it
+- steps to reproduce, or a proof of concept
+- the affected components and, if known, the commit or version
+- any suggested fix
 
-1. Go to the [Security tab](https://github.com/complextissue/panelmaker/security) of our repository
-2. Click "Report a vulnerability"
-3. Fill out the private vulnerability report form
+We aim to acknowledge reports within a few working days, keep you updated while we work on a fix, and credit you in the advisory if you want to be named. Please give us reasonable time to release a fix before disclosing the issue publicly.
 
-### For General Security Concerns
+Low-risk hardening suggestions that do not expose a vulnerability can go into a regular issue using the security issue template.
 
-For less sensitive security issues or general security improvements, you can:
+## For instance operators
 
-1. Create a [security issue](https://github.com/complextissue/panelmaker/issues/new?template=security.md) using our security template
-2. Email us directly at contact@panelmaker.ai
+Running an instance makes you responsible for its security and for the data your users store in it. At a minimum:
 
-### What to Include
+- **Secrets.** Generate `AUTH_SECRET`, `ENCRYPTION_KEY` and `POSTGRES_PASSWORD` with `openssl rand -hex 32` or similar. Never reuse the example or test values. Keep `.env` readable only by the account that runs the stack, and out of version control.
+- **`AUTH_SECRET`.** Anyone who has it can forge sessions. Changing it signs every user out, so rotate it if it may have leaked.
+- **`ENCRYPTION_KEY`.** Protects the AI provider keys that users and labs store. Back it up with the database; changing it makes all stored keys unreadable. See [the AI assistant guide](docs/self-hosting/ai-assistant.md#encryption_key).
+- **TLS.** Serve the instance over HTTPS only. The bundled nginx speaks plain HTTP and must sit behind a TLS-terminating proxy. Do not expose its port or the database directly to the internet. See [Deployment](docs/self-hosting/deployment.md#tls-and-the-reverse-proxy).
+- **Accounts.** Sign-up is open to anyone who can reach the instance. Restrict network access or use the basic auth gate if the instance should be internal. Keep the number of admin accounts small.
+- **Backups.** Back up the Postgres volume, the uploads volume, `.env` and `config/` regularly, and test a restore. See [Backups](docs/self-hosting/deployment.md#backups).
+- **Updates.** Watch the repository's security advisories and releases, and upgrade promptly. Keep the host, Docker and base images updated. See [Upgrading](docs/self-hosting/upgrading.md).
+- **Instance AI keys.** They are billed to you. Set a spending limit with the provider and an `AI_INSTANCE_DAILY_LIMIT`.
+- **Legal and privacy.** Configure the operator details and legal pages for your jurisdiction. See [Legal pages and branding](docs/self-hosting/legal-and-branding.md).
 
-When reporting a security vulnerability, please include:
+## Security measures in the software
 
-- **Description**: A clear description of the vulnerability
-- **Impact**: What an attacker could achieve by exploiting this vulnerability
-- **Steps to Reproduce**: Detailed steps to reproduce the issue
-- **Affected Components**: Which parts of the application are affected
-- **Suggested Fix**: If you have ideas for how to fix the issue
-- **Disclosure Timeline**: Your preferred timeline for public disclosure
+- Auth.js v5 sessions in HTTP-only cookies; passwords hashed with bcrypt
+- Role checks for admin routes and lab roles for lab resources; blocked accounts lose access on their next request
+- Private, lab and public visibility enforced on every read, including uploaded images, which are only served through the app
+- Input validation with Zod on API routes, and Prisma queries without string-built SQL
+- Sanitized Markdown and HTML rendering
+- User and lab API keys encrypted at rest with AES-256-GCM
+- Rate limits on report submission, panel creation, uploads, lab actions and instance-key AI usage
+- Security headers including a Content Security Policy and, in production, HSTS
 
-## Security Measures
+## Guidelines for contributors
 
-### Application Security
-
-PanelMaker implements several security measures:
-
-- **Authentication**: Secure authentication using Auth.js (NextAuth.js) v5
-- **Authorization**: Role-based access control for admin and user features
-- **Database Security**: Prisma ORM with parameterized queries to prevent SQL injection
-- **Input Validation**: Zod schema validation for all user inputs
-- **CSRF Protection**: Built-in CSRF protection with Auth.js
-- **Session Security**: Secure session management with HTTP-only cookies
-- **Content Security**: Sanitized HTML rendering with sanitize-html
-- **HTTPS**: Enforced HTTPS in production environments
-
-### Data Protection
-
-- **Biomedical Data**: Special consideration for sensitive biomedical research data
-- **User Privacy**: Minimal data collection with clear privacy policies
-- **Data Encryption**: Encryption in transit and at rest for sensitive data
-- **Access Logging**: Comprehensive logging of data access and modifications
-
-### Infrastructure Security
-
-- **Dependency Management**: Regular dependency updates and vulnerability scanning
-- **Environment Isolation**: Separate environments for development, testing, and production
-- **Secret Management**: Secure handling of API keys and sensitive configuration
-- **Monitoring**: Continuous monitoring for suspicious activities
-
-## Security Best Practices for Contributors
-
-When contributing to PanelMaker, please follow these security guidelines:
-
-### Code Security
-
-- **Input Validation**: Always validate and sanitize user inputs
-- **SQL Injection Prevention**: Use Prisma ORM's built-in protections
-- **XSS Prevention**: Properly escape output and use React's built-in protections
-- **Authentication Checks**: Verify user authentication and authorization for protected routes
-- **Error Handling**: Avoid exposing sensitive information in error messages
-
-### Dependencies
-
-- **Regular Updates**: Keep dependencies updated to their latest secure versions
-- **Vulnerability Scanning**: Run `npm audit` before submitting PRs
-- **Minimal Dependencies**: Only add dependencies that are absolutely necessary
-- **License Compliance**: Ensure all dependencies have compatible licenses
-
-### Environment Variables
-
-- **Secret Management**: Never commit secrets or API keys to the repository
-- **Environment Separation**: Use different secrets for different environments
-- **Access Control**: Limit access to production environment variables
-
-### API Security
-
-- **Rate Limiting**: Implement appropriate rate limiting for API endpoints
-- **Input Validation**: Validate all API inputs using Zod schemas
-- **Error Responses**: Return generic error messages to prevent information disclosure
-- **Authentication**: Require authentication for all sensitive API endpoints
-
-## Incident Response
-
-In the event of a security incident:
-
-1. **Immediate Response**: We will acknowledge your report within 48 hours
-2. **Investigation**: Our team will investigate and validate the reported vulnerability
-3. **Fix Development**: We will develop and test a fix for confirmed vulnerabilities
-4. **Disclosure**: We will coordinate responsible disclosure with the reporter
-5. **Deployment**: Security fixes will be deployed as soon as possible
-6. **Communication**: We will communicate with affected users as appropriate
-
-## Security Updates
-
-- Security updates are released as soon as fixes are available
-- Critical security issues may result in emergency releases
-- Users will be notified of security updates through:
-  - GitHub security advisories
-  - Release notes
-
-## Scope
-
-This security policy covers:
-
-- The main PanelMaker web application
-- API endpoints and backend services
-- Database security and data protection
-- Authentication and authorization systems
-- Third-party integrations and dependencies
-
-This policy does not cover:
-
-- User-generated content security (users are responsible for their own data)
-- Client-side browser security beyond our application's scope
-
-## Recognition
-
-We appreciate the security research community and will acknowledge researchers who responsibly disclose vulnerabilities:
-
-- Recognition in our security advisories (with permission)
-- Attribution in release notes
-- Our sincere gratitude for helping keep PanelMaker secure
-
-## Contact
-
-For security-related questions or concerns:
-
-- **Private Reports**: Use GitHub's private vulnerability reporting
-- **General Questions**: Create a security issue on GitHub
-- **Direct Contact**: contact@panelmaker.ai
-
-## Legal
-
-This security policy is subject to our [Terms of Service](https://panelmaker.ai/legal/terms) and [Privacy Policy](https://panelmaker.ai/legal/privacy).
+- Validate all input with Zod and check authentication and authorization in every route that needs it.
+- Use the visibility helpers in `models/lab/visibility.ts` for any query that can return private or lab data.
+- Do not expose internal error details in responses.
+- Never commit secrets. Run `npm audit` when you add or update dependencies, and add dependencies only when needed.

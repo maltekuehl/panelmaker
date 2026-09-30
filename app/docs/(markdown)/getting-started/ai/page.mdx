@@ -10,15 +10,16 @@ The PanelMaker AI assistant is available via the chat icon in the bottom-right c
 
 ## What the assistant can do
 
-The assistant has access to a set of built-in tools that query the PanelMaker database in real time:
+The assistant has a set of built-in tools that query this instance's database in real time. It only sees data you are allowed to see: public data, your own work, and data shared with your labs.
 
-| Tool                 | What it does                                                                |
-| -------------------- | --------------------------------------------------------------------------- |
-| `searchMarkers`      | Search the protein and antibody database by name, gene symbol, or RRID      |
-| `getMarkerDetails`   | Retrieve full details for a specific marker including validation reports    |
-| `searchCellTypes`    | Look up cell types and their known marker sets using the Cell Ontology      |
-| `suggestPanel`       | Recommend a starter panel for a given tissue and imaging method             |
-| `checkCompatibility` | Check a set of antibodies for fluorophore overlap or host species conflicts |
+| Tools                                                                                                                                         | What they do                                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `resolveMarkers`, `resolveAntibodies`, `resolveCellTypes`, `resolveTissues`, `resolveSpecies`, `resolveFluorophores`, `resolveImagingMethods` | Match names, gene symbols, RRIDs and ontology terms to database records                    |
+| `getMarkerDetails`, `getAntibodyDetails`                                                                                                      | Retrieve a marker or antibody with its validation evidence                                 |
+| `findReports`, `aggregateReports`                                                                                                             | Search validation reports by marker, species, tissue, method and more, and summarize them  |
+| `listMyLabs`, `getLabInventory`, `getLabPanels`                                                                                               | Look up your labs, their antibody inventory and their panels                               |
+| `analyzePanel`, `getPanelLayoutSignals`, `recommendForPanel`                                                                                  | Check a panel for fluorophore overlap and host species conflicts, and suggest improvements |
+| `listMyPanels`, `createPanel`, `addCycle`, `deleteCycle`, `addAntibodyToCycle`, `moveMarker`, `removeMarker`                                  | Create and edit panels you can edit, when you ask it to                                    |
 
 The assistant decides which tools to call based on your question. You do not need to invoke tools explicitly.
 
@@ -60,6 +61,10 @@ The assistant always runs on an API key that someone configured for Google Gemin
 3. **The instance key**, configured by the operator of this instance.
 
 The model menu in the chat groups models by provider and shows which key each one would use. Models without any key are shown as unavailable, and the chat explains how to add one. Keys are encrypted at rest, checked with the provider when you save them, and only their last 4 characters are ever shown again.
+
+## Reasoning effort
+
+Next to the model menu you can choose how much the model reasons before it answers: **Minimal**, **Low** (the default), **Medium** or **High**. Higher effort can give better answers to complex panel questions, but it is slower and uses more of the key's budget. Your choice is remembered in your browser and also applies to the floating chat.
 
 ## Rate limiting
 

@@ -33,7 +33,7 @@ export const BUILTIN_MODELS: ModelOption[] = [
   { id: "google:gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite", provider: "google" },
   { id: "google:gemini-3.8-flash", label: "Gemini 3.8 Flash", provider: "google" },
   { id: "openai:gpt-5.5", label: "GPT-5.5", provider: "openai" },
-  { id: "anthropic:claude-sonnet-5-5", label: "Claude Sonnet 4.6", provider: "anthropic" },
+  { id: "anthropic:claude-sonnet-5-5", label: "Claude Sonnet 5.5", provider: "anthropic" },
 ]
 
 export function getDefaultModel(): string {

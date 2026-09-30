@@ -48,6 +48,7 @@ function buildSecurityHeaders(requireHttps: boolean): { key: string; value: stri
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  output: process.env.NEXT_OUTPUT_STANDALONE === "1" ? "standalone" : undefined,
   serverExternalPackages: ["pg", "@prisma/adapter-pg", "sharp"],
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   trailingSlash: false,
@@ -56,6 +57,9 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
   compress: true,
+  async redirects() {
+    return [{ source: "/legal/:document", destination: "/docs/legal/:document", permanent: true }]
+  },
   async headers() {
     return [
       {

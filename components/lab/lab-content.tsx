@@ -15,6 +15,7 @@ import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
 import { DataTablePagination } from "@/components/data-table/pagination"
 import { DebouncedSearchInput } from "@/components/data-table/search-input"
 import { SegmentedTabs } from "@/components/data-table/segmented-tabs"
+import { BalancedGrid } from "@/components/shared/balanced-grid"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { VISIBILITY_LABELS } from "@/lib/constants"
@@ -105,10 +106,11 @@ function LabContentToolbar({ counts, facets }: { counts: LabContentCounts; facet
         />
       </div>
       {(visibleDimensions.length > 0 || isActive) && (
-        <div className="flex flex-wrap items-center gap-2">
+        <BalancedGrid>
           {visibleDimensions.map((dimension) => (
             <DataTableFacetedFilter
               key={dimension.key}
+              className="w-full justify-start overflow-hidden"
               title={dimension.title}
               options={facets[dimension.key] ?? []}
               value={(params[dimension.key as keyof typeof params] as string[]) ?? []}
@@ -118,12 +120,17 @@ function LabContentToolbar({ counts, facets }: { counts: LabContentCounts; facet
             />
           ))}
           {isActive && (
-            <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 w-full justify-start px-2 lg:px-3"
+              onClick={resetFilters}
+            >
               <X className="h-4 w-4" />
               Reset
             </Button>
           )}
-        </div>
+        </BalancedGrid>
       )}
     </div>
   )

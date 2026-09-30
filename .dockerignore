@@ -18,6 +18,9 @@ lib/generated
 .env.*
 .dev.vars
 
+# Operator overrides are mounted at runtime (docker-compose.yml), never baked into the image
+config/legal/*.md
+
 # Local databases and uploads
 *.db
 *.db-journal

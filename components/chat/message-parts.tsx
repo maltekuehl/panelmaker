@@ -55,6 +55,21 @@ function ReasoningCard({ text, isStreaming, index }: { text: string; isStreaming
   )
 }
 
+export function hasVisibleParts(message: UIMessage): boolean {
+  return (message.parts ?? []).some(
+    (part) =>
+      ((part.type === "text" || part.type === "reasoning") && part.text.trim() !== "") ||
+      part.type === "dynamic-tool" ||
+      part.type.startsWith("tool-"),
+  )
+}
+
+export function isAwaitingFirstContent(messages: UIMessage[], isStreaming: boolean): boolean {
+  if (!isStreaming) return false
+  const last = messages[messages.length - 1]
+  return !last || last.role !== "assistant" || !hasVisibleParts(last)
+}
+
 // Renders the parts of one message. Shared by the /chat page and the floating widget so reasoning,
 // tool cards and Markdown text can never appear on one surface and silently go missing on the other.
 export function MessageParts({
@@ -72,14 +87,14 @@ export function MessageParts({
       {parts.map((part, index) => {
         if (part.type === "reasoning") {
           return (
-            <div key={index} className="py-1.5">
+            <div key={index} className={compact ? "py-1" : "py-1.5"}>
               <ReasoningCard text={part.text} isStreaming={isStreaming && index === parts.length - 1} index={index} />
             </div>
           )
         }
         if (part.type === "dynamic-tool" || part.type.startsWith("tool-")) {
           return (
-            <div key={index} className="py-1.5">
+            <div key={index} className={compact ? "py-1" : "py-1.5"}>
               <ToolResultCard part={part as ToolPart} />
             </div>
           )
@@ -89,11 +104,7 @@ export function MessageParts({
           return (
             <div
               key={index}
-              className={
-                compact
-                  ? "prose prose-sm max-w-none rounded-md rounded-tl-none bg-muted p-3"
-                  : "prose prose-sm duration-300 animate-in fade-in"
-              }
+              className={compact ? "prose prose-compact max-w-none" : "prose prose-sm duration-300 animate-in fade-in"}
             >
               <Markdown>{part.text}</Markdown>
             </div>

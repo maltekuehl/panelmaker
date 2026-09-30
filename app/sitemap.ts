@@ -21,9 +21,10 @@ const STATIC_PATHS: {
   { path: "/docs/api/auth", changeFrequency: "monthly", priority: 0.4 },
   { path: "/docs/community/conduct", changeFrequency: "monthly", priority: 0.3 },
   { path: "/docs/about", changeFrequency: "monthly", priority: 0.3 },
-  { path: "/legal/privacy", changeFrequency: "monthly", priority: 0.3 },
-  { path: "/legal/terms", changeFrequency: "monthly", priority: 0.3 },
-  { path: "/legal/notice", changeFrequency: "monthly", priority: 0.3 },
+  { path: "/docs/getting-started/self-hosting", changeFrequency: "monthly", priority: 0.3 },
+  { path: "/docs/legal/privacy", changeFrequency: "monthly", priority: 0.3 },
+  { path: "/docs/legal/terms", changeFrequency: "monthly", priority: 0.3 },
+  { path: "/docs/legal/notice", changeFrequency: "monthly", priority: 0.3 },
 ]
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

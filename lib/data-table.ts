@@ -21,12 +21,14 @@ export type FilterDimension = {
 }
 
 export const FILTER_DIMENSIONS: FilterDimension[] = [
-  { key: "species", title: "Species", tabs: ["markers", "antibodies", "reports", "experiments", "panels"] },
+  { key: "marker", title: "Marker", tabs: ["markers", "antibodies", "reports", "experiments"] },
+  { key: "cellType", title: "Cell type", tabs: ["markers", "reports", "experiments"] },
+  { key: "species", title: "Sample species", tabs: ["markers", "antibodies", "reports", "experiments", "panels"] },
   { key: "tissue", title: "Tissue", tabs: ["markers", "reports", "experiments"] },
   { key: "method", title: "Method", tabs: ["markers", "reports", "experiments", "panels"] },
   { key: "fixation", title: "Fixation", tabs: ["markers", "reports", "experiments", "panels"] },
   { key: "vendor", title: "Vendor", tabs: ["markers", "antibodies", "reports"] },
-  { key: "host", title: "Host", tabs: ["markers", "antibodies", "reports"] },
+  { key: "host", title: "Antibody host", tabs: ["markers", "antibodies", "reports"] },
   { key: "conjugate", title: "Label", tabs: ["antibodies", "reports"] },
   { key: "clonality", title: "Clonality", tabs: ["antibodies", "reports"] },
   { key: "subcellular", title: "Subcellular", tabs: ["markers", "reports"] },
@@ -43,6 +45,8 @@ const filterArrayParser = parseAsArrayOf(parseAsString).withDefault([])
 export const browseMarkerParsers = {
   ...sortParsers,
   q: parseAsString.withDefault(""),
+  marker: filterArrayParser,
+  cellType: filterArrayParser,
   species: filterArrayParser,
   tissue: filterArrayParser,
   method: filterArrayParser,
@@ -65,6 +69,8 @@ export type EntryFilterParams = {
   order: SortOrder
   page: number
   q: string
+  marker: string[]
+  cellType: string[]
   species: string[]
   tissue: string[]
   method: string[]
@@ -127,6 +133,8 @@ const LAB_VIEWS: LabView[] = ["experiments", "reports", "panels"]
 export const labContentParsers = {
   ...sortParsers,
   q: parseAsString.withDefault(""),
+  marker: filterArrayParser,
+  cellType: filterArrayParser,
   species: filterArrayParser,
   tissue: filterArrayParser,
   method: filterArrayParser,

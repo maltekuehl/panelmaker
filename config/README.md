@@ -7,7 +7,7 @@ the default `./config` for local development).
 ## Legal page overrides
 
 `legal/notice.md`, `legal/privacy.md`, and `legal/terms.md` replace the corresponding page at
-`/legal/notice`, `/legal/privacy`, and `/legal/terms` when present. Each file is plain Markdown
+`/docs/legal/notice`, `/docs/legal/privacy`, and `/docs/legal/terms` when present. Each file is plain Markdown
 (GitHub Flavored Markdown, sanitized before rendering) and should start with a top-level `#`
 heading, since that heading is what visitors see as the page title.
 

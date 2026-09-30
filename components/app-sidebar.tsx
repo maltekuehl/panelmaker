@@ -35,9 +35,9 @@ const resourceItems = [
 ]
 
 const legalLinks = [
-  { href: "/legal/notice", title: "Legal Notice" },
-  { href: "/legal/terms", title: "Terms" },
-  { href: "/legal/privacy", title: "Privacy" },
+  { href: "/docs/legal/notice", title: "Legal Notice" },
+  { href: "/docs/legal/terms", title: "Terms" },
+  { href: "/docs/legal/privacy", title: "Privacy" },
 ]
 
 function isActive(pathname: string, href: string) {
@@ -128,17 +128,9 @@ export function AppSidebar({ instanceName = "PanelMaker", institution, ...props 
           </div>
           <div className="flex flex-col">
             <span>
-              © 2025 to now, {instanceName}
+              {instanceName}
               {institution ? <span> ({institution})</span> : null}
             </span>
-            <a
-              href="https://github.com/complextissue/panelmaker"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition-colors hover:text-foreground"
-            >
-              Powered by PanelMaker
-            </a>
           </div>
         </div>
       </SidebarFooter>

@@ -23,7 +23,7 @@
 - [ ] Developers/Contributors
 - [ ] Researchers
 - [ ] Lab members and panel designers
-- [ ] System administrators
+- [ ] Instance operators
 
 ## Files Modified
 **List the files you've updated:**

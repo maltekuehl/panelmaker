@@ -7,11 +7,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Code2,
+  FileText,
   FileUp,
   Home,
   Info,
   KeyRound,
+  Lock,
   Palette,
+  Scale,
   Search,
   Server,
   ShieldUser,
@@ -46,6 +49,14 @@ const sidebarItems = [
     items: [
       { title: "About PanelMaker", href: "/docs/about", icon: Info },
       { title: "Code of Conduct", href: "/docs/community/conduct", icon: ShieldUser },
+    ],
+  },
+  {
+    title: "Legal",
+    items: [
+      { title: "Legal Notice", href: "/docs/legal/notice", icon: Scale },
+      { title: "Privacy Policy", href: "/docs/legal/privacy", icon: Lock },
+      { title: "Terms", href: "/docs/legal/terms", icon: FileText },
     ],
   },
 ]
@@ -96,7 +107,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
         <DocsNav pathname={pathname} />
       </aside>
 
-      <div className="min-w-0 flex-1 py-8">
+      <div className="min-w-0 flex-1 pt-8 pb-32">
         <details key={pathname} className="mb-6 rounded-lg border p-3 lg:hidden">
           <summary className="cursor-pointer text-sm font-medium">Documentation menu</summary>
           <div className="mt-4">

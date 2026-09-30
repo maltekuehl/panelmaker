@@ -23,12 +23,12 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-panelmaker}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-panelmaker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-panelmaker}
-    # Not published to the host by default: only reachable on the compose
-    # network. Uncomment to expose for debugging.
-    # ports:
-    #   - "${POSTGRES_PORT:-5432}:5432"
+    # Never published to the host and only attached to the internal
+    # `database` network, so only the migrate and app services can reach it.
+    networks:
+      - database
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -45,7 +45,10 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:-panelmaker}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
+    networks:
+      - database
+      - web
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,7 +67,7 @@ services:
       - .env
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:-panelmaker}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-panelmaker}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-panelmaker}?schema=public
       UPLOADS_DIR: /app/data/uploads
       INSTANCE_CONFIG_DIR: /app/config
       # Auth.js runs behind nginx, so it cannot infer its own origin from the request.
@@ -72,6 +75,9 @@ services:
       AUTH_TRUST_HOST: "true"
     expose:
       - "3000"
+    networks:
+      - database
+      - web
     volumes:
       - uploads_data:/app/data/uploads
       - ./config:/app/config:ro
@@ -91,8 +97,12 @@ services:
     image: nginx:alpine
     container_name: panelmaker-nginx
     restart: unless-stopped
+    # The only published port. Set NGINX_BIND=127.0.0.1 when a TLS proxy on
+    # the same host (Caddy, host nginx) forwards to it.
     ports:
-      - "${NGINX_PORT:-8080}:80"
+      - "${NGINX_BIND:-0.0.0.0}:${NGINX_PORT:-8080}:80"
+    networks:
+      - web
     environment:
       # Optional site-wide HTTP basic auth gate (e.g. for a staging instance).
       # Off unless both are set in .env; the gate config is regenerated from
@@ -106,6 +116,11 @@ services:
     depends_on:
       app:
         condition: service_healthy
+
+networks:
+  database:
+    internal: true
+  web:
 
 volumes:
   postgres_data:

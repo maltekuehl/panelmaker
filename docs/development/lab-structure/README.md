@@ -1,6 +1,8 @@
 # Lab & Team Structure
 
-Working docs for the lab/team feature: many-to-many lab membership with roles, invitations, per-resource visibility (private / lab / public), a per-lab antibody inventory, and lab-scoped AI assistant queries.
+Design notes for the lab/team feature, kept as a record of how it was built. Migration names mentioned here predate the squash into the single `prisma/migrations/0_init` baseline.
+
+The feature covers many-to-many lab membership with roles, invitations, per-resource visibility (private / lab / public), a per-lab antibody inventory, and lab-scoped AI assistant queries.
 
 ## What this adds
 
@@ -29,7 +31,6 @@ All phases (1-8) are done and verified: schema/migrations, access control + RBAC
 
 ## Local development
 
-- Dev database is a Docker Postgres `panelmaker-postgres-dev` on port 5433. Start it with `docker compose -f docker-compose.dev.yml up -d postgres`. The named volume persists data across restarts.
-- A local demo login: `npm run seed:demo-user` (script `scripts/create-demo-user.ts`) upserts `demo@panelmaker.local` (ADMIN + verified, owner of the seeded Puelles Lab at Aarhus University) and writes the password to the gitignored `DEMO_CREDENTIALS.txt`. Re-run it after a full `npx prisma db seed` (which resets the DB).
+- Dev database is a Docker Postgres `panelmaker-postgres-dev` on port 5433 (`POSTGRES_PORT`). Start it with `docker compose -f docker-compose.dev.yml up -d postgres`. The named volume persists data across restarts.
+- A local demo login: `npm run seed:demo-user` (script `scripts/create-demo-user.ts`) upserts `demo@panelmaker.local` (ADMIN, owner of the seeded Puelles Lab at Aarhus University) and writes the password to the gitignored `DEMO_CREDENTIALS.txt`. Re-run it after `npm run seed:demo` (which resets the DB).
 - Unit tests for the access layer: `npm run test:unit` (`tests/unit/lab-access.ts`). See [access-control.md](./access-control.md) for the build-enforced client-import rule.
-

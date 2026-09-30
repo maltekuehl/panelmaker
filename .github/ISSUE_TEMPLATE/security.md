@@ -6,7 +6,7 @@ labels: ['security', 'needs-triage']
 assignees: ''
 ---
 
-⚠️ **IMPORTANT**: If this is a sensitive security vulnerability, please use GitHub's private vulnerability reporting feature instead of creating a public issue.
+⚠️ **IMPORTANT**: If this is a sensitive security vulnerability, do not open a public issue. Use [private vulnerability reporting](https://github.com/complextissue/panelmaker/security/advisories/new) instead. Problems with a specific instance go to that instance's operator (see its `/legal/notice` page).
 
 ## Security Issue Type
 - [ ] Authentication bypass
@@ -25,7 +25,7 @@ assignees: ''
 - [ ] API routes
 - [ ] Database/Prisma
 - [ ] Chat functionality
-- [ ] Registry
+- [ ] Labs/Visibility
 - [ ] Admin dashboard
 - [ ] User management
 - [ ] File uploads
