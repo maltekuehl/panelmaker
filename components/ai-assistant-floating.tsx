@@ -1,5 +1,10 @@
 "use client"
 
+import {
+  isActiveConversationEvent,
+  readActiveConversationId,
+  storeActiveConversationId,
+} from "@/components/chat/active-conversation"
 import { ChatMessage } from "@/components/chat/chat-message"
 import { ChatErrorNotice, MissingKeyNotice } from "@/components/chat/key-notice"
 import { hasVisibleParts, isAwaitingFirstContent, MessageParts } from "@/components/chat/message-parts"
@@ -227,12 +232,36 @@ export function AIAssistantFloating() {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [initialMessages, setInitialMessages] = useState<UIMessage[]>([])
   const loadStartedRef = useRef(false)
+  const isOnChatPage = pathname.startsWith("/chat")
 
-  // Load the user's most-recent conversation each time the panel is opened, then hand it to
-  // FloatingConversation. The thread is shared with /chat and persisted server-side, so re-reading it
-  // on open is what keeps the widget from showing a stale copy.
+  // The /chat page owns the thread while it is shown and may switch, edit or delete it. Dropping the
+  // loaded copy there makes the widget re-resolve and refetch once the user navigates away.
+  const [wasOnChatPage, setWasOnChatPage] = useState(isOnChatPage)
+  if (isOnChatPage !== wasOnChatPage) {
+    setWasOnChatPage(isOnChatPage)
+    if (isOnChatPage) {
+      setConversationId(null)
+      setInitialMessages([])
+    }
+  }
+
+  // Another tab switching conversations on /chat makes this widget's thread the wrong one.
   useEffect(() => {
-    if (!isOpen || !session?.user?.id || conversationId || loadStartedRef.current) return
+    const onStorage = (event: StorageEvent) => {
+      if (!isActiveConversationEvent(event) || event.newValue === conversationId) return
+      setConversationId(null)
+      setInitialMessages([])
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
+  }, [conversationId])
+
+  // Load the conversation last opened on /chat (or else the most recently updated one) each time the
+  // panel is opened, then hand it to FloatingConversation. The thread is shared with /chat and
+  // persisted server-side, so re-reading it is what keeps the widget from showing a stale copy.
+  useEffect(() => {
+    if (isOnChatPage || !conversationId) loadStartedRef.current = false
+    if (isOnChatPage || !isOpen || !session?.user?.id || conversationId || loadStartedRef.current) return
     loadStartedRef.current = true
     let cancelled = false
     ;(async () => {
@@ -240,8 +269,9 @@ export function AIAssistantFloating() {
         const listResponse = await fetch("/api/chat/conversations")
         const listJson = await listResponse.json()
         const conversations = (listJson?.conversations ?? []) as { id: string; updatedAt: string }[]
+        const activeId = readActiveConversationId()
         const mostRecent = [...conversations].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
-        let id = mostRecent?.id
+        let id = conversations.some((conversation) => conversation.id === activeId) ? activeId : mostRecent?.id
         if (!id) {
           const createResponse = await fetch("/api/chat/conversations", {
             method: "POST",
@@ -254,6 +284,7 @@ export function AIAssistantFloating() {
         const conversationResponse = await fetch(`/api/chat/conversations/${id}`)
         const conversationJson = await conversationResponse.json()
         if (cancelled) return
+        storeActiveConversationId(id)
         setInitialMessages((conversationJson?.conversation?.messages ?? []) as UIMessage[])
         setConversationId(id)
       } catch {
@@ -264,7 +295,7 @@ export function AIAssistantFloating() {
     return () => {
       cancelled = true
     }
-  }, [isOpen, session?.user?.id, conversationId])
+  }, [isOpen, isOnChatPage, session?.user?.id, conversationId])
 
   useEffect(() => {
     offsetRef.current = offset
@@ -420,7 +451,7 @@ export function AIAssistantFloating() {
   )
 
   // The /chat page already owns this conversation; a second live store over it would go stale.
-  if (!session?.user || pathname.startsWith("/chat")) {
+  if (!session?.user || isOnChatPage) {
     return null
   }
 

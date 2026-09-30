@@ -1,5 +1,6 @@
 "use client"
 
+import { storeActiveConversationId } from "@/components/chat/active-conversation"
 import ChatAbout from "@/components/chat/chat-about"
 import { ChatMessage } from "@/components/chat/chat-message"
 import { ChatSidebarDesktop, ChatSidebarMobile } from "@/components/chat/chat-sidebar"
@@ -39,6 +40,10 @@ export default function Chat({ conversationId, initialMessages, conversations, n
     // The first reply names the conversation server-side; refresh so the sidebar picks it up.
     onFinish: () => router.refresh(),
   })
+
+  useEffect(() => {
+    storeActiveConversationId(conversationId)
+  }, [conversationId])
 
   const handleSubmitAction = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault()
