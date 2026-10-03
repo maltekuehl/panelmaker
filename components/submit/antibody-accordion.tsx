@@ -2,7 +2,6 @@
 
 import { AntibodyRegistryCombobox } from "@/components/antibody-registry-combobox"
 import { FluorophoreCombobox } from "@/components/fluorophore-combobox"
-import { useImagingMethods, type ImagingMethodOption } from "@/components/imaging-method-select"
 import { OntologyCombobox } from "@/components/ontology-combobox"
 import { OntologyMultiCombobox } from "@/components/ontology-multi-combobox"
 import { Field } from "@/components/shared/field"
@@ -14,20 +13,14 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { antibodyHref } from "@/lib/routes"
+import { MAX_FOVS_PER_REPORT } from "@/models/experimental-report/schema"
 import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { ImageUpload } from "./image-upload"
 import { LabInventoryCombobox, type LabInventoryImportItem } from "./lab-inventory-combobox"
 import { ProteinCombobox } from "./protein-combobox"
-import {
-  duplicateRow,
-  emptyRow,
-  methodNeedsCycle,
-  methodNeedsFluorophore,
-  methodNeedsMetalTag,
-  type AntibodyRow,
-} from "./types"
+import { duplicateRow, emptyRow, pruneFovs, type AntibodyRow, type Fov, type FovDraft, type RowImage } from "./types"
 
 const WORKS_OPTIONS = [
   { value: "Yes", label: "Yes" },
@@ -75,17 +68,17 @@ function ResultSelect({
 function AntibodyEditor({
   row,
   onChange,
-  method,
   organismId,
   invalid,
   hasLabs,
+  images,
 }: {
   row: AntibodyRow
   onChange: (patch: Partial<AntibodyRow> | ((r: AntibodyRow) => AntibodyRow)) => void
-  method: ImagingMethodOption | null
   organismId?: number
   invalid: (field: keyof AntibodyRow) => boolean
   hasLabs?: boolean
+  images: ReactNode
 }) {
   // Pre-fill the row from an antibody already stocked in one of the user's labs. Resolves by RRID on
   // submit, so the existing global Antibody (and its captured host species) is reused.
@@ -237,26 +230,20 @@ function AntibodyEditor({
         <Field label="Dilution">
           <Input value={row.dilution} onChange={(e) => onChange({ dilution: e.target.value })} placeholder="1:100" />
         </Field>
-        {methodNeedsFluorophore(method) && (
-          <Field label="Fluorophore">
-            <FluorophoreCombobox value={row.fluorophore} onChange={(fluorophore) => onChange({ fluorophore })} />
-          </Field>
-        )}
-        {methodNeedsMetalTag(method) && (
-          <Field label="Metal tag">
-            <Input value={row.metalTag} onChange={(e) => onChange({ metalTag: e.target.value })} placeholder="141Pr" />
-          </Field>
-        )}
-        {methodNeedsCycle(method) && (
-          <Field label="Cycle #">
-            <Input
-              type="number"
-              min={1}
-              value={row.cycleNumber}
-              onChange={(e) => onChange({ cycleNumber: e.target.value })}
-            />
-          </Field>
-        )}
+        <Field label="Fluorophore">
+          <FluorophoreCombobox value={row.fluorophore} onChange={(fluorophore) => onChange({ fluorophore })} />
+        </Field>
+        <Field label="Metal tag">
+          <Input value={row.metalTag} onChange={(e) => onChange({ metalTag: e.target.value })} placeholder="141Pr" />
+        </Field>
+        <Field label="Cycle #">
+          <Input
+            type="number"
+            min={1}
+            value={row.cycleNumber}
+            onChange={(e) => onChange({ cycleNumber: e.target.value })}
+          />
+        </Field>
         <Field label="Incubation">
           <Input
             value={row.incubation}
@@ -308,12 +295,7 @@ function AntibodyEditor({
       </div>
 
       <Field label="Images" required className="border-t pt-3">
-        <ImageUpload
-          value={row.images}
-          onChange={(images) => onChange({ images })}
-          availableCellTypes={row.cellTypes}
-          invalid={invalid("images")}
-        />
+        {images}
       </Field>
 
       <Field label="Additional notes">
@@ -347,36 +329,79 @@ function AntibodyRridButton({ rrid }: { rrid: string }) {
   )
 }
 
+function rowLabel(row: AntibodyRow, index: number): string {
+  return row.markerName.trim() || `Antibody ${index + 1}`
+}
+
 function summaryDetection(row: AntibodyRow): string | null {
   return row.fluorophore?.name || row.metalTag || (row.cycleNumber ? `Cycle ${row.cycleNumber}` : null)
 }
 
 export function AntibodyAccordion({
   rows,
+  fovs,
   onChange,
-  imagingMethodId,
   organismId,
   invalid,
   hasLabs,
 }: {
   rows: AntibodyRow[]
-  onChange: (rows: AntibodyRow[]) => void
-  imagingMethodId: string
+  fovs: Fov[]
+  onChange: (rows: AntibodyRow[], fovs: Fov[]) => void
   organismId?: number
   invalid: (key: string, field: keyof AntibodyRow) => boolean
   hasLabs?: boolean
 }) {
   const [open, setOpen] = useState<string[]>(() => rows.map((r) => r.key))
-  const { imagingMethods } = useImagingMethods()
-  const method = imagingMethods.find((m) => m.id === imagingMethodId) ?? null
 
   function updateRow(key: string, patch: Partial<AntibodyRow> | ((r: AntibodyRow) => AntibodyRow)) {
-    onChange(rows.map((r) => (r.key === key ? (typeof patch === "function" ? patch(r) : { ...r, ...patch }) : r)))
+    onChange(
+      rows.map((r) => (r.key === key ? (typeof patch === "function" ? patch(r) : { ...r, ...patch }) : r)),
+      fovs,
+    )
+  }
+
+  function setRows(next: AntibodyRow[]) {
+    onChange(next, pruneFovs(fovs, next))
+  }
+
+  function saveFov(key: string, draft: FovDraft) {
+    const fov: Fov = { url: draft.url, caption: draft.caption, references: draft.references }
+    const shared = new Set(draft.sharedWith)
+    const nextRows = rows.map((r) => {
+      const has = r.images.some((im) => im.url === draft.url)
+      if (r.key === key) {
+        const known = new Set(r.cellTypes.map((c) => c.id))
+        const image: RowImage = {
+          url: draft.url,
+          displayColor: draft.displayColor,
+          cellTypeIds: draft.cellTypes.map((c) => c.id),
+        }
+        return {
+          ...r,
+          cellTypes: [...r.cellTypes, ...draft.cellTypes.filter((c) => !known.has(c.id))],
+          images: has ? r.images.map((im) => (im.url === draft.url ? image : im)) : [...r.images, image],
+        }
+      }
+      if (shared.has(r.key) && !has && r.images.length < MAX_FOVS_PER_REPORT)
+        return {
+          ...r,
+          images: [...r.images, { url: draft.url, displayColor: "", cellTypeIds: r.cellTypes.map((c) => c.id) }],
+        }
+      if (!shared.has(r.key) && has) return { ...r, images: r.images.filter((im) => im.url !== draft.url) }
+      return r
+    })
+    const exists = fovs.some((f) => f.url === fov.url)
+    onChange(nextRows, pruneFovs(exists ? fovs.map((f) => (f.url === fov.url ? fov : f)) : [...fovs, fov], nextRows))
+  }
+
+  function removeFov(url: string) {
+    setRows(rows.map((r) => ({ ...r, images: r.images.filter((im) => im.url !== url) })))
   }
 
   function addRow() {
     const row = emptyRow()
-    onChange([...rows, row])
+    onChange([...rows, row], fovs)
     setOpen((prev) => [...prev, row.key])
   }
 
@@ -389,12 +414,12 @@ export function AntibodyAccordion({
       next.push(r)
       if (r.key === key) next.push(copy)
     }
-    onChange(next)
+    onChange(next, fovs)
     setOpen((prev) => [...prev, copy.key])
   }
 
   function remove(key: string) {
-    onChange(rows.filter((r) => r.key !== key))
+    setRows(rows.filter((r) => r.key !== key))
     setOpen((prev) => prev.filter((k) => k !== key))
   }
 
@@ -416,7 +441,7 @@ export function AntibodyAccordion({
                           title="Incomplete required fields"
                         />
                       )}
-                      <span className="font-medium">{row.markerName.trim() || `Antibody ${index + 1}`}</span>
+                      <span className="font-medium">{rowLabel(row, index)}</span>
                       {row.cellTypes.length > 0 && (
                         <span className="text-xs text-muted-foreground">
                           {row.cellTypes.length} cell type{row.cellTypes.length === 1 ? "" : "s"}
@@ -474,10 +499,25 @@ export function AntibodyAccordion({
                 <AntibodyEditor
                   row={row}
                   onChange={(patch) => updateRow(row.key, patch)}
-                  method={method}
                   organismId={organismId}
                   invalid={(field) => invalid(row.key, field)}
                   hasLabs={hasLabs}
+                  images={
+                    <ImageUpload
+                      images={row.images}
+                      fovs={fovs}
+                      markerLabel={rowLabel(row, index)}
+                      availableCellTypes={row.cellTypes}
+                      peers={rows.flatMap((peer, peerIndex) =>
+                        peer.key === row.key
+                          ? []
+                          : [{ key: peer.key, label: rowLabel(peer, peerIndex), images: peer.images }],
+                      )}
+                      invalid={invalid(row.key, "images")}
+                      onSave={(draft) => saveFov(row.key, draft)}
+                      onRemove={removeFov}
+                    />
+                  }
                 />
               </AccordionContent>
             </AccordionItem>
@@ -490,12 +530,6 @@ export function AntibodyAccordion({
           <Plus className="size-4" />
           Add antibody
         </Button>
-        {rows.length > 0 && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => duplicate(rows[rows.length - 1].key)}>
-            <Copy className="size-4" />
-            Duplicate last
-          </Button>
-        )}
       </div>
     </div>
   )

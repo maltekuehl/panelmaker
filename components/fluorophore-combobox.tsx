@@ -93,7 +93,7 @@ export function FluorophoreCombobox({
         id={id}
         variant="outline"
         role="combobox"
-        className="mt-1 w-full justify-between font-normal"
+        className="w-full justify-between font-normal"
         disabled={disabled || pending}
       >
         <span className={cn("flex items-center gap-2", !value && "text-muted-foreground")}>

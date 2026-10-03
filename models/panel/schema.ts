@@ -1,5 +1,4 @@
-import { Fixation, Visibility } from "@/lib/generated/prisma/enums"
-import { imagingMethodIdSchema } from "@/models/imaging-method/schema"
+import { Preservation, Visibility } from "@/lib/generated/prisma/enums"
 import { z } from "zod"
 
 const visibilityFields = {
@@ -14,8 +13,11 @@ export const createPanelSchema = z
     description: z.string().max(2000).optional(),
     speciesId: z.string().max(255).optional(),
     speciesLabel: z.string().max(255).optional(),
-    fixation: z.nativeEnum(Fixation).optional(),
-    imagingMethodId: imagingMethodIdSchema.optional(),
+    preservation: z.nativeEnum(Preservation).optional(),
+    fixativeId: z.string().max(255).optional(),
+    fixativeLabel: z.string().max(255).optional(),
+    imagingMethodId: z.string().max(255).optional(),
+    imagingMethodLabel: z.string().max(255).optional(),
     conditionId: z.string().max(255).optional(),
     conditionLabel: z.string().max(255).optional(),
     ...visibilityFields,
@@ -30,8 +32,11 @@ export const updatePanelSchema = z
     description: z.string().max(2000).optional(),
     speciesId: z.string().max(255).optional(),
     speciesLabel: z.string().max(255).optional(),
-    fixation: z.nativeEnum(Fixation).optional(),
-    imagingMethodId: imagingMethodIdSchema.nullable().optional(),
+    preservation: z.nativeEnum(Preservation).nullable().optional(),
+    fixativeId: z.string().max(255).nullable().optional(),
+    fixativeLabel: z.string().max(255).optional(),
+    imagingMethodId: z.string().max(255).nullable().optional(),
+    imagingMethodLabel: z.string().max(255).optional(),
     conditionId: z.string().max(255).optional(),
     conditionLabel: z.string().max(255).optional(),
     ...visibilityFields,

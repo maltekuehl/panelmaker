@@ -59,6 +59,9 @@ export type LeaderboardFilters = {
   speciesIds?: string[]
   tissueIds?: string[]
   methodIds?: string[]
+  preservations?: string[]
+  fixativeIds?: string[]
+  conditionIds?: string[]
 }
 
 export type LeaderboardScope = LeaderboardFilters & { labIds?: string[] }
@@ -90,7 +93,7 @@ export async function getUserStats(userId: string, includeNonPublished = false):
     prisma.panel.count({ where: { ownerId: userId, visibility: "PUBLIC" } }),
     prisma.experiment.findMany({
       where: { submitterId: userId, visibility: "PUBLIC", imagingMethodId: { not: null } },
-      select: { imagingMethod: { select: { id: true, shortLabel: true } } },
+      select: { imagingMethod: { select: { label: true } } },
       distinct: ["imagingMethodId"],
     }),
     prisma.experiment.findMany({
@@ -105,7 +108,7 @@ export async function getUserStats(userId: string, includeNonPublished = false):
     publishedReports,
     pendingReports,
     publicPanels,
-    methods: methodRows.map((r) => r.imagingMethod?.shortLabel).filter((l): l is string => l != null),
+    methods: methodRows.map((r) => r.imagingMethod?.label).filter((l): l is string => l != null),
     species: speciesRows.map((r) => r.species?.label).filter((l): l is string => l != null),
   }
 }
@@ -116,7 +119,7 @@ const recentReportSelect = {
   createdAt: true,
   experiment: {
     select: {
-      imagingMethod: { select: { id: true, shortLabel: true } },
+      imagingMethod: { select: { id: true, label: true } },
       species: { select: { id: true, label: true } },
     },
   },
@@ -164,7 +167,7 @@ export async function getUserRecentReports(
 
   return rows.map((r) => ({
     id: r.id,
-    method: r.experiment.imagingMethod?.shortLabel ?? null,
+    method: r.experiment.imagingMethod?.label ?? null,
     species: r.experiment.species,
     status: r.status,
     createdAt: r.createdAt,
@@ -183,6 +186,11 @@ function categoryWhere(filters: LeaderboardFilters): Prisma.ExperimentWhereInput
   if (filters.speciesIds?.length) clauses.push({ speciesId: { in: filters.speciesIds } })
   if (filters.tissueIds?.length) clauses.push({ tissueId: { in: filters.tissueIds } })
   if (filters.methodIds?.length) clauses.push({ imagingMethodId: { in: filters.methodIds } })
+  if (filters.preservations?.length) {
+    clauses.push({ preservation: { in: filters.preservations as Prisma.EnumPreservationNullableFilter["in"] } })
+  }
+  if (filters.fixativeIds?.length) clauses.push({ fixativeId: { in: filters.fixativeIds } })
+  if (filters.conditionIds?.length) clauses.push({ conditionId: { in: filters.conditionIds } })
   return clauses
 }
 

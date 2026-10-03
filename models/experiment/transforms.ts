@@ -1,5 +1,5 @@
 import { DONOR_SEX_LABELS, DONOR_SEX_PATO_IDS, PRESERVATION_LABELS, SAMPLE_TYPE_LABELS } from "@/lib/constants"
-import type { DonorSex, Fixation, Preservation, SampleType } from "@/lib/generated/prisma/enums"
+import type { DonorSex, Preservation, SampleType } from "@/lib/generated/prisma/enums"
 
 export type SpecimenSource = {
   preservation: Preservation | null
@@ -86,34 +86,4 @@ export function specimenFieldList(detail: SpecimenDetail): SpecimenField[] {
 
 export function hasSpecimenDetail(detail: SpecimenDetail): boolean {
   return specimenFieldList(detail).length > 0 || detail.protocolDoi !== null
-}
-
-const FIXATIVE_TO_LEGACY_FIXATION: Record<string, Fixation> = {
-  "CHEBI:16842": "PFA",
-  "CHEBI:752978": "PFA",
-  "CHEBI:17790": "METHANOL",
-  "CHEBI:15347": "ACETONE",
-}
-
-// `Experiment.fixation` is still read by browse filters, evidence roll-ups and the chat tools, so
-// every write keeps it in sync with the preservation split rather than leaving it null.
-export function legacyFixationFor(input: {
-  preservation?: Preservation | null
-  fixativeId?: string | null
-}): Fixation | null {
-  const chemistry = input.fixativeId ? (FIXATIVE_TO_LEGACY_FIXATION[input.fixativeId] ?? null) : null
-  switch (input.preservation) {
-    case "FFPE":
-      return "FFPE"
-    case "FRESH_FROZEN":
-      return "FRESH_FROZEN"
-    case "FIXED_FROZEN":
-      return chemistry ?? "OTHER"
-    case "FRESH":
-      return chemistry ?? "OTHER"
-    case "OTHER":
-      return chemistry ?? "OTHER"
-    default:
-      return chemistry
-  }
 }

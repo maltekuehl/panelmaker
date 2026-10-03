@@ -10,25 +10,21 @@ const UPLOAD_FILENAME = /^[a-z0-9-]+\.webp$/i
 const notFound = () => new NextResponse("Not found", { status: 404 })
 
 async function canViewUpload(filename: string): Promise<{ allowed: boolean; isPublic: boolean }> {
-  const images = await prisma.reportImage.findMany({
+  const images = await prisma.image.findMany({
     where: { url: `/uploads/${filename}` },
     select: {
-      report: {
+      experiment: {
         select: {
-          experiment: {
-            select: {
-              submitterId: true,
-              visibility: true,
-              owningLabId: true,
-              labShares: { select: { labId: true } },
-            },
-          },
+          submitterId: true,
+          visibility: true,
+          owningLabId: true,
+          labShares: { select: { labId: true } },
         },
       },
     },
   })
 
-  const experiments = images.map((image) => image.report.experiment)
+  const experiments = images.map((image) => image.experiment)
 
   if (experiments.some((experiment) => experiment.visibility === "PUBLIC")) {
     return { allowed: true, isPublic: true }

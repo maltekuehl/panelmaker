@@ -265,7 +265,7 @@ export function AddMarkerForm({ panelId, cycleId, species, onMarkerAdded }: AddM
         </Popover>
       </div>
 
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="add-marker-fluorophore" className="text-xs">
           Fluorophore
         </Label>

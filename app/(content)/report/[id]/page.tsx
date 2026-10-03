@@ -3,6 +3,7 @@ import { QualityBadge } from "@/components/browse/report-badges"
 import { LabLink } from "@/components/lab/lab-link"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
+import { DataSourceAttribution } from "@/components/shared/data-source-attribution"
 import { NotAvailable } from "@/components/shared/not-available"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -159,7 +160,7 @@ async function ReportContent({ id }: { id: string }) {
 
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <Badge variant="secondary" title={usage.method}>
-              {usage.methodShort}
+              {usage.method}
             </Badge>
             <Badge variant="outline">{usage.species}</Badge>
             <WorksIndicator works={usage.works} />
@@ -210,7 +211,7 @@ async function ReportContent({ id }: { id: string }) {
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
             <DetailRow label="Species">{usage.species}</DetailRow>
             <DetailRow label="Tissue">{usage.tissueLabel}</DetailRow>
-            <DetailRow label="Preservation">{preservation ?? usage.fixation}</DetailRow>
+            <DetailRow label="Preservation">{preservation}</DetailRow>
             <DetailRow label="Method">{usage.method}</DetailRow>
             <DetailRow label="Dilution">{usage.dilution}</DetailRow>
             <DetailRow label="Antigen Retrieval">{usage.antigenRetrieval}</DetailRow>
@@ -355,6 +356,12 @@ async function ReportContent({ id }: { id: string }) {
                   </a>
                 )}
               </div>
+            </div>
+          )}
+          {report.experiment.source && (
+            <div>
+              <span className="text-muted-foreground block text-xs mb-0.5">Source</span>
+              <DataSourceAttribution source={report.experiment.source} />
             </div>
           )}
         </div>

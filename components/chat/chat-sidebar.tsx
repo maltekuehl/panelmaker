@@ -162,7 +162,7 @@ interface ChatSidebarProps {
   isStreaming?: boolean
 }
 
-const ChatSidebarContent = ({
+export const ChatSidebarContent = ({
   conversations,
   currentConversationId,
   isStreaming = false,
@@ -231,16 +231,14 @@ const ChatSidebarContent = ({
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="border-b p-4">
-        <Button onClick={handleCreateNew} className="w-full" size="sm" disabled={isStreaming || busy}>
-          <MessageSquarePlus className="size-4" />
-          New conversation
-        </Button>
-      </div>
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-4">
+      <Button onClick={handleCreateNew} className="w-full" size="sm" disabled={isStreaming || busy}>
+        <MessageSquarePlus className="size-4" />
+        New conversation
+      </Button>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-1 p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex flex-col gap-1">
           {conversations.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               No conversations yet. Start by sending a message.
@@ -261,11 +259,9 @@ const ChatSidebarContent = ({
         </div>
       </div>
 
-      <div className="border-t px-4 pt-4">
-        <div className="text-center text-xs text-muted-foreground">
-          {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"} saved to your account.
-        </div>
-      </div>
+      <p className="text-xs text-muted-foreground">
+        {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"} saved to your account.
+      </p>
     </div>
   )
 }
@@ -285,16 +281,10 @@ export const ChatSidebarMobile = (props: ChatSidebarProps) => {
         <SheetHeader className="border-b p-4">
           <SheetTitle>Conversations</SheetTitle>
         </SheetHeader>
-        <ChatSidebarContent {...props} onClose={() => setOpen(false)} />
+        <div className="flex min-h-0 flex-1 flex-col p-4">
+          <ChatSidebarContent {...props} onClose={() => setOpen(false)} />
+        </div>
       </SheetContent>
     </Sheet>
-  )
-}
-
-export const ChatSidebarDesktop = (props: ChatSidebarProps) => {
-  return (
-    <div className="hidden w-80 border-r bg-background lg:flex">
-      <ChatSidebarContent {...props} />
-    </div>
   )
 }

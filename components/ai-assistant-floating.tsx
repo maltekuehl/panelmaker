@@ -451,7 +451,7 @@ export function AIAssistantFloating() {
   )
 
   // The /chat page already owns this conversation; a second live store over it would go stale.
-  if (!session?.user || isOnChatPage) {
+  if (!session?.user || isOnChatPage || pathname.startsWith("/submit")) {
     return null
   }
 

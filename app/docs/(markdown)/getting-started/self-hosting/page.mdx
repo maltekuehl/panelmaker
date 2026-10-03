@@ -31,7 +31,7 @@ docker compose up -d --build
 docker compose run --rm migrate npm run admin:create -- --email you@example.edu --name "Your Name"
 ```
 
-Every `docker compose up` applies database migrations and loads the reference data (ontology terms, marker proteins, imaging methods, fluorophores) before the app starts. The last command creates the first admin and prints a one-time password.
+Every `docker compose up` applies database migrations and loads the reference data (ontology terms, marker proteins, fluorophores) before the app starts. The last command creates the first admin and prints a one-time password.
 
 ## Operator guide
 

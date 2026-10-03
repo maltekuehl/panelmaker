@@ -1,5 +1,6 @@
 "use client"
 
+import { SidebarLayout } from "@/components/shared/sidebar-layout"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -102,50 +103,44 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
   const nextPage = currentPageIndex < allPages.length - 1 ? allPages[currentPageIndex + 1] : null
 
   return (
-    <div className="container mx-auto flex gap-8 px-4">
-      <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 self-start overflow-y-auto border-r py-8 pr-4 lg:block">
-        <DocsNav pathname={pathname} />
-      </aside>
+    <SidebarLayout sidebar={<DocsNav pathname={pathname} />} className="pt-8 pb-32">
+      <details key={pathname} className="mb-6 rounded-lg border p-3 lg:hidden">
+        <summary className="cursor-pointer text-sm font-medium">Documentation menu</summary>
+        <div className="mt-4">
+          <DocsNav pathname={pathname} />
+        </div>
+      </details>
 
-      <div className="min-w-0 flex-1 pt-8 pb-32">
-        <details key={pathname} className="mb-6 rounded-lg border p-3 lg:hidden">
-          <summary className="cursor-pointer text-sm font-medium">Documentation menu</summary>
-          <div className="mt-4">
-            <DocsNav pathname={pathname} />
-          </div>
-        </details>
+      {children}
 
-        {children}
-
-        <div className="mt-8 flex items-center justify-between border-t px-2 py-3">
-          <div>
-            {previousPage && (
-              <Button variant="ghost" asChild className="flex h-auto items-center gap-2 p-3">
-                <Link href={previousPage.href}>
-                  <ChevronLeft className="size-4" />
-                  <div className="text-left">
-                    <div className="text-sm text-muted-foreground">Previous</div>
-                    <div className="font-medium">{previousPage.title}</div>
-                  </div>
-                </Link>
-              </Button>
-            )}
-          </div>
-          <div>
-            {nextPage && (
-              <Button variant="ghost" asChild className="flex h-auto items-center gap-2 p-3">
-                <Link href={nextPage.href}>
-                  <div className="text-right">
-                    <div className="text-sm text-muted-foreground">Next</div>
-                    <div className="font-medium">{nextPage.title}</div>
-                  </div>
-                  <ChevronRight className="size-4" />
-                </Link>
-              </Button>
-            )}
-          </div>
+      <div className="mt-8 flex items-center justify-between border-t px-2 py-3">
+        <div>
+          {previousPage && (
+            <Button variant="ghost" asChild className="flex h-auto items-center gap-2 p-3">
+              <Link href={previousPage.href}>
+                <ChevronLeft className="size-4" />
+                <div className="text-left">
+                  <div className="text-sm text-muted-foreground">Previous</div>
+                  <div className="font-medium">{previousPage.title}</div>
+                </div>
+              </Link>
+            </Button>
+          )}
+        </div>
+        <div>
+          {nextPage && (
+            <Button variant="ghost" asChild className="flex h-auto items-center gap-2 p-3">
+              <Link href={nextPage.href}>
+                <div className="text-right">
+                  <div className="text-sm text-muted-foreground">Next</div>
+                  <div className="font-medium">{nextPage.title}</div>
+                </div>
+                <ChevronRight className="size-4" />
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
-    </div>
+    </SidebarLayout>
   )
 }

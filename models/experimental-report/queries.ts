@@ -2,7 +2,7 @@ import "server-only"
 
 import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
 import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
-import { CLONALITY_LABELS, FIXATION_LABELS, SPECIFICITY_LABELS } from "@/lib/constants"
+import { CLONALITY_LABELS, PRESERVATION_LABELS, SPECIFICITY_LABELS } from "@/lib/constants"
 import { FILTER_KEYS, type BrowseMarkerParams, type EntryFilterParams, type LabContentParams } from "@/lib/data-table"
 import { UnprocessableError } from "@/lib/error-handling"
 import type { Prisma, ValidationStatus } from "@/lib/generated/prisma/client"
@@ -13,6 +13,7 @@ import {
   searchCellOntology,
   searchChebi,
   searchDiseaseOntology,
+  searchEfoImagingMethods,
   searchGoCellularComponent,
   searchHsapDv,
   searchMmusDv,
@@ -24,8 +25,8 @@ import { antibodyHref, markerHref } from "@/lib/routes"
 import { normalizeRrid } from "@/lib/utils"
 import { registryToAntibodyCreate } from "@/models/antibody/transforms"
 import type { SpecimenInput } from "@/models/experiment/schema"
-import { legacyFixationFor } from "@/models/experiment/transforms"
-import { resolveImagingMethodId } from "@/models/imaging-method/data"
+import { imageWithChannelsSelect, reportImagesSelect, toCarouselChannels } from "@/models/image/transforms"
+import { imagingMethodSelect } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { resolveResourceVisibility } from "@/models/lab/queries"
 import { buildReportVisibilityWhere } from "@/models/lab/visibility"
@@ -42,7 +43,8 @@ import {
 export type ReportQueryParams = {
   q?: string
   method?: string | string[]
-  fixation?: string | string[]
+  preservation?: string | string[]
+  fixative?: string | string[]
   species?: string | string[]
   tissue?: string | string[]
   limit?: number
@@ -69,10 +71,7 @@ const reportSelect = {
   signalQuality: true,
   specificity: true,
   notes: true,
-  images: {
-    select: { url: true, caption: true, cellTypes: { select: { cellTypeId: true } } },
-    orderBy: { sortOrder: "asc" },
-  },
+  imageChannels: reportImagesSelect,
   createdAt: true,
   updatedAt: true,
   experiment: {
@@ -82,8 +81,7 @@ const reportSelect = {
       citation: true,
       pmid: true,
       doi: true,
-      fixation: true,
-      imagingMethod: { select: { id: true, label: true, shortLabel: true, detection: true, cyclic: true } },
+      imagingMethod: { select: imagingMethodSelect },
       antigenRetrieval: true,
       preservation: true,
       preservationText: true,
@@ -103,6 +101,7 @@ const reportSelect = {
       condition: { select: { id: true, label: true } },
       submitter: { select: { id: true, name: true, institution: true } },
       owningLab: { select: { id: true, name: true, slug: true } },
+      source: { select: { id: true, name: true, url: true, license: true, attribution: true } },
     },
   },
   antibody: {
@@ -148,12 +147,9 @@ const WHERE_BUILDERS: Record<string, (values: string[]) => Prisma.ExperimentalRe
   cellType: (v) => ({ cellTypes: { some: { cellTypeId: { in: v } } } }),
   species: (v) => ({ experiment: { speciesId: { in: v } } }),
   tissue: (v) => ({ experiment: { tissueId: { in: v } } }),
-  // A filter value arrives as an ImagingMethod id, an EFO id, an alias or a legacy enum value from an
-  // older link, so every term is resolved against the catalog before it reaches the column.
-  method: (v) => ({
-    experiment: { imagingMethodId: { in: v.map(resolveImagingMethodId).filter((id): id is string => id !== null) } },
-  }),
-  fixation: (v) => ({ experiment: { fixation: { in: v as Prisma.EnumFixationNullableFilter["in"] } } }),
+  method: (v) => ({ experiment: { imagingMethodId: { in: v } } }),
+  preservation: (v) => ({ experiment: { preservation: { in: v as Prisma.EnumPreservationNullableFilter["in"] } } }),
+  fixative: (v) => ({ experiment: { fixativeId: { in: v } } }),
   vendor: (v) => ({ antibody: { vendorName: { in: v } } }),
   host: (v) => ({ antibody: { hostTaxonId: { in: v } } }),
   conjugate: (v) => ({ antibody: { conjugate: { in: v } } }),
@@ -163,6 +159,30 @@ const WHERE_BUILDERS: Record<string, (values: string[]) => Prisma.ExperimentalRe
   specificity: (v) => ({ specificity: { in: v as Prisma.EnumSpecificityNullableFilter["in"] } }),
   result: (v) => resultWhere(v),
   lab: (v) => ({ experiment: { owningLabId: { in: v } } }),
+  source: (v) => ({ experiment: { sourceId: { in: v } } }),
+}
+
+const REPORT_LEVEL_FILTER_KEYS = [
+  "marker",
+  "cellType",
+  "vendor",
+  "host",
+  "conjugate",
+  "clonality",
+  "subcellular",
+  "specificity",
+  "result",
+] as const satisfies (keyof EntryFilterParams)[]
+
+// The report-level dimensions as one predicate, so a parent (an experiment) can require a single report
+// that satisfies all of them together rather than one report per dimension.
+export function reportLevelWhere(params: EntryFilterParams): Prisma.ExperimentalReportWhereInput | null {
+  const conditions = REPORT_LEVEL_FILTER_KEYS.flatMap((key) => {
+    const values = params[key]
+    const condition = values.length > 0 ? WHERE_BUILDERS[key](values) : null
+    return condition ? [condition] : []
+  })
+  return conditions.length > 0 ? { AND: conditions } : null
 }
 
 const BROWSE_REPORT_SCOPE: Prisma.ExperimentalReportWhereInput = {
@@ -225,7 +245,8 @@ export async function getAllReports(params: ReportQueryParams): Promise<ReportRo
     select: reportSelect,
     where: buildReportWhere(params.q, {
       method: toFilterList(params.method),
-      fixation: toFilterList(params.fixation),
+      preservation: toFilterList(params.preservation),
+      fixative: toFilterList(params.fixative),
       species: toFilterList(params.species),
       tissue: toFilterList(params.tissue),
     }),
@@ -337,11 +358,21 @@ const FACET_EXTRACTORS: Record<string, FacetExtractor> = {
       : [],
   method: (r) =>
     r.experiment.imagingMethod
-      ? [{ value: r.experiment.imagingMethod.id, label: r.experiment.imagingMethod.shortLabel }]
+      ? [
+          {
+            value: r.experiment.imagingMethod.id,
+            label: r.experiment.imagingMethod.label,
+            description: r.experiment.imagingMethod.id,
+          },
+        ]
       : [],
-  fixation: (r) =>
-    r.experiment.fixation
-      ? [{ value: r.experiment.fixation, label: FIXATION_LABELS[r.experiment.fixation] ?? r.experiment.fixation }]
+  preservation: (r) =>
+    r.experiment.preservation
+      ? [{ value: r.experiment.preservation, label: PRESERVATION_LABELS[r.experiment.preservation] }]
+      : [],
+  fixative: (r) =>
+    r.experiment.fixative
+      ? [{ value: r.experiment.fixative.id, label: r.experiment.fixative.label, description: r.experiment.fixative.id }]
       : [],
   vendor: (r) => (r.antibody?.vendorName ? [{ value: r.antibody.vendorName, label: r.antibody.vendorName }] : []),
   host: (r) =>
@@ -371,6 +402,7 @@ const FACET_EXTRACTORS: Record<string, FacetExtractor> = {
     r.works === null ? [] : [{ value: r.works ? "works" : "failed", label: r.works ? "Works" : "Failed" }],
   lab: (r) =>
     r.experiment.owningLab ? [{ value: r.experiment.owningLab.id, label: r.experiment.owningLab.name }] : [],
+  source: (r) => (r.experiment.source ? [{ value: r.experiment.source.id, label: r.experiment.source.name }] : []),
 }
 
 function buildFacets(reports: ReportRow[]): BrowseFacets {
@@ -458,35 +490,28 @@ export async function getReportsForCellType(cellTypeId: string): Promise<ReportR
 }
 
 export async function getImagesForCellType(cellTypeId: string): Promise<CarouselImage[]> {
-  const images = await prisma.reportImage.findMany({
+  const images = await prisma.image.findMany({
     where: {
       cellTypes: { some: { cellTypeId } },
-      report: BROWSE_REPORT_SCOPE,
+      channels: { some: { report: BROWSE_REPORT_SCOPE } },
     },
-    select: {
-      url: true,
-      caption: true,
-      report: {
-        select: {
-          antibody: { select: { rrid: true, name: true, targetName: true, targetProteinId: true } },
-        },
-      },
-    },
+    select: imageWithChannelsSelect,
     orderBy: { createdAt: "desc" },
   })
 
   return images.map((image) => {
-    const antibody = image.report.antibody
-    const markerName = antibody?.targetName ?? antibody?.name ?? null
     const links: CarouselImageLink[] = []
-    if (antibody?.targetProteinId && markerName) {
-      links.push({ label: markerName, href: markerHref(antibody.targetProteinId) })
+    for (const channel of image.channels) {
+      const antibody = channel.report?.antibody
+      if (!antibody || channel.role !== "TARGET") continue
+      const markerName = antibody.targetName ?? antibody.name
+      if (antibody.targetProteinId) links.push({ label: markerName, href: markerHref(antibody.targetProteinId) })
+      const abHref = antibodyHref(antibody.rrid)
+      if (abHref) links.push({ label: antibody.name, href: abHref })
     }
-    const abHref = antibodyHref(antibody?.rrid)
-    if (abHref) {
-      links.push({ label: antibody?.name ?? "Antibody", href: abHref })
-    }
-    return { src: image.url, caption: image.caption, title: markerName ?? antibody?.name ?? undefined, links }
+    const target = image.channels.find((channel) => channel.role === "TARGET" && channel.report?.antibody)
+    const title = target?.report?.antibody?.targetName ?? target?.report?.antibody?.name ?? undefined
+    return { src: image.url, caption: image.caption, title, links, channels: toCarouselChannels(image) }
   })
 }
 
@@ -572,6 +597,7 @@ type OntologyKind =
   | "condition"
   | "developmentalStage"
   | "fixative"
+  | "imagingMethod"
   | "taxon"
   | "tissue"
 
@@ -616,6 +642,12 @@ const ONTOLOGY_RESOLVERS: Record<
     search: searchChebi,
     noun: "Fixative",
     ontology: "ChEBI",
+  },
+  imagingMethod: {
+    exists: async (id) => (await prisma.imagingMethod.findUnique({ where: { id }, select: { id: true } })) !== null,
+    search: searchEfoImagingMethods,
+    noun: "Imaging method",
+    ontology: "EFO",
   },
   taxon: {
     exists: async (id) => (await prisma.taxon.findUnique({ where: { id }, select: { id: true } })) !== null,
@@ -672,8 +704,7 @@ type ExperimentContextInput = {
   species?: OntologyValue | null
   tissue?: OntologyValue | null
   condition?: OntologyValue | null
-  fixation?: CreateReportData["fixation"]
-  imagingMethodId?: CreateReportData["imagingMethodId"]
+  imagingMethod?: OntologyValue | null
   antigenRetrieval?: CreateReportData["antigenRetrieval"]
   visibility?: Visibility
   sharedLabIds?: string[]
@@ -704,6 +735,9 @@ export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, su
   const resolvedStage = ctx.developmentalStage
     ? await validateAndResolveOntologyTerm("developmentalStage", ctx.developmentalStage)
     : undefined
+  const resolvedImagingMethod = ctx.imagingMethod
+    ? await validateAndResolveOntologyTerm("imagingMethod", ctx.imagingMethod)
+    : undefined
   // New submissions default to LAB when the submitter belongs to a lab, otherwise PRIVATE.
   const access = await resolveResourceVisibility({
     ownerId: submitterId,
@@ -733,6 +767,13 @@ export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, su
     if (resolvedStage) {
       await tx.developmentalStage.upsert({ where: { id: resolvedStage.id }, update: {}, create: resolvedStage })
     }
+    if (resolvedImagingMethod) {
+      await tx.imagingMethod.upsert({
+        where: { id: resolvedImagingMethod.id },
+        update: {},
+        create: resolvedImagingMethod,
+      })
+    }
 
     const experiment = await tx.experiment.create({
       data: {
@@ -744,10 +785,6 @@ export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, su
         speciesId: resolvedSpecies?.id ?? null,
         tissueId: resolvedTissue?.id ?? null,
         conditionId: resolvedCondition?.id ?? null,
-        // The legacy column is derived when the submitter only sent the preservation split, so browse
-        // filters and evidence roll-ups keep working on new submissions.
-        fixation:
-          ctx.fixation ?? legacyFixationFor({ preservation: ctx.preservation, fixativeId: resolvedFixative?.id }),
         preservation: ctx.preservation ?? null,
         preservationText: ctx.preservationText ?? null,
         fixativeId: resolvedFixative?.id ?? null,
@@ -759,7 +796,7 @@ export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, su
         donorAge: ctx.donorAge ?? null,
         developmentalStageId: resolvedStage?.id ?? null,
         protocolDoi: ctx.protocolDoi ?? null,
-        imagingMethodId: resolveImagingMethodId(ctx.imagingMethodId) ?? null,
+        imagingMethodId: resolvedImagingMethod?.id ?? null,
         antigenRetrieval: ctx.antigenRetrieval ?? null,
         visibility: access.visibility,
         owningLabId: access.owningLabId,
@@ -840,18 +877,51 @@ export async function resolveAndCreateReport(data: CreateReportData, experimentI
     const resolvedCellTypeIds = new Set(resolvedCellTypes.map((ct) => ct.id))
     const images = data.images ?? []
     for (let i = 0; i < images.length; i++) {
-      const image = images[i]
-      const tags = (image.cellTypeIds ?? []).filter((id) => resolvedCellTypeIds.has(id))
-      await tx.reportImage.create({
-        data: {
-          reportId: report.id,
-          url: image.url,
-          caption: image.caption?.trim() || null,
-          sortOrder: i,
-          cellTypes: { create: tags.map((cellTypeId) => ({ cellTypeId })) },
-        },
-        select: { id: true },
+      const input = images[i]
+      const caption = input.caption?.trim() || null
+      const image = await tx.image.upsert({
+        where: { experimentId_url: { experimentId, url: input.url } },
+        update: {},
+        create: { experimentId, url: input.url, caption, sortOrder: i },
+        select: { id: true, caption: true, channels: { select: { role: true, label: true } } },
       })
+      if (!image.caption && caption) await tx.image.update({ where: { id: image.id }, data: { caption } })
+
+      const tags = (input.cellTypeIds ?? []).filter((id) => resolvedCellTypeIds.has(id))
+      if (tags.length > 0) {
+        await tx.imageCellType.createMany({
+          data: tags.map((cellTypeId) => ({ imageId: image.id, cellTypeId })),
+          skipDuplicates: true,
+        })
+      }
+
+      let sortOrder = image.channels.length
+      await tx.imageChannel.create({
+        data: {
+          imageId: image.id,
+          reportId: report.id,
+          role: "TARGET",
+          displayColor: input.displayColor ?? null,
+          sortOrder: sortOrder++,
+        },
+      })
+      for (const reference of input.references ?? []) {
+        const known = image.channels.some(
+          (channel) =>
+            channel.role === reference.role && channel.label?.toLowerCase() === reference.label.toLowerCase(),
+        )
+        if (known) continue
+        await tx.imageChannel.create({
+          data: {
+            imageId: image.id,
+            role: reference.role,
+            label: reference.label,
+            fluorophoreId: reference.fluorophoreId ?? null,
+            displayColor: reference.displayColor ?? null,
+            sortOrder: sortOrder++,
+          },
+        })
+      }
     }
 
     return tx.experimentalReport.findUniqueOrThrow({ where: { id: report.id }, select: reportSelect })
@@ -881,9 +951,8 @@ export async function resolveAndCreateReports(
       species: context.species ?? null,
       tissue: context.tissue ?? null,
       condition: context.condition ?? null,
-      fixation: context.fixation,
       ...specimenContextOf(context),
-      imagingMethodId: context.imagingMethodId,
+      imagingMethod: context.imagingMethod ?? null,
       antigenRetrieval: context.antigenRetrieval,
       visibility: context.visibility,
       sharedLabIds: context.sharedLabIds,
@@ -944,9 +1013,8 @@ export async function createReport(data: CreateReportData, submitterId: string):
       species: data.species ?? null,
       tissue: data.tissue ?? null,
       condition: data.condition ?? null,
-      fixation: data.fixation,
       ...specimenContextOf(data),
-      imagingMethodId: data.imagingMethodId,
+      imagingMethod: data.imagingMethod ?? null,
       antigenRetrieval: data.antigenRetrieval,
       visibility: data.visibility,
       sharedLabIds: data.sharedLabIds,

@@ -1,7 +1,17 @@
 import { fetchJson } from "@/lib/integrations/http"
 import { taxonId } from "@/models/taxon/id"
 
-export type OntologyType = "cl" | "uberon" | "ncbi_taxonomy" | "go_cc" | "doid" | "ror" | "chebi" | "hsapdv" | "mmusdv"
+export type OntologyType =
+  | "cl"
+  | "uberon"
+  | "ncbi_taxonomy"
+  | "go_cc"
+  | "doid"
+  | "ror"
+  | "chebi"
+  | "hsapdv"
+  | "mmusdv"
+  | "imaging_method"
 
 export type OntologyResult = {
   id: string
@@ -16,6 +26,9 @@ const NCBI_EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 // The GO root term for cellular_component. Without it an `ontology=go` search also returns
 // biological_process and molecular_function terms, which are not subcellular locations.
 const GO_CELLULAR_COMPONENT_ROOT = "http://purl.obolibrary.org/obo/GO_0005575"
+
+// The EFO spatial proteomics branch, which holds the multiplexed tissue imaging assays.
+const EFO_SPATIAL_PROTEOMICS_ROOT = "http://www.ebi.ac.uk/efo/EFO_0700000"
 
 type Ols4Doc = { obo_id?: string; short_form?: string; label: string; description?: string[] }
 type Ols4Response = { response?: { docs?: Ols4Doc[] } }
@@ -73,6 +86,10 @@ export async function searchRor(query: string): Promise<OntologyResult[]> {
 // CHEBI:15347 acetone, CHEBI:64276 glutaraldehyde.
 export async function searchChebi(query: string): Promise<OntologyResult[]> {
   return searchOls4(query, "chebi", "CHEBI")
+}
+
+export async function searchEfoImagingMethods(query: string): Promise<OntologyResult[]> {
+  return searchOls4(query, "efo", "EFO", EFO_SPATIAL_PROTEOMICS_ROOT)
 }
 
 export async function searchHsapDv(query: string): Promise<OntologyResult[]> {

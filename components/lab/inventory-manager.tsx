@@ -31,7 +31,7 @@ const STATUS_OPTIONS = [
   { value: "OUT_OF_STOCK", label: "Out of stock" },
 ]
 
-type FacetOption = { value: string; label: string; description: string }
+type FacetOption = { value: string; label: string; description?: string }
 
 interface InventoryManagerProps {
   labId: string
@@ -125,6 +125,7 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
               className="h-8 w-[200px] lg:w-[280px]"
             />
             <DataTableFacetedFilter
+              className="w-[180px] justify-start overflow-hidden"
               title="Status"
               options={STATUS_OPTIONS}
               value={params.status}
@@ -132,6 +133,7 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
             />
             {facets.host.length > 0 && (
               <DataTableFacetedFilter
+                className="w-[180px] justify-start overflow-hidden"
                 title="Host species"
                 options={facets.host}
                 value={params.host}
@@ -140,25 +142,25 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
             )}
             {facets.clonality.length > 0 && (
               <DataTableFacetedFilter
+                className="w-[180px] justify-start overflow-hidden"
                 title="Clonality"
                 options={facets.clonality}
                 value={params.clonality}
                 onChange={(value) => setParams({ clonality: value.length ? value : null, page: 1 })}
               />
             )}
-            {isFiltered && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-8 px-2 lg:px-3"
-                onClick={() =>
-                  setParams({ q: null, status: null, host: null, clonality: null, sort: null, order: null, page: null })
-                }
-              >
-                <X className="h-4 w-4" />
-                Reset
-              </Button>
-            )}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 px-2 lg:px-3"
+              disabled={!isFiltered}
+              onClick={() =>
+                setParams({ q: null, status: null, host: null, clonality: null, sort: null, order: null, page: null })
+              }
+            >
+              <X className="h-4 w-4" />
+              Reset
+            </Button>
           </div>
 
           <DataTable columns={columns} data={items} emptyMessage="No inventory items match these filters." />

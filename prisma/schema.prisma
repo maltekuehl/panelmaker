@@ -26,18 +26,8 @@ enum Clonality {
   OLIGOCLONAL
 }
 
-enum Fixation {
-  FFPE
-  FRESH_FROZEN
-  PFA
-  ACETONE
-  METHANOL
-  OTHER
-}
-
-// Legacy `Fixation` conflates how the specimen was preserved with what it was fixed in. The two are
-// split: `Preservation` is the preservation state (MITI `Preservation method`, OMAP
-// `tissue_preservation`), the fixative chemistry moves to the ChEBI-backed `Fixative` table.
+// The preservation state (MITI `Preservation method`, OMAP `tissue_preservation`). The fixative
+// chemistry is separate and lives in the ChEBI-backed `Fixative` table.
 enum Preservation {
   FFPE
   FRESH_FROZEN
@@ -59,12 +49,6 @@ enum DonorSex {
   FEMALE
   INTERSEX
   UNKNOWN
-}
-
-enum DetectionModality {
-  FLUORESCENCE
-  MASS
-  OTHER
 }
 
 enum AntigenRetrieval {
@@ -316,7 +300,7 @@ model CellType {
 
   markers     CellTypeMarker[]
   reportLinks ReportCellType[]
-  imageLinks  ReportImageCellType[]
+  imageLinks  ImageCellType[]
 
   @@index([label])
 }
@@ -369,8 +353,24 @@ model Fixative {
   label String
 
   experiments Experiment[]
+  panels      Panel[]
 
   @@index([label])
+}
+
+// An external dataset that experiments were imported from, kept apart from the publication fields so
+// provenance and licence attribution are never mistaken for a citation. Ids are stable slugs.
+model DataSource {
+  id          String  @id
+  name        String
+  url         String?
+  license     String?
+  attribution String? @db.Text
+
+  experiments Experiment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // HsapDv terms for human donors, MmusDv for mouse; the ontology to search is chosen from the
@@ -400,31 +400,25 @@ model Fluorophore {
 
   panelMarkers        PanelMarker[]
   experimentalReports ExperimentalReport[]
+  imageChannels       ImageChannel[]
 
   @@index([fpbaseSlug])
 }
 
-// Imaging assays, seeded from the EFO `spatial proteomics` branch (EFO:0700000) plus local rows for
-// methods with no ontology term yet. `efoId` is deliberately optional: PathoPlex has no EFO term and
-// must still be a first-class method rather than an "other" fallback.
+// An EFO spatial proteomics term (EFO:0700000 branch) keyed by its CURIE, or a local method EFO has no
+// term for yet, keyed by a cuid and filed under its closest EFO term through `parent`.
 model ImagingMethod {
-  id         String            @id
-  label      String
-  shortLabel String
-  efoId      String?           @unique
-  detection  DetectionModality
-  cyclic     Boolean           @default(false)
-  aliases    String[]
-  sortOrder  Int               @default(0)
+  id       String  @id @default(cuid())
+  label    String
+  parentId String?
 
+  parent      ImagingMethod?  @relation("ImagingMethodParent", fields: [parentId], references: [id], onDelete: Restrict)
+  children    ImagingMethod[] @relation("ImagingMethodParent")
   experiments Experiment[]
   panels      Panel[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([detection])
-  @@index([sortOrder])
+  @@index([label])
+  @@index([parentId])
 }
 
 model ReportCellType {
@@ -508,9 +502,6 @@ model Experiment {
   doi              String?
   speciesId        String?
   tissueId         String?
-  // Superseded by `preservation` + `fixativeId`. Still written on every submission and still read by
-  // browse filters, evidence roll-ups and the chat tools, so it stays until those move over.
-  fixation         Fixation?
   imagingMethodId  String?
   antigenRetrieval AntigenRetrieval?
   conditionId      String?
@@ -529,11 +520,13 @@ model Experiment {
   donorAge              String?
   developmentalStageId  String?
   protocolDoi           String?
+  sourceId              String?
 
   species       Taxon?         @relation("ExperimentSpecies", fields: [speciesId], references: [id], onDelete: SetNull)
   imagingMethod ImagingMethod? @relation(fields: [imagingMethodId], references: [id], onDelete: SetNull)
 
   fixative           Fixative?           @relation(fields: [fixativeId], references: [id], onDelete: SetNull)
+  source             DataSource?         @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   developmentalStage DevelopmentalStage? @relation(fields: [developmentalStageId], references: [id], onDelete: SetNull)
 
   tissue    Tissue?              @relation(fields: [tissueId], references: [id], onDelete: SetNull)
@@ -542,6 +535,7 @@ model Experiment {
   owningLab Lab?                 @relation("ExperimentOwningLab", fields: [owningLabId], references: [id], onDelete: SetNull)
   reports   ExperimentalReport[]
   labShares ExperimentLabShare[]
+  images    Image[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -558,6 +552,7 @@ model Experiment {
   @@index([fixativeId])
   @@index([developmentalStageId])
   @@index([sampleType])
+  @@index([sourceId])
 }
 
 model ExperimentalReport {
@@ -576,12 +571,12 @@ model ExperimentalReport {
   specificity   Specificity?
   notes         String?
 
-  experiment  Experiment         @relation(fields: [experimentId], references: [id], onDelete: Cascade)
-  antibody    Antibody?          @relation(fields: [antibodyId], references: [id], onDelete: Restrict)
-  subcellular CellularComponent? @relation(fields: [subcellularId], references: [id], onDelete: SetNull)
-  fluorophore Fluorophore?       @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
-  cellTypes   ReportCellType[]
-  images      ReportImage[]
+  experiment    Experiment         @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  antibody      Antibody?          @relation(fields: [antibodyId], references: [id], onDelete: Restrict)
+  subcellular   CellularComponent? @relation(fields: [subcellularId], references: [id], onDelete: SetNull)
+  fluorophore   Fluorophore?       @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
+  cellTypes     ReportCellType[]
+  imageChannels ImageChannel[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -594,26 +589,63 @@ model ExperimentalReport {
   @@index([createdAt])
 }
 
-model ReportImage {
-  id        String   @id @default(cuid())
-  reportId  String
-  url       String
-  caption   String?
-  sortOrder Int      @default(0)
+// One field of view from an experiment. Its channels say what each colour in the picture is: the stains
+// of interest point at their reports, nuclear and structural references may be dyes with no report.
+model Image {
+  id           String  @id @default(cuid())
+  experimentId String
+  url          String
+  caption      String?
+  sortOrder    Int     @default(0)
+
+  experiment Experiment      @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  channels   ImageChannel[]
+  cellTypes  ImageCellType[]
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  report    ExperimentalReport    @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  cellTypes ReportImageCellType[]
-
-  @@index([reportId])
+  @@unique([experimentId, url])
+  @@index([url])
 }
 
-model ReportImageCellType {
+enum ImageChannelRole {
+  TARGET
+  NUCLEAR
+  STRUCTURAL
+}
+
+// A channel tied to a report takes its marker and fluorophore from that report. `label` and
+// `fluorophoreId` are only for channels without one, such as a DAPI or Hoechst counterstain.
+// `displayColor` is the pseudo-colour the channel has in this picture, as a hex value.
+model ImageChannel {
+  id            String           @id @default(cuid())
+  imageId       String
+  role          ImageChannelRole @default(TARGET)
+  reportId      String?
+  label         String?
+  fluorophoreId String?
+  displayColor  String?
+  sortOrder     Int              @default(0)
+
+  image       Image               @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  report      ExperimentalReport? @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  fluorophore Fluorophore?        @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([imageId, reportId])
+  @@index([reportId])
+  @@index([fluorophoreId])
+}
+
+model ImageCellType {
   imageId    String
   cellTypeId String
 
-  image    ReportImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
-  cellType CellType    @relation(fields: [cellTypeId], references: [id], onDelete: Cascade)
+  image    Image    @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  cellType CellType @relation(fields: [cellTypeId], references: [id], onDelete: Cascade)
 
   @@id([imageId, cellTypeId])
   @@index([cellTypeId])
@@ -622,19 +654,21 @@ model ReportImageCellType {
 // ─── Spatial Proteomics: Panel Builder ────────────────────────────────
 
 model Panel {
-  id              String     @id @default(cuid())
+  id              String        @id @default(cuid())
   name            String
   description     String?
   speciesId       String?
-  fixation        Fixation?
+  preservation    Preservation?
+  fixativeId      String?
   imagingMethodId String?
   conditionId     String?
   ownerId         String?
-  visibility      Visibility @default(PRIVATE)
+  visibility      Visibility    @default(PRIVATE)
   owningLabId     String?
 
   condition     DiseaseCondition? @relation(fields: [conditionId], references: [id], onDelete: SetNull)
   species       Taxon?            @relation(fields: [speciesId], references: [id], onDelete: SetNull)
+  fixative      Fixative?         @relation(fields: [fixativeId], references: [id], onDelete: SetNull)
   imagingMethod ImagingMethod?    @relation(fields: [imagingMethodId], references: [id], onDelete: SetNull)
   owner         User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   owningLab     Lab?              @relation("PanelOwningLab", fields: [owningLabId], references: [id], onDelete: SetNull)
@@ -647,6 +681,7 @@ model Panel {
   @@index([ownerId])
   @@index([conditionId])
   @@index([speciesId])
+  @@index([fixativeId])
   @@index([imagingMethodId])
   @@index([visibility])
   @@index([owningLabId])

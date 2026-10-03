@@ -37,7 +37,7 @@ export function SpecimenSection({
           <div className="text-left">
             <span className="text-sm font-medium">Donor and specimen details (optional)</span>
             <p className="text-xs font-normal text-muted-foreground">
-              Fixative, section thickness, donor sex, age and developmental stage. Every field can be left empty.
+              Fixative, section thickness, donor sex, age and developmental stage.
             </p>
           </div>
         </AccordionTrigger>

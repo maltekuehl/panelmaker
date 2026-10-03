@@ -11,11 +11,23 @@ import {
   searchUberon,
   type OntologyType,
 } from "@/lib/ontology"
+import { searchImagingMethods } from "@/models/imaging-method"
 import { NextRequest } from "next/server"
 import { z } from "zod"
 
 const querySchema = z.object({
-  type: z.enum(["cl", "uberon", "ncbi_taxonomy", "go_cc", "doid", "ror", "chebi", "hsapdv", "mmusdv"]),
+  type: z.enum([
+    "cl",
+    "uberon",
+    "ncbi_taxonomy",
+    "go_cc",
+    "doid",
+    "ror",
+    "chebi",
+    "hsapdv",
+    "mmusdv",
+    "imaging_method",
+  ]),
   q: z.string().min(1).max(200),
   limit: z.coerce.number().int().min(1).max(50).optional(),
 })
@@ -35,6 +47,7 @@ export async function GET(request: NextRequest) {
       chebi: searchChebi,
       hsapdv: searchHsapDv,
       mmusdv: searchMmusDv,
+      imaging_method: searchImagingMethods,
     }
 
     const found = await searchFn[validated.type](validated.q)

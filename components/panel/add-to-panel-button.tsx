@@ -234,7 +234,7 @@ export function AddToPanelButton({
               </Button>
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="add-to-panel-fluorophore" className="text-xs">
                 Fluorophore
               </Label>

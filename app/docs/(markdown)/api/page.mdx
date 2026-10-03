@@ -122,20 +122,21 @@ GET /api/reports
 
 **Query parameters:**
 
-| Parameter  | Type    | Description                                                   |
-| ---------- | ------- | ------------------------------------------------------------- |
-| `q`        | string  | Text search across notes and antibody fields                  |
-| `species`  | string  | Species ontology id, e.g. `NCBI:txid9606` for human           |
-| `tissue`   | string  | Tissue ontology id, e.g. `UBERON:0002106`                     |
-| `method`   | string  | `PATHOPLEX`, `CODEX`, `CYCIF`, `IMC`, `MIBI`, `IBEX`, `OTHER` |
-| `fixation` | string  | `FFPE`, `FRESH_FROZEN`, `PFA`, `ACETONE`, `METHANOL`, `OTHER` |
-| `limit`    | integer | Results per page (default 20, max 100)                        |
-| `cursor`   | string  | Pagination cursor                                             |
+| Parameter      | Type    | Description                                                   |
+| -------------- | ------- | ------------------------------------------------------------- |
+| `q`            | string  | Text search across notes and antibody fields                  |
+| `species`      | string  | Species ontology id, e.g. `NCBI:txid9606` for human           |
+| `tissue`       | string  | Tissue ontology id, e.g. `UBERON:0002106`                     |
+| `method`       | string  | `PATHOPLEX`, `CODEX`, `CYCIF`, `IMC`, `MIBI`, `IBEX`, `OTHER` |
+| `preservation` | string  | `FFPE`, `FRESH_FROZEN`, `FIXED_FROZEN`, `FRESH`, `OTHER`      |
+| `fixative`     | string  | ChEBI id, e.g. `CHEBI:16842` for formaldehyde                 |
+| `limit`        | integer | Results per page (default 20, max 100)                        |
+| `cursor`       | string  | Pagination cursor                                             |
 
 **Example:**
 
 ```bash
-curl "https://<your-instance>/api/reports?species=NCBI:txid9606&method=CODEX&fixation=FFPE"
+curl "https://<your-instance>/api/reports?species=NCBI:txid9606&method=CODEX&preservation=FFPE"
 ```
 
 **Response:**

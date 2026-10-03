@@ -1,24 +1,31 @@
 "use client"
 
+import { NotAvailable } from "@/components/shared/not-available"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { IMAGE_CAPTION_MAX_LENGTH } from "@/models/experimental-report/schema"
-import { Check, ImagePlus, Loader2, Plus, X } from "lucide-react"
-import { useId, useRef, useState } from "react"
+import { MAX_FOVS_PER_REPORT } from "@/models/experimental-report/schema"
+import { ImagePlus, Loader2, Pencil, Trash2 } from "lucide-react"
+import { useRef, useState } from "react"
 import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop"
 import "react-image-crop/dist/ReactCrop.css"
 import { toast } from "sonner"
 import * as UTIF from "utif2"
-import type { OntologyValue, ReportImageInput } from "./types"
+import { displayColorName } from "./color-field"
+import { FovDetails, type FovPeer } from "./fov-details"
+import type { Fov, FovDraft, OntologyValue, RowImage } from "./types"
 
-const CAPTION_PLACEHOLDER =
-  "Human tonsil: CD3 (green), CD20 (red) and DAPI (blue). Germinal centre at the centre of the field."
 const MIN_DIMENSION = 256
 const MAX_DIMENSION = 4084
 const ACCEPT = ".png,.jpg,.jpeg,.webp,.tiff,.tif"
-const DEFAULT_MAX = 6
+const DEFAULT_MAX = MAX_FOVS_PER_REPORT
 
 async function fileToPreviewUrl(file: File): Promise<string> {
   const isTiff = /\.tiff?$/i.test(file.name) || file.type === "image/tiff"
@@ -40,23 +47,43 @@ async function fileToPreviewUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/png")
 }
 
+type DialogState = { stage: "crop"; preview: string } | { stage: "details"; isNew: boolean; draft: FovDraft } | null
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <span className="min-w-0">
+      <span className="text-muted-foreground">{label}: </span>
+      {children}
+    </span>
+  )
+}
+
 export function ImageUpload({
-  value,
-  onChange,
+  images,
+  fovs,
+  markerLabel,
   availableCellTypes,
+  peers,
   invalid,
   max = DEFAULT_MAX,
+  onSave,
+  onRemove,
 }: {
-  value: ReportImageInput[]
-  onChange: (images: ReportImageInput[]) => void
+  images: RowImage[]
+  fovs: Fov[]
+  markerLabel: string
   availableCellTypes: OntologyValue[]
+  peers: FovPeer[]
   invalid?: boolean
   max?: number
+  onSave: (draft: FovDraft) => void
+  onRemove: (url: string) => void
 }) {
-  const fieldId = useId()
+  const fovByUrl = new Map(fovs.map((f) => [f.url, f]))
+  const cellTypeLabels = new Map(availableCellTypes.map((c) => [c.id, c.label]))
   const inputRef = useRef<HTMLInputElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
-  const [preview, setPreview] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<DialogState>(null)
   const [crop, setCrop] = useState<Crop>()
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>()
   const [maxDisplay, setMaxDisplay] = useState<{ w: number; h: number }>()
@@ -64,7 +91,8 @@ export function ImageUpload({
   const [busy, setBusy] = useState(false)
   const [dragActive, setDragActive] = useState(false)
 
-  const atMax = value.length >= max
+  const atMax = images.length >= max
+  const preview = dialog?.stage === "crop" ? dialog.preview : null
 
   async function openFile(file: File) {
     if (!/\.(png|jpe?g|webp|tiff?)$/i.test(file.name) && !/^image\//.test(file.type)) {
@@ -77,7 +105,7 @@ export function ImageUpload({
       setCompletedCrop(undefined)
       setMaxDisplay(undefined)
       setMinDisplay(undefined)
-      setPreview(url)
+      setDialog({ stage: "crop", preview: url })
     } catch {
       toast.error("Could not read that image. Supported formats: PNG, JPG, WebP, TIFF.")
     }
@@ -127,10 +155,37 @@ export function ImageUpload({
     setCompletedCrop(initial)
   }
 
-  function closeDialog() {
+  function releasePreview() {
     if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview)
-    setPreview(null)
+  }
+
+  function closeDialog() {
+    releasePreview()
+    setDialog(null)
     setBusy(false)
+  }
+
+  function editImage(image: RowImage) {
+    const fov = fovByUrl.get(image.url)
+    if (!fov) return
+    setDialog({
+      stage: "details",
+      isNew: false,
+      draft: {
+        url: fov.url,
+        caption: fov.caption,
+        references: fov.references,
+        displayColor: image.displayColor,
+        cellTypes: image.cellTypeIds.map((id) => ({ id, label: cellTypeLabels.get(id) ?? id })),
+        sharedWith: peers.filter((p) => p.images.some((im) => im.url === fov.url)).map((p) => p.key),
+      },
+    })
+  }
+
+  function saveDetails() {
+    if (dialog?.stage !== "details") return
+    onSave(dialog.draft)
+    setDialog(null)
   }
 
   async function confirmCrop() {
@@ -178,8 +233,19 @@ export function ImageUpload({
         toast.error("Upload failed. Please try again.")
         return
       }
-      onChange([...value, { url, caption: "", cellTypeIds: availableCellTypes.map((c) => c.id) }])
-      closeDialog()
+      releasePreview()
+      setDialog({
+        stage: "details",
+        isNew: true,
+        draft: {
+          url,
+          caption: "",
+          references: [],
+          displayColor: "",
+          cellTypes: availableCellTypes,
+          sharedWith: [],
+        },
+      })
     } catch {
       toast.error("Could not process the image. Please try again.")
     } finally {
@@ -187,133 +253,58 @@ export function ImageUpload({
     }
   }
 
-  function setCellTypes(index: number, ids: string[]) {
-    onChange(value.map((im, i) => (i === index ? { ...im, cellTypeIds: ids } : im)))
-  }
-
-  function setCaption(index: number, caption: string) {
-    onChange(value.map((im, i) => (i === index ? { ...im, caption } : im)))
-  }
-
   return (
     <div className="space-y-3">
       <input ref={inputRef} type="file" accept={ACCEPT} className="hidden" onChange={handleFile} />
 
-      {value.length > 0 && (
-        <div className="space-y-2">
-          {value.map((image, index) => {
-            const selected = new Set(image.cellTypeIds)
-            const captionId = `${fieldId}-caption-${index}`
-            function toggle(id: string) {
-              const next = new Set(selected)
-              if (next.has(id)) next.delete(id)
-              else next.add(id)
-              setCellTypes(index, [...next])
-            }
+      {images.length > 0 && (
+        <ul className="divide-y rounded-md border">
+          {images.map((image, index) => {
+            const fov = fovByUrl.get(image.url)
+            if (!fov) return null
+            const colour = displayColorName(image.displayColor)
+            const sharedWith = peers.filter((p) => p.images.some((im) => im.url === image.url)).map((p) => p.label)
+            const counterstains = fov.references.map((r) => r.label.trim()).filter(Boolean)
+            const cellTypes = image.cellTypeIds.map((id) => cellTypeLabels.get(id)).filter(Boolean)
             return (
-              <div key={image.url} className="flex gap-3 rounded-lg border bg-card p-2.5">
-                <div className="size-24 shrink-0 overflow-hidden rounded-md border bg-muted/40">
+              <li key={image.url} className="flex items-center gap-4 p-3">
+                <div className="size-16 shrink-0 overflow-hidden rounded-md border bg-muted/40">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={image.url} alt={`Staining image ${index + 1}`} className="size-full object-cover" />
+                  <img src={fov.url} alt={`Image ${index + 1}`} className="size-full object-cover" />
                 </div>
-
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-xs font-medium">Cell types shown in this image</p>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {availableCellTypes.length > 1 && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCellTypes(
-                                index,
-                                availableCellTypes.map((c) => c.id),
-                              )
-                            }
-                            className="text-xs text-muted-foreground hover:text-foreground"
-                          >
-                            All
-                          </button>
-                          <span className="text-xs text-muted-foreground">/</span>
-                          <button
-                            type="button"
-                            onClick={() => setCellTypes(index, [])}
-                            className="text-xs text-muted-foreground hover:text-foreground"
-                          >
-                            None
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => onChange(value.filter((_, i) => i !== index))}
-                        className="ml-1 rounded-full p-0.5 text-muted-foreground transition-colors hover:text-destructive"
-                        title="Remove image"
-                      >
-                        <X className="size-4" />
-                        <span className="sr-only">Remove image</span>
-                      </button>
-                    </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-medium">Image {index + 1}</p>
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs">
+                    <Fact label="Colour">{colour ?? <NotAvailable />}</Fact>
+                    <Fact label="Also shows">{sharedWith.length > 0 ? sharedWith.join(", ") : <NotAvailable />}</Fact>
+                    <Fact label="Counterstains">
+                      {counterstains.length > 0 ? counterstains.join(", ") : <NotAvailable />}
+                    </Fact>
+                    <Fact label="Cell types">{cellTypes.length > 0 ? cellTypes.join(", ") : <NotAvailable />}</Fact>
                   </div>
-
-                  {availableCellTypes.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {availableCellTypes.map((ct) => {
-                        const on = selected.has(ct.id)
-                        return (
-                          <button
-                            key={ct.id}
-                            type="button"
-                            onClick={() => toggle(ct.id)}
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors",
-                              on
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
-                            )}
-                          >
-                            {on ? <Check className="size-3" /> : <Plus className="size-3" />}
-                            <span className="max-w-[14rem] truncate">{ct.label}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Add cell types for this antibody above to tag which ones this image shows. Untagged images still
-                      appear on the antibody page.
-                    </p>
-                  )}
-
-                  {availableCellTypes.length > 0 && selected.size === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Untagged. This image will not appear on any cell type page.
-                    </p>
-                  )}
-
-                  <div className="space-y-1">
-                    <label htmlFor={captionId} className="text-xs font-medium">
-                      Caption (optional)
-                    </label>
-                    <Textarea
-                      id={captionId}
-                      value={image.caption}
-                      onChange={(e) => setCaption(index, e.target.value.slice(0, IMAGE_CAPTION_MAX_LENGTH))}
-                      maxLength={IMAGE_CAPTION_MAX_LENGTH}
-                      rows={2}
-                      placeholder={CAPTION_PLACEHOLDER}
-                      className="min-h-0 rounded-md px-2 py-1.5 text-xs md:text-xs"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      What is visible and how it is coloured. Shown under the image on every page it appears on.
-                    </p>
-                  </div>
+                  {fov.caption.trim() && <p className="truncate text-xs text-muted-foreground">{fov.caption}</p>}
                 </div>
-              </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button type="button" variant="outline" size="sm" onClick={() => editImage(image)}>
+                    <Pencil className="size-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => onRemove(image.url)}
+                    title={sharedWith.length > 0 ? "Remove this image from every antibody" : "Remove image"}
+                  >
+                    <Trash2 className="size-4" />
+                    <span className="sr-only">Remove image</span>
+                  </Button>
+                </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
 
       {!atMax && (
@@ -334,7 +325,7 @@ export function ImageUpload({
         >
           <ImagePlus className="size-5" />
           <span>
-            {dragActive ? "Drop image to add" : `Add image${value.length > 0 ? ` (${value.length}/${max})` : ""}`}
+            {dragActive ? "Drop image to add" : `Add image${images.length > 0 ? ` (${images.length}/${max})` : ""}`}
           </span>
           <span className="text-xs">
             Drag and drop or click. PNG, JPG, WebP or TIFF. Crop to {MIN_DIMENSION} to {MAX_DIMENSION}px per side.
@@ -342,41 +333,68 @@ export function ImageUpload({
         </button>
       )}
 
-      <Dialog open={preview != null} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={dialog != null} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Crop image</DialogTitle>
+            <DialogTitle>
+              {dialog?.stage === "details" && !dialog.isNew
+                ? `Edit image of ${markerLabel}`
+                : `Add image of ${markerLabel}`}
+            </DialogTitle>
+            <DialogDescription>
+              {dialog?.stage === "crop"
+                ? "Step 1 of 2: crop the field of view."
+                : dialog?.isNew
+                  ? "Step 2 of 2: describe what the image shows."
+                  : "Describe what the image shows."}
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex max-h-[60vh] justify-center overflow-auto">
-            {preview && (
-              <ReactCrop
-                crop={crop}
-                onChange={(c) => setCrop(c)}
-                onComplete={(c) => setCompletedCrop(c)}
-                minWidth={minDisplay?.w}
-                minHeight={minDisplay?.h}
-                maxWidth={maxDisplay?.w}
-                maxHeight={maxDisplay?.h}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img ref={imgRef} src={preview} alt="Crop preview" onLoad={onImageLoad} />
-              </ReactCrop>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {dialog?.stage === "crop" && (
+              <div className="flex justify-center">
+                <ReactCrop
+                  crop={crop}
+                  onChange={(c) => setCrop(c)}
+                  onComplete={(c) => setCompletedCrop(c)}
+                  minWidth={minDisplay?.w}
+                  minHeight={minDisplay?.h}
+                  maxWidth={maxDisplay?.w}
+                  maxHeight={maxDisplay?.h}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    ref={imgRef}
+                    src={dialog.preview}
+                    alt="Crop preview"
+                    onLoad={onImageLoad}
+                    className="max-h-[60vh]"
+                  />
+                </ReactCrop>
+              </div>
+            )}
+            {dialog?.stage === "details" && (
+              <FovDetails
+                draft={dialog.draft}
+                onChange={(draft) => setDialog({ ...dialog, draft })}
+                markerLabel={markerLabel}
+                peers={peers}
+              />
             )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={closeDialog} disabled={busy}>
               Cancel
             </Button>
-            <Button type="button" onClick={confirmCrop} disabled={busy}>
-              {busy ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Uploading…
-                </>
-              ) : (
-                "Add image"
-              )}
-            </Button>
+            {dialog?.stage === "crop" ? (
+              <Button type="button" onClick={confirmCrop} disabled={busy} className="min-w-32">
+                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                {busy ? "Uploading…" : "Next"}
+              </Button>
+            ) : (
+              <Button type="button" onClick={saveDetails} className="min-w-32">
+                Save image
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

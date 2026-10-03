@@ -76,7 +76,7 @@ Evidence (the workhorse, viewer-scoped):
 - `findReports(filter, scope)` - filter = { markerIds?, cellTypeIds?, tissueIds?, speciesIds?,
   methods?, antibodyIds?, rrids?, hostTaxonIds?, clonalities?, conjugates?, fluorophoreIds?,
   works?, signalQualityMin?, specificity?, submitterIds?, conditionIds? }; scope = `public` | `mine`
-  | `labIds[]`. Returns normalized rows (antibody, clone, dilution, antigen retrieval, fixation,
+  | `labIds[]`. Returns normalized rows (antibody, clone, dilution, antigen retrieval, preservation, fixative,
   method, works, quality, specificity, submitter, lab, image count, report link).
 - `aggregateReports(filter, scope, groupBy)` - groupBy ∈ { antibody, clone, marker, tissue,
   dilution, antigenRetrieval, method, submitter }; returns per-group count, works-rate, avg signal
@@ -174,7 +174,7 @@ Detail:
 | 11  | resolveMarkers(CD3)+tissue+species -> findReports(works true) + aggregateReports(groupBy clone/dilution/antigenRetrieval)                                                         |
 | 12  | resolveMarkers(Ki-67)+tissue+species -> aggregateReports(groupBy dilution, antigenRetrieval)                                                                                      |
 | 13  | resolveMarkers(CD20) -> aggregateReports(scope public, groupBy clone)                                                                                                             |
-| 14  | resolveMarkers(set)+resolveTissue+resolveSpecies -> aggregateReports(scope public, filter markerIds+tissue+method CODEX, groupBy antigenRetrieval then fixation)                  |
+| 14  | resolveMarkers(set)+resolveTissue+resolveSpecies -> aggregateReports(scope public, filter markerIds+tissue+method CODEX, groupBy antigenRetrieval then fixative)                  |
 | 15  | resolveMarkers(FOXP3) -> getPanels(public/labIds) co-occurrence over panel markers                                                                                                |
 | 16  | listMyLabs -> getLabInventory + findReports(scope mine, works true) -> map antibodies/markers -> cell types reachable                                                             |
 | 17  | listMyLabs -> getPanels(scope labIds).markers -> count marker frequency across panels (candidate core panel)                                                                      |

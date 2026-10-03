@@ -2,21 +2,11 @@
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "@/components/ui/command"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
-import { Check, PlusCircle } from "lucide-react"
-
-const SEARCH_THRESHOLD = 7
+import { Check, PlusCircle, X } from "lucide-react"
 
 interface FacetedFilterOption {
   label: string
@@ -88,7 +78,16 @@ export function DataTableFacetedFilter({ title, options, value, onChange, classN
         align="start"
       >
         <Command>
-          {options.length > SEARCH_THRESHOLD && <CommandInput placeholder={`Search ${title.toLowerCase()}`} />}
+          <CommandInput placeholder={`Search ${title.toLowerCase()}`} />
+          {selected.size > 0 && (
+            <div className="flex items-center justify-between border-b py-1 pr-1 pl-3">
+              <span className="text-xs text-muted-foreground">{selected.size} selected</span>
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => onChange([])}>
+                <X className="size-3.5" />
+                Clear
+              </Button>
+            </div>
+          )}
           <CommandList>
             <CommandEmpty>No matching {title.toLowerCase()} in the data.</CommandEmpty>
             <CommandGroup>
@@ -121,16 +120,6 @@ export function DataTableFacetedFilter({ title, options, value, onChange, classN
                 )
               })}
             </CommandGroup>
-            {selected.size > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup>
-                  <CommandItem onSelect={() => onChange([])} className="justify-center [&>svg:last-child]:hidden">
-                    Clear filter
-                  </CommandItem>
-                </CommandGroup>
-              </>
-            )}
           </CommandList>
         </Command>
       </PopoverContent>

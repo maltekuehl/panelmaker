@@ -3,6 +3,7 @@ import { MarkerUsagesTable } from "@/components/browse/marker-usages-table"
 import { EditExperimentDialog } from "@/components/experiment/edit-experiment-dialog"
 import { LabLink } from "@/components/lab/lab-link"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
+import { DataSourceAttribution } from "@/components/shared/data-source-attribution"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSessionUser, resolveViewerContext } from "@/lib/auth"
 import { ANTIGEN_RETRIEVAL_LABELS } from "@/lib/constants"
@@ -195,6 +196,14 @@ async function ExperimentContent({ id }: { id: string }) {
                   </MetaItem>
                 )}
               </div>
+            </div>
+          )}
+
+          {experiment.source && (
+            <div className="space-y-2 border-t pt-6">
+              <h2 className="text-lg font-semibold">Source</h2>
+              <p className="text-sm text-muted-foreground">Imported from an external dataset.</p>
+              <DataSourceAttribution source={experiment.source} />
             </div>
           )}
 

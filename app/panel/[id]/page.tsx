@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { resolveViewerContext } from "@/lib/auth"
-import { FIXATION_LABELS } from "@/lib/constants"
+import { PRESERVATION_LABELS } from "@/lib/constants"
 import { antibodyHref, markerHref, profileHref } from "@/lib/routes"
 import { canViewPanel } from "@/models/lab"
 import { getPanelById } from "@/models/panel"
@@ -66,9 +66,7 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
 
   const isOwner = session?.user?.id === panel.ownerId
   const speciesLabel = panel.species?.label ?? null
-  const fixationLabel = panel.fixation
-    ? (FIXATION_LABELS[panel.fixation as keyof typeof FIXATION_LABELS] ?? panel.fixation)
-    : null
+  const preservationLabel = panel.preservation ? PRESERVATION_LABELS[panel.preservation] : null
   const totalMarkers = panel.cycles.reduce((sum, cycle) => sum + cycle.markers.length, 0)
 
   return (
@@ -111,14 +109,16 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
 
       <div className="flex flex-wrap gap-2">
         {speciesLabel && <Badge variant="outline">{speciesLabel}</Badge>}
-        {fixationLabel && <Badge variant="secondary">{fixationLabel}</Badge>}
+        {preservationLabel && <Badge variant="secondary">{preservationLabel}</Badge>}
+        {panel.fixative && (
+          <Badge variant="secondary" title={panel.fixative.id}>
+            {panel.fixative.label}
+          </Badge>
+        )}
         {panel.imagingMethod && (
-          <Badge
-            variant="outline"
-            title={[panel.imagingMethod.label, panel.imagingMethod.efoId ?? "No ontology term"].join(" | ")}
-          >
+          <Badge variant="outline" title={panel.imagingMethod.id}>
             <Microscope className="h-3.5 w-3.5" />
-            {panel.imagingMethod.shortLabel}
+            {panel.imagingMethod.label}
           </Badge>
         )}
         {panel.condition && <Badge variant="outline">Condition: {panel.condition.label}</Badge>}

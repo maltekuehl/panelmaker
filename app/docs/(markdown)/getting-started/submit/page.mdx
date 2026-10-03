@@ -14,17 +14,18 @@ To submit a report, navigate to [/submit](/submit). You must be signed in.
 
 A validation report documents a single antibody tested in a single experimental context. The key fields are:
 
-| Field                 | Description                                                   | Required    |
-| --------------------- | ------------------------------------------------------------- | ----------- |
-| Antibody              | The specific antibody (clone + vendor)                        | Yes         |
-| Result                | Pass, Fail, or Inconclusive                                   | Yes         |
-| Imaging method        | CODEX, IBEX, CyCIF, IMC, MIBI, mIHC, other                    | Yes         |
-| Species               | The organism the tissue came from                             | Yes         |
-| Tissue                | The tissue type imaged                                        | Yes         |
-| Fixation              | FFPE, fresh-frozen, PFA, or other                             | Yes         |
-| Working concentration | Dilution or µg/mL used                                        | Recommended |
-| Cell type             | Positive control cell type expected to stain                  | Recommended |
-| Notes                 | Free-text observations, staining artifacts, optimisation tips | Optional    |
+| Field                 | Description                                                                        | Required    |
+| --------------------- | ---------------------------------------------------------------------------------- | ----------- |
+| Antibody              | The specific antibody (clone + vendor)                                             | Yes         |
+| Result                | Pass, Fail, or Inconclusive                                                        | Yes         |
+| Imaging method        | EFO spatial proteomics assays (t-CyCIF, IBEX, PhenoCycler, IMC, MIBI-TOF and more) | Yes         |
+| Species               | The organism the tissue came from                                                  | Yes         |
+| Tissue                | The tissue type imaged                                                             | Yes         |
+| Preservation          | FFPE, fresh frozen, fixed frozen, fresh, or other                                  | Yes         |
+| Fixative              | The fixative chemistry, as a ChEBI term                                            | Recommended |
+| Working concentration | Dilution or µg/mL used                                                             | Recommended |
+| Cell type             | Positive control cell type expected to stain                                       | Recommended |
+| Notes                 | Free-text observations, staining artifacts, optimisation tips                      | Optional    |
 
 ## Ontology-backed fields
 
@@ -36,17 +37,13 @@ Species, tissue, and cell type fields use controlled vocabularies to ensure cons
 
 Start typing in any of these fields and the autocomplete will query the relevant ontology in real time. Select the term from the dropdown to store both the display name and the ontology ID. This allows downstream filtering and cross-experiment comparison.
 
-## Imaging methods supported
+## Imaging methods
 
-| Method | Full name                                | Notes                                                |
-| ------ | ---------------------------------------- | ---------------------------------------------------- |
-| CODEX  | CO-Detection by indEXing                 | Oligonucleotide barcodes, DNA-conjugated antibodies  |
-| IBEX   | Iterative Bleaching Extends multiplexity | Iterative fluorescence, same section                 |
-| CyCIF  | Cyclic Immunofluorescence                | Iterative fluorescence with TSA or direct conjugates |
-| IMC    | Imaging Mass Cytometry                   | Metal isotope-tagged antibodies, laser ablation      |
-| MIBI   | Multiplexed Ion Beam Imaging             | Secondary ion mass spectrometry                      |
-| mIHC   | Multiplexed Immunohistochemistry         | Chromogenic or fluorescent, 4 to 8 targets           |
-| Other  | Anything not listed above                | Describe in the notes field                          |
+The imaging method field searches the spatial proteomics branch of the [Experimental Factor Ontology](https://www.ebi.ac.uk/ols4/ontologies/efo) (EFO), the same way species and tissue search their ontologies. Any assay EFO lists there can be picked, and new EFO terms show up without a PanelMaker update.
+
+Methods EFO has no term for yet, such as PathoPlex, are listed by name and filed under their closest EFO term (for PathoPlex, multiplex immunofluorescence imaging assay).
+
+Every antibody can record a fluorophore, a metal tag and a cycle number, whatever the method.
 
 ## Rate limiting
 
@@ -65,6 +62,8 @@ Once reviewed, the report becomes publicly visible on the relevant antibody and 
 ## Tips for high-quality reports
 
 - Include both **positive** and **negative** results. Failed validations are just as valuable to the community
-- Attach representative images where possible (upload via the image field)
+- Attach up to five images (fields of view) per antibody. If one image shows several of the run's antibodies, upload it once and tick the others under "Also shows" instead of uploading it again
+- For each antibody, you can give its colour in the image. Leave it empty if you do not know it: the colour is never guessed from the fluorophore
+- List counterstains such as DAPI or phalloidin under "Counterstains in this image", with their role (nuclear or structural) and, optionally, fluorophore and colour
 - If you optimised a protocol, describe the key changes in the notes field
 - Reference a publication or preprint if the data is from a published experiment

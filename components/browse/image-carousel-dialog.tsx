@@ -12,13 +12,28 @@ export interface CarouselImageLink {
   href: string
 }
 
+export interface CarouselChannel {
+  label: string
+  detail: string | null
+  color: string | null
+  role: "TARGET" | "NUCLEAR" | "STRUCTURAL"
+  highlighted: boolean
+}
+
 export interface CarouselImage {
   src: string
   title?: string
   caption?: string | null
   links?: CarouselImageLink[]
   facts?: string[]
+  channels?: CarouselChannel[]
 }
+
+const CHANNEL_SECTIONS: { role: CarouselChannel["role"]; title: string }[] = [
+  { role: "TARGET", title: "Stains" },
+  { role: "STRUCTURAL", title: "Structural reference" },
+  { role: "NUCLEAR", title: "Nuclear counterstain" },
+]
 
 interface ImageCarouselDialogProps {
   images: Array<string | CarouselImage>
@@ -166,6 +181,7 @@ export function ImageCarouselDialog({ images, title, trigger }: ImageCarouselDia
                 </TransformComponent>
 
                 <ImageMeta item={current} />
+                <ChannelLegend channels={current.channels ?? []} />
                 <ImageCaption caption={current.caption} raised={count > 1} />
 
                 <div className="absolute right-3 top-3 z-20 flex gap-1.5">
@@ -246,6 +262,53 @@ function ImageCaption({ caption, raised }: { caption: string | null | undefined;
     >
       <p className="break-words whitespace-pre-wrap">{caption}</p>
     </div>
+  )
+}
+
+function ChannelRow({ channel }: { channel: CarouselChannel }) {
+  return (
+    <li className="flex items-start gap-2">
+      {channel.color ? (
+        <span
+          aria-label={`Shown as ${channel.color}`}
+          className="mt-1 size-3 shrink-0 rounded-full border border-white/40"
+          style={{ backgroundColor: channel.color }}
+        />
+      ) : (
+        <span className="mt-1 size-3 shrink-0" title="Display colour not recorded" />
+      )}
+      <div className="min-w-0">
+        <p className={cn("text-sm break-words", channel.highlighted ? "font-semibold" : "text-white/90")}>
+          {channel.label}
+        </p>
+        {channel.detail && <p className="text-xs text-white/60">{channel.detail}</p>}
+      </div>
+    </li>
+  )
+}
+
+function ChannelLegend({ channels }: { channels: CarouselChannel[] }) {
+  if (channels.length === 0) return null
+  return (
+    <aside
+      aria-label="Channels"
+      className="absolute right-3 top-16 z-20 max-h-[calc(100vh-14rem)] w-56 space-y-3 overflow-y-auto rounded-lg bg-black/70 p-3 text-white backdrop-blur"
+    >
+      {CHANNEL_SECTIONS.map(({ role, title }) => {
+        const rows = channels.filter((channel) => channel.role === role)
+        if (rows.length === 0) return null
+        return (
+          <section key={role} className="space-y-1.5">
+            <h3 className="text-[11px] font-medium tracking-wide text-white/50 uppercase">{title}</h3>
+            <ul className="space-y-1.5">
+              {rows.map((channel, index) => (
+                <ChannelRow key={`${channel.label}-${index}`} channel={channel} />
+              ))}
+            </ul>
+          </section>
+        )
+      })}
+    </aside>
   )
 }
 

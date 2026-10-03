@@ -28,12 +28,12 @@ export function Field({ label, hint, required, className, labelClassName, childr
   }
 
   return (
-    <div className={cn("space-y-1", className)}>
+    <div className={cn("space-y-2", className)}>
       <Label htmlFor={id} className={labelClassName ?? "text-xs font-medium text-muted-foreground"}>
         {label} {required && <span className="text-destructive">*</span>}
       </Label>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {control}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   )
 }

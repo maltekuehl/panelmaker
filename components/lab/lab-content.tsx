@@ -104,8 +104,12 @@ function LabContentToolbar({ counts, facets }: { counts: LabContentCounts; facet
           onCommit={(q) => setParams({ q: q || null, page: 1 })}
           className="h-8 w-[200px] lg:w-[280px]"
         />
+        <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters} disabled={!isActive}>
+          <X className="size-4" />
+          Reset
+        </Button>
       </div>
-      {(visibleDimensions.length > 0 || isActive) && (
+      {visibleDimensions.length > 0 && (
         <BalancedGrid>
           {visibleDimensions.map((dimension) => (
             <DataTableFacetedFilter
@@ -119,17 +123,6 @@ function LabContentToolbar({ counts, facets }: { counts: LabContentCounts; facet
               }
             />
           ))}
-          {isActive && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-8 w-full justify-start px-2 lg:px-3"
-              onClick={resetFilters}
-            >
-              <X className="h-4 w-4" />
-              Reset
-            </Button>
-          )}
         </BalancedGrid>
       )}
     </div>

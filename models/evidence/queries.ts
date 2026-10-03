@@ -1,9 +1,9 @@
 import "server-only"
 
 import type { Prisma } from "@/lib/generated/prisma/client"
-import type { Clonality, DetectionModality, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
+import type { Clonality, Preservation, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
-import { resolveImagingMethodId } from "@/models/imaging-method/data"
+import { imagingMethodSelect } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { buildReportVisibilityWhere } from "@/models/lab/visibility"
 
@@ -29,6 +29,10 @@ export interface EvidenceFilter {
   specificityIn?: string[]
   submitterIds?: string[]
   conditionIds?: string[]
+  preservations?: string[]
+  fixativeIds?: string[]
+  vendors?: string[]
+  subcellularIds?: string[]
 }
 
 const evidenceSelect = {
@@ -45,8 +49,9 @@ const evidenceSelect = {
   cellTypes: { select: { cellType: { select: { id: true, label: true } } } },
   experiment: {
     select: {
-      imagingMethod: { select: { id: true, label: true, shortLabel: true, detection: true } },
-      fixation: true,
+      imagingMethod: { select: imagingMethodSelect },
+      preservation: true,
+      fixative: { select: { id: true, label: true } },
       antigenRetrieval: true,
       species: { select: { id: true, label: true } },
       tissue: { select: { id: true, label: true } },
@@ -86,10 +91,9 @@ export interface EvidenceReport {
   fluorophore: string | null
   metalTag: string | null
   method: string | null
-  methodShort: string | null
   methodId: string | null
-  detection: DetectionModality | null
-  fixation: string | null
+  preservation: string | null
+  fixative: { id: string; label: string } | null
   antigenRetrieval: string | null
   species: string | null
   tissue: string | null
@@ -121,11 +125,9 @@ function buildEvidenceWhere(filter: EvidenceFilter): Prisma.ExperimentalReportWh
   if (filter.tissueIds?.length) experiment.tissueId = { in: filter.tissueIds }
   if (filter.speciesIds?.length) experiment.speciesId = { in: filter.speciesIds }
   if (filter.conditionIds?.length) experiment.conditionId = { in: filter.conditionIds }
-  if (filter.methods?.length) {
-    // A caller may pass an ImagingMethod id, an EFO id, an alias or a legacy enum value from an old link.
-    const methodIds = filter.methods.map((value) => resolveImagingMethodId(value)).filter((id): id is string => !!id)
-    experiment.imagingMethodId = { in: methodIds }
-  }
+  if (filter.preservations?.length) experiment.preservation = { in: filter.preservations as Preservation[] }
+  if (filter.fixativeIds?.length) experiment.fixativeId = { in: filter.fixativeIds }
+  if (filter.methods?.length) experiment.imagingMethodId = { in: filter.methods }
   if (filter.submitterIds?.length) experiment.submitterId = { in: filter.submitterIds }
   if (Object.keys(experiment).length) where.experiment = experiment
 
@@ -134,10 +136,12 @@ function buildEvidenceWhere(filter: EvidenceFilter): Prisma.ExperimentalReportWh
   if (filter.hostTaxonIds?.length) antibody.hostTaxonId = { in: filter.hostTaxonIds }
   if (filter.clonalities?.length) antibody.clonality = { in: filter.clonalities as Clonality[] }
   if (filter.conjugates?.length) antibody.conjugate = { in: filter.conjugates }
+  if (filter.vendors?.length) antibody.vendorName = { in: filter.vendors }
   if (Object.keys(antibody).length) where.antibody = antibody
 
   if (filter.antibodyIds?.length) where.antibodyId = { in: filter.antibodyIds }
   if (filter.fluorophoreIds?.length) where.fluorophoreId = { in: filter.fluorophoreIds }
+  if (filter.subcellularIds?.length) where.subcellularId = { in: filter.subcellularIds }
   if (filter.cellTypeIds?.length) where.cellTypes = { some: { cellTypeId: { in: filter.cellTypeIds } } }
   if (filter.works !== undefined) where.works = filter.works
   if (filter.signalQualityIn?.length) where.signalQuality = { in: filter.signalQualityIn as SignalQuality[] }
@@ -158,10 +162,9 @@ function toEvidenceReport(row: EvidenceRow): EvidenceReport {
     fluorophore: row.fluorophore?.name ?? null,
     metalTag: row.metalTag,
     method: row.experiment.imagingMethod?.label ?? null,
-    methodShort: row.experiment.imagingMethod?.shortLabel ?? null,
     methodId: row.experiment.imagingMethod?.id ?? null,
-    detection: row.experiment.imagingMethod?.detection ?? null,
-    fixation: row.experiment.fixation,
+    preservation: row.experiment.preservation,
+    fixative: row.experiment.fixative,
     antigenRetrieval: row.experiment.antigenRetrieval,
     species: row.experiment.species?.label ?? null,
     tissue: row.experiment.tissue?.label ?? null,
@@ -225,7 +228,8 @@ export type EvidenceGroupBy =
   | "species"
   | "dilution"
   | "antigenRetrieval"
-  | "fixation"
+  | "preservation"
+  | "fixative"
   | "method"
   | "submitter"
   | "fluorophore"
@@ -261,10 +265,12 @@ function groupKeyOf(report: EvidenceReport, groupBy: EvidenceGroupBy): { key: st
       return report.dilution ? { key: report.dilution, label: report.dilution } : null
     case "antigenRetrieval":
       return report.antigenRetrieval ? { key: report.antigenRetrieval, label: report.antigenRetrieval } : null
-    case "fixation":
-      return report.fixation ? { key: report.fixation, label: report.fixation } : null
+    case "preservation":
+      return report.preservation ? { key: report.preservation, label: report.preservation } : null
+    case "fixative":
+      return report.fixative ? { key: report.fixative.id, label: report.fixative.label } : null
     case "method":
-      return report.methodId ? { key: report.methodId, label: report.methodShort ?? report.methodId } : null
+      return report.methodId ? { key: report.methodId, label: report.method ?? report.methodId } : null
     case "submitter":
       return report.submitter ? { key: report.submitter.id, label: report.submitter.name ?? "Unnamed" } : null
     case "fluorophore":

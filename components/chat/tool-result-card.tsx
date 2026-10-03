@@ -359,13 +359,13 @@ function ReportRow({ report }: { report: EvidenceReport }) {
         ) : (
           <span className="truncate text-muted-foreground">{ab.name}</span>
         ))}
-      {report.methodShort && (
+      {report.method && (
         <Badge
           variant="secondary"
           className="h-4 shrink-0 px-1 text-[10px] font-normal"
           title={report.method ?? undefined}
         >
-          {report.methodShort}
+          {report.method}
         </Badge>
       )}
       <span className="ml-auto shrink-0 truncate text-[10px] text-muted-foreground">

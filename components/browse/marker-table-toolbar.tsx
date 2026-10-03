@@ -65,8 +65,12 @@ export function MarkerTableToolbar({ facets }: { facets: BrowseFacets }) {
           }))}
           className="w-full sm:w-[320px] lg:w-[400px]"
         />
+        <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters} disabled={!isActive}>
+          <X className="size-4" />
+          Reset
+        </Button>
       </div>
-      {(visibleDimensions.length > 0 || isActive) && (
+      {visibleDimensions.length > 0 && (
         <BalancedGrid>
           {visibleDimensions.map((dimension) => (
             <DataTableFacetedFilter
@@ -80,17 +84,6 @@ export function MarkerTableToolbar({ facets }: { facets: BrowseFacets }) {
               }
             />
           ))}
-          {isActive && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-8 w-full justify-start px-2 lg:px-3"
-              onClick={resetFilters}
-            >
-              <X className="h-4 w-4" />
-              Reset
-            </Button>
-          )}
         </BalancedGrid>
       )}
     </div>

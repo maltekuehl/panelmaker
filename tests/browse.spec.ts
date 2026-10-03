@@ -34,4 +34,27 @@ test.describe("Browse Page", () => {
     await expect(table.getByRole("columnheader", { name: "Antibody" })).toBeVisible()
     await expect(table.getByRole("columnheader", { name: "RRID" })).toBeVisible()
   })
+
+  test("secondary columns are hidden until enabled", async ({ page }) => {
+    await page.goto("/browse?mode=antibodies")
+
+    const table = page.getByRole("table")
+    await expect(table.getByRole("button", { name: "RRID" })).toBeVisible()
+    await expect(table.getByRole("button", { name: "Clone", exact: true })).toHaveCount(0)
+
+    await page.getByRole("button", { name: "Show more columns" }).click()
+    await page.getByRole("menuitemcheckbox", { name: "Clone" }).click()
+    await page.keyboard.press("Escape")
+
+    await expect(table.getByRole("button", { name: "Clone", exact: true })).toBeVisible()
+  })
+
+  test("the page does not scroll sideways on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 })
+    await page.goto("/browse")
+
+    await expect(page.getByRole("group", { name: "Browse mode" })).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+  })
 })

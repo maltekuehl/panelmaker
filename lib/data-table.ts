@@ -20,22 +20,29 @@ export type FilterDimension = {
   tabs: BrowseMode[]
 }
 
+const REPORT_MODES: BrowseMode[] = ["markers", "antibodies", "reports", "experiments"]
+
+// Markers, antibodies and reports are all rolled up from reports, so every dimension applies to them.
+// Experiments match through their own fields or any of their reports, panels through their own fields or
+// any of their antibodies. Panels carry no tissue, cell type or validation outcome, so those stay off.
 export const FILTER_DIMENSIONS: FilterDimension[] = [
-  { key: "marker", title: "Marker", tabs: ["markers", "antibodies", "reports", "experiments"] },
-  { key: "cellType", title: "Cell type", tabs: ["markers", "reports", "experiments"] },
-  { key: "species", title: "Sample species", tabs: ["markers", "antibodies", "reports", "experiments", "panels"] },
-  { key: "tissue", title: "Tissue", tabs: ["markers", "reports", "experiments"] },
-  { key: "method", title: "Method", tabs: ["markers", "reports", "experiments", "panels"] },
-  { key: "fixation", title: "Fixation", tabs: ["markers", "reports", "experiments", "panels"] },
-  { key: "vendor", title: "Vendor", tabs: ["markers", "antibodies", "reports"] },
-  { key: "host", title: "Antibody host", tabs: ["markers", "antibodies", "reports"] },
-  { key: "conjugate", title: "Label", tabs: ["antibodies", "reports"] },
-  { key: "clonality", title: "Clonality", tabs: ["antibodies", "reports"] },
-  { key: "subcellular", title: "Subcellular", tabs: ["markers", "reports"] },
-  { key: "condition", title: "Condition", tabs: ["markers", "reports", "experiments", "panels"] },
-  { key: "specificity", title: "Specificity", tabs: ["markers", "reports"] },
-  { key: "result", title: "Result", tabs: ["markers", "reports"] },
-  { key: "lab", title: "Lab", tabs: ["markers", "antibodies", "reports", "experiments", "panels"] },
+  { key: "marker", title: "Marker", tabs: BROWSE_MODES },
+  { key: "cellType", title: "Cell type", tabs: REPORT_MODES },
+  { key: "species", title: "Sample species", tabs: BROWSE_MODES },
+  { key: "tissue", title: "Tissue", tabs: REPORT_MODES },
+  { key: "method", title: "Method", tabs: BROWSE_MODES },
+  { key: "preservation", title: "Preservation", tabs: BROWSE_MODES },
+  { key: "fixative", title: "Fixative", tabs: BROWSE_MODES },
+  { key: "vendor", title: "Vendor", tabs: BROWSE_MODES },
+  { key: "host", title: "Antibody host", tabs: BROWSE_MODES },
+  { key: "conjugate", title: "Label", tabs: BROWSE_MODES },
+  { key: "clonality", title: "Clonality", tabs: BROWSE_MODES },
+  { key: "subcellular", title: "Subcellular", tabs: REPORT_MODES },
+  { key: "condition", title: "Condition", tabs: BROWSE_MODES },
+  { key: "specificity", title: "Specificity", tabs: REPORT_MODES },
+  { key: "result", title: "Result", tabs: REPORT_MODES },
+  { key: "lab", title: "Lab", tabs: BROWSE_MODES },
+  { key: "source", title: "Source", tabs: REPORT_MODES },
 ]
 
 export const FILTER_KEYS = FILTER_DIMENSIONS.map((d) => d.key)
@@ -50,7 +57,8 @@ export const browseMarkerParsers = {
   species: filterArrayParser,
   tissue: filterArrayParser,
   method: filterArrayParser,
-  fixation: filterArrayParser,
+  preservation: filterArrayParser,
+  fixative: filterArrayParser,
   vendor: filterArrayParser,
   host: filterArrayParser,
   conjugate: filterArrayParser,
@@ -60,6 +68,7 @@ export const browseMarkerParsers = {
   specificity: filterArrayParser,
   result: filterArrayParser,
   lab: filterArrayParser,
+  source: filterArrayParser,
   mode: parseAsStringEnum<BrowseMode>(BROWSE_MODES).withDefault("markers"),
 }
 
@@ -74,7 +83,8 @@ export type EntryFilterParams = {
   species: string[]
   tissue: string[]
   method: string[]
-  fixation: string[]
+  preservation: string[]
+  fixative: string[]
   vendor: string[]
   host: string[]
   conjugate: string[]
@@ -84,6 +94,7 @@ export type EntryFilterParams = {
   specificity: string[]
   result: string[]
   lab: string[]
+  source: string[]
 }
 
 export type BrowseMarkerParams = EntryFilterParams & { mode: BrowseMode }
@@ -138,7 +149,8 @@ export const labContentParsers = {
   species: filterArrayParser,
   tissue: filterArrayParser,
   method: filterArrayParser,
-  fixation: filterArrayParser,
+  preservation: filterArrayParser,
+  fixative: filterArrayParser,
   vendor: filterArrayParser,
   host: filterArrayParser,
   conjugate: filterArrayParser,
@@ -148,6 +160,7 @@ export const labContentParsers = {
   specificity: filterArrayParser,
   result: filterArrayParser,
   lab: filterArrayParser,
+  source: filterArrayParser,
   view: parseAsStringEnum<LabView>(LAB_VIEWS).withDefault("experiments"),
 }
 
@@ -165,9 +178,18 @@ export function isLabContentParamsActive(params: LabContentParams): boolean {
 }
 
 // Community leaderboard: the same faceted multi-select surface as browse, minus search, sort and paging.
-// A lab value is a lab slug (matched against the viewer's memberships server side); species, tissue and
-// method values are the same ontology ids browse filters on, so a link means the same thing in both places.
-export const LEADERBOARD_FILTER_KEYS = ["lab", "species", "tissue", "method"] as const
+// A lab value is a lab slug (matched against the viewer's memberships server side); every other value is
+// the same id browse filters on, so a link means the same thing in both places. Only experiment-level
+// dimensions are offered, because the board credits whole experiments.
+export const LEADERBOARD_FILTER_KEYS = [
+  "lab",
+  "species",
+  "tissue",
+  "method",
+  "preservation",
+  "fixative",
+  "condition",
+] as const
 
 export type LeaderboardFilterKey = (typeof LEADERBOARD_FILTER_KEYS)[number]
 
@@ -176,6 +198,9 @@ export const leaderboardParsers = {
   species: filterArrayParser,
   tissue: filterArrayParser,
   method: filterArrayParser,
+  preservation: filterArrayParser,
+  fixative: filterArrayParser,
+  condition: filterArrayParser,
 }
 
 export type LeaderboardParams = Record<LeaderboardFilterKey, string[]>

@@ -1,12 +1,19 @@
 import "server-only"
 
-import { Clonality, LabAntibodyStatus, type LabRole, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
+import {
+  Clonality,
+  LabAntibodyStatus,
+  type LabRole,
+  Preservation,
+  SignalQuality,
+  Specificity,
+} from "@/lib/generated/prisma/enums"
 import { checkUserRateLimit, RATE_LIMITS } from "@/lib/rate-limiting"
 import { getAntibodyById, lookupByRrid, searchAntibodies } from "@/models/antibody"
 import { getCellTypeDescendantIds, searchCellTypes } from "@/models/cell-type"
 import { aggregateReports, type EvidenceFilter, type EvidenceGroupBy, findReports } from "@/models/evidence"
 import { fluorophoreExists, searchFluorophores } from "@/models/fluorophore"
-import { findImagingMethods } from "@/models/imaging-method"
+import { getStoredImagingMethods, searchImagingMethods } from "@/models/imaging-method"
 import { canEditPanel, getInventoryForLabs, getLabsForUser } from "@/models/lab"
 import type { ViewerContext } from "@/models/lab/access"
 import {
@@ -64,7 +71,7 @@ const evidenceFilterShape = {
   methods: z
     .array(z.string())
     .optional()
-    .describe("Imaging method ids from resolveImagingMethods (e.g. codex, t-cycif, imaging-mass-cytometry)"),
+    .describe("Imaging method ids from resolveImagingMethods (e.g. EFO:0023019 for t-CyCIF)"),
   antibodyIds: z.array(z.string()).optional(),
   rrids: z.array(z.string()).optional(),
   hostTaxonIds: z.array(z.string()).optional(),
@@ -76,6 +83,13 @@ const evidenceFilterShape = {
   specificityIn: z.array(z.nativeEnum(Specificity)).optional().describe("Reported specificity"),
   submitterIds: z.array(z.string()).optional(),
   conditionIds: z.array(z.string()).optional(),
+  preservations: z
+    .array(z.nativeEnum(Preservation))
+    .optional()
+    .describe("Specimen preservation (FFPE, FRESH_FROZEN, FIXED_FROZEN, FRESH, OTHER)"),
+  fixativeIds: z.array(z.string()).optional().describe("ChEBI fixative ids, e.g. CHEBI:16842 formaldehyde"),
+  vendors: z.array(z.string()).optional().describe("Antibody vendor names"),
+  subcellularIds: z.array(z.string()).optional().describe("GO cellular component ids of the observed staining"),
 }
 
 function pickFilter(input: Record<string, unknown>): EvidenceFilter {
@@ -253,7 +267,7 @@ export function createChatTools(viewer: ViewerContext) {
 
   const findReportsTool = tool({
     description:
-      "THE evidence workhorse. Search validation reports with any combination of filters. Resolve names to ids first. Returns individual reports (antibody, clone, dilution, antigen retrieval, fixation, fluorophore, works, signal quality, specificity, submitter, lab, report link).",
+      "THE evidence workhorse. Search validation reports with any combination of filters. Resolve names to ids first. Returns individual reports (antibody, clone, dilution, antigen retrieval, preservation, fixative, fluorophore, works, signal quality, specificity, submitter, lab, report link).",
     inputSchema: z.object({
       ...evidenceFilterShape,
       scope: scopeSchema,
@@ -268,7 +282,7 @@ export function createChatTools(viewer: ViewerContext) {
 
   const aggregateReportsTool = tool({
     description:
-      "Roll up reports along one dimension with works-rate and strong-signal counts. Use groupBy 'antibody'/'clone' to rank antibodies, 'marker' to rank markers for cell types, 'dilution'/'antigenRetrieval'/'fixation' for protocols, 'fluorophore' for empirical contrast, 'submitter' for who has experience.",
+      "Roll up reports along one dimension with works-rate and strong-signal counts. Use groupBy 'antibody'/'clone' to rank antibodies, 'marker' to rank markers for cell types, 'dilution'/'antigenRetrieval'/'preservation'/'fixative' for protocols, 'fluorophore' for empirical contrast, 'submitter' for who has experience.",
     inputSchema: z.object({
       ...evidenceFilterShape,
       groupBy: z.enum([
@@ -279,7 +293,8 @@ export function createChatTools(viewer: ViewerContext) {
         "species",
         "dilution",
         "antigenRetrieval",
-        "fixation",
+        "preservation",
+        "fixative",
         "method",
         "submitter",
         "fluorophore",
@@ -498,20 +513,17 @@ export function createChatTools(viewer: ViewerContext) {
 
   const resolveImagingMethods = tool({
     description:
-      "List or search the imaging method catalog (t-CyCIF, IBEX, PhenoCycler, imaging mass cytometry, PathoPlex and so on). Returns the ids used by the `methods` evidence filter and by createPanel's imagingMethodId, plus whether the method detects fluorescence or metal tags and whether it is cyclic. Call this before filtering or setting a method instead of guessing an id.",
+      "Search imaging methods: terms from the EFO spatial proteomics branch plus local methods filed under an EFO term (such as PathoPlex). Returns the id and label used by the `methods` evidence filter and by createPanel's imagingMethodId and imagingMethodLabel. Call this before filtering or setting a method instead of guessing an id.",
     inputSchema: z.object({
-      query: z.string().optional().describe("Free text such as 'CODEX' or 'mass cytometry'; omit to list every method"),
+      query: z
+        .string()
+        .optional()
+        .describe("Free text such as 'CODEX' or 'mass cytometry'; omit to list the methods already in use"),
     }),
     execute: async ({ query }) => ({
-      imagingMethods: (await findImagingMethods({ q: query })).map((m) => ({
-        id: m.id,
-        label: m.label,
-        shortLabel: m.shortLabel,
-        efoId: m.efoId,
-        detection: m.detection,
-        cyclic: m.cyclic,
-        aliases: m.aliases,
-      })),
+      imagingMethods: query
+        ? (await searchImagingMethods(query)).map((m) => ({ id: m.id, label: m.label, parent: m.description ?? null }))
+        : (await getStoredImagingMethods()).map((m) => ({ id: m.id, label: m.label, parent: m.parent })),
     }),
   })
 

@@ -47,7 +47,7 @@ export function LabInventoryCombobox({ onImport }: { onImport: (item: LabInvento
   return (
     <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-8">
+        <Button type="button" variant="outline">
           <FlaskConical className="size-4" />
           Import from lab
         </Button>

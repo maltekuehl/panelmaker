@@ -1,7 +1,6 @@
-import { AntigenRetrieval, Fixation, SignalQuality, Specificity, Visibility } from "@/lib/generated/prisma/enums"
+import { AntigenRetrieval, Preservation, SignalQuality, Specificity, Visibility } from "@/lib/generated/prisma/enums"
 import { normalizeRrid } from "@/lib/utils"
 import { citationFields, experimentNameSchema, ontologyValueSchema, specimenFields } from "@/models/experiment/schema"
-import { imagingMethodIdSchema } from "@/models/imaging-method/schema"
 import { z } from "zod"
 
 const visibilityFields = {
@@ -41,13 +40,33 @@ const imageUrlSchema = z
 
 export const IMAGE_CAPTION_MAX_LENGTH = 1000
 
+export const MAX_FOVS_PER_REPORT = 5
+
+export const MAX_REFERENCES_PER_FOV = 4
+
+export const REFERENCE_LABEL_MAX_LENGTH = 100
+
+const hexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/i, "Use a hex colour such as #ff00ff")
+
+// A nuclear or structural counterstain visible in the same field of view, usually a dye with no report.
+const referenceChannelSchema = z.object({
+  role: z.enum(["NUCLEAR", "STRUCTURAL"]),
+  label: z.string().trim().min(1).max(REFERENCE_LABEL_MAX_LENGTH),
+  fluorophoreId: z.string().min(1).optional(),
+  displayColor: hexColorSchema.optional(),
+})
+
+// One field of view. The same url sent for several antibodies of one experiment becomes one image with a
+// channel per antibody. `displayColor` is the pseudo-colour this antibody has in the picture.
 const reportImageSchema = z.object({
   url: imageUrlSchema,
   caption: z.string().max(IMAGE_CAPTION_MAX_LENGTH).optional(),
   cellTypeIds: z.array(z.string().min(1)).max(50).optional(),
+  displayColor: hexColorSchema.optional(),
+  references: z.array(referenceChannelSchema).max(MAX_REFERENCES_PER_FOV).optional(),
 })
 
-const reportImagesSchema = z.array(reportImageSchema).max(6)
+const reportImagesSchema = z.array(reportImageSchema).max(MAX_FOVS_PER_REPORT)
 
 // A report without any antibody identity is unusable: it renders as "Report #<id>" and drops out of
 // every antibody-based aggregation. Accept a picked antibody, a typed RRID, or a registry citation.
@@ -67,9 +86,8 @@ const createReportFieldsSchema = z.object({
   antibodyId: z.string().optional(),
   species: ontologyValueSchema.nullable().optional(),
   tissue: ontologyValueSchema.nullable().optional(),
-  fixation: z.nativeEnum(Fixation).optional(),
   ...specimenFields,
-  imagingMethodId: imagingMethodIdSchema.optional(),
+  imagingMethod: ontologyValueSchema.nullable().optional(),
   fluorophoreId: z.string().optional(),
   metalTag: z.string().max(100).optional(),
   cycleNumber: z.number().int().positive().optional(),
@@ -106,9 +124,8 @@ const batchContextSchema = z.object({
   ...citationFields,
   species: ontologyValueSchema.nullable().optional(),
   tissue: ontologyValueSchema.nullable().optional(),
-  fixation: z.nativeEnum(Fixation).optional(),
   ...specimenFields,
-  imagingMethodId: imagingMethodIdSchema.optional(),
+  imagingMethod: ontologyValueSchema.nullable().optional(),
   antigenRetrieval: z.nativeEnum(AntigenRetrieval).optional(),
   condition: ontologyValueSchema.nullable().optional(),
   ...visibilityFields,
@@ -157,14 +174,13 @@ export const updateReportStatusSchema = z
 
 export type UpdateReportStatusData = z.infer<typeof updateReportStatusSchema>
 
-// The `method` query param is part of the public API surface and of every saved browse URL, so it keeps
-// its name. Its value is resolved against the ImagingMethod catalog, which also accepts an EFO id, an
-// alias or a legacy enum value from an older link.
+// `method` is an ImagingMethod id: an EFO CURIE, or the id of a local method filed under one.
 export const searchParamsSchema = z
   .object({
     q: z.string().optional(),
-    method: imagingMethodIdSchema.optional(),
-    fixation: z.nativeEnum(Fixation).optional(),
+    method: z.string().max(100).optional(),
+    preservation: z.nativeEnum(Preservation).optional(),
+    fixative: z.string().optional(),
     species: z.string().optional(),
     tissue: z.string().optional(),
     limit: z.coerce.number().min(1).max(100).default(20),

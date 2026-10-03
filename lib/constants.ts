@@ -2,7 +2,6 @@ import {
   AntigenRetrieval,
   Clonality,
   DonorSex,
-  Fixation,
   LabRole,
   Preservation,
   SampleType,
@@ -13,15 +12,6 @@ import {
   ValidationStatus,
   Visibility,
 } from "@/lib/generated/prisma/enums"
-
-export const FIXATION_LABELS: Record<Fixation, string> = {
-  FFPE: "FFPE",
-  FRESH_FROZEN: "Fresh Frozen",
-  PFA: "PFA",
-  ACETONE: "Acetone",
-  METHANOL: "Methanol",
-  OTHER: "Other",
-}
 
 export const PRESERVATION_LABELS: Record<Preservation, string> = {
   FFPE: "FFPE",

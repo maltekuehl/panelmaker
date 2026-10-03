@@ -5,18 +5,16 @@ import type { CarouselImage, CarouselImageLink } from "@/components/browse/image
 import type { BrowseMarkerParams, EntryFilterParams, LabContentParams } from "@/lib/data-table"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import { antibodyHref, cellTypeHref, markerHref } from "@/lib/routes"
+import { antibodyHref, markerHref } from "@/lib/routes"
 import { validateAndResolveOntologyTerm } from "@/models/experimental-report"
-import { type EntriesPage, paginate } from "@/models/experimental-report/queries"
-import { resolveImagingMethodId } from "@/models/imaging-method/data"
+import { type EntriesPage, paginate, reportLevelWhere } from "@/models/experimental-report/queries"
+import { imageWithChannelsSelect, toCarouselChannels } from "@/models/image/transforms"
+import { imagingMethodSelect as methodFields } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { buildExperimentVisibilityWhere } from "@/models/lab/visibility"
 import type { UpdateExperimentData } from "./schema"
-import { legacyFixationFor } from "./transforms"
 
-const imagingMethodSelect = {
-  select: { id: true, label: true, shortLabel: true, detection: true, cyclic: true },
-} as const
+const imagingMethodSelect = { select: methodFields } as const
 
 const experimentHeaderSelect = {
   id: true,
@@ -25,7 +23,6 @@ const experimentHeaderSelect = {
   citation: true,
   pmid: true,
   doi: true,
-  fixation: true,
   imagingMethod: imagingMethodSelect,
   antigenRetrieval: true,
   preservation: true,
@@ -49,6 +46,7 @@ const experimentHeaderSelect = {
   condition: { select: { id: true, label: true } },
   submitter: { select: { id: true, name: true, institution: true } },
   owningLab: { select: { id: true, name: true, slug: true } },
+  source: { select: { id: true, name: true, url: true, license: true, attribution: true } },
 } satisfies Prisma.ExperimentSelect
 
 export type ExperimentHeaderRow = Prisma.ExperimentGetPayload<{ select: typeof experimentHeaderSelect }>
@@ -122,14 +120,14 @@ export async function updateExperiment(id: string, data: UpdateExperimentData): 
       donorAge: data.donorAge ?? null,
       developmentalStageId: developmentalStage?.id ?? null,
       protocolDoi: data.protocolDoi ?? null,
-      // Keep the legacy column in step so browse filters and evidence roll-ups stay correct.
-      fixation: legacyFixationFor({ preservation: data.preservation, fixativeId: fixative?.id }),
     },
     select: experimentHeaderSelect,
   })
 }
 
 const BROWSE_AGGREGATION_CAP = 2000
+
+const MAX_ENTRY_IMAGES = 12
 
 const experimentEntrySelect = {
   id: true,
@@ -150,12 +148,15 @@ const experimentEntrySelect = {
       antibodyId: true,
       antibody: { select: { name: true, rrid: true, targetName: true, targetProteinId: true } },
       cellTypes: { select: { cellType: { select: { id: true, label: true } } } },
-      images: { select: { url: true } },
     },
   },
+  images: {
+    where: { channels: { some: { report: { status: "PUBLISHED" } } } },
+    select: imageWithChannelsSelect,
+    orderBy: { sortOrder: "asc" },
+    take: MAX_ENTRY_IMAGES,
+  },
 } satisfies Prisma.ExperimentSelect
-
-const MAX_ENTRY_IMAGES = 12
 
 type ExperimentEntryRow = Prisma.ExperimentGetPayload<{ select: typeof experimentEntrySelect }>
 
@@ -177,21 +178,18 @@ function buildExperimentWhere(
 ): Prisma.ExperimentWhereInput {
   const and: Prisma.ExperimentWhereInput[] = [base]
 
-  if (params.marker.length) and.push({ reports: { some: { antibody: { targetProteinId: { in: params.marker } } } } })
-  if (params.cellType.length) {
-    and.push({ reports: { some: { cellTypes: { some: { cellTypeId: { in: params.cellType } } } } } })
-  }
+  const reportWhere = reportLevelWhere(params)
+  if (reportWhere) and.push({ reports: { some: reportWhere } })
   if (params.species.length) and.push({ speciesId: { in: params.species } })
   if (params.tissue.length) and.push({ tissueId: { in: params.tissue } })
   if (params.condition.length) and.push({ conditionId: { in: params.condition } })
-  if (params.method.length) {
-    // Filter values arrive either as an ImagingMethod id or as a legacy enum value from an old link, so
-    // every incoming term is resolved against the catalog before it reaches the column.
-    const methodIds = params.method.map((value) => resolveImagingMethodId(value)).filter((id): id is string => !!id)
-    and.push(methodIds.length ? { imagingMethodId: { in: methodIds } } : { id: "__no_match__" })
+  if (params.method.length) and.push({ imagingMethodId: { in: params.method } })
+  if (params.preservation.length) {
+    and.push({ preservation: { in: params.preservation as Prisma.EnumPreservationNullableFilter["in"] } })
   }
-  if (params.fixation.length) and.push({ fixation: { in: params.fixation as Prisma.EnumFixationNullableFilter["in"] } })
+  if (params.fixative.length) and.push({ fixativeId: { in: params.fixative } })
   if (params.lab.length) and.push({ owningLabId: { in: params.lab } })
+  if (params.source.length) and.push({ sourceId: { in: params.source } })
 
   if (params.q) {
     and.push({
@@ -213,34 +211,27 @@ function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
   const antibodyCount = new Set(exp.reports.map((r) => r.antibodyId).filter(Boolean)).size
 
   const facts = [exp.species?.label, exp.tissue?.label].filter((f): f is string => !!f)
-  const images: CarouselImage[] = []
-  const seenImages = new Set<string>()
-  for (const report of exp.reports) {
-    const markerName = report.antibody?.targetName ?? report.antibody?.name ?? undefined
+  const images: CarouselImage[] = exp.images.map((image) => {
     const links: CarouselImageLink[] = []
-    if (report.antibody?.targetProteinId && report.antibody.targetName) {
-      links.push({ label: report.antibody.targetName, href: markerHref(report.antibody.targetProteinId) })
+    for (const channel of image.channels) {
+      const antibody = channel.report?.antibody
+      if (!antibody || channel.role !== "TARGET") continue
+      if (antibody.targetProteinId && antibody.targetName) {
+        links.push({ label: antibody.targetName, href: markerHref(antibody.targetProteinId) })
+      }
+      const abHref = antibodyHref(antibody.rrid)
+      if (abHref) links.push({ label: antibody.name, href: abHref })
     }
-    const abHref = antibodyHref(report.antibody?.rrid)
-    if (abHref && report.antibody) {
-      links.push({ label: report.antibody.name, href: abHref })
-    }
-    for (const link of report.cellTypes) {
-      links.push({ label: link.cellType.label, href: cellTypeHref(link.cellType.id) })
-    }
-    for (const image of report.images) {
-      if (seenImages.has(image.url) || images.length >= MAX_ENTRY_IMAGES) continue
-      seenImages.add(image.url)
-      images.push({ src: image.url, title: markerName, links, facts })
-    }
-  }
+    const target = image.channels.find((channel) => channel.role === "TARGET" && channel.report?.antibody)
+    const title = target?.report?.antibody?.targetName ?? target?.report?.antibody?.name ?? undefined
+    return { src: image.url, caption: image.caption, title, links, facts, channels: toCarouselChannels(image) }
+  })
   return {
     id: exp.id,
     name: exp.name ?? null,
-    citation: exp.citation ?? null,
     pmid: exp.pmid ?? null,
     doi: exp.doi ?? null,
-    method: exp.imagingMethod?.shortLabel ?? "Unknown",
+    method: exp.imagingMethod?.label ?? "Unknown",
     species: exp.species?.label ?? "Unknown",
     tissue: exp.tissue?.label ?? "Unknown",
     condition: exp.condition?.label ?? null,

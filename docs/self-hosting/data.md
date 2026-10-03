@@ -2,7 +2,7 @@
 
 An instance holds three kinds of data:
 
-- **Reference data** that every instance needs: ontology terms, marker proteins, imaging methods, fluorophores. Loaded by `npm run setup`.
+- **Reference data** that every instance needs: ontology terms, marker proteins, fluorophores. Loaded by `npm run setup`. Imaging methods are not preloaded: they are EFO terms stored the first time someone picks one.
 - **Content** created by your users: experiments, validation reports, images, panels, labs and inventory.
 - **Optional imports** of published data, such as the IBEX knowledge base.
 
@@ -14,7 +14,6 @@ Demo data is separate and only meant for development and demonstrations.
 
 - taxa (NCBI Taxonomy), tissues (UBERON), cellular components (GO), cell types (Cell Ontology), disease conditions, fixatives and developmental stages
 - marker proteins with their canonical cell-type markers
-- imaging methods
 - fluorophores, then fills in missing excitation and emission spectra from FPbase
 
 It only upserts. It deletes nothing, creates no users and no demo content, and is safe to run on a live instance. In Docker the `migrate` service runs it on every `docker compose up`. `npx prisma db seed` runs the same script.
@@ -49,7 +48,7 @@ The [IBEX Imaging Community knowledge base](https://github.com/IBEXImagingCommun
 - It reads the copy of the source tables committed under `prisma/data/ibex/`, so it needs no network access.
 - It is idempotent: records are keyed on stable identifiers, shared records are only filled in and never overwritten, and nothing is deleted.
 - The reports are created as `PUBLISHED`, because they were reviewed upstream. They do not go through your review queue.
-- Every imported experiment carries the attribution in its citation field.
+- Every imported experiment links to the IBEX data source, which holds the CC BY 4.0 attribution. Experiment and report pages show it, and browse can filter by source.
 - Report images are not downloaded. They point at `raw.githubusercontent.com`, so visitors' browsers load them from GitHub.
 
 Importing is a choice for each instance: it gives users a useful body of published validation data on day one, but the records are not your institution's own. The mapping decisions are documented in [docs/development/ibex-import.md](../development/ibex-import.md).

@@ -23,12 +23,13 @@ Search results update as you type. Click any result row to open the full marker 
 
 Use the filter panel to narrow results by:
 
-| Filter               | Options                                         |
-| -------------------- | ----------------------------------------------- |
-| Species              | Human, Mouse, Rat, and more (NCBI taxonomy)     |
-| Imaging method       | CODEX, IBEX, CyCIF, IMC, MIBI, mIHC, and others |
-| Fixation             | FFPE, fresh-frozen, PFA                         |
-| Subcellular location | Membrane, cytoplasm, nucleus                    |
+| Filter               | Options                                                          |
+| -------------------- | ---------------------------------------------------------------- |
+| Species              | Human, Mouse, Rat, and more (NCBI taxonomy)                      |
+| Imaging method       | EFO spatial proteomics assays and local methods filed under them |
+| Preservation         | FFPE, fresh frozen, fixed frozen, fresh                          |
+| Fixative             | Formaldehyde, PFA, methanol (ChEBI)                              |
+| Subcellular location | Membrane, cytoplasm, nucleus                                     |
 
 Filters can be combined. The result count updates in real time.
 
@@ -38,7 +39,7 @@ Each marker has a dedicated page at `/marker/[id]` that shows:
 
 - **Protein information**: gene symbol, UniProt ID, subcellular location, molecular function
 - **Validated antibodies**: a table of antibodies with clone, vendor, catalog number, and RRID
-- **Validation reports**: community-submitted results organized by species, tissue, fixation, and imaging method
+- **Validation reports**: community-submitted results organized by species, tissue, preservation, fixative and imaging method
 - **External links**: direct links to UniProt, Human Protein Atlas, and Ensembl for the target protein
 
 ## Antibody detail pages

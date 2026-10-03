@@ -26,7 +26,8 @@ export const GET = createAuthHandler(async (request: NextRequest, user) => {
         },
         experiments: {
           include: {
-            reports: { include: { cellTypes: true, images: true } },
+            reports: { include: { cellTypes: true } },
+            images: { include: { channels: true, cellTypes: true } },
           },
         },
         panels: {

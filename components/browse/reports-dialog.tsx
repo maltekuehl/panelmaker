@@ -14,31 +14,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { doiUrl, pubmedUrl, type PublicationRef } from "@/lib/publication"
+import { doiUrl, pubmedUrl, type PublicationLink } from "@/lib/publication"
 import { profileHref } from "@/lib/routes"
 import { ExternalLink } from "lucide-react"
 import Link from "next/link"
 
-function shortCitation(citation: string): string {
-  const firstSentence = citation.split(". ")[0]
-  return firstSentence.length > 0 ? firstSentence : citation
-}
-
-function publicationHref(publication: PublicationRef): string | null {
-  if (publication.doi) return doiUrl(publication.doi)
-  if (publication.pmid) return pubmedUrl(publication.pmid)
-  return null
-}
-
-function PublicationSource({ publication }: { publication: PublicationRef }) {
-  const href = publicationHref(publication)
-  const label = publication.citation
-    ? shortCitation(publication.citation)
-    : publication.doi
-      ? `DOI ${publication.doi}`
-      : `PMID ${publication.pmid}`
-  const text = href ? (
+function PublicationSource({ publication }: { publication: PublicationLink }) {
+  const [href, label] = publication.doi
+    ? [doiUrl(publication.doi), `DOI ${publication.doi}`]
+    : [pubmedUrl(publication.pmid ?? ""), `PMID ${publication.pmid}`]
+  return (
     <a
       href={href}
       target="_blank"
@@ -47,15 +32,20 @@ function PublicationSource({ publication }: { publication: PublicationRef }) {
     >
       {label}
     </a>
-  ) : (
-    <span className="block max-w-[220px] truncate">{label}</span>
   )
-  if (!publication.citation) return text
+}
+
+function DataSourceName({ source }: { source: NonNullable<MarkerReport["dataSource"]> }) {
+  if (!source.url) return <TruncatedText text={source.name} className="max-w-[220px]" />
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{text}</TooltipTrigger>
-      <TooltipContent className="max-w-sm">{publication.citation}</TooltipContent>
-    </Tooltip>
+    <a
+      href={source.url}
+      target="_blank"
+      rel="noreferrer"
+      className="block max-w-[220px] truncate text-primary hover:underline"
+    >
+      {source.name}
+    </a>
   )
 }
 
@@ -70,6 +60,8 @@ function ReportSource({ report }: { report: MarkerReport }) {
         />
       ) : report.publication ? (
         <PublicationSource publication={report.publication} />
+      ) : report.dataSource ? (
+        <DataSourceName source={report.dataSource} />
       ) : (
         <NotAvailable />
       )}

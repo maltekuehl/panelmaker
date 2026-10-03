@@ -23,14 +23,14 @@ export default async function SubmitPage() {
   const labs = labsWithRole.map(({ lab }) => ({ id: lab.id, name: lab.name }))
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="container mx-auto space-y-8 px-4 py-6">
       <CustomBreadcrumbs items={[{ label: "Submit Report" }]} />
 
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Submit Experimental Report</h1>
         <p className="text-muted-foreground max-w-2xl">
-          Set your experiment context once, then add every antibody from the run below. Each one is submitted as its own
-          report. A PanelMaker admin reviews every submission before it is added to the public database.
+          Describe the run once, then add every antibody you stained in it. Each antibody becomes its own report, and an
+          admin reviews every submission before it goes public.
         </p>
       </div>
 

@@ -55,10 +55,9 @@ async function MarkerContent({ id }: { id: string }) {
   const images = usages.flatMap(reportUsageImages)
   const methods = [
     ...new Map(
-      reports
-        .map((r) => r.experiment.imagingMethod)
-        .filter((m) => m !== null && m !== undefined)
-        .map((m) => [m.id, m] as const),
+      reports.flatMap(({ experiment }) =>
+        experiment.imagingMethod ? [[experiment.imagingMethod.id, experiment.imagingMethod] as const] : [],
+      ),
     ).values(),
   ]
   const species = [...new Set(reports.map((r) => r.experiment.species?.label).filter(Boolean))]
@@ -96,10 +95,10 @@ async function MarkerContent({ id }: { id: string }) {
                 <Badge
                   key={method.id}
                   variant="secondary"
-                  title={method.label}
+                  title={method.id}
                   className="border-primary/20 bg-primary/10 text-primary hover:bg-primary/20"
                 >
-                  {method.shortLabel}
+                  {method.label}
                 </Badge>
               ))}
             </div>

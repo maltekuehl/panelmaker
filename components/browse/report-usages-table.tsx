@@ -143,7 +143,7 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                   <TableCell className="py-1.5">
                     <div className="flex flex-col">
                       <span className="font-medium" title={usage.method}>
-                        {usage.methodShort}
+                        {usage.method}
                       </span>
                       {usage.fluorophore && <span className="text-xs text-muted-foreground">{usage.fluorophore}</span>}
                       {usage.metalTag && <span className="text-xs text-muted-foreground">{usage.metalTag}</span>}
@@ -154,7 +154,7 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                       <span className="font-medium">{usage.species}</span>
                       <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                         <ValueOrNotAvailable value={usage.tissueLabel} />
-                        <ValueOrNotAvailable value={usage.fixation} />
+                        <ValueOrNotAvailable value={usage.preservation} />
                       </span>
                       {usage.conditionId && (
                         <Link
@@ -232,8 +232,11 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                          <DetailField label="Fixation">
-                            <ValueOrNotAvailable value={usage.fixation} className="font-medium" />
+                          <DetailField label="Preservation">
+                            <ValueOrNotAvailable value={usage.preservation} className="font-medium" />
+                          </DetailField>
+                          <DetailField label="Fixative">
+                            <ValueOrNotAvailable value={usage.fixative} className="font-medium" />
                           </DetailField>
                           <DetailField label="Antigen Retrieval">
                             <ValueOrNotAvailable value={usage.antigenRetrieval} className="font-medium" />

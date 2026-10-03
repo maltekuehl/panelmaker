@@ -4,13 +4,12 @@ import type { BrowseMarkerParams, EntryFilterParams, LabContentParams } from "@/
 import { BadRequestError, NotFoundError } from "@/lib/error-handling"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import type { Visibility } from "@/lib/generated/prisma/enums"
-import { searchDiseaseOntology, searchSpecies } from "@/lib/ontology"
+import { searchChebi, searchDiseaseOntology, searchEfoImagingMethods, searchSpecies } from "@/lib/ontology"
 import { prisma } from "@/lib/prisma"
 import { type EntriesPage, paginate } from "@/models/experimental-report/queries"
 import { getFluorophoreSpectra } from "@/models/fluorophore/queries"
 import type { FluorophoreSpectraMap } from "@/models/fluorophore/spectra"
-import { resolveImagingMethodId } from "@/models/imaging-method/data"
-import { imagingMethodExists } from "@/models/imaging-method/queries"
+import { imagingMethodSelect } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { resolveResourceVisibility } from "@/models/lab/queries"
 import { buildPanelVisibilityWhere } from "@/models/lab/visibility"
@@ -80,9 +79,10 @@ const panelSelect = {
   name: true,
   description: true,
   species: { select: { id: true, label: true } },
-  fixation: true,
+  preservation: true,
+  fixative: { select: { id: true, label: true } },
   imagingMethodId: true,
-  imagingMethod: { select: { id: true, label: true, shortLabel: true, efoId: true, detection: true, cyclic: true } },
+  imagingMethod: { select: imagingMethodSelect },
   ownerId: true,
   visibility: true,
   owningLabId: true,
@@ -168,7 +168,7 @@ const labPanelEntrySelect = {
   visibility: true,
   updatedAt: true,
   species: { select: { label: true } },
-  imagingMethod: { select: { id: true, label: true, shortLabel: true } },
+  imagingMethod: { select: { id: true, label: true } },
   owner: { select: { id: true, name: true } },
   _count: { select: { cycles: true } },
   cycles: { select: { _count: { select: { markers: true } } } },
@@ -198,7 +198,7 @@ function toLabPanelEntry(panel: PanelEntryRow): LabPanelEntry {
     ownerId: panel.owner?.id ?? null,
     ownerName: panel.owner?.name ?? null,
     species: panel.species?.label ?? null,
-    method: panel.imagingMethod?.shortLabel ?? null,
+    method: panel.imagingMethod?.label ?? null,
     visibility: panel.visibility,
     cycleCount: panel._count.cycles,
     markerCount: panel.cycles.reduce((sum, cycle) => sum + cycle._count.markers, 0),
@@ -237,6 +237,21 @@ function labPanelScope(labId: string): Prisma.PanelWhereInput {
   }
 }
 
+// Marker and antibody dimensions as one predicate, so they must all hold for the same panel marker.
+function panelMarkerWhere(params: EntryFilterParams): Prisma.PanelMarkerWhereInput | null {
+  const conditions: Prisma.PanelMarkerWhereInput[] = []
+  if (params.marker.length) conditions.push({ proteinId: { in: params.marker } })
+  if (params.vendor.length) conditions.push({ antibody: { vendorName: { in: params.vendor } } })
+  if (params.host.length) conditions.push({ antibody: { hostTaxonId: { in: params.host } } })
+  if (params.conjugate.length) conditions.push({ antibody: { conjugate: { in: params.conjugate } } })
+  if (params.clonality.length) {
+    conditions.push({
+      antibody: { clonality: { in: params.clonality as Prisma.EnumClonalityNullableFilter["in"] } },
+    })
+  }
+  return conditions.length > 0 ? { AND: conditions } : null
+}
+
 function buildBrowsePanelWhere(
   params: EntryFilterParams,
   base: Prisma.PanelWhereInput = BROWSE_PANEL_SCOPE,
@@ -245,13 +260,14 @@ function buildBrowsePanelWhere(
 
   if (params.species.length) and.push({ speciesId: { in: params.species } })
   if (params.condition.length) and.push({ conditionId: { in: params.condition } })
-  if (params.fixation.length) and.push({ fixation: { in: params.fixation as Prisma.EnumFixationNullableFilter["in"] } })
-  if (params.lab.length) and.push({ owningLabId: { in: params.lab } })
-  if (params.method.length) {
-    // Filter values arrive either as an ImagingMethod id or as a legacy enum value from an old link.
-    const methodIds = params.method.map((value) => resolveImagingMethodId(value)).filter((id): id is string => !!id)
-    and.push(methodIds.length ? { imagingMethodId: { in: methodIds } } : { id: "__no_match__" })
+  const markerWhere = panelMarkerWhere(params)
+  if (markerWhere) and.push({ cycles: { some: { markers: { some: markerWhere } } } })
+  if (params.preservation.length) {
+    and.push({ preservation: { in: params.preservation as Prisma.EnumPreservationNullableFilter["in"] } })
   }
+  if (params.fixative.length) and.push({ fixativeId: { in: params.fixative } })
+  if (params.lab.length) and.push({ owningLabId: { in: params.lab } })
+  if (params.method.length) and.push({ imagingMethodId: { in: params.method } })
 
   if (params.q) {
     and.push({
@@ -355,21 +371,42 @@ async function resolveTaxon(speciesId?: string, speciesLabel?: string): Promise<
   return match.id
 }
 
-// An imaging method id must already exist in the catalog; a panel may not invent one, the same rule
-// the ontology-backed fields follow.
-async function resolveImagingMethod(imagingMethodId?: string | null): Promise<string | null | undefined> {
-  if (imagingMethodId === undefined) return undefined
-  if (imagingMethodId === null) return null
+async function resolveFixative(fixativeId?: string, fixativeLabel?: string): Promise<string | undefined> {
+  if (!fixativeId) return undefined
 
-  const resolved = resolveImagingMethodId(imagingMethodId) ?? imagingMethodId
-  if (!(await imagingMethodExists(resolved))) throw new BadRequestError(`Unknown imaging method ${imagingMethodId}`)
-  return resolved
+  const existing = await prisma.fixative.findUnique({ where: { id: fixativeId } })
+  if (existing) return existing.id
+
+  if (!fixativeLabel) throw new BadRequestError(`Unknown fixative ${fixativeId}`)
+  const match = (await searchChebi(fixativeLabel)).find((r) => r.id === fixativeId)
+  if (!match) throw new BadRequestError(`Fixative ${fixativeId} (${fixativeLabel}) not found in ChEBI`)
+
+  await prisma.fixative.create({ data: { id: match.id, label: match.label } })
+  return match.id
+}
+
+async function resolveImagingMethod(
+  imagingMethodId?: string | null,
+  imagingMethodLabel?: string,
+): Promise<string | null | undefined> {
+  if (imagingMethodId === undefined || imagingMethodId === null) return imagingMethodId
+
+  const existing = await prisma.imagingMethod.findUnique({ where: { id: imagingMethodId } })
+  if (existing) return existing.id
+
+  if (!imagingMethodLabel) throw new BadRequestError(`Unknown imaging method ${imagingMethodId}`)
+  const match = (await searchEfoImagingMethods(imagingMethodLabel)).find((r) => r.id === imagingMethodId)
+  if (!match) throw new BadRequestError(`Imaging method ${imagingMethodId} (${imagingMethodLabel}) not found in EFO`)
+
+  await prisma.imagingMethod.create({ data: { id: match.id, label: match.label } })
+  return match.id
 }
 
 export async function createPanel(data: CreatePanelData, ownerId: string): Promise<PanelRow> {
   const resolvedConditionId = await resolveCondition(data.conditionId, data.conditionLabel)
   const resolvedSpeciesId = await resolveTaxon(data.speciesId, data.speciesLabel)
-  const resolvedImagingMethodId = await resolveImagingMethod(data.imagingMethodId)
+  const resolvedFixativeId = await resolveFixative(data.fixativeId, data.fixativeLabel)
+  const resolvedImagingMethodId = await resolveImagingMethod(data.imagingMethodId, data.imagingMethodLabel)
   // Panels default to PRIVATE (draft); the owner opts in to sharing or publishing.
   const access = await resolveResourceVisibility({
     ownerId,
@@ -384,7 +421,8 @@ export async function createPanel(data: CreatePanelData, ownerId: string): Promi
       name: data.name,
       description: data.description,
       speciesId: resolvedSpeciesId,
-      fixation: data.fixation,
+      preservation: data.preservation,
+      fixativeId: resolvedFixativeId,
       imagingMethodId: resolvedImagingMethodId ?? undefined,
       conditionId: resolvedConditionId,
       visibility: access.visibility,
@@ -407,7 +445,9 @@ export async function updatePanel(id: string, data: UpdatePanelData): Promise<Pa
     data.conditionId !== undefined ? await resolveCondition(data.conditionId, data.conditionLabel) : undefined
   const resolvedSpeciesId =
     data.speciesId !== undefined ? await resolveTaxon(data.speciesId, data.speciesLabel) : undefined
-  const resolvedImagingMethodId = await resolveImagingMethod(data.imagingMethodId)
+  const resolvedFixativeId =
+    data.fixativeId === null ? null : await resolveFixative(data.fixativeId, data.fixativeLabel)
+  const resolvedImagingMethodId = await resolveImagingMethod(data.imagingMethodId, data.imagingMethodLabel)
 
   const touchesVisibility =
     data.visibility !== undefined || data.sharedLabIds !== undefined || data.owningLabId !== undefined
@@ -440,7 +480,8 @@ export async function updatePanel(id: string, data: UpdatePanelData): Promise<Pa
         ...(data.name !== undefined && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
         ...(resolvedSpeciesId !== undefined && { speciesId: resolvedSpeciesId }),
-        ...(data.fixation !== undefined && { fixation: data.fixation }),
+        ...(data.preservation !== undefined && { preservation: data.preservation }),
+        ...(resolvedFixativeId !== undefined && { fixativeId: resolvedFixativeId }),
         ...(resolvedImagingMethodId !== undefined && { imagingMethodId: resolvedImagingMethodId }),
         ...(resolvedConditionId !== undefined && { conditionId: resolvedConditionId }),
         ...(access ? { visibility: access.visibility, owningLabId: access.owningLabId } : {}),

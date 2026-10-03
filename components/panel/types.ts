@@ -1,6 +1,6 @@
-import type { Visibility } from "@/lib/generated/prisma/enums"
+import type { Preservation, Visibility } from "@/lib/generated/prisma/enums"
 
-export { FIXATION_LABELS } from "@/lib/constants"
+export { PRESERVATION_LABELS } from "@/lib/constants"
 
 export interface PanelMarker {
   id: string
@@ -47,16 +47,10 @@ export interface Panel {
   name: string
   description: string | null
   species: { id: string; label: string } | null
-  fixation: string | null
+  preservation: Preservation | null
+  fixative: { id: string; label: string } | null
   imagingMethodId: string | null
-  imagingMethod: {
-    id: string
-    label: string
-    shortLabel: string
-    efoId: string | null
-    detection: "FLUORESCENCE" | "MASS" | "OTHER"
-    cyclic: boolean
-  } | null
+  imagingMethod: { id: string; label: string; parent: { id: string; label: string } | null } | null
   condition: { id: string; label: string } | null
   ownerId: string
   visibility: Visibility

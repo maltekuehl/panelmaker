@@ -1,6 +1,6 @@
 // Bootstraps a PanelMaker instance with the reference data every deployment needs: taxa, UBERON tissues,
 // GO cellular components, Cell Ontology cell types, disease conditions, fixatives, developmental stages,
-// marker proteins with their canonical cell-type markers, imaging methods and fluorophores, plus FPbase
+// marker proteins with their canonical cell-type markers and fluorophores, plus FPbase
 // spectra for any fluorophore that does not have them yet.
 //
 // Non-destructive and idempotent: upserts only, nothing is deleted, no users or demo content are created.

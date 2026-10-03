@@ -40,7 +40,8 @@ models/
   experiment/
   experimental-report/
   fluorophore/
-  imaging-method/   -- imaging method catalog (EFO-anchored)
+  image/            -- fields of view and their channels (shared select, viewer legend transform)
+  imaging-method/   -- EFO spatial proteomics terms, plus local methods filed under an EFO term
   lab/
     queries.ts
     access.ts       -- pure role/permission predicates (type-only Prisma import)
@@ -109,7 +110,8 @@ await prisma.protein.findMany({
 - Cell Ontology (CL) and UBERON: OLS4 REST API at `https://www.ebi.ac.uk/ols4/api`
 - Species/taxonomy: NCBI E-utilities API
 - Client-side: debounced autocomplete via `hooks/use-debounced-search.ts`
-- Wrapper: `lib/ontology.ts`, which exports `searchCellOntology()`, `searchUberon()`, `searchGoCellularComponent()`, `searchDiseaseOntology()`, `searchRor()`, `searchSpecies()`, reached through `GET /api/ontology?type=...`
+- Wrapper: `lib/ontology.ts`, which exports `searchCellOntology()`, `searchUberon()`, `searchGoCellularComponent()`, `searchDiseaseOntology()`, `searchRor()`, `searchSpecies()`, `searchEfoImagingMethods()` (EFO spatial proteomics branch), reached through `GET /api/ontology?type=...`
+- Imaging methods are EFO terms keyed by CURIE. A method EFO has no term for (e.g. PathoPlex) is its own `ImagingMethod` row with a `parentId` on its closest EFO term, never a hardcoded catalog entry or a free-text column. `GET /api/ontology?type=imaging_method` returns those local rows plus the EFO search
 - Store the ontology id alongside the display name in every DB field
 - `docs/development/metadata-standards.md` holds the researched plan for where these are going (NCBITaxon CURIEs, OLS4 term lookup and hierarchy, MONDO for disease, EFO assay terms). Read it before changing ontology handling.
 

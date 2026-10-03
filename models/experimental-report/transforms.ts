@@ -1,25 +1,36 @@
 import type { AntibodyEntry, MarkerEntry, MarkerReport, ReportEntry } from "@/components/browse/columns"
-import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
-import { ANTIGEN_RETRIEVAL_LABELS, SPECIFICITY_RANK } from "@/lib/constants"
+import type { CarouselChannel, CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
+import { ANTIGEN_RETRIEVAL_LABELS, PRESERVATION_LABELS, SPECIFICITY_RANK } from "@/lib/constants"
+import { publicationLinkOf } from "@/lib/publication"
 import { antibodyHref, cellTypeHref, markerHref } from "@/lib/routes"
 import { toSpecimenDetail, type SpecimenDetail } from "@/models/experiment/transforms"
+import { imagesOfReport, toCarouselChannels } from "@/models/image/transforms"
 import type { ReportRow } from "./queries"
 
-export type ReportImageResponse = { url: string; caption: string | null }
+export type ReportImageResponse = { url: string; caption: string | null; channels: CarouselChannel[] }
 
-export type ReportResponse = Omit<ReportRow, "images" | "fluorophore"> & {
+function reportImageResponses(report: ReportRow): ReportImageResponse[] {
+  return imagesOfReport(report).map((image) => ({
+    url: image.url,
+    caption: image.caption,
+    channels: toCarouselChannels(image, report.id),
+  }))
+}
+
+export type ReportResponse = Omit<ReportRow, "imageChannels" | "fluorophore"> & {
   imageUrls: string[]
   images: ReportImageResponse[]
   fluorophore: string | null
 }
 
 export function toReportResponse(report: ReportRow): ReportResponse {
-  const { images, ...rest } = report
+  const { imageChannels: _imageChannels, ...rest } = report
+  const images = reportImageResponses(report)
   return {
     ...rest,
     fluorophore: report.fluorophore?.name ?? null,
     imageUrls: images.map((i) => i.url),
-    images: images.map((i) => ({ url: i.url, caption: i.caption })),
+    images,
   }
 }
 
@@ -31,9 +42,9 @@ export type ReportUsage = {
   speciesId: string | null
   tissueLabel: string | null
   tissueId: string | null
-  fixation: string | null
+  preservation: string | null
+  fixative: string | null
   method: string
-  methodShort: string
   dilution: string | null
   incubation: string | null
   antigenRetrieval: string | null
@@ -77,9 +88,9 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     speciesId: report.experiment.species?.id ?? null,
     tissueLabel: report.experiment.tissue?.label ?? null,
     tissueId: report.experiment.tissue?.id ?? null,
-    fixation: report.experiment.fixation ?? null,
+    preservation: report.experiment.preservation ? PRESERVATION_LABELS[report.experiment.preservation] : null,
+    fixative: report.experiment.fixative?.label ?? null,
     method: report.experiment.imagingMethod?.label ?? "Unknown",
-    methodShort: report.experiment.imagingMethod?.shortLabel ?? "Unknown",
     dilution: report.dilution ?? null,
     incubation: report.incubation,
     antigenRetrieval: report.experiment.antigenRetrieval
@@ -92,7 +103,7 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     metalTag: report.metalTag,
     cycleNumber: report.cycleNumber,
     notes: report.notes,
-    images: report.images.map((i) => ({ url: i.url, caption: i.caption })),
+    images: reportImageResponses(report),
     createdAt: report.createdAt.toISOString(),
     submitter: report.experiment.submitter?.name ?? "Anonymous",
     submitterId: report.experiment.submitter?.id ?? null,
@@ -138,7 +149,14 @@ export function reportUsageImages(usage: ReportUsage): CarouselImage[] {
   if (usage.species && usage.species !== "Unknown") facts.push(usage.species)
 
   const title = usage.markerName ?? usage.antibodyName
-  return usage.images.map((image) => ({ src: image.url, caption: image.caption, title, links, facts }))
+  return usage.images.map((image) => ({
+    src: image.url,
+    caption: image.caption,
+    title,
+    links,
+    facts,
+    channels: image.channels,
+  }))
 }
 
 type SortAccessor<T> = (entry: T) => string | number
@@ -232,14 +250,14 @@ function collectImages(reports: ReportRow[], cap = MAX_ENTRY_IMAGES): CarouselIm
 }
 
 function toMarkerReport(r: ReportRow): MarkerReport {
-  const { citation, doi, pmid } = r.experiment
   return {
     id: String(r.id),
     submitter: r.experiment.submitter?.name ?? null,
     submitterId: r.experiment.submitter?.id ?? null,
     lab: r.experiment.owningLab?.name ?? null,
-    publication: citation || doi || pmid ? { citation, doi, pmid } : null,
-    method: r.experiment.imagingMethod?.shortLabel ?? "Unknown",
+    publication: publicationLinkOf(r.experiment),
+    dataSource: r.experiment.source ? { name: r.experiment.source.name, url: r.experiment.source.url } : null,
+    method: r.experiment.imagingMethod?.label ?? "Unknown",
     species: r.experiment.species?.label ?? "Unknown",
     works: r.works,
   }
@@ -269,7 +287,7 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
 
   return Array.from(groups.values()).map((group) => {
     const methods = [
-      ...new Set(group.reports.map((r) => r.experiment.imagingMethod?.shortLabel).filter(Boolean)),
+      ...new Set(group.reports.map((r) => r.experiment.imagingMethod?.label).filter(Boolean)),
     ] as string[]
     const species = [...new Set(group.reports.map((r) => r.experiment.species?.label).filter(Boolean))] as string[]
     const tissues = [...new Set(group.reports.map((r) => r.experiment.tissue?.label).filter(Boolean))] as string[]
@@ -333,7 +351,7 @@ export function toReportEntry(report: ReportRow): ReportEntry {
     rrid: report.antibody?.rrid ?? null,
     species: report.experiment.species?.label ?? "Unknown",
     tissue: report.experiment.tissue?.label ?? "Unknown",
-    method: report.experiment.imagingMethod?.shortLabel ?? "Unknown",
+    method: report.experiment.imagingMethod?.label ?? "Unknown",
     cellTypes: report.cellTypes.map((l) => ({ id: l.cellType.id, label: l.cellType.label })),
     subcellular: report.subcellular?.label ?? null,
     specificity: report.specificity,

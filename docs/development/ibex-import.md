@@ -49,7 +49,7 @@ npm run ibex:import   # load the committed tables into the database
 | RRID                            | `Antibody.rrid`, stored as `RRID:AB_xxxxxxx` to match the existing rows     |
 | Availability                    | `ExperimentalReport.notes` only                                             |
 | Method                          | `Experiment.method` + exact string in `Experiment.name` and `description`   |
-| Tissue Preservation             | `Experiment.fixation` + exact string in `Experiment.name` and `description` |
+| Tissue Preservation             | `Experiment.preservation` + `fixativeId` + exact string in `preservationText` |
 | Target Tissue                   | `Experiment.tissueId` (UBERON), sometimes `conditionId` too                 |
 | Tissue State                    | `Experiment.conditionId` (DOID) + exact string in `description`             |
 | Detergent                       | `ExperimentalReport.notes` only                                             |
@@ -84,8 +84,8 @@ The two `Fc Block` rows are the one casualty worth naming: they are antibody-bas
 RRID, skipped only because there is no field to mark a reagent as non-marker.
 
 **3. Method.** `IBEX2D Manual`, `IBEX2D Automated`, `Cell DIVE-IBEX`, `Ce3D-IBEX` and `Opal-plex` all run the IBEX
-iterative LiBH4 dye-inactivation protocol per the upstream glossary, so all five map to the `ibex` imaging method
-(`EFO:0022996`, IBEX assay). `Multiplexed 2D Imaging` (single cycle) and `Ce3D` (clearing only) are not IBEX, so their
+iterative LiBH4 dye-inactivation protocol per the upstream glossary, so all five map to the EFO term
+`EFO:0022996` (IBEX assay). `Multiplexed 2D Imaging` (single cycle) and `Ce3D` (clearing only) are not IBEX, so their
 rows are not imported at all. The exact string is preserved in `Experiment.name` and `Experiment.description`, so no
 variant is lost.
 

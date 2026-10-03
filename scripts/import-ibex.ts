@@ -4,7 +4,7 @@
 // https://github.com/IBEXImagingCommunity/ibex_imaging_knowledge_base, licensed CC BY 4.0.
 // The committed copies of reagent_resources.csv, fluorescent_probes.csv and vendor_urls.csv under
 // prisma/data/ibex/ are redistributed unmodified under that licence; every experiment created here
-// carries the attribution in its citation field. Refresh them with `npm run ibex:fetch`.
+// links to the IBEX DataSource row, which holds the attribution. Refresh them with `npm run ibex:fetch`.
 //
 // One Experiment per distinct experimental context (species, tissue, tissue state, method, tissue
 // preservation, antigen retrieval), one ExperimentalReport per reagent row inside that context.
@@ -14,8 +14,6 @@
 // overwritten, and nothing is deleted. Safe to run twice.
 //
 //   npm run ibex:import
-import { legacyFixationFor } from "@/models/experiment/transforms"
-import { resolveImagingMethodId } from "@/models/imaging-method/data"
 import "dotenv/config"
 import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
@@ -26,6 +24,7 @@ import { parseCsvRecords } from "../prisma/data/ibex/csv"
 import {
   ANTIGEN_RETRIEVAL_MAP,
   CONJUGATE_ALIAS_OF,
+  IBEX_ASSAY,
   IBEX_FIXATIVES,
   IBEX_SOURCE,
   IMAGING_METHOD_MAP,
@@ -42,12 +41,17 @@ import {
   type IbexOntologyResolution,
   type IbexProteinResolution,
 } from "../prisma/data/ibex/vocabulary"
+import { storeEfoImagingMethod } from "../prisma/imaging-methods"
 
 const DATA_DIR = path.join(process.cwd(), "prisma", "data", "ibex")
 
 type Tally = { created: number; updated: number; unchanged: number }
 const newTally = (): Tally => ({ created: 0, updated: 0, unchanged: 0 })
 const showTally = (t: Tally): string => `${t.created} created, ${t.updated} updated, ${t.unchanged} unchanged`
+
+function recordedOrNot(value: string): string {
+  return isNa(value) ? "not recorded in the source" : value
+}
 
 function hashId(prefix: string, key: string, length: number): string {
   return `${prefix}${createHash("sha1").update(key).digest("hex").slice(0, length)}`
@@ -121,6 +125,7 @@ class UnmappableLog {
 }
 
 runScript(async (prisma) => {
+  await storeEfoImagingMethod(prisma, IBEX_ASSAY)
   const reagentRows = parseCsvRecords(readFileSync(path.join(DATA_DIR, "reagent_resources.csv"), "utf8"))
   const vendorRows = parseCsvRecords(readFileSync(path.join(DATA_DIR, "vendor_urls.csv"), "utf8"))
   const ontology = JSON.parse(
@@ -242,6 +247,18 @@ runScript(async (prisma) => {
     await prisma.diseaseCondition.create({ data: { id, label } })
     conditionTally.created += 1
   }
+
+  const source = {
+    name: IBEX_SOURCE.name,
+    url: IBEX_SOURCE.repo,
+    license: IBEX_SOURCE.licence,
+    attribution: IBEX_SOURCE.attribution,
+  }
+  await prisma.dataSource.upsert({
+    where: { id: IBEX_SOURCE.id },
+    update: source,
+    create: { id: IBEX_SOURCE.id, ...source },
+  })
 
   const fixativeTally = newTally()
   for (const fixative of IBEX_FIXATIVES) {
@@ -400,7 +417,7 @@ runScript(async (prisma) => {
     }
     const accessions = unionSorted(draft.rows.flatMap((row) => splitAccessions(row["UniProt Accession Number"])))
     const targetSpecies = unionSorted(draft.rows.map((row) => row["Target Species"]).filter((v) => !isNa(v)))
-    const usesIbex = draft.rows.some((row) => IMAGING_METHOD_MAP[row["Method"]] === "ibex")
+    const usesIbex = draft.rows.some((row) => IMAGING_METHOD_MAP[row["Method"]] === IBEX_ASSAY)
     const applications = usesIbex ? ["IBEX", "IF"] : ["IF"]
     const namePieces = [
       targetName ?? "Unnamed reagent",
@@ -514,16 +531,17 @@ runScript(async (prisma) => {
       "Reagent validations from the IBEX Imaging Community knowledge base.",
       `Target species: ${row["Target Species"]}.`,
       `Target tissue as recorded: ${row["Target Tissue"]}.`,
-      `Tissue state: ${row["Tissue State"]}.`,
+      `Tissue state: ${recordedOrNot(row["Tissue State"])}.`,
       `Method: ${row["Method"]}.`,
-      `Tissue preservation: ${row["Tissue Preservation"]}.`,
-      `Antigen retrieval: ${retrievalKey}.`,
+      `Tissue preservation: ${recordedOrNot(row["Tissue Preservation"])}.`,
+      `Antigen retrieval: ${recordedOrNot(retrievalKey)}.`,
       `${group.rows.length} reagent records.`,
     ].join(" ")
     const desired = {
       name,
       description,
-      citation: `${IBEX_SOURCE.attribution} Retrieved from ${IBEX_SOURCE.repo}.`,
+      citation: null,
+      sourceId: IBEX_SOURCE.id,
       speciesId: species ? taxonId(species.ncbiTaxId) : null,
       tissueId: tissue?.uberonId ?? null,
       conditionId: tissue?.diseaseId ?? state?.id ?? null,
@@ -536,13 +554,7 @@ runScript(async (prisma) => {
       // this field the protocol was dropped entirely.
       antigenRetrievalText: isNa(retrievalKey) ? null : retrievalKey,
       sampleType: "TISSUE" as const,
-      fixation: legacyFixationFor({
-        preservation: preservation?.preservation ?? null,
-        fixativeId: preservation?.fixativeId ?? null,
-      }),
-      // The raw IBEX method string is more specific than the catalog id (Cell DIVE-IBEX, Ce3D-IBEX,
-      // MICS), so resolve it against the ImagingMethod aliases first and fall back to the curated map.
-      imagingMethodId: resolveImagingMethodId(row["Method"]) ?? IMAGING_METHOD_MAP[row["Method"]] ?? null,
+      imagingMethodId: IMAGING_METHOD_MAP[row["Method"]] ?? null,
       antigenRetrieval,
       visibility: "PUBLIC" as const,
     }
@@ -653,10 +665,21 @@ runScript(async (prisma) => {
   // every row of the committed table, but an upstream refresh could break it, and a caption attached to
   // the wrong image is worse than no caption, so a row whose two lists differ in length is reported and
   // imported without captions.
-  const imagePlanById = new Map<
-    string,
-    { id: string; reportId: string; url: string; caption: string | null; sortOrder: number }
-  >()
+  //
+  // One image per experiment and file: a picture listed by several reagent rows is one field of view with
+  // a channel per reagent. No display colour is set, because the source tables do not record one as data.
+  type ImagePlan = {
+    experimentId: string
+    url: string
+    caption: string | null
+    sortOrder: number
+    targets: string[]
+    nuclear: string[]
+  }
+  const imagePlans = new Map<string, ImagePlan>()
+  const imageUrl = (file: string) => `${IBEX_SOURCE.imageBase}/${file.split("/").map(encodeURIComponent).join("/")}`
+  const imageKey = (experimentId: string, url: string) => `${experimentId}|${url}`
+
   for (const plan of reportPlans) {
     const files = splitList(plan.row["Image Files"])
     const captions = splitList(plan.row["Captions"])
@@ -668,50 +691,112 @@ runScript(async (prisma) => {
       })
     }
     files.forEach((file, index) => {
-      const url = `${IBEX_SOURCE.imageBase}/${file.split("/").map(encodeURIComponent).join("/")}`
-      const id = hashId("ibex_img_", `${plan.id}|${url}`, 16)
+      const url = imageUrl(file)
+      const key = imageKey(plan.data.experimentId, url)
       const caption = captionsAligned ? (captions[index] ?? null) : null
-      if (!imagePlanById.has(id)) imagePlanById.set(id, { id, reportId: plan.id, url, caption, sortOrder: index })
+      const image = imagePlans.get(key) ?? {
+        experimentId: plan.data.experimentId,
+        url,
+        caption,
+        sortOrder: index,
+        targets: [],
+        nuclear: [],
+      }
+      image.caption ??= caption
+      image.sortOrder = Math.min(image.sortOrder, index)
+      if (!image.targets.includes(plan.id)) image.targets.push(plan.id)
+      imagePlans.set(key, image)
     })
   }
-  const imagePlans = [...imagePlanById.values()]
-  const existingImages = new Map(
-    (await prisma.reportImage.findMany({ where: { id: { in: imagePlans.map((plan) => plan.id) } } })).map((image) => [
-      image.id,
-      image,
-    ]),
-  )
-  for (const plan of imagePlans) {
-    const existing = existingImages.get(plan.id)
+
+  // Nuclear dye rows are not reports, but a dye row that lists the same image file as an antibody of the
+  // same experimental context records which counterstain that picture carries.
+  for (const row of reagentRows) {
+    if (row["Reagent Type"] !== "Nuclear Dye" || isNa(row["Target Name / Protein Biomarker"])) continue
+    const experimentId = experimentIdByGroup.get(groupColumns.map((column) => row[column]).join("||"))
+    if (!experimentId) continue
+    for (const file of splitList(row["Image Files"])) {
+      const image = imagePlans.get(imageKey(experimentId, imageUrl(file)))
+      const label = row["Target Name / Protein Biomarker"]
+      if (image && !image.nuclear.includes(label)) image.nuclear.push(label)
+    }
+  }
+
+  const existingImages = await prisma.image.findMany({
+    where: { experimentId: { startsWith: "ibex_" } },
+    select: {
+      id: true,
+      experimentId: true,
+      url: true,
+      caption: true,
+      sortOrder: true,
+      channels: { select: { role: true, reportId: true, label: true, sortOrder: true } },
+    },
+  })
+  const existingImageByKey = new Map(existingImages.map((image) => [imageKey(image.experimentId, image.url), image]))
+  const channelSignature = (
+    channels: { role: string; reportId: string | null; label: string | null; sortOrder: number }[],
+  ) =>
+    channels
+      .map((channel) => `${channel.role}|${channel.reportId ?? ""}|${channel.label ?? ""}|${channel.sortOrder}`)
+      .sort()
+      .join(";")
+
+  for (const [key, plan] of imagePlans) {
+    const channels: { role: "TARGET" | "NUCLEAR"; reportId: string | null; label: string | null; sortOrder: number }[] =
+      [
+        ...plan.targets.map((reportId, index) => ({
+          role: "TARGET" as const,
+          reportId,
+          label: null,
+          sortOrder: index,
+        })),
+        ...plan.nuclear.map((label, index) => ({
+          role: "NUCLEAR" as const,
+          reportId: null,
+          label,
+          sortOrder: plan.targets.length + index,
+        })),
+      ]
+    const existing = existingImageByKey.get(key)
     if (!existing) {
-      await prisma.reportImage.create({ data: plan })
+      await prisma.image.create({
+        data: {
+          experimentId: plan.experimentId,
+          url: plan.url,
+          caption: plan.caption,
+          sortOrder: plan.sortOrder,
+          channels: { createMany: { data: channels } },
+        },
+      })
       imageTally.created += 1
       continue
     }
-    if (existing.url === plan.url && existing.sortOrder === plan.sortOrder && existing.caption === plan.caption) {
+    const sameImage = existing.caption === plan.caption && existing.sortOrder === plan.sortOrder
+    const sameChannels = channelSignature(existing.channels) === channelSignature(channels)
+    if (sameImage && sameChannels) {
       imageTally.unchanged += 1
       continue
     }
-    await prisma.reportImage.update({
-      where: { id: plan.id },
-      data: { url: plan.url, caption: plan.caption, sortOrder: plan.sortOrder },
-    })
+    await prisma.$transaction([
+      prisma.image.update({ where: { id: existing.id }, data: { caption: plan.caption, sortOrder: plan.sortOrder } }),
+      prisma.imageChannel.deleteMany({ where: { imageId: existing.id } }),
+      prisma.imageChannel.createMany({ data: channels.map((channel) => ({ ...channel, imageId: existing.id })) }),
+    ])
     imageTally.updated += 1
   }
 
   // --- Retract rows this import no longer produces ---
   // The gate above can reject a row that an earlier run accepted, and upstream can retract a reagent.
   // Everything this script writes carries an "ibex_" id prefix, so anything with that prefix which is not
-  // in the current plan is stale and is removed. Order follows the foreign keys: images, reports, then
-  // antibodies (ExperimentalReport.antibody is onDelete Restrict, so reports have to go first).
-  const keptImageIds = new Set(imagePlans.map((plan) => plan.id))
+  // in the current plan is stale and is removed (images are matched on experiment and file instead). Order
+  // follows the foreign keys: images, reports, then antibodies (ExperimentalReport.antibody is onDelete
+  // Restrict, so reports have to go first).
   const keptReportIds = new Set(reportPlans.map((plan) => plan.id))
   const keptAntibodyIds = new Set(antibodyIdByKey.values())
   const keptExperimentIds = new Set(experimentIdByGroup.values())
 
-  const staleImages = (
-    await prisma.reportImage.findMany({ where: { id: { startsWith: "ibex_" } }, select: { id: true } })
-  ).filter((row) => !keptImageIds.has(row.id))
+  const staleImages = existingImages.filter((image) => !imagePlans.has(imageKey(image.experimentId, image.url)))
   const staleReports = (
     await prisma.experimentalReport.findMany({ where: { id: { startsWith: "ibex_" } }, select: { id: true } })
   ).filter((row) => !keptReportIds.has(row.id))
@@ -723,7 +808,7 @@ runScript(async (prisma) => {
   ).filter((row) => !keptAntibodyIds.has(row.id))
 
   if (staleImages.length > 0) {
-    await prisma.reportImage.deleteMany({ where: { id: { in: staleImages.map((row) => row.id) } } })
+    await prisma.image.deleteMany({ where: { id: { in: staleImages.map((row) => row.id) } } })
   }
   if (staleReports.length > 0) {
     await prisma.experimentalReport.deleteMany({ where: { id: { in: staleReports.map((row) => row.id) } } })
@@ -748,7 +833,7 @@ runScript(async (prisma) => {
   console.log(`  antibodies:          ${showTally(antibodyTally)}`)
   console.log(`  experiments:         ${showTally(experimentTally)}`)
   console.log(`  reports:             ${showTally(reportTally)}`)
-  console.log(`  report images:       ${showTally(imageTally)}`)
+  console.log(`  images:              ${showTally(imageTally)}`)
   console.log(
     `  retracted:           ${staleAntibodies.length} antibodies, ${staleExperiments.length} experiments, ` +
       `${staleReports.length} reports, ${staleImages.length} images`,

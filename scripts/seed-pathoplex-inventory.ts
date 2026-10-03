@@ -15,7 +15,9 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { type Clonality } from "../lib/generated/prisma/client"
 import { runScript } from "../prisma/client"
+import { PATHOPLEX } from "../prisma/data/reports"
 import { TAXA, taxonIdForHost } from "../prisma/data/taxa"
+import { storeLocalImagingMethod } from "../prisma/imaging-methods"
 import type { ResolvedReagent } from "./lookup-pathoplex-antibodies"
 
 const LAB_ID = "seed_lab_puelles"
@@ -472,6 +474,8 @@ runScript(async (prisma) => {
     skipDuplicates: true,
   })
 
+  const pathoplex = await storeLocalImagingMethod(prisma, PATHOPLEX.label, PATHOPLEX.parentId)
+
   let reportCount = 0
   for (const exp of EXPERIMENTS) {
     await prisma.experiment.upsert({
@@ -481,7 +485,6 @@ runScript(async (prisma) => {
         description: exp.description,
         speciesId: exp.speciesId,
         tissueId: KIDNEY_TISSUE,
-        fixation: "FFPE",
         preservation: "FFPE",
         preservationText: exp.specimen.preservationText,
         fixativeId: FORMALDEHYDE_CHEBI_ID,
@@ -493,7 +496,7 @@ runScript(async (prisma) => {
         donorAge: exp.specimen.donorAge,
         developmentalStageId: exp.specimen.developmentalStageId,
         protocolDoi: exp.specimen.protocolDoi,
-        imagingMethodId: "pathoplex",
+        imagingMethodId: pathoplex.id,
         antigenRetrieval: "TRIS_EDTA_PH9",
         submitterId: exp.submitterId,
         visibility: "PUBLIC",
@@ -505,7 +508,6 @@ runScript(async (prisma) => {
         description: exp.description,
         speciesId: exp.speciesId,
         tissueId: KIDNEY_TISSUE,
-        fixation: "FFPE",
         preservation: "FFPE",
         preservationText: exp.specimen.preservationText,
         fixativeId: FORMALDEHYDE_CHEBI_ID,
@@ -517,7 +519,7 @@ runScript(async (prisma) => {
         donorAge: exp.specimen.donorAge,
         developmentalStageId: exp.specimen.developmentalStageId,
         protocolDoi: exp.specimen.protocolDoi,
-        imagingMethodId: "pathoplex",
+        imagingMethodId: pathoplex.id,
         antigenRetrieval: "TRIS_EDTA_PH9",
         submitterId: exp.submitterId,
         visibility: "PUBLIC",

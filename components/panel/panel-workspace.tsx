@@ -1,6 +1,6 @@
 "use client"
 
-import { ImagingMethodSelect, useImagingMethods } from "@/components/imaging-method-select"
+import { OntologyCombobox, type OntologyValue } from "@/components/ontology-combobox"
 import { VisibilitySelector } from "@/components/shared/visibility-selector"
 import {
   AlertDialog,
@@ -27,7 +27,7 @@ import { PanelExportMenu } from "./panel-export-menu"
 import type { CreatePanelFormData } from "./panel-form"
 import { PanelForm } from "./panel-form"
 import { PanelList } from "./panel-list"
-import { FIXATION_LABELS, Panel, PanelCycle } from "./types"
+import { Panel, PanelCycle, PRESERVATION_LABELS } from "./types"
 
 type VisibilityValue = {
   visibility: Visibility
@@ -61,7 +61,6 @@ export function PanelWorkspace() {
   const [labsLoading, setLabsLoading] = useState(true)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const renameCancelledRef = useRef(false)
-  const { imagingMethods } = useImagingMethods()
   const panelsVersion = usePanelsSignal((s) => s.version)
   const notifyPanelsChanged = usePanelsSignal((s) => s.notifyPanelsChanged)
 
@@ -145,8 +144,11 @@ export function PanelWorkspace() {
           description: data.description || undefined,
           speciesId: data.speciesId || undefined,
           speciesLabel: data.speciesLabel || undefined,
-          fixation: data.fixation || undefined,
+          preservation: data.preservation || undefined,
+          fixativeId: data.fixativeId || undefined,
+          fixativeLabel: data.fixativeLabel || undefined,
           imagingMethodId: data.imagingMethodId || undefined,
+          imagingMethodLabel: data.imagingMethodLabel || undefined,
           conditionId: data.conditionId || undefined,
           conditionLabel: data.conditionLabel || undefined,
         }),
@@ -235,17 +237,22 @@ export function PanelWorkspace() {
     }
   }
 
-  const handleImagingMethodChange = async (panelId: string, next: string | null) => {
+  const handleImagingMethodChange = async (panelId: string, method: OntologyValue | null) => {
     const previous = panels.find((p) => p.id === panelId) ?? null
-    const method = next ? (imagingMethods.find((m) => m.id === next) ?? null) : null
 
-    setPanels((ps) => ps.map((p) => (p.id === panelId ? { ...p, imagingMethodId: next, imagingMethod: method } : p)))
+    setPanels((ps) =>
+      ps.map((p) =>
+        p.id === panelId
+          ? { ...p, imagingMethodId: method?.id ?? null, imagingMethod: method ? { ...method, parent: null } : null }
+          : p,
+      ),
+    )
 
     try {
       const res = await fetch(`/api/panels/${panelId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagingMethodId: next }),
+        body: JSON.stringify({ imagingMethodId: method?.id ?? null, imagingMethodLabel: method?.label }),
       })
 
       if (!res.ok) throw new Error("Request failed")
@@ -362,16 +369,15 @@ export function PanelWorkspace() {
                   <SelectContent>
                     {panels.map((panel) => {
                       const pSpecies = panel.species?.label ?? null
-                      const pFixation = panel.fixation
-                        ? (FIXATION_LABELS[panel.fixation as keyof typeof FIXATION_LABELS] ?? panel.fixation)
-                        : null
+                      const pPreservation = panel.preservation ? PRESERVATION_LABELS[panel.preservation] : null
                       return (
                         <SelectItem key={panel.id} value={String(panel.id)}>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{panel.name}</span>
                             <span className="text-xs text-muted-foreground">
-                              {[pSpecies, pFixation, panel.imagingMethod?.shortLabel].filter(Boolean).join(", ") ||
-                                "No species, fixation or method set"}
+                              {[pSpecies, pPreservation, panel.fixative?.label, panel.imagingMethod?.label]
+                                .filter(Boolean)
+                                .join(", ") || "No species, preservation or method set"}
                             </span>
                           </div>
                         </SelectItem>
@@ -463,11 +469,12 @@ export function PanelWorkspace() {
               <label htmlFor="panel-imaging-method" className="mb-1.5 block text-xs font-medium text-muted-foreground">
                 Imaging method
               </label>
-              <ImagingMethodSelect
+              <OntologyCombobox
                 id="panel-imaging-method"
-                value={activePanel.imagingMethodId ?? null}
+                ontologyType="imaging_method"
+                value={activePanel.imagingMethod}
                 onChange={(next) => handleImagingMethodChange(activePanel.id, next)}
-                className="h-8 text-xs"
+                placeholder="Search EFO imaging methods…"
               />
             </div>
             {(activePanel.description || activePanel.condition) && (

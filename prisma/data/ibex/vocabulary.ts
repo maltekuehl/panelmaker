@@ -6,6 +6,8 @@
 import type { AntigenRetrieval, Preservation } from "../../../lib/generated/prisma/client"
 
 export const IBEX_SOURCE = {
+  id: "ibex-knowledge-base",
+  name: "IBEX Knowledge-Base",
   repo: "https://github.com/IBEXImagingCommunity/ibex_imaging_knowledge_base",
   rawBase: "https://raw.githubusercontent.com/IBEXImagingCommunity/ibex_imaging_knowledge_base/main",
   dataFiles: ["reagent_resources.csv", "fluorescent_probes.csv", "vendor_urls.csv"],
@@ -48,12 +50,14 @@ export const SKIPPED_REAGENT_TYPE_PREFIXES: Record<string, string> = {
 // Only records produced with an actual IBEX protocol are imported. The knowledge base also collects
 // reagents validated on "Multiplexed 2D Imaging" and plain "Ce3D", which are neither IBEX nor any other
 // method PanelMaker models, so they would land as "Other or unspecified" and tell a reader nothing.
+export const IBEX_ASSAY = "EFO:0022996"
+
 export const IMAGING_METHOD_MAP: Record<string, string> = {
-  "IBEX2D Manual": "ibex",
-  "IBEX2D Automated": "ibex",
-  "Cell DIVE-IBEX": "ibex",
-  "Ce3D-IBEX": "ibex",
-  "Opal-plex": "ibex",
+  "IBEX2D Manual": IBEX_ASSAY,
+  "IBEX2D Automated": IBEX_ASSAY,
+  "Cell DIVE-IBEX": IBEX_ASSAY,
+  "Ce3D-IBEX": IBEX_ASSAY,
+  "Opal-plex": IBEX_ASSAY,
 }
 
 // The upstream "Tissue Preservation" column mixes the preservation state with the fixative and its
@@ -100,8 +104,10 @@ export const IBEX_FIXATIVES: { id: string; label: string }[] = [
 // lists ER1 *and* ER2 covers two different retrievals in one string, so no single enum value is
 // honest: it stays unmapped and the whole string goes into `antigenRetrievalText`, which every row
 // gets regardless of whether the enum could be filled.
+//
+// "NA" is the knowledge base's blank marker in every column (RRID, UniProt, Isotype, ...), so it means
+// the retrieval was not recorded, never that none was performed. It stays null, never NONE.
 export const ANTIGEN_RETRIEVAL_MAP: Record<string, AntigenRetrieval | null> = {
-  "NA": "NONE",
   "pH 6 for 40 minutes at 95C (AR6 Akoya Biosciences AR600250ML)": "CITRATE_PH6",
   "Akoya AR6": "CITRATE_PH6",
   "pH 6 (10 mM Sodium Citrate) for 20 minutes in a pressure cooker": "CITRATE_PH6",

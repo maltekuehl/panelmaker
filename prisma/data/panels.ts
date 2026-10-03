@@ -1,3 +1,5 @@
+import type { ImagingMethodRef, SpecimenPrep } from "./reports"
+
 export type PanelMarkerDef = {
   proteinId: string
   antibodyRrid: string
@@ -15,8 +17,8 @@ export type PanelDef = {
   name: string
   description: string
   speciesId: string
-  fixation: "FFPE" | "FRESH_FROZEN" | "PFA" | "METHANOL"
-  imagingMethodId: string
+  prep: SpecimenPrep
+  imagingMethod: ImagingMethodRef
   ownerId: string
   cycles: PanelCycleDef[]
 }
@@ -28,8 +30,8 @@ export const PANELS: PanelDef[] = [
     description:
       "Multi-cycle CODEX panel for comprehensive immune cell typing in human spleen. Covers T cells, B cells, myeloid and structural markers across 3 imaging cycles.",
     speciesId: "NCBITaxon:9606",
-    fixation: "FFPE",
-    imagingMethodId: "codex",
+    prep: "FFPE",
+    imagingMethod: "OBI:0003093",
     ownerId: "seed_user_demo_rhodes",
     cycles: [
       {
@@ -63,8 +65,8 @@ export const PANELS: PanelDef[] = [
     description:
       "4-cycle CyCIF panel for comprehensive TME characterization in FFPE. Covers epithelial, immune, stromal, and checkpoint markers across iterative staining rounds.",
     speciesId: "NCBITaxon:9606",
-    fixation: "FFPE",
-    imagingMethodId: "t-cycif",
+    prep: "FFPE",
+    imagingMethod: "EFO:0023019",
     ownerId: "seed_user_demo_navarro",
     cycles: [
       {

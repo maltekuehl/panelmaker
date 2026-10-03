@@ -1,6 +1,5 @@
 import type { AntibodyRegistryValue } from "@/components/antibody-registry-combobox"
 import type { FluorophoreOption } from "@/components/fluorophore-combobox"
-import type { ImagingMethodOption } from "@/components/imaging-method-select"
 import { DONOR_SEX_LABELS, PRESERVATION_LABELS, SAMPLE_TYPE_LABELS } from "@/lib/constants"
 import { AntigenRetrieval, DonorSex, Preservation, SampleType, type Visibility } from "@/lib/generated/prisma/enums"
 import { parseTaxonUid } from "@/models/taxon/id"
@@ -9,7 +8,33 @@ import type { OntologyValue } from "@/components/ontology-combobox"
 
 export type { OntologyValue }
 export type ProteinValue = { id: string; label: string; geneSymbol?: string | null }
-export type ReportImageInput = { url: string; caption: string; cellTypeIds: string[] }
+export type ReferenceRole = "NUCLEAR" | "STRUCTURAL"
+
+export type FovReference = {
+  key: string
+  role: ReferenceRole | ""
+  label: string
+  fluorophore: FluorophoreOption | null
+  displayColor: string
+}
+
+// One field of view of the run. Rows reference it by url, so an image showing several markers is held
+// once and appears under every antibody that ticks it.
+export type Fov = { url: string; caption: string; references: FovReference[] }
+
+// This antibody's channel in a field of view: its own colour and the cell types it shows there.
+export type RowImage = { url: string; displayColor: string; cellTypeIds: string[] }
+
+// What the image dialog edits before it is saved: the field of view, this antibody's channel in it, and
+// the other antibodies of the run that are visible in it too.
+export type FovDraft = {
+  url: string
+  caption: string
+  references: FovReference[]
+  displayColor: string
+  cellTypes: OntologyValue[]
+  sharedWith: string[]
+}
 
 export type ExperimentContext = {
   name: string
@@ -20,7 +45,7 @@ export type ExperimentContext = {
   species: OntologyValue | null
   tissue: OntologyValue | null
   preservation: string
-  imagingMethodId: string
+  imagingMethod: OntologyValue | null
   antigenRetrieval: AntigenRetrieval | ""
   condition: OntologyValue | null
   visibility: Visibility
@@ -93,7 +118,7 @@ export type AntibodyRow = {
   subcellularLocation: OntologyValue | null
   locationNotDiscernible: boolean
   notes: string
-  images: ReportImageInput[]
+  images: RowImage[]
 }
 
 export function emptyContext(): ExperimentContext {
@@ -106,7 +131,7 @@ export function emptyContext(): ExperimentContext {
     species: null,
     tissue: null,
     preservation: "FFPE",
-    imagingMethodId: "",
+    imagingMethod: null,
     antigenRetrieval: "",
     condition: null,
     visibility: "PRIVATE",
@@ -151,16 +176,16 @@ export function duplicateRow(row: AntibodyRow): AntibodyRow {
   return { ...row, key: `row-${rowCounter}`, cellTypes: [...row.cellTypes], images: [] }
 }
 
-export function methodNeedsFluorophore(method: ImagingMethodOption | null): boolean {
-  return method?.detection === "FLUORESCENCE"
+let referenceCounter = 0
+
+export function emptyReference(): FovReference {
+  referenceCounter += 1
+  return { key: `ref-${referenceCounter}`, role: "", label: "", fluorophore: null, displayColor: "" }
 }
 
-export function methodNeedsMetalTag(method: ImagingMethodOption | null): boolean {
-  return method?.detection === "MASS"
-}
-
-export function methodNeedsCycle(method: ImagingMethodOption | null): boolean {
-  return method?.cyclic === true
+export function pruneFovs(fovs: Fov[], rows: AntibodyRow[]): Fov[] {
+  const used = new Set(rows.flatMap((r) => r.images.map((im) => im.url)))
+  return fovs.filter((f) => used.has(f.url))
 }
 
 export function extractOrganismId(speciesId: string): number | undefined {
@@ -209,16 +234,37 @@ export function preservationOptionLabel(value: string): string {
 
 export type RowValidationError = { key: string; field: keyof AntibodyRow; message: string }
 
-export function validateRows(rows: AntibodyRow[]): RowValidationError[] {
+export function isReferenceIncomplete(reference: FovReference): boolean {
+  return !reference.role || !reference.label.trim()
+}
+
+export function validateRows(rows: AntibodyRow[], fovs: Fov[]): RowValidationError[] {
   const errors: RowValidationError[] = []
+  const incompleteFovs = new Set(fovs.filter((f) => f.references.some(isReferenceIncomplete)).map((f) => f.url))
   for (const row of rows) {
     if (!row.markerName.trim()) errors.push({ key: row.key, field: "markerName", message: "Marker name is required" })
     if (row.images.length === 0) errors.push({ key: row.key, field: "images", message: "Add at least one image" })
+    else if (row.images.some((im) => incompleteFovs.has(im.url)))
+      errors.push({ key: row.key, field: "images", message: "Give every counterstain a role and a name" })
   }
   return errors
 }
 
-export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[]) {
+function displayColorPayload(color: string): string | undefined {
+  return color.startsWith("#") ? color : undefined
+}
+
+function referencePayload(reference: FovReference) {
+  return {
+    role: reference.role as ReferenceRole,
+    label: reference.label.trim(),
+    fluorophoreId: reference.fluorophore?.id || undefined,
+    displayColor: displayColorPayload(reference.displayColor),
+  }
+}
+
+export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[], fovs: Fov[]) {
+  const fovByUrl = new Map(fovs.map((f) => [f.url, f]))
   return {
     context: {
       name: context.name.trim(),
@@ -229,7 +275,7 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       species: context.species ?? undefined,
       tissue: context.tissue ?? undefined,
       preservation: context.preservation || undefined,
-      imagingMethodId: context.imagingMethodId || undefined,
+      imagingMethod: context.imagingMethod ?? undefined,
       antigenRetrieval: context.antigenRetrieval || undefined,
       condition: context.condition ?? undefined,
       visibility: context.visibility,
@@ -257,11 +303,17 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       specificity: row.specificity || undefined,
       subcellularLocation: row.locationNotDiscernible ? undefined : (row.subcellularLocation ?? undefined),
       notes: row.notes || undefined,
-      images: row.images.map((img) => ({
-        url: img.url,
-        caption: img.caption.trim() || undefined,
-        cellTypeIds: img.cellTypeIds,
-      })),
+      images: row.images.map((img) => {
+        const fov = fovByUrl.get(img.url)
+        const cellTypeIds = new Set(row.cellTypes.map((c) => c.id))
+        return {
+          url: img.url,
+          caption: fov?.caption.trim() || undefined,
+          cellTypeIds: img.cellTypeIds.filter((id) => cellTypeIds.has(id)),
+          displayColor: displayColorPayload(img.displayColor),
+          references: fov?.references.length ? fov.references.map(referencePayload) : undefined,
+        }
+      }),
     })),
   }
 }

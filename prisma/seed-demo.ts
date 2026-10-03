@@ -3,7 +3,6 @@
 // A real instance is bootstrapped with `npm run setup` and `npm run admin:create` instead.
 //
 //   npm run seed:demo      (refuses when NODE_ENV=production unless SEED_ALLOW_RESET=1)
-import { IMAGING_METHODS } from "@/models/imaging-method/data"
 import "dotenv/config"
 import type { PrismaClient } from "../lib/generated/prisma/client"
 import { runScript } from "./client"
@@ -12,20 +11,31 @@ import { LABS } from "./data/labs"
 import { CELL_TYPES, TISSUE_TYPE_TO_UBERON } from "./data/ontology"
 import { PANELS } from "./data/panels"
 import { PROTEIN_SUBCELLULAR } from "./data/proteins"
-import { FIXATION_TO_PRESERVATION, REPORTS, SPECIMEN_BY_CONTEXT, type ReportInput } from "./data/reports"
+import { REPORTS, SPECIMEN_BY_CONTEXT, SPECIMEN_PREP, type ImagingMethodRef, type ReportInput } from "./data/reports"
 import { SPECIES_TO_TAXON, taxonIdForHost } from "./data/taxa"
 import { USERS } from "./data/users"
+import { storeEfoImagingMethod, storeLocalImagingMethod } from "./imaging-methods"
 import { printReferenceDataCounts, upsertReferenceData } from "./reference"
 import { generateSeedBlobImages, getReportImages } from "./seed-images"
 
 type AntibodyIdByRrid = Record<string, string>
 
-const IMAGING_METHOD_BY_ID = new Map(IMAGING_METHODS.map((method) => [method.id, method]))
+const storedImagingMethods = new Map<string, { id: string; label: string }>()
 
-// The short common name ("CODEX", "IMC"), which reads better in a generated experiment name than the
-// full ontology label.
-function shortMethodName(imagingMethodId: string): string {
-  return IMAGING_METHOD_BY_ID.get(imagingMethodId)?.shortLabel ?? imagingMethodId
+async function storeImagingMethod(prisma: PrismaClient, ref: ImagingMethodRef): Promise<{ id: string; label: string }> {
+  const key = imagingMethodKey(ref)
+  const cached = storedImagingMethods.get(key)
+  if (cached) return cached
+  const method =
+    typeof ref === "string"
+      ? await storeEfoImagingMethod(prisma, ref)
+      : await storeLocalImagingMethod(prisma, ref.label, ref.parentId)
+  storedImagingMethods.set(key, method)
+  return method
+}
+
+function imagingMethodKey(ref: ImagingMethodRef): string {
+  return typeof ref === "string" ? ref : `${ref.parentId}|${ref.label}`
 }
 
 let fluorophoreIdByName: Record<string, string> = {}
@@ -82,8 +92,8 @@ async function seedExperimentalReports(prisma: PrismaClient, antibodyMap: Antibo
       r.submitterId,
       r.species,
       r.tissueType,
-      r.fixation,
-      r.imagingMethodId,
+      r.prep,
+      imagingMethodKey(r.imagingMethod),
       r.antigenRetrieval ?? "NONE",
     ].join("|")
     if (!groups.has(key)) groups.set(key, { context: r, members: [] })
@@ -93,14 +103,14 @@ async function seedExperimentalReports(prisma: PrismaClient, antibodyMap: Antibo
   const knownCellTypeIds = new Set(CELL_TYPES.map((ct) => ct.id))
 
   for (const { context, members } of groups.values()) {
-    const preservation = FIXATION_TO_PRESERVATION[context.fixation]
+    const preservation = SPECIMEN_PREP[context.prep]
     const specimen = SPECIMEN_BY_CONTEXT[`${context.species}|${context.tissueType}`]
+    const imagingMethod = await storeImagingMethod(prisma, context.imagingMethod)
     const experiment = await prisma.experiment.create({
       data: {
-        name: `${context.tissueType} ${shortMethodName(context.imagingMethodId)} run`,
+        name: `${context.tissueType} ${imagingMethod.label} run`,
         speciesId: SPECIES_TO_TAXON[context.species] ?? null,
         tissueId: TISSUE_TYPE_TO_UBERON[context.tissueType] ?? null,
-        fixation: context.fixation,
         preservation: preservation.preservation,
         preservationText: specimen?.preservationText ?? null,
         fixativeId: preservation.fixativeId,
@@ -112,7 +122,7 @@ async function seedExperimentalReports(prisma: PrismaClient, antibodyMap: Antibo
         donorAge: specimen?.donorAge ?? null,
         developmentalStageId: specimen?.developmentalStageId ?? null,
         protocolDoi: specimen?.protocolDoi ?? null,
-        imagingMethodId: context.imagingMethodId,
+        imagingMethodId: imagingMethod.id,
         antigenRetrieval: context.antigenRetrieval ?? null,
         submitterId: context.submitterId,
         visibility: "PUBLIC",
@@ -128,7 +138,7 @@ async function seedExperimentalReports(prisma: PrismaClient, antibodyMap: Antibo
         (id): id is string => typeof id === "string" && knownCellTypeIds.has(id),
       )
 
-      await prisma.experimentalReport.create({
+      const report = await prisma.experimentalReport.create({
         data: {
           experimentId: experiment.id,
           antibodyId,
@@ -143,16 +153,25 @@ async function seedExperimentalReports(prisma: PrismaClient, antibodyMap: Antibo
           specificity: r.specificity,
           notes: r.notes,
           cellTypes: { create: cellTypeIds.map((cellTypeId) => ({ cellTypeId })) },
-          images: {
-            create: getReportImages(index).map((url, sortOrder) => ({
-              url,
-              sortOrder,
-              cellTypes: { create: cellTypeIds.map((cellTypeId) => ({ cellTypeId })) },
-            })),
-          },
         },
         select: { id: true },
       })
+
+      for (const [sortOrder, url] of getReportImages(index).entries()) {
+        const image = await prisma.image.upsert({
+          where: { experimentId_url: { experimentId: experiment.id, url } },
+          update: {},
+          create: { experimentId: experiment.id, url, sortOrder },
+          select: { id: true, _count: { select: { channels: true } } },
+        })
+        await prisma.imageChannel.create({
+          data: { imageId: image.id, reportId: report.id, sortOrder: image._count.channels },
+        })
+        await prisma.imageCellType.createMany({
+          data: cellTypeIds.map((cellTypeId) => ({ imageId: image.id, cellTypeId })),
+          skipDuplicates: true,
+        })
+      }
     }
   }
 
@@ -167,8 +186,9 @@ async function seedPanels(prisma: PrismaClient, antibodyMap: AntibodyIdByRrid) {
         name: panel.name,
         description: panel.description,
         speciesId: panel.speciesId,
-        fixation: panel.fixation,
-        imagingMethodId: panel.imagingMethodId,
+        preservation: SPECIMEN_PREP[panel.prep].preservation,
+        fixativeId: SPECIMEN_PREP[panel.prep].fixativeId,
+        imagingMethodId: (await storeImagingMethod(prisma, panel.imagingMethod)).id,
         ownerId: panel.ownerId,
         visibility: "PUBLIC",
         cycles: {
@@ -295,9 +315,11 @@ async function resetDatabase(prisma: PrismaClient) {
   await prisma.panelMarker.deleteMany()
   await prisma.panelCycle.deleteMany()
   await prisma.panel.deleteMany()
+  await prisma.image.deleteMany()
   await prisma.reportCellType.deleteMany()
   await prisma.experimentalReport.deleteMany()
   await prisma.experiment.deleteMany()
+  await prisma.dataSource.deleteMany()
   await prisma.fluorophore.deleteMany()
   await prisma.cellTypeMarker.deleteMany()
   await prisma.antibody.deleteMany()

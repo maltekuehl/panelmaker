@@ -4,7 +4,7 @@ PanelMaker is open-source software for designing antibody panels and sharing ant
 
 ## Features
 
-- **Marker and antibody database** with validation reports, searchable by species, tissue, cell type, imaging method and fixation
+- **Marker and antibody database** with validation reports, searchable by species, tissue, cell type, imaging method, preservation and fixative
 - **Validation reports** with ontology-backed metadata (Cell Ontology, UBERON, NCBI Taxonomy, GO, Disease Ontology), RRID lookup through the Antibody Registry, and image uploads (PNG, JPEG, WebP, TIFF up to 80 MB)
 - **Panel designer** for multi-cycle panels, with fluorophore overlap checks based on FPbase spectra and host species cross-reactivity checks
 - **Panel export** as CSV, an order list CSV for procurement, or JSON

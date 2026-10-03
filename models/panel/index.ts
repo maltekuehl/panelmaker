@@ -2,7 +2,6 @@ export {
   checkCrossReactivity,
   checkFluorophoreBrightness,
   checkFluorophoreOverlap,
-  checkTaggingModality,
   computePairOverlap,
   exportPanelCsv,
   exportPanelJson,
@@ -16,7 +15,6 @@ export type {
   PairOverlap,
   PanelValidationResult,
   PanelWarning,
-  TaggingIssue,
 } from "./intelligence"
 export {
   addCycle,

@@ -282,75 +282,16 @@ export function checkCrossReactivity(
   return issues
 }
 
-export type TaggingIssue = PanelWarning & {
-  type: "tagging_modality"
-  severity: "warning"
-  cycleId: string
-  markers: [string]
-}
-
-// Which tag a marker needs is a property of the imaging method, read from the ImagingMethod row:
-// a fluorescence method reads dyes, a mass method reads metal isotopes. A panel with no method set
-// yet is left alone rather than guessed at.
-export function checkTaggingModality(
-  panel: PanelRow,
-  markers: PanelMarkerRow[],
-  cycleNames: Map<string, string>,
-): TaggingIssue[] {
-  const detection = panel.imagingMethod?.detection
-  if (detection !== "FLUORESCENCE" && detection !== "MASS") return []
-
-  const methodLabel = panel.imagingMethod?.shortLabel ?? "This method"
-  const issues: TaggingIssue[] = []
-
-  for (const marker of markers) {
-    const cycleName = cycleNames.get(marker.cycleId) ?? `Cycle ${marker.cycleId}`
-    const target = marker.protein?.label ?? marker.antibody?.name ?? "A marker"
-    const base = {
-      type: "tagging_modality" as const,
-      severity: "warning" as const,
-      cycleId: marker.cycleId,
-      markers: [marker.id] as [string],
-    }
-
-    if (detection === "FLUORESCENCE" && marker.metalTag) {
-      issues.push({
-        ...base,
-        message: `${cycleName}: ${target} carries the metal tag ${marker.metalTag}, but ${methodLabel} reads fluorescence. Give it a fluorophore instead.`,
-      })
-      continue
-    }
-
-    if (detection === "MASS" && marker.fluorophore) {
-      issues.push({
-        ...base,
-        message: `${cycleName}: ${target} carries the fluorophore ${marker.fluorophore.name}, but ${methodLabel} reads metal isotopes. Give it a metal tag instead.`,
-      })
-    }
-  }
-
-  return issues
-}
-
 // `spectra` is optional so existing synchronous callers keep working. Without it the overlap check
 // falls back to the stored emission peaks; `validatePanelWithSpectra` in ./queries loads the curves.
 export function validatePanel(panel: PanelRow, spectra?: FluorophoreSpectraMap): PanelValidationResult {
   const allMarkers: PanelMarkerRow[] = panel.cycles.flatMap((cycle) => cycle.markers)
   const cycleNames = buildCycleNameMap(panel.cycles)
 
-  // Spectral overlap and relative brightness are properties of dyes, so they say nothing about a
-  // mass-detection panel; its channels are isotope masses.
-  const isMassPanel = panel.imagingMethod?.detection === "MASS"
-  const fluorophoreWarnings = isMassPanel ? [] : checkFluorophoreOverlap(allMarkers, cycleNames, spectra)
-  const brightnessWarnings = isMassPanel ? [] : checkFluorophoreBrightness(allMarkers, cycleNames, spectra)
+  const fluorophoreWarnings = checkFluorophoreOverlap(allMarkers, cycleNames, spectra)
+  const brightnessWarnings = checkFluorophoreBrightness(allMarkers, cycleNames, spectra)
   const crossReactivityWarnings = checkCrossReactivity(allMarkers, cycleNames)
-  const taggingWarnings = checkTaggingModality(panel, allMarkers, cycleNames)
-  const warnings: PanelWarning[] = [
-    ...fluorophoreWarnings,
-    ...crossReactivityWarnings,
-    ...taggingWarnings,
-    ...brightnessWarnings,
-  ]
+  const warnings: PanelWarning[] = [...fluorophoreWarnings, ...crossReactivityWarnings, ...brightnessWarnings]
 
   const errorCount = warnings.filter((w) => w.severity === "error").length
   const warningCount = warnings.filter((w) => w.severity === "warning").length
@@ -439,10 +380,9 @@ export function exportPanelJson(panel: PanelRow): object {
     name: panel.name,
     description: panel.description,
     species: panel.species?.label ?? null,
-    fixation: panel.fixation,
-    method: panel.imagingMethod
-      ? { id: panel.imagingMethod.id, label: panel.imagingMethod.label, efoId: panel.imagingMethod.efoId }
-      : null,
+    preservation: panel.preservation,
+    fixative: panel.fixative,
+    method: panel.imagingMethod ? { id: panel.imagingMethod.id, label: panel.imagingMethod.label } : null,
     condition: panel.condition,
     isPublic: panel.visibility === "PUBLIC",
     createdAt: panel.createdAt,

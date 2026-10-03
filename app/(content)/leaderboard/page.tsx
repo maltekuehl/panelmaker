@@ -4,7 +4,12 @@ import { LabLeaderboardTable, LeaderboardTable } from "@/components/leaderboard/
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSessionUser, resolveViewerContext } from "@/lib/auth"
-import { LEADERBOARD_FILTER_DIMENSIONS, leaderboardParsers, type LeaderboardParams } from "@/lib/data-table"
+import {
+  LEADERBOARD_FILTER_DIMENSIONS,
+  LEADERBOARD_FILTER_KEYS,
+  leaderboardParsers,
+  type LeaderboardParams,
+} from "@/lib/data-table"
 import { getBrowseFacets, type BrowseFacets } from "@/models/experimental-report"
 import { getLabsForUser, type LabWithRole } from "@/models/lab"
 import type { ViewerContext } from "@/models/lab/access"
@@ -73,13 +78,20 @@ async function resolveScope(searchParams: Promise<SearchParams>): Promise<Resolv
     viewer,
     labs,
     selectedLabs,
-    filters: { speciesIds: params.species, tissueIds: params.tissue, methodIds: params.method },
+    filters: {
+      speciesIds: params.species,
+      tissueIds: params.tissue,
+      methodIds: params.method,
+      preservations: params.preservation,
+      fixativeIds: params.fixative,
+      conditionIds: params.condition,
+    },
     labFilterRejected: params.lab.length > selectedLabs.length,
   }
 }
 
 function categoryLabel(facets: BrowseFacets, params: LeaderboardParams): string | null {
-  const labels = (["species", "tissue", "method"] as const).flatMap((key) =>
+  const labels = LEADERBOARD_FILTER_KEYS.filter((key) => key !== "lab").flatMap((key) =>
     params[key].map((value) => facets[key]?.find((option) => option.value === value)?.label ?? value),
   )
   return labels.length > 0 ? labels.join(", ") : null

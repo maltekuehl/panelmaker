@@ -1,5 +1,4 @@
 import { resolveFluorophoreSpectra } from "@/lib/integrations/fpbase"
-import { IMAGING_METHODS } from "@/models/imaging-method/data"
 import { Prisma, type PrismaClient } from "../lib/generated/prisma/client"
 import { FLUOROPHORE_SEED } from "./data/fluorophores"
 import {
@@ -23,7 +22,6 @@ export type ReferenceDataCounts = {
   developmentalStages: number
   proteins: number
   cellTypeMarkers: number
-  imagingMethods: number
   fluorophores: { created: number; updated: number }
 }
 
@@ -119,10 +117,6 @@ export async function upsertReferenceData(prisma: PrismaClient): Promise<Referen
     })
   }
 
-  for (const { id, ...fields } of IMAGING_METHODS) {
-    await prisma.imagingMethod.upsert({ where: { id }, update: fields, create: { id, ...fields } })
-  }
-
   const fluorophores = await upsertFluorophores(prisma)
 
   return {
@@ -135,7 +129,6 @@ export async function upsertReferenceData(prisma: PrismaClient): Promise<Referen
     developmentalStages: DEVELOPMENTAL_STAGES.length,
     proteins: PROTEINS.length,
     cellTypeMarkers: CELL_TYPE_MARKERS.length,
-    imagingMethods: IMAGING_METHODS.length,
     fluorophores,
   }
 }
@@ -150,7 +143,6 @@ export function printReferenceDataCounts(counts: ReferenceDataCounts): void {
   console.log(`  ${counts.developmentalStages} developmental stages`)
   console.log(`  ${counts.proteins} proteins`)
   console.log(`  ${counts.cellTypeMarkers} cell type markers`)
-  console.log(`  ${counts.imagingMethods} imaging methods`)
   console.log(`  fluorophores: ${counts.fluorophores.created} created, ${counts.fluorophores.updated} updated`)
 }
 

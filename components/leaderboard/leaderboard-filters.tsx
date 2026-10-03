@@ -32,6 +32,7 @@ export function LeaderboardFilters({ dimensions }: { dimensions: LeaderboardDime
       {visibleDimensions.map((dimension) => (
         <DataTableFacetedFilter
           key={dimension.key}
+          className="w-[180px] justify-start overflow-hidden"
           title={dimension.title}
           options={dimension.options}
           value={params[dimension.key as keyof typeof params] ?? []}
@@ -40,12 +41,10 @@ export function LeaderboardFilters({ dimensions }: { dimensions: LeaderboardDime
           }
         />
       ))}
-      {isActive && (
-        <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters}>
-          <X className="size-4" />
-          Reset
-        </Button>
-      )}
+      <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters} disabled={!isActive}>
+        <X className="size-4" />
+        Reset
+      </Button>
     </div>
   )
 }

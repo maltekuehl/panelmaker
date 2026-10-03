@@ -184,7 +184,7 @@ docker compose build migrate && docker compose build app && docker compose up -d
 The first build takes about 5 to 15 minutes, longer on small servers. If it fails with `JavaScript heap out of memory`, add or enlarge swap (step 2). The build lets Node use up to 4 GB (`BUILD_MEMORY_MB` in `.env` changes that), which on a small server only works when swap makes up the difference. Then:
 
 1. `postgres` starts.
-2. `migrate` applies the database schema, loads the reference data (ontology terms, marker proteins, imaging methods, fluorophores and their FPbase spectra) and exits. It runs on every `up` and never deletes anything.
+2. `migrate` applies the database schema, loads the reference data (ontology terms, marker proteins, fluorophores and their FPbase spectra) and exits. It runs on every `up` and never deletes anything.
 3. `app` starts.
 4. `caddy` starts and obtains the certificate. Its log shows "certificate obtained successfully".
 
@@ -200,7 +200,7 @@ The password is printed once and stored nowhere, so save it straight away. To ch
 
 ### 12. Load data
 
-The reference data (ontology terms, marker proteins, imaging methods, fluorophores and their spectra) is already in place: `migrate` loads it on every start. What else to load depends on what the instance is for.
+The reference data (ontology terms, marker proteins, fluorophores and their spectra) is already in place: `migrate` loads it on every start. What else to load depends on what the instance is for.
 
 **A real instance.** Optionally import the IBEX knowledge base, 104 experiments with 1,277 published antibody validation reports from the IBEX Imaging Community (CC BY 4.0). It makes no network calls, deletes nothing and is safe to run again:
 

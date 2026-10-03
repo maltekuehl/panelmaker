@@ -10,7 +10,7 @@ import { TruncatedOrNotAvailable, TruncatedText } from "@/components/shared/trun
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { formatDate } from "@/lib/format"
-import { doiUrl, pubmedUrl, type PublicationRef } from "@/lib/publication"
+import { doiUrl, pubmedUrl, type PublicationLink } from "@/lib/publication"
 import { antibodyHref, cellTypeHref, markerHref, profileHref } from "@/lib/routes"
 import { ColumnDef } from "@tanstack/react-table"
 import { ImageIcon } from "lucide-react"
@@ -27,7 +27,8 @@ export type MarkerReport = {
   submitter: string | null
   submitterId: string | null
   lab: string | null
-  publication: PublicationRef | null
+  publication: PublicationLink | null
+  dataSource: { name: string; url: string | null } | null
   method: string
   species: string
   works: boolean | null
@@ -83,7 +84,6 @@ export type ReportEntry = {
 export type ExperimentEntry = {
   id: string
   name: string | null
-  citation: string | null
   pmid: string | null
   doi: string | null
   method: string
@@ -282,6 +282,7 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
   },
   {
     accessorKey: "clone",
+    meta: { label: "Clone", hiddenByDefault: true },
     header: () => <DataTableColumnHeader field="clone" title="Clone" />,
     cell: ({ row }) => (
       <TruncatedOrNotAvailable value={row.original.clone} className="max-w-[120px] text-muted-foreground" />
@@ -357,6 +358,7 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
   },
   {
     accessorKey: "subcellular",
+    meta: { label: "Subcellular", hiddenByDefault: true },
     header: () => <DataTableColumnHeader field="subcellular" title="Subcellular" />,
     cell: ({ row }) => (
       <TruncatedOrNotAvailable value={row.original.subcellular} className="max-w-[160px] text-muted-foreground" />
@@ -379,6 +381,7 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
   },
   {
     accessorKey: "specificity",
+    meta: { label: "Specificity", hiddenByDefault: true },
     header: () => <DataTableColumnHeader field="specificity" title="Specificity" />,
     cell: ({ row }) => <SpecificityBadge specificity={row.original.specificity} />,
   },
@@ -499,10 +502,7 @@ function PublicationCell({ entry }: { entry: ExperimentEntry }) {
       </a>
     )
   }
-  if (entry.citation) {
-    return <span className="text-muted-foreground">Cited</span>
-  }
-  return <span className="text-muted-foreground">None</span>
+  return <NotAvailable />
 }
 
 export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
@@ -541,6 +541,7 @@ export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
   },
   {
     id: "publication",
+    meta: { label: "Publication", hiddenByDefault: true },
     header: "Publication",
     cell: ({ row }) => <PublicationCell entry={row.original} />,
   },

@@ -607,7 +607,7 @@ export async function getLabInventoryPage(labId: string, params: LabInventoryPar
 export interface InventoryFacetOption {
   value: string
   label: string
-  description: string
+  description?: string
 }
 
 export interface InventoryFacets {
@@ -663,7 +663,7 @@ export async function getImportableInventory(labIds: string[], q?: string): Prom
   })
 }
 
-// Distinct host species and clonalities present in a lab's inventory, with counts, for the filter
+// Distinct host species (with their NCBITaxon ids) and clonalities present in a lab's inventory, for the filter
 // dropdowns. The per-lab inventory is bounded so a single scan is fine.
 export async function getLabInventoryFacets(labId: string): Promise<InventoryFacets> {
   const rows = await prisma.labAntibody.findMany({
@@ -671,25 +671,20 @@ export async function getLabInventoryFacets(labId: string): Promise<InventoryFac
     select: { antibody: { select: { clonality: true, hostTaxon: { select: { id: true, label: true } } } } },
   })
 
-  const hostMap = new Map<string, { label: string; count: number }>()
-  const clonalityMap = new Map<Clonality, number>()
+  const hostMap = new Map<string, string>()
+  const clonalities = new Set<Clonality>()
   for (const row of rows) {
     const host = row.antibody.hostTaxon
-    if (host) {
-      const entry = hostMap.get(host.id) ?? { label: host.label, count: 0 }
-      entry.count += 1
-      hostMap.set(host.id, entry)
-    }
-    const clonality = row.antibody.clonality
-    if (clonality) clonalityMap.set(clonality, (clonalityMap.get(clonality) ?? 0) + 1)
+    if (host) hostMap.set(host.id, host.label)
+    if (row.antibody.clonality) clonalities.add(row.antibody.clonality)
   }
 
   const host: InventoryFacetOption[] = [...hostMap.entries()]
-    .map(([value, { label, count }]) => ({ value, label, description: String(count) }))
+    .map(([value, label]) => ({ value, label, description: value }))
     .sort((a, b) => a.label.localeCompare(b.label))
 
-  const clonality: InventoryFacetOption[] = [...clonalityMap.entries()]
-    .map(([value, count]) => ({ value, label: CLONALITY_LABELS[value], description: String(count) }))
+  const clonality: InventoryFacetOption[] = [...clonalities]
+    .map((value) => ({ value, label: CLONALITY_LABELS[value] }))
     .sort((a, b) => a.label.localeCompare(b.label))
 
   return { host, clonality }
