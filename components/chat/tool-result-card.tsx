@@ -91,9 +91,12 @@ interface AggregateReportsOutput {
     key: string
     label: string
     count: number
-    worksCount: number
-    worksRate: number
-    strongSignalCount: number
+    recommendedCount: number
+    withCaveatsCount: number
+    notRecommendedCount: number
+    usableRate: number
+    validatedCount: number
+    topIssues: { label: string; count: number }[]
   }[]
 }
 
@@ -160,9 +163,10 @@ interface GetPanelLayoutSignalsOutput {
     marker: string
     likelyLabileOrPhospho: boolean
     hostSpeciesSeen: string[]
-    workedReportCount: number
+    usableReportCount: number
     totalReportCount: number
-    bestFluorophores: { fluorophore: string; worksRate: number; strongSignalCount: number }[]
+    reportedIssues: { issue: string; count: number }[]
+    bestFluorophores: { fluorophore: string; usableRate: number; recommendedCount: number }[]
   }[]
 }
 
@@ -232,6 +236,7 @@ const TOOL_LABELS: Record<ToolName, string> = {
   recommendForPanel: "Preparing recommendation...",
   resolveFluorophores: "Resolving fluorophores...",
   resolveImagingMethods: "Loading imaging methods...",
+  listReportTerms: "Loading report terms...",
   listMyPanels: "Loading your panels...",
   createPanel: "Creating panel...",
   addCycle: "Adding cycle...",
@@ -343,10 +348,12 @@ function ReportRow({ report }: { report: EvidenceReport }) {
   const href = antibodyHref(ab?.rrid ?? null)
   return (
     <div className="flex items-center gap-1.5 text-[11px]">
-      {report.works === true ? (
+      {report.recommendation === "RECOMMENDED" ? (
         <Check className="size-3 shrink-0 text-success" />
-      ) : report.works === false ? (
-        <X className="size-3 shrink-0 text-muted-foreground" />
+      ) : report.recommendation === "WITH_CAVEATS" ? (
+        <Check className="size-3 shrink-0 text-warning" />
+      ) : report.recommendation === "NOT_RECOMMENDED" ? (
+        <X className="size-3 shrink-0 text-destructive" />
       ) : null}
       <Link href={report.reportUrl} className="shrink-0 font-medium text-primary hover:underline">
         #{report.id.slice(0, 6)}
@@ -597,9 +604,12 @@ function AggregateReportsCard({ output }: { output: AggregateReportsOutput }) {
               <span className="min-w-0 flex-1 truncate font-medium">{g.label}</span>
               <span className="shrink-0 text-muted-foreground">{g.count}×</span>
               <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px] font-normal">
-                {pct(g.worksRate)} works
+                {pct(g.usableRate)} usable
               </Badge>
-              <span className="shrink-0 text-[10px] text-muted-foreground">{g.strongSignalCount} strong</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">{g.recommendedCount} recommended</span>
+              {g.validatedCount > 0 && (
+                <span className="shrink-0 text-[10px] text-muted-foreground">{g.validatedCount} with controls</span>
+              )}
             </div>
           ))}
         </div>
@@ -795,15 +805,20 @@ function GetPanelLayoutSignalsCard({ output }: { output: GetPanelLayoutSignalsOu
                   </Badge>
                 )}
                 <span className="ml-auto text-[10px] text-muted-foreground">
-                  {s.workedReportCount}/{s.totalReportCount} worked
+                  {s.usableReportCount}/{s.totalReportCount} usable
                 </span>
               </div>
               {s.hostSpeciesSeen.length > 0 && (
                 <p className="truncate text-[10px] text-muted-foreground">Hosts: {s.hostSpeciesSeen.join(", ")}</p>
               )}
+              {s.reportedIssues.length > 0 && (
+                <p className="truncate text-[10px] text-muted-foreground">
+                  Issues: {s.reportedIssues.map((i) => `${i.issue} (${i.count})`).join(", ")}
+                </p>
+              )}
               {s.bestFluorophores.length > 0 && (
                 <p className="truncate text-[10px] text-muted-foreground">
-                  Best: {s.bestFluorophores.map((f) => `${f.fluorophore} (${pct(f.worksRate)})`).join(", ")}
+                  Best: {s.bestFluorophores.map((f) => `${f.fluorophore} (${pct(f.usableRate)})`).join(", ")}
                 </p>
               )}
             </div>
@@ -1026,6 +1041,22 @@ export function ToolResultCard({ part }: { part: ToolPart }) {
             }))}
           />
         )
+      case "listReportTerms": {
+        const terms = output as {
+          validationMethods?: { id: string; label: string }[]
+          stainingIssues?: { id: string; label: string }[]
+        }
+        return (
+          <ChipListCard
+            title="Report terms"
+            icon={Search}
+            items={[...(terms.validationMethods ?? []), ...(terms.stainingIssues ?? [])].map((t) => ({
+              id: t.id,
+              label: t.label,
+            }))}
+          />
+        )
+      }
       case "listMyPanels":
         return <ListMyPanelsCard output={output as ListMyPanelsOutput} />
       case "createPanel":

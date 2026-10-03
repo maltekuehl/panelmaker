@@ -1,0 +1,486 @@
+{
+  "resolvedAt": "2026-10-03",
+  "source": "UniProtKB REST, gene_exact + organism_id + reviewed:true, fields accession,protein_name,gene_primary",
+  "targets": {
+    "abcg2-sc-377176": {
+      "accession": "Q9UNQ0",
+      "label": "Broad substrate specificity ATP-binding cassette transporter ABCG2",
+      "geneSymbol": "ABCG2",
+      "organismId": 9606
+    },
+    "adiponectin-ma1-054": {
+      "accession": "Q15848",
+      "label": "Adiponectin",
+      "geneSymbol": "ADIPOQ",
+      "organismId": 9606
+    },
+    "aif-cst-5318": {
+      "accession": "O95831",
+      "label": "Apoptosis-inducing factor 1, mitochondrial",
+      "geneSymbol": "AIFM1",
+      "organismId": 9606
+    },
+    "akap12-25199-1-ap": {
+      "accession": "Q02952",
+      "label": "A-kinase anchor protein 12",
+      "geneSymbol": "AKAP12",
+      "organismId": 9606
+    },
+    "akr1c1-ma5-32842": {
+      "accession": "Q04828",
+      "label": "Aldo-keto reductase family 1 member C1",
+      "geneSymbol": "AKR1C1",
+      "organismId": 9606
+    },
+    "alphab-crystallin-68001-1-ig": {
+      "accession": "P02511",
+      "label": "Alpha-crystallin B chain",
+      "geneSymbol": "CRYAB",
+      "organismId": 9606
+    },
+    "anxa3-hpa013398": {
+      "accession": "P12429",
+      "label": "Annexin A3",
+      "geneSymbol": "ANXA3",
+      "organismId": 9606
+    },
+    "bactin-a5441": {
+      "accession": "P60709",
+      "label": "Actin, cytoplasmic 1",
+      "geneSymbol": "ACTB",
+      "organismId": 9606
+    },
+    "bcatenin-ab6302": {
+      "accession": "P35222",
+      "label": "Catenin beta-1",
+      "geneSymbol": "CTNNB1",
+      "organismId": 9606
+    },
+    "ca9-af2188": {
+      "accession": "Q16790",
+      "label": "Carbonic anhydrase 9",
+      "geneSymbol": "CA9",
+      "organismId": 9606
+    },
+    "calpain-ss1-ab92333": {
+      "accession": "P04632",
+      "label": "Calpain small subunit 1",
+      "geneSymbol": "CAPNS1",
+      "organismId": 9606
+    },
+    "calreticulin-ab92516": {
+      "accession": "P27797",
+      "label": "Calreticulin",
+      "geneSymbol": "CALR",
+      "organismId": 9606
+    },
+    "caspase1-p20-pa5-99390": {
+      "accession": "P29452",
+      "label": "Caspase-1",
+      "geneSymbol": "Casp1",
+      "organismId": 10090
+    },
+    "catalase-66765-1-ig": {
+      "accession": "P04040",
+      "label": "Catalase",
+      "geneSymbol": "CAT",
+      "organismId": 9606
+    },
+    "cd200-af2724": {
+      "accession": "P41217",
+      "label": "OX-2 membrane glycoprotein",
+      "geneSymbol": "CD200",
+      "organismId": 9606
+    },
+    "ck19-ab52625": {
+      "accession": "P08727",
+      "label": "Keratin, type I cytoskeletal 19",
+      "geneSymbol": "KRT19",
+      "organismId": 9606
+    },
+    "ck7-ga61961-2": {
+      "accession": "P08729",
+      "label": "Keratin, type II cytoskeletal 7",
+      "geneSymbol": "KRT7",
+      "organismId": 9606
+    },
+    "ck8-mab3165-sp": {
+      "accession": "P05787",
+      "label": "Keratin, type II cytoskeletal 8",
+      "geneSymbol": "KRT8",
+      "organismId": 9606
+    },
+    "collagen3-ab7778": {
+      "accession": "P02461",
+      "label": "Collagen alpha-1(III) chain",
+      "geneSymbol": "COL3A1",
+      "organismId": 9606
+    },
+    "cyclinb1-cst-12231": {
+      "accession": "P14635",
+      "label": "G2/mitotic-specific cyclin-B1",
+      "geneSymbol": "CCNB1",
+      "organismId": 9606
+    },
+    "cytochrome-c-ab110325": {
+      "accession": "P99999",
+      "label": "Cytochrome c",
+      "geneSymbol": "CYCS",
+      "organismId": 9606
+    },
+    "decorin-af143": {
+      "accession": "P07585",
+      "label": "Decorin",
+      "geneSymbol": "DCN",
+      "organismId": 9606
+    },
+    "ecadherin-af648": {
+      "accession": "P12830",
+      "label": "Cadherin-1",
+      "geneSymbol": "CDH1",
+      "organismId": 9606
+    },
+    "eea1-sc-137130": {
+      "accession": "Q15075",
+      "label": "Early endosome antigen 1",
+      "geneSymbol": "EEA1",
+      "organismId": 9606
+    },
+    "ehd3-ls-c133741": {
+      "accession": "Q9NZN3",
+      "label": "EH domain-containing protein 3",
+      "geneSymbol": "EHD3",
+      "organismId": 9606
+    },
+    "ezrin-cst-3145s": {
+      "accession": "P15311",
+      "label": "Ezrin",
+      "geneSymbol": "EZR",
+      "organismId": 9606
+    },
+    "fam189a2-pa5-63414": {
+      "accession": "Q15884",
+      "label": "Endosomal transmembrane epsin interactor 1",
+      "geneSymbol": "ENTREP1",
+      "organismId": 9606
+    },
+    "fibronectin-ab2413": {
+      "accession": "P02751",
+      "label": "Fibronectin",
+      "geneSymbol": "FN1",
+      "organismId": 9606
+    },
+    "fkbp51-af4094-sp": {
+      "accession": "Q13451",
+      "label": "Peptidyl-prolyl cis-trans isomerase FKBP5",
+      "geneSymbol": "FKBP5",
+      "organismId": 9606
+    },
+    "fos-ab190289": {
+      "accession": "P01100",
+      "label": "Protein c-Fos",
+      "geneSymbol": "FOS",
+      "organismId": 9606
+    },
+    "gfap-14-9892-82": {
+      "accession": "P14136",
+      "label": "Glial fibrillary acidic protein",
+      "geneSymbol": "GFAP",
+      "organismId": 9606
+    },
+    "gpx1-af3798": {
+      "accession": "P07203",
+      "label": "Glutathione peroxidase 1",
+      "geneSymbol": "GPX1",
+      "organismId": 9606
+    },
+    "gpx3-af4199": {
+      "accession": "P22352",
+      "label": "Glutathione peroxidase 3",
+      "geneSymbol": "GPX3",
+      "organismId": 9606
+    },
+    "gr-cst-3660": {
+      "accession": "P04150",
+      "label": "Glucocorticoid receptor",
+      "geneSymbol": "NR3C1",
+      "organismId": 9606
+    },
+    "grp78-11587-1-ap": {
+      "accession": "P11021",
+      "label": "Endoplasmic reticulum chaperone BiP",
+      "geneSymbol": "HSPA5",
+      "organismId": 9606
+    },
+    "hbegf-af-259": {
+      "accession": "Q99075",
+      "label": "Proheparin-binding EGF-like growth factor",
+      "geneSymbol": "HBEGF",
+      "organismId": 9606
+    },
+    "hmox1-ma1-112": {
+      "accession": "P09601",
+      "label": "Heme oxygenase 1",
+      "geneSymbol": "HMOX1",
+      "organismId": 9606
+    },
+    "hsd11b2-mab8630-sp": {
+      "accession": "P80365",
+      "label": "11-beta-hydroxysteroid dehydrogenase type 2",
+      "geneSymbol": "HSD11B2",
+      "organismId": 9606
+    },
+    "idh1-r132h-dia-h09": {
+      "accession": "O75874",
+      "label": "Isocitrate dehydrogenase [NADP] cytoplasmic",
+      "geneSymbol": "IDH1",
+      "organismId": 9606
+    },
+    "il1ra-ab124962": {
+      "accession": "P18510",
+      "label": "Interleukin-1 receptor antagonist protein",
+      "geneSymbol": "IL1RN",
+      "organismId": 9606
+    },
+    "inos-ma5-41652": {
+      "accession": "P35228",
+      "label": "Nitric oxide synthase, inducible",
+      "geneSymbol": "NOS2",
+      "organismId": 9606
+    },
+    "integrin-a1-af5676": {
+      "accession": "P56199",
+      "label": "Integrin alpha-1",
+      "geneSymbol": "ITGA1",
+      "organismId": 9606
+    },
+    "integrin-a3-66070-1-ig": {
+      "accession": "P26006",
+      "label": "Integrin alpha-3",
+      "geneSymbol": "ITGA3",
+      "organismId": 9606
+    },
+    "integrin-b1-ab179471": {
+      "accession": "P05556",
+      "label": "Integrin beta-1",
+      "geneSymbol": "ITGB1",
+      "organismId": 9606
+    },
+    "ki67-ab15580": {
+      "accession": "E9PVX6",
+      "label": "Proliferation marker protein Ki-67",
+      "geneSymbol": "Mki67",
+      "organismId": 10090
+    },
+    "ki67-m724029-2": {
+      "accession": "P46013",
+      "label": "Proliferation marker protein Ki-67",
+      "geneSymbol": "MKI67",
+      "organismId": 9606
+    },
+    "laminb1-sc-374015": {
+      "accession": "P14733",
+      "label": "Lamin-B1",
+      "geneSymbol": "Lmnb1",
+      "organismId": 10090
+    },
+    "lamp1-cst-9091": {
+      "accession": "P11279",
+      "label": "Lysosome-associated membrane glycoprotein 1",
+      "geneSymbol": "LAMP1",
+      "organismId": 9606
+    },
+    "lc3b-cst-3868": {
+      "accession": "Q9GZQ8",
+      "label": "Microtubule-associated protein 1 light chain 3 beta",
+      "geneSymbol": "MAP1LC3B",
+      "organismId": 9606
+    },
+    "mertk-af591": {
+      "accession": "Q12866",
+      "label": "Tyrosine-protein kinase Mer",
+      "geneSymbol": "MERTK",
+      "organismId": 9606
+    },
+    "nox4-mab8158": {
+      "accession": "Q9NPH5",
+      "label": "NADPH oxidase 4",
+      "geneSymbol": "NOX4",
+      "organismId": 9606
+    },
+    "nqo1-67240-1-ig": {
+      "accession": "P15559",
+      "label": "NAD(P)H dehydrogenase [quinone] 1",
+      "geneSymbol": "NQO1",
+      "organismId": 9606
+    },
+    "p-gsk3b-cst-9323": {
+      "accession": "P49841",
+      "label": "Glycogen synthase kinase-3 beta",
+      "geneSymbol": "GSK3B",
+      "organismId": 9606
+    },
+    "p-jak2-ma5-42424": {
+      "accession": "O60674",
+      "label": "Tyrosine-protein kinase JAK2",
+      "geneSymbol": "JAK2",
+      "organismId": 9606
+    },
+    "p-rps6-cst-4858s": {
+      "accession": "P62753",
+      "label": "Small ribosomal subunit protein eS6",
+      "geneSymbol": "RPS6",
+      "organismId": 9606
+    },
+    "p-smad2-44-244g": {
+      "accession": "Q15796",
+      "label": "SMAD family member 2",
+      "geneSymbol": "SMAD2",
+      "organismId": 9606
+    },
+    "p-smad3-pa5-104940": {
+      "accession": "P84022",
+      "label": "SMAD family member 3",
+      "geneSymbol": "SMAD3",
+      "organismId": 9606
+    },
+    "p-stat1-cst-9167s": {
+      "accession": "P42224",
+      "label": "Signal transducer and activator of transcription 1-alpha/beta",
+      "geneSymbol": "STAT1",
+      "organismId": 9606
+    },
+    "p-stat3-ab76315": {
+      "accession": "P40763",
+      "label": "Signal transducer and activator of transcription 3",
+      "geneSymbol": "STAT3",
+      "organismId": 9606
+    },
+    "p62-cst-39749": {
+      "accession": "Q13501",
+      "label": "Sequestosome-1",
+      "geneSymbol": "SQSTM1",
+      "organismId": 9606
+    },
+    "pck1-66862-1-ig": {
+      "accession": "P35558",
+      "label": "Phosphoenolpyruvate carboxykinase, cytosolic [GTP]",
+      "geneSymbol": "PCK1",
+      "organismId": 9606
+    },
+    "pcna-ab29": {
+      "accession": "P12004",
+      "label": "DNA sliding clamp PCNA",
+      "geneSymbol": "PCNA",
+      "organismId": 9606
+    },
+    "periostin-af3548": {
+      "accession": "Q15063",
+      "label": "Periostin",
+      "geneSymbol": "POSTN",
+      "organismId": 9606
+    },
+    "pitx2-af7388": {
+      "accession": "Q99697",
+      "label": "Pituitary homeobox 2",
+      "geneSymbol": "PITX2",
+      "organismId": 9606
+    },
+    "pjun-ab32385": {
+      "accession": "P05412",
+      "label": "Transcription factor Jun",
+      "geneSymbol": "JUN",
+      "organismId": 9606
+    },
+    "podoplanin-af3244-sp": {
+      "accession": "Q62011",
+      "label": "Podoplanin",
+      "geneSymbol": "Pdpn",
+      "organismId": 10090
+    },
+    "psmb8-lmp7-ab3329": {
+      "accession": "P28062",
+      "label": "Proteasome subunit beta type-8",
+      "geneSymbol": "PSMB8",
+      "organismId": 9606
+    },
+    "rab5a-cst-46449": {
+      "accession": "P20339",
+      "label": "Ras-related protein Rab-5A",
+      "geneSymbol": "RAB5A",
+      "organismId": 9606
+    },
+    "rab7-ab137029": {
+      "accession": "P51149",
+      "label": "Ras-related protein Rab-7a",
+      "geneSymbol": "RAB7A",
+      "organismId": 9606
+    },
+    "rcas1-cst-12290": {
+      "accession": "O00559",
+      "label": "Receptor-binding cancer antigen expressed on SiSo cells",
+      "geneSymbol": "EBAG9",
+      "organismId": 9606
+    },
+    "sclerostin-pa5-37943": {
+      "accession": "Q9BQB4",
+      "label": "Sclerostin",
+      "geneSymbol": "SOST",
+      "organismId": 9606
+    },
+    "sirt1-cst-8469": {
+      "accession": "Q96EB6",
+      "label": "NAD-dependent protein deacetylase sirtuin-1",
+      "geneSymbol": "SIRT1",
+      "organismId": 9606
+    },
+    "sod1-67480-1-ig": {
+      "accession": "P00441",
+      "label": "Superoxide dismutase [Cu-Zn]",
+      "geneSymbol": "SOD1",
+      "organismId": 9606
+    },
+    "sod2-pa5-30604": {
+      "accession": "P04179",
+      "label": "Superoxide dismutase [Mn], mitochondrial",
+      "geneSymbol": "SOD2",
+      "organismId": 9606
+    },
+    "srb1-ab217318": {
+      "accession": "Q8WTV0",
+      "label": "Scavenger receptor class B member 1",
+      "geneSymbol": "SCARB1",
+      "organismId": 9606
+    },
+    "stat2-mab16661": {
+      "accession": "P52630",
+      "label": "Signal transducer and activator of transcription 2",
+      "geneSymbol": "STAT2",
+      "organismId": 9606
+    },
+    "survivin-cst-2808": {
+      "accession": "O15392",
+      "label": "Baculoviral IAP repeat-containing protein 5",
+      "geneSymbol": "BIRC5",
+      "organismId": 9606
+    },
+    "talin1-ab71333": {
+      "accession": "Q9Y490",
+      "label": "Talin-1",
+      "geneSymbol": "TLN1",
+      "organismId": 9606
+    },
+    "th-cst-45648": {
+      "accession": "P24529",
+      "label": "Tyrosine 3-monooxygenase",
+      "geneSymbol": "Th",
+      "organismId": 10090
+    },
+    "zo1-61-7300": {
+      "accession": "Q07157",
+      "label": "Tight junction protein 1",
+      "geneSymbol": "TJP1",
+      "organismId": 9606
+    }
+  }
+}

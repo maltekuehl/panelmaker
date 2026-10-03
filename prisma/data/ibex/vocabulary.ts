@@ -23,13 +23,15 @@ export { taxonId } from "@/models/taxon/id"
 
 export const RRID_PREFIX = "RRID:"
 
-// Only the two reagent types that are genuinely antibodies become Antibody rows and reports. The
+// Only primary antibodies become Antibody rows and reports. A secondary's validation only means
+// something together with the primary it detected, and the table has no column linking the two. The
 // rest are stains, kits and blocking reagents that PanelMaker has no model for; importing them as
 // antibodies would put reagents such as "Hoechst 33342" or "Avidin/Biotin Blocking Kit" into the
 // marker and antibody browse surfaces.
-export const IMPORTED_REAGENT_TYPES: ReadonlySet<string> = new Set(["Primary Antibody", "Secondary Antibody"])
+export const IMPORTED_REAGENT_TYPES: ReadonlySet<string> = new Set(["Primary Antibody"])
 
 export const SKIPPED_REAGENT_TYPE_REASONS: Record<string, string> = {
+  "Secondary Antibody": "secondary antibody with no target protein; the source does not say which primary it detects",
   "Nuclear Dye": "nucleic acid stain, not an antibody; PanelMaker has no stain reagent model",
   "Lectin": "carbohydrate-binding protein, not an antibody",
   "Streptavidin Conjugate": "detection reagent with no target, not an antibody",

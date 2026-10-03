@@ -149,9 +149,13 @@ curl "https://<your-instance>/api/reports?species=NCBI:txid9606&method=CODEX&pre
       "experimentId": "exp_01abc",
       "antibodyId": "ab_01abc",
       "status": "PUBLISHED",
-      "works": true,
-      "signalQuality": "EXCELLENT",
+      "recommendation": "RECOMMENDED",
       "dilution": "1:200",
+      "concentrationUgPerMl": 2.5,
+      "issues": [{ "issue": { "id": "lost-during-cycling", "label": "Lost during cycling or retrieval" } }],
+      "validations": [
+        { "result": "SUPPORTS", "method": { "id": "knockout-control", "label": "Knockout or knockdown control" } }
+      ],
       "fluorophore": "Alexa Fluor 488",
       "imageUrls": ["/uploads/6f1c....webp"]
     }

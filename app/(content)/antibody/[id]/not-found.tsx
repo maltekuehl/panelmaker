@@ -25,7 +25,7 @@ export default function AntibodyNotFound() {
               The antibody you&apos;re looking for doesn&apos;t exist or may have been removed.
             </p>
             <Button asChild>
-              <Link href="/browse">Browse All Markers</Link>
+              <Link href="/browse">Browse All Antibodies</Link>
             </Button>
           </CardContent>
         </Card>

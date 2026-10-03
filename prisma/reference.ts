@@ -1,5 +1,6 @@
 import { resolveFluorophoreSpectra } from "@/lib/integrations/fpbase"
 import { Prisma, type PrismaClient } from "../lib/generated/prisma/client"
+import { STAINING_ISSUES, VALIDATION_METHODS } from "./data/assessment"
 import { FLUOROPHORE_SEED } from "./data/fluorophores"
 import {
   CELLULAR_COMPONENTS,
@@ -20,6 +21,8 @@ export type ReferenceDataCounts = {
   diseaseConditions: number
   fixatives: number
   developmentalStages: number
+  validationMethods: number
+  stainingIssues: number
   proteins: number
   cellTypeMarkers: number
   fluorophores: { created: number; updated: number }
@@ -104,6 +107,12 @@ export async function upsertReferenceData(prisma: PrismaClient): Promise<Referen
   for (const { id, label } of DEVELOPMENTAL_STAGES) {
     await prisma.developmentalStage.upsert({ where: { id }, update: { label }, create: { id, label } })
   }
+  for (const { id, ...fields } of VALIDATION_METHODS) {
+    await prisma.validationMethod.upsert({ where: { id }, update: fields, create: { id, ...fields } })
+  }
+  for (const { id, ...fields } of STAINING_ISSUES) {
+    await prisma.stainingIssue.upsert({ where: { id }, update: fields, create: { id, ...fields } })
+  }
 
   for (const { id, ...fields } of PROTEINS) {
     await prisma.protein.upsert({ where: { id }, update: fields, create: { id, ...fields } })
@@ -127,6 +136,8 @@ export async function upsertReferenceData(prisma: PrismaClient): Promise<Referen
     diseaseConditions: DISEASE_CONDITIONS.length,
     fixatives: FIXATIVES.length,
     developmentalStages: DEVELOPMENTAL_STAGES.length,
+    validationMethods: VALIDATION_METHODS.length,
+    stainingIssues: STAINING_ISSUES.length,
     proteins: PROTEINS.length,
     cellTypeMarkers: CELL_TYPE_MARKERS.length,
     fluorophores,
@@ -141,6 +152,8 @@ export function printReferenceDataCounts(counts: ReferenceDataCounts): void {
   console.log(`  ${counts.diseaseConditions} disease conditions`)
   console.log(`  ${counts.fixatives} fixatives`)
   console.log(`  ${counts.developmentalStages} developmental stages`)
+  console.log(`  ${counts.validationMethods} validation methods`)
+  console.log(`  ${counts.stainingIssues} staining issues`)
   console.log(`  ${counts.proteins} proteins`)
   console.log(`  ${counts.cellTypeMarkers} cell type markers`)
   console.log(`  fluorophores: ${counts.fluorophores.created} created, ${counts.fluorophores.updated} updated`)

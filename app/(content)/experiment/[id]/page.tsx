@@ -17,7 +17,12 @@ import {
   specimenFieldList,
   toSpecimenDetail,
 } from "@/models/experiment"
-import { getVisibleReportsForExperiment, reportUsageImages, toReportUsage } from "@/models/experimental-report"
+import {
+  getVisibleReportsForExperiment,
+  isUsable,
+  reportUsageImages,
+  toReportUsage,
+} from "@/models/experimental-report"
 import { canEditExperiment } from "@/models/lab"
 import { format } from "date-fns"
 import type { Metadata } from "next"
@@ -72,7 +77,7 @@ async function ExperimentContent({ id }: { id: string }) {
   const usages = reports.map(toReportUsage)
   const images = usages.flatMap(reportUsageImages)
 
-  const workingCount = usages.filter((u) => u.works === true).length
+  const usableCount = usages.filter((u) => isUsable(u.recommendation)).length
   const antibodyCount = new Set(usages.map((u) => u.antibodyId).filter(Boolean)).size
   const cellTypeCount = new Set(usages.flatMap((u) => u.cellTypes.map((c) => c.id))).size
 
@@ -88,7 +93,7 @@ async function ExperimentContent({ id }: { id: string }) {
 
   const stats: { label: string; value: number }[] = [
     { label: "Stainings", value: usages.length },
-    { label: "Working", value: workingCount },
+    { label: "Usable", value: usableCount },
     { label: "Antibodies", value: antibodyCount },
     { label: "Cell types", value: cellTypeCount },
   ]

@@ -1,17 +1,11 @@
 import "server-only"
 
-import {
-  Clonality,
-  LabAntibodyStatus,
-  type LabRole,
-  Preservation,
-  SignalQuality,
-  Specificity,
-} from "@/lib/generated/prisma/enums"
+import { Clonality, LabAntibodyStatus, type LabRole, Preservation, Recommendation } from "@/lib/generated/prisma/enums"
 import { checkUserRateLimit, RATE_LIMITS } from "@/lib/rate-limiting"
 import { getAntibodyById, lookupByRrid, searchAntibodies } from "@/models/antibody"
 import { getCellTypeDescendantIds, searchCellTypes } from "@/models/cell-type"
 import { aggregateReports, type EvidenceFilter, type EvidenceGroupBy, findReports } from "@/models/evidence"
+import { getStainingIssues, getValidationMethods } from "@/models/experimental-report"
 import { fluorophoreExists, searchFluorophores } from "@/models/fluorophore"
 import { getStoredImagingMethods, searchImagingMethods } from "@/models/imaging-method"
 import { canEditPanel, getInventoryForLabs, getLabsForUser } from "@/models/lab"
@@ -78,9 +72,15 @@ const evidenceFilterShape = {
   clonalities: z.array(z.nativeEnum(Clonality)).optional().describe("Antibody clonality"),
   conjugates: z.array(z.string()).optional(),
   fluorophoreIds: z.array(z.string()).optional(),
-  works: z.boolean().optional().describe("true = only validations that worked; false = only failures"),
-  signalQualityIn: z.array(z.nativeEnum(SignalQuality)).optional().describe("Reported signal quality"),
-  specificityIn: z.array(z.nativeEnum(Specificity)).optional().describe("Reported specificity"),
+  recommendationIn: z
+    .array(z.nativeEnum(Recommendation))
+    .optional()
+    .describe("Submitter verdict: RECOMMENDED, WITH_CAVEATS (usable with caveats) or NOT_RECOMMENDED"),
+  validatedBy: z
+    .array(z.string())
+    .optional()
+    .describe("Validation method ids from listReportTerms; keeps reports where that control supports specificity"),
+  issueIds: z.array(z.string()).optional().describe("Staining issue ids from listReportTerms"),
   submitterIds: z.array(z.string()).optional(),
   conditionIds: z.array(z.string()).optional(),
   preservations: z
@@ -267,7 +267,7 @@ export function createChatTools(viewer: ViewerContext) {
 
   const findReportsTool = tool({
     description:
-      "THE evidence workhorse. Search validation reports with any combination of filters. Resolve names to ids first. Returns individual reports (antibody, clone, dilution, antigen retrieval, preservation, fixative, fluorophore, works, signal quality, specificity, submitter, lab, report link).",
+      "THE evidence workhorse. Search validation reports with any combination of filters. Resolve names to ids first. Returns individual reports (antibody, clone, dilution, antigen retrieval, preservation, fixative, fluorophore, concentration, recommendation, issues, specificity controls with their result, submitter, lab, report link).",
     inputSchema: z.object({
       ...evidenceFilterShape,
       scope: scopeSchema,
@@ -282,7 +282,7 @@ export function createChatTools(viewer: ViewerContext) {
 
   const aggregateReportsTool = tool({
     description:
-      "Roll up reports along one dimension with works-rate and strong-signal counts. Use groupBy 'antibody'/'clone' to rank antibodies, 'marker' to rank markers for cell types, 'dilution'/'antigenRetrieval'/'preservation'/'fixative' for protocols, 'fluorophore' for empirical contrast, 'submitter' for who has experience.",
+      "Roll up reports along one dimension with recommended / with caveats / not recommended counts, usableRate (recommended or with caveats over reports with a verdict), validatedCount (reports with a supporting specificity control) and the most frequent issues. Use groupBy 'antibody'/'clone' to rank antibodies, 'marker' to rank markers for cell types, 'dilution'/'antigenRetrieval'/'preservation'/'fixative' for protocols, 'fluorophore' for empirical contrast, 'submitter' for who has experience.",
     inputSchema: z.object({
       ...evidenceFilterShape,
       groupBy: z.enum([
@@ -401,7 +401,7 @@ export function createChatTools(viewer: ViewerContext) {
 
   const getPanelLayoutSignals = tool({
     description:
-      "For a set of markers, gather the signals needed to lay out cycles + fluorophores: a labile/phospho hint, host species seen, and the fluorophores that gave the strongest empirical contrast for each marker. Combine these with panel-design best practices (labile/phospho early, robust strong-signal markers later, one host species per cycle, weak targets on cleaner channels) to propose a layout, then call analyzePanel.",
+      "For a set of markers, gather the signals needed to lay out cycles + fluorophores: a labile/phospho hint, host species seen, the issues reports recorded (for example loss during cycling, autofluorescence, bleed-through) and the fluorophores with the best usable rate for each marker. Combine these with panel-design best practices (labile/phospho early, robust markers later, one host species per cycle, weak targets on cleaner channels) to propose a layout, then call analyzePanel.",
     inputSchema: z.object({ markerIds: z.array(z.string()).min(1), scope: scopeSchema }),
     execute: async ({ markerIds, scope }) => {
       const v = scopedViewer(viewer, scope)
@@ -414,17 +414,25 @@ export function createChatTools(viewer: ViewerContext) {
           ])
           const label = protein?.geneSymbol ?? protein?.label ?? markerId
           const hosts = [...new Set(reports.map((r) => r.antibody?.hostSpecies).filter(Boolean))]
-          const worked = reports.filter((r) => r.works === true).length
+          const usable = reports.filter(
+            (r) => r.recommendation === "RECOMMENDED" || r.recommendation === "WITH_CAVEATS",
+          ).length
+          const issueCounts = new Map<string, number>()
+          for (const issue of reports.flatMap((r) => r.issues))
+            issueCounts.set(issue, (issueCounts.get(issue) ?? 0) + 1)
           return {
             markerId,
             marker: label,
             likelyLabileOrPhospho: LABILE_PATTERN.test(label),
             hostSpeciesSeen: hosts,
-            workedReportCount: worked,
+            usableReportCount: usable,
+            reportedIssues: [...issueCounts.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .map(([issue, count]) => ({ issue, count })),
             totalReportCount: reports.length,
             bestFluorophores: byFluorophore
               .slice(0, 4)
-              .map((g) => ({ fluorophore: g.label, worksRate: g.worksRate, strongSignalCount: g.strongSignalCount })),
+              .map((g) => ({ fluorophore: g.label, usableRate: g.usableRate, recommendedCount: g.recommendedCount })),
           }
         }),
       )
@@ -448,7 +456,9 @@ export function createChatTools(viewer: ViewerContext) {
               ),
             reason: z
               .string()
-              .describe("Short, specific reason this is a good choice (e.g. 'highest works-rate in human kidney IF')."),
+              .describe(
+                "Short, specific reason this is a good choice (e.g. 'recommended in 4 of 5 human kidney reports, knockout-validated').",
+              ),
           }),
         )
         .min(1)
@@ -525,6 +535,16 @@ export function createChatTools(viewer: ViewerContext) {
         ? (await searchImagingMethods(query)).map((m) => ({ id: m.id, label: m.label, parent: m.description ?? null }))
         : (await getStoredImagingMethods()).map((m) => ({ id: m.id, label: m.label, parent: m.parent })),
     }),
+  })
+
+  const listReportTerms = tool({
+    description:
+      "List the validation methods (specificity controls) and staining issues reports can record, with their ids. Call before filtering by validatedBy or issueIds.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const [validationMethods, stainingIssues] = await Promise.all([getValidationMethods(), getStainingIssues()])
+      return { validationMethods, stainingIssues }
+    },
   })
 
   const listMyPanels = tool({
@@ -690,6 +710,7 @@ export function createChatTools(viewer: ViewerContext) {
     resolveAntibodies,
     resolveFluorophores,
     resolveImagingMethods,
+    listReportTerms,
     getMarkerDetails,
     getAntibodyDetails,
     findReports: findReportsTool,

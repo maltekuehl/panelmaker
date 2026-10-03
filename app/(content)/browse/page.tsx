@@ -121,15 +121,15 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const facets = await cachedFacets()
 
   const modeLabel =
-    params.mode === "antibodies"
-      ? "Antibodies"
+    params.mode === "markers"
+      ? "Markers"
       : params.mode === "reports"
         ? "Reports"
         : params.mode === "experiments"
           ? "Experiments"
           : params.mode === "panels"
             ? "Panels"
-            : "Markers"
+            : "Antibodies"
 
   return (
     <div className="container mx-auto space-y-6 px-4 py-6">

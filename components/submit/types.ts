@@ -1,7 +1,15 @@
 import type { AntibodyRegistryValue } from "@/components/antibody-registry-combobox"
 import type { FluorophoreOption } from "@/components/fluorophore-combobox"
 import { DONOR_SEX_LABELS, PRESERVATION_LABELS, SAMPLE_TYPE_LABELS } from "@/lib/constants"
-import { AntigenRetrieval, DonorSex, Preservation, SampleType, type Visibility } from "@/lib/generated/prisma/enums"
+import {
+  AntigenRetrieval,
+  DonorSex,
+  Preservation,
+  SampleType,
+  type Recommendation,
+  type ValidationResult,
+  type Visibility,
+} from "@/lib/generated/prisma/enums"
 import { parseTaxonUid } from "@/models/taxon/id"
 
 import type { OntologyValue } from "@/components/ontology-combobox"
@@ -112,9 +120,10 @@ export type AntibodyRow = {
   cloneId: string
   rrid: string
   hostSpecies: OntologyValue | null
-  works: string
-  signalQuality: string
-  specificity: string
+  concentration: string
+  recommendation: Recommendation | ""
+  issueIds: string[]
+  validations: Record<string, ValidationResult>
   subcellularLocation: OntologyValue | null
   locationNotDiscernible: boolean
   notes: string
@@ -161,9 +170,10 @@ export function emptyRow(): AntibodyRow {
     cloneId: "",
     rrid: "",
     hostSpecies: null,
-    works: "",
-    signalQuality: "",
-    specificity: "",
+    concentration: "",
+    recommendation: "",
+    issueIds: [],
+    validations: {},
     subcellularLocation: null,
     locationNotDiscernible: false,
     notes: "",
@@ -173,7 +183,14 @@ export function emptyRow(): AntibodyRow {
 
 export function duplicateRow(row: AntibodyRow): AntibodyRow {
   rowCounter += 1
-  return { ...row, key: `row-${rowCounter}`, cellTypes: [...row.cellTypes], images: [] }
+  return {
+    ...row,
+    key: `row-${rowCounter}`,
+    cellTypes: [...row.cellTypes],
+    issueIds: [...row.issueIds],
+    validations: { ...row.validations },
+    images: [],
+  }
 }
 
 let referenceCounter = 0
@@ -298,9 +315,10 @@ export function buildBatchPayload(context: ExperimentContext, rows: AntibodyRow[
       fluorophoreId: row.fluorophore?.id || undefined,
       metalTag: row.metalTag || undefined,
       cycleNumber: row.cycleNumber ? Number(row.cycleNumber) : undefined,
-      works: row.works === "Yes" ? true : row.works === "No" ? false : undefined,
-      signalQuality: row.signalQuality || undefined,
-      specificity: row.specificity || undefined,
+      concentrationUgPerMl: row.concentration.trim() ? Number(row.concentration) : undefined,
+      recommendation: row.recommendation || undefined,
+      issueIds: row.issueIds,
+      validations: Object.entries(row.validations).map(([methodId, result]) => ({ methodId, result })),
       subcellularLocation: row.locationNotDiscernible ? undefined : (row.subcellularLocation ?? undefined),
       notes: row.notes || undefined,
       images: row.images.map((img) => {

@@ -17,15 +17,34 @@ A validation report documents a single antibody tested in a single experimental 
 | Field                 | Description                                                                        | Required    |
 | --------------------- | ---------------------------------------------------------------------------------- | ----------- |
 | Antibody              | The specific antibody (clone + vendor)                                             | Yes         |
-| Result                | Pass, Fail, or Inconclusive                                                        | Yes         |
+| Verdict               | Recommended, usable with caveats, or not recommended                               | Recommended |
 | Imaging method        | EFO spatial proteomics assays (t-CyCIF, IBEX, PhenoCycler, IMC, MIBI-TOF and more) | Yes         |
 | Species               | The organism the tissue came from                                                  | Yes         |
 | Tissue                | The tissue type imaged                                                             | Yes         |
 | Preservation          | FFPE, fresh frozen, fixed frozen, fresh, or other                                  | Yes         |
 | Fixative              | The fixative chemistry, as a ChEBI term                                            | Recommended |
-| Working concentration | Dilution or µg/mL used                                                             | Recommended |
+| Working concentration | Dilution, and optionally the concentration in µg/mL                                | Recommended |
 | Cell type             | Positive control cell type expected to stain                                       | Recommended |
 | Notes                 | Free-text observations, staining artifacts, optimisation tips                      | Optional    |
+
+## Verdict, issues and specificity controls
+
+Each antibody gets a verdict for this experiment: **recommended**, **usable with caveats**, or **not recommended**. The verdict holds for the tissue, preservation and method of this run only. The same antibody can be recommended on frozen tissue and not recommended on FFPE, and both reports are useful.
+
+**Issues** say what limited the stain, for example weak signal, high background, off-target staining, signal lost during cycling or retrieval, autofluorescence in the channel, bleed-through, or a neighbouring antibody blocking the epitope. Pick as many as apply. They explain a "with caveats" or "not recommended" verdict, and they help others place the marker in a cyclic panel.
+
+**Specificity controls** record how you know the stain is specific. For each control you ran, mark whether it supports the staining, contradicts it, or was inconclusive:
+
+- Knockout or knockdown control
+- Independent antibody against a different epitope
+- Agreement with RNA (in situ hybridization or single cell data)
+- Agreement with single-marker IHC or IF
+- Expected cell types and subcellular compartment
+- Positive and negative control tissue
+- Secondary-only or no-primary control
+- Isotype control
+
+Leave the controls you did not run empty. PanelMaker shows the evidence as you recorded it and does not turn it into a specificity score.
 
 ## Ontology-backed fields
 

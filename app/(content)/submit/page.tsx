@@ -2,6 +2,7 @@ import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { SubmissionForm } from "@/components/submit/submission-form"
 import { getSessionUser } from "@/lib/auth"
 import { signInUrl } from "@/lib/routes"
+import { getStainingIssues, getValidationMethods } from "@/models/experimental-report"
 import { getLabsForUser } from "@/models/lab"
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
@@ -18,7 +19,11 @@ export default async function SubmitPage() {
     redirect(signInUrl("/submit"))
   }
 
-  const labsWithRole = await getLabsForUser(user.id)
+  const [labsWithRole, validationMethods, stainingIssues] = await Promise.all([
+    getLabsForUser(user.id),
+    getValidationMethods(),
+    getStainingIssues(),
+  ])
 
   const labs = labsWithRole.map(({ lab }) => ({ id: lab.id, name: lab.name }))
 
@@ -34,7 +39,7 @@ export default async function SubmitPage() {
         </p>
       </div>
 
-      <SubmissionForm labs={labs} />
+      <SubmissionForm labs={labs} terms={{ validationMethods, stainingIssues }} />
     </div>
   )
 }

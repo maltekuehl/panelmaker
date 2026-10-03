@@ -3,7 +3,8 @@ import { z } from "zod"
 
 export const experimentNameSchema = z.string().trim().min(1, "Experiment name is required").max(255)
 
-const emptyToUndefined = (value: unknown) => (typeof value === "string" && value.trim() === "" ? undefined : value)
+export const emptyToUndefined = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? undefined : value
 
 export const ontologyValueSchema = z.object({
   id: z.string().min(1),

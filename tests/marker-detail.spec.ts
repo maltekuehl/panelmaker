@@ -25,7 +25,7 @@ test.describe("Marker detail page", () => {
   test("breadcrumbs link back to browse", async ({ page }) => {
     await page.getByRole("navigation", { name: "breadcrumb" }).getByRole("link", { name: "Markers" }).click()
 
-    await expect(page).toHaveURL("/browse")
+    await expect(page).toHaveURL("/browse?mode=markers")
   })
 })
 

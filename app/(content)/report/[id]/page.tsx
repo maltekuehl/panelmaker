@@ -1,5 +1,5 @@
 import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
-import { QualityBadge } from "@/components/browse/report-badges"
+import { IssueBadges, RecommendationBadge, ValidationList } from "@/components/browse/report-badges"
 import { LabLink } from "@/components/lab/lab-link"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getSessionUser, resolveViewerContext } from "@/lib/auth"
 import { VALIDATION_STATUS_LABELS } from "@/lib/constants"
-import { formatLongDate } from "@/lib/format"
+import { formatConcentration, formatLongDate } from "@/lib/format"
 import { doiUrl, hasPublication, pubmedUrl } from "@/lib/publication"
 import { antibodyHref, cellTypeHref, conditionHref, markerHref, profileHref } from "@/lib/routes"
 import { preservationLabel, specimenFieldList } from "@/models/experiment"
@@ -42,11 +42,6 @@ export async function generateMetadata({ params }: ReportPageProps): Promise<Met
   }
 }
 
-function ReportQuality({ label }: { label: string | null }) {
-  if (!label) return <NotAvailable />
-  return <QualityBadge label={label} />
-}
-
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "PUBLISHED":
@@ -71,28 +66,6 @@ function StatusBadge({ status }: { status: string }) {
         </Badge>
       )
   }
-}
-
-function WorksIndicator({ works }: { works: boolean | null }) {
-  if (works === null) {
-    return (
-      <div className="flex items-center gap-2">
-        <div className="h-3 w-3 rounded-full bg-muted-foreground/40" />
-        <span className="text-sm font-medium">Unknown</span>
-      </div>
-    )
-  }
-  return works ? (
-    <div className="flex items-center gap-2">
-      <div className="h-3 w-3 rounded-full bg-success" />
-      <span className="text-sm font-medium text-success">Works</span>
-    </div>
-  ) : (
-    <div className="flex items-center gap-2">
-      <div className="h-3 w-3 rounded-full bg-destructive" />
-      <span className="text-sm font-medium text-destructive">Failed</span>
-    </div>
-  )
 }
 
 // Only some images carry a caption, so the whole block is dropped when none does. Once one image has
@@ -163,7 +136,7 @@ async function ReportContent({ id }: { id: string }) {
               {usage.method}
             </Badge>
             <Badge variant="outline">{usage.species}</Badge>
-            <WorksIndicator works={usage.works} />
+            <RecommendationBadge recommendation={usage.recommendation} />
           </div>
 
           <p className="text-sm text-muted-foreground">
@@ -214,6 +187,9 @@ async function ReportContent({ id }: { id: string }) {
             <DetailRow label="Preservation">{preservation}</DetailRow>
             <DetailRow label="Method">{usage.method}</DetailRow>
             <DetailRow label="Dilution">{usage.dilution}</DetailRow>
+            {usage.concentrationUgPerMl !== null && (
+              <DetailRow label="Concentration">{formatConcentration(usage.concentrationUgPerMl)}</DetailRow>
+            )}
             <DetailRow label="Antigen Retrieval">{usage.antigenRetrieval}</DetailRow>
             {specimenFields
               .filter((field) => field.label !== "Preservation")
@@ -244,14 +220,14 @@ async function ReportContent({ id }: { id: string }) {
         <div className="space-y-3 border-t pt-6">
           <h2 className="text-lg font-semibold">Results</h2>
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4">
-            <DetailRow label="Works">
-              <WorksIndicator works={usage.works} />
+            <DetailRow label="Verdict">
+              <RecommendationBadge recommendation={usage.recommendation} />
             </DetailRow>
-            <DetailRow label="Signal Quality">
-              <ReportQuality label={usage.signalQuality} />
+            <DetailRow label="Issues">
+              <IssueBadges issues={usage.issues} />
             </DetailRow>
-            <DetailRow label="Specificity">
-              <ReportQuality label={usage.specificity} />
+            <DetailRow label="Specificity controls">
+              <ValidationList validations={usage.validations} />
             </DetailRow>
             {usage.cellTypes.length > 0 && (
               <DetailRow label="Cell Types">
@@ -437,7 +413,7 @@ export default async function ReportPage({ params }: ReportPageProps) {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      <CustomBreadcrumbs items={[{ label: "Reports", href: "/browse" }, { label: `Report #${id}` }]} />
+      <CustomBreadcrumbs items={[{ label: "Reports", href: "/browse?mode=reports" }, { label: `Report #${id}` }]} />
       <Suspense fallback={<ReportContentSkeleton />}>
         <ReportContent id={id} />
       </Suspense>

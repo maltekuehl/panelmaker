@@ -50,7 +50,7 @@ async function ConditionContent({ id }: { id: string }) {
 
   return (
     <>
-      <CustomBreadcrumbs items={[{ label: "Conditions", href: "/browse" }, { label: condition.label }]} />
+      <CustomBreadcrumbs items={[{ label: "Conditions", href: "/browse?mode=reports" }, { label: condition.label }]} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           <div>

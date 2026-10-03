@@ -10,60 +10,18 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { RECOMMENDATION_LABELS } from "@/lib/constants"
 import { antibodyHref } from "@/lib/routes"
 import { MAX_FOVS_PER_REPORT } from "@/models/experimental-report/schema"
 import { Copy, ExternalLink, Plus, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useState, type ReactNode } from "react"
+import { AssessmentFields, type AssessmentTerms } from "./assessment-fields"
 import { ImageUpload } from "./image-upload"
 import { LabInventoryCombobox, type LabInventoryImportItem } from "./lab-inventory-combobox"
 import { ProteinCombobox } from "./protein-combobox"
 import { duplicateRow, emptyRow, pruneFovs, type AntibodyRow, type Fov, type FovDraft, type RowImage } from "./types"
-
-const WORKS_OPTIONS = [
-  { value: "Yes", label: "Yes" },
-  { value: "No", label: "No" },
-]
-const QUALITY_OPTIONS = [
-  { value: "EXCELLENT", label: "Excellent" },
-  { value: "GOOD", label: "Good" },
-  { value: "MODERATE", label: "Moderate" },
-  { value: "POOR", label: "Poor" },
-  { value: "NONE", label: "None" },
-]
-const SPECIFICITY_OPTIONS = [
-  { value: "HIGH", label: "High" },
-  { value: "MODERATE", label: "Moderate" },
-  { value: "LOW", label: "Low" },
-  { value: "NON_SPECIFIC", label: "Non-specific" },
-]
-
-function ResultSelect({
-  value,
-  onChange,
-  options,
-}: {
-  value: string
-  onChange: (v: string) => void
-  options: { value: string; label: string }[]
-}) {
-  return (
-    <Select value={value || undefined} onValueChange={onChange}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select" />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
 
 function AntibodyEditor({
   row,
@@ -72,6 +30,7 @@ function AntibodyEditor({
   invalid,
   hasLabs,
   images,
+  terms,
 }: {
   row: AntibodyRow
   onChange: (patch: Partial<AntibodyRow> | ((r: AntibodyRow) => AntibodyRow)) => void
@@ -79,6 +38,7 @@ function AntibodyEditor({
   invalid: (field: keyof AntibodyRow) => boolean
   hasLabs?: boolean
   images: ReactNode
+  terms: AssessmentTerms
 }) {
   // Pre-fill the row from an antibody already stocked in one of the user's labs. Resolves by RRID on
   // submit, so the existing global Antibody (and its captured host species) is reused.
@@ -230,6 +190,17 @@ function AntibodyEditor({
         <Field label="Dilution">
           <Input value={row.dilution} onChange={(e) => onChange({ dilution: e.target.value })} placeholder="1:100" />
         </Field>
+        <Field label="Concentration (µg/mL)">
+          <Input
+            type="number"
+            min={0}
+            step="any"
+            inputMode="decimal"
+            value={row.concentration}
+            onChange={(e) => onChange({ concentration: e.target.value })}
+            placeholder="2.5"
+          />
+        </Field>
         <Field label="Fluorophore">
           <FluorophoreCombobox value={row.fluorophore} onChange={(fluorophore) => onChange({ fluorophore })} />
         </Field>
@@ -254,24 +225,7 @@ function AntibodyEditor({
       </div>
 
       <div className="grid grid-cols-2 gap-3 border-t pt-3 lg:grid-cols-4">
-        <Field label="Antibody works">
-          <ResultSelect value={row.works} onChange={(works) => onChange({ works })} options={WORKS_OPTIONS} />
-        </Field>
-        <Field label="Signal quality">
-          <ResultSelect
-            value={row.signalQuality}
-            onChange={(signalQuality) => onChange({ signalQuality })}
-            options={QUALITY_OPTIONS}
-          />
-        </Field>
-        <Field label="Specificity">
-          <ResultSelect
-            value={row.specificity}
-            onChange={(specificity) => onChange({ specificity })}
-            options={SPECIFICITY_OPTIONS}
-          />
-        </Field>
-        <Field label="Subcellular location">
+        <Field label="Subcellular location" className="col-span-2">
           <OntologyCombobox
             ontologyType="go_cc"
             value={row.subcellularLocation}
@@ -293,6 +247,8 @@ function AntibodyEditor({
           </label>
         </Field>
       </div>
+
+      <AssessmentFields row={row} terms={terms} onChange={onChange} />
 
       <Field label="Images" required className="border-t pt-3">
         {images}
@@ -344,6 +300,7 @@ export function AntibodyAccordion({
   organismId,
   invalid,
   hasLabs,
+  terms,
 }: {
   rows: AntibodyRow[]
   fovs: Fov[]
@@ -351,6 +308,7 @@ export function AntibodyAccordion({
   organismId?: number
   invalid: (key: string, field: keyof AntibodyRow) => boolean
   hasLabs?: boolean
+  terms: AssessmentTerms
 }) {
   const [open, setOpen] = useState<string[]>(() => rows.map((r) => r.key))
 
@@ -458,9 +416,9 @@ export function AntibodyAccordion({
                           {detection}
                         </Badge>
                       )}
-                      {row.works && (
+                      {row.recommendation && (
                         <Badge variant="outline" className="text-xs font-normal">
-                          {row.works === "Yes" ? "Works" : "Doesn't work"}
+                          {RECOMMENDATION_LABELS[row.recommendation]}
                         </Badge>
                       )}
                     </div>
@@ -502,6 +460,7 @@ export function AntibodyAccordion({
                   organismId={organismId}
                   invalid={(field) => invalid(row.key, field)}
                   hasLabs={hasLabs}
+                  terms={terms}
                   images={
                     <ImageUpload
                       images={row.images}

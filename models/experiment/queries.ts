@@ -1,14 +1,13 @@
 import "server-only"
 
 import type { ExperimentEntry } from "@/components/browse/columns"
-import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
+import type { CarouselDetail, CarouselImage } from "@/components/browse/image-carousel-dialog"
 import type { BrowseMarkerParams, EntryFilterParams, LabContentParams } from "@/lib/data-table"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import { antibodyHref, markerHref } from "@/lib/routes"
 import { validateAndResolveOntologyTerm } from "@/models/experimental-report"
 import { type EntriesPage, paginate, reportLevelWhere } from "@/models/experimental-report/queries"
-import { imageWithChannelsSelect, toCarouselChannels } from "@/models/image/transforms"
+import { imageTitle, imageWithChannelsSelect, targetDetails, toCarouselChannels } from "@/models/image/transforms"
 import { imagingMethodSelect as methodFields } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { buildExperimentVisibilityWhere } from "@/models/lab/visibility"
@@ -144,7 +143,7 @@ const experimentEntrySelect = {
   reports: {
     where: { status: "PUBLISHED" },
     select: {
-      works: true,
+      recommendation: true,
       antibodyId: true,
       antibody: { select: { name: true, rrid: true, targetName: true, targetProteinId: true } },
       cellTypes: { select: { cellType: { select: { id: true, label: true } } } },
@@ -207,25 +206,22 @@ function buildExperimentWhere(
 }
 
 function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
-  const workingCount = exp.reports.filter((r) => r.works === true).length
+  const usableCount = exp.reports.filter(
+    (r) => r.recommendation === "RECOMMENDED" || r.recommendation === "WITH_CAVEATS",
+  ).length
   const antibodyCount = new Set(exp.reports.map((r) => r.antibodyId).filter(Boolean)).size
 
-  const facts = [exp.species?.label, exp.tissue?.label].filter((f): f is string => !!f)
-  const images: CarouselImage[] = exp.images.map((image) => {
-    const links: CarouselImageLink[] = []
-    for (const channel of image.channels) {
-      const antibody = channel.report?.antibody
-      if (!antibody || channel.role !== "TARGET") continue
-      if (antibody.targetProteinId && antibody.targetName) {
-        links.push({ label: antibody.targetName, href: markerHref(antibody.targetProteinId) })
-      }
-      const abHref = antibodyHref(antibody.rrid)
-      if (abHref) links.push({ label: antibody.name, href: abHref })
-    }
-    const target = image.channels.find((channel) => channel.role === "TARGET" && channel.report?.antibody)
-    const title = target?.report?.antibody?.targetName ?? target?.report?.antibody?.name ?? undefined
-    return { src: image.url, caption: image.caption, title, links, facts, channels: toCarouselChannels(image) }
-  })
+  const contextDetails: CarouselDetail[] = [
+    { label: "Tissue", values: exp.tissue ? [{ text: exp.tissue.label }] : [] },
+    { label: "Species", values: exp.species ? [{ text: exp.species.label }] : [] },
+  ].filter((detail) => detail.values.length > 0)
+  const images: CarouselImage[] = exp.images.map((image) => ({
+    src: image.url,
+    caption: image.caption,
+    title: imageTitle(image),
+    details: [...targetDetails(image), ...contextDetails],
+    channels: toCarouselChannels(image),
+  }))
   return {
     id: exp.id,
     name: exp.name ?? null,
@@ -236,7 +232,7 @@ function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
     tissue: exp.tissue?.label ?? "Unknown",
     condition: exp.condition?.label ?? null,
     stainingCount: exp.reports.length,
-    workingCount,
+    usableCount,
     antibodyCount,
     images,
     createdAt: exp.createdAt.toISOString(),
@@ -252,7 +248,7 @@ const EXPERIMENT_SORT_ACCESSORS: Record<string, (e: ExperimentEntry) => string |
   tissue: (e) => e.tissue.toLowerCase(),
   condition: (e) => (e.condition ?? "").toLowerCase(),
   stainingCount: (e) => e.stainingCount,
-  workingCount: (e) => e.workingCount,
+  usableCount: (e) => e.usableCount,
   createdAt: (e) => e.createdAt,
 }
 

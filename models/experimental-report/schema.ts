@@ -1,6 +1,18 @@
-import { AntigenRetrieval, Preservation, SignalQuality, Specificity, Visibility } from "@/lib/generated/prisma/enums"
+import {
+  AntigenRetrieval,
+  Preservation,
+  Recommendation,
+  ValidationResult,
+  Visibility,
+} from "@/lib/generated/prisma/enums"
 import { normalizeRrid } from "@/lib/utils"
-import { citationFields, experimentNameSchema, ontologyValueSchema, specimenFields } from "@/models/experiment/schema"
+import {
+  citationFields,
+  emptyToUndefined,
+  experimentNameSchema,
+  ontologyValueSchema,
+  specimenFields,
+} from "@/models/experiment/schema"
 import { z } from "zod"
 
 const visibilityFields = {
@@ -68,6 +80,30 @@ const reportImageSchema = z.object({
 
 const reportImagesSchema = z.array(reportImageSchema).max(MAX_FOVS_PER_REPORT)
 
+const validationEntrySchema = z.object({
+  methodId: z.string().min(1).max(100),
+  result: z.nativeEnum(ValidationResult),
+})
+
+// What the submitter concluded about the stain, the problems they saw and the specificity controls they ran.
+const assessmentFields = {
+  recommendation: z.nativeEnum(Recommendation).optional(),
+  concentrationUgPerMl: z.preprocess(emptyToUndefined, z.coerce.number().positive().max(100000).optional()),
+  issueIds: z
+    .array(z.string().min(1).max(100))
+    .max(20)
+    .refine((ids) => new Set(ids).size === ids.length, "Each issue can only be listed once")
+    .optional(),
+  validations: z
+    .array(validationEntrySchema)
+    .max(20)
+    .refine(
+      (entries) => new Set(entries.map((entry) => entry.methodId)).size === entries.length,
+      "Each validation method can only be listed once",
+    )
+    .optional(),
+}
+
 // A report without any antibody identity is unusable: it renders as "Report #<id>" and drops out of
 // every antibody-based aggregation. Accept a picked antibody, a typed RRID, or a registry citation.
 function requireAntibodyIdentity(
@@ -94,9 +130,7 @@ const createReportFieldsSchema = z.object({
   dilution: z.string().max(50).optional(),
   incubation: z.string().max(255).optional(),
   antigenRetrieval: z.nativeEnum(AntigenRetrieval).optional(),
-  works: z.boolean().optional(),
-  signalQuality: z.nativeEnum(SignalQuality).optional(),
-  specificity: z.nativeEnum(Specificity).optional(),
+  ...assessmentFields,
   notes: z.string().max(5000).optional(),
   images: reportImagesSchema.optional(),
   ...visibilityFields,
@@ -146,9 +180,7 @@ const batchAntibodySchema = z.object({
   fluorophoreId: z.string().optional(),
   metalTag: z.string().max(100).optional(),
   cycleNumber: z.number().int().positive().optional(),
-  works: z.boolean().optional(),
-  signalQuality: z.nativeEnum(SignalQuality).optional(),
-  specificity: z.nativeEnum(Specificity).optional(),
+  ...assessmentFields,
   subcellularLocation: ontologyValueSchema.nullable().optional(),
   notes: z.string().max(5000).optional(),
   images: reportImagesSchema.optional(),

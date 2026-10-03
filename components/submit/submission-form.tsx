@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { AntibodyAccordion } from "./antibody-accordion"
+import type { AssessmentTerms } from "./assessment-fields"
 import { ExperimentDetailsSection } from "./experiment-details-section"
 import { ExperimentMethodSection } from "./experiment-method-section"
 import { SubmissionStepper, type StepState } from "./submission-stepper"
@@ -41,7 +42,7 @@ function plural(count: number, singular: string, pluralForm: string): string {
   return `${count} ${count === 1 ? singular : pluralForm}`
 }
 
-export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] }) {
+export function SubmissionForm({ labs, terms }: { labs: { id: string; name: string }[]; terms: AssessmentTerms }) {
   const { data: session } = useSession()
 
   const [context, setContext] = useState<ExperimentContext>(emptyContext)
@@ -271,6 +272,7 @@ export function SubmissionForm({ labs }: { labs: { id: string; name: string }[] 
                 organismId={organismId}
                 invalid={invalid}
                 hasLabs={labs.length > 0}
+                terms={terms}
               />
             )}
           </section>

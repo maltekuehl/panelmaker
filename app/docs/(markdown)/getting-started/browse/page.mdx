@@ -10,7 +10,7 @@ The marker database is the core of PanelMaker. It contains proteins, antibodies,
 
 ## Searching for markers
 
-Navigate to [/browse](/browse) to open the marker browser. Use the search bar to find markers by:
+Navigate to [/browse](/browse), which opens on antibodies, and switch to **Cell markers** to browse markers. Use the search bar to find markers by:
 
 - **Gene symbol** (e.g., `CD3E`, `FOXP3`, `PCNA`)
 - **Protein name** (e.g., `pan-cytokeratin`, `vimentin`)
@@ -30,8 +30,13 @@ Use the filter panel to narrow results by:
 | Preservation         | FFPE, fresh frozen, fixed frozen, fresh                          |
 | Fixative             | Formaldehyde, PFA, methanol (ChEBI)                              |
 | Subcellular location | Membrane, cytoplasm, nucleus                                     |
+| Recommendation       | Recommended, usable with caveats, not recommended                |
+| Specificity control  | Reports where that control supports the staining                 |
+| Issue                | Weak signal, high background, lost during cycling, and more      |
 
 Filters can be combined. The result count updates in real time.
+
+The **Verdicts** column on the markers and antibodies tabs shows a ring with the share of reports that recommend the antibody (green), accept it with caveats (yellow) or do not recommend it (red), with the grey track for reports without a verdict. It counts only the reports that match the active filters, so filtering by tissue or preservation shows how an antibody does in that context. Hover the ring for the counts.
 
 ## Marker detail page
 

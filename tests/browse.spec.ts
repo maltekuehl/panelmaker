@@ -1,8 +1,15 @@
 import { expect, test } from "./test-helpers"
 
 test.describe("Browse Page", () => {
-  test("renders the marker table", async ({ page }) => {
+  test("renders the antibody table by default", async ({ page }) => {
     await page.goto("/browse")
+
+    await expect(page.getByRole("button", { name: "Antibodies", pressed: true })).toBeVisible()
+    await expect(page.getByRole("table").getByRole("columnheader", { name: "RRID" })).toBeVisible()
+  })
+
+  test("renders the marker table", async ({ page }) => {
+    await page.goto("/browse?mode=markers")
 
     await expect(page).toHaveTitle(/Browse/)
     await expect(page.getByRole("heading", { level: 1, name: "Browse" })).toBeVisible()
@@ -16,7 +23,7 @@ test.describe("Browse Page", () => {
   })
 
   test("marker rows link to marker detail pages", async ({ page }) => {
-    await page.goto("/browse")
+    await page.goto("/browse?mode=markers")
 
     await expect(page.getByRole("table").locator('a[href^="/marker/"]').first()).toBeVisible()
   })
@@ -24,7 +31,7 @@ test.describe("Browse Page", () => {
   test("a query parameter is reflected in the page description", async ({ page }) => {
     await page.goto("/browse?q=CD4")
 
-    await expect(page.getByText('Showing markers results for "CD4"')).toBeVisible()
+    await expect(page.getByText('Showing antibodies results for "CD4"')).toBeVisible()
   })
 
   test("the antibodies mode renders the antibody table", async ({ page }) => {

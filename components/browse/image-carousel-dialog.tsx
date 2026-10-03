@@ -7,9 +7,15 @@ import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch"
 
-export interface CarouselImageLink {
+export interface CarouselDetailValue {
+  text: string
+  href?: string
+}
+
+// One labelled row of the info table, e.g. "Cell types" with a linked value per cell type.
+export interface CarouselDetail {
   label: string
-  href: string
+  values: CarouselDetailValue[]
 }
 
 export interface CarouselChannel {
@@ -24,8 +30,7 @@ export interface CarouselImage {
   src: string
   title?: string
   caption?: string | null
-  links?: CarouselImageLink[]
-  facts?: string[]
+  details?: CarouselDetail[]
   channels?: CarouselChannel[]
 }
 
@@ -180,8 +185,7 @@ export function ImageCarouselDialog({ images, title, trigger }: ImageCarouselDia
                   </div>
                 </TransformComponent>
 
-                <ImageMeta item={current} />
-                <ChannelLegend channels={current.channels ?? []} />
+                <ImageInfo item={current} />
                 <ImageCaption caption={current.caption} raised={count > 1} />
 
                 <div className="absolute right-3 top-3 z-20 flex gap-1.5">
@@ -267,39 +271,31 @@ function ImageCaption({ caption, raised }: { caption: string | null | undefined;
 
 function ChannelRow({ channel }: { channel: CarouselChannel }) {
   return (
-    <li className="flex items-start gap-2">
-      {channel.color ? (
+    <li className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className={cn("text-sm break-words", channel.highlighted && "font-semibold")}>{channel.label}</p>
+        {channel.detail && <p className="text-xs text-white/75">{channel.detail}</p>}
+      </div>
+      {channel.color && (
         <span
           aria-label={`Shown as ${channel.color}`}
           className="mt-1 size-3 shrink-0 rounded-full border border-white/40"
           style={{ backgroundColor: channel.color }}
         />
-      ) : (
-        <span className="mt-1 size-3 shrink-0" title="Display colour not recorded" />
       )}
-      <div className="min-w-0">
-        <p className={cn("text-sm break-words", channel.highlighted ? "font-semibold" : "text-white/90")}>
-          {channel.label}
-        </p>
-        {channel.detail && <p className="text-xs text-white/60">{channel.detail}</p>}
-      </div>
     </li>
   )
 }
 
 function ChannelLegend({ channels }: { channels: CarouselChannel[] }) {
-  if (channels.length === 0) return null
   return (
-    <aside
-      aria-label="Channels"
-      className="absolute right-3 top-16 z-20 max-h-[calc(100vh-14rem)] w-56 space-y-3 overflow-y-auto rounded-lg bg-black/70 p-3 text-white backdrop-blur"
-    >
+    <div className="space-y-3 border-t border-white/25 pt-3">
       {CHANNEL_SECTIONS.map(({ role, title }) => {
         const rows = channels.filter((channel) => channel.role === role)
         if (rows.length === 0) return null
         return (
           <section key={role} className="space-y-1.5">
-            <h3 className="text-[11px] font-medium tracking-wide text-white/50 uppercase">{title}</h3>
+            <h3 className="text-[11px] font-medium tracking-wide text-white/75 uppercase">{title}</h3>
             <ul className="space-y-1.5">
               {rows.map((channel, index) => (
                 <ChannelRow key={`${channel.label}-${index}`} channel={channel} />
@@ -308,33 +304,58 @@ function ChannelLegend({ channels }: { channels: CarouselChannel[] }) {
           </section>
         )
       })}
-    </aside>
+    </div>
   )
 }
 
-function ImageMeta({ item }: { item: CarouselImage }) {
-  const hasLinks = (item.links?.length ?? 0) > 0
-  const hasFacts = (item.facts?.length ?? 0) > 0
-  if (!item.title && !hasLinks && !hasFacts) return null
+function DetailsTable({ details }: { details: CarouselDetail[] }) {
+  return (
+    <table className="w-full text-sm">
+      <tbody>
+        {details.map((detail) => (
+          <tr key={detail.label} className="align-top">
+            <th scope="row" className="py-1 pr-4 text-left text-xs font-normal whitespace-nowrap text-white/75">
+              {detail.label}
+            </th>
+            <td className="py-1">
+              <ul className="space-y-0.5">
+                {detail.values.map((value) => (
+                  <li key={`${value.text}-${value.href ?? ""}`} className="break-words">
+                    {value.href ? (
+                      <Link
+                        href={value.href}
+                        className="text-white underline decoration-white/40 underline-offset-2 hover:decoration-white"
+                      >
+                        {value.text}
+                      </Link>
+                    ) : (
+                      value.text
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function ImageInfo({ item }: { item: CarouselImage }) {
+  const details = item.details ?? []
+  const channels = item.channels ?? []
+  if (!item.title && details.length === 0 && channels.length === 0) return null
 
   return (
-    <div className="absolute left-3 top-3 z-20 max-w-[min(90vw,32rem)] rounded-lg bg-black/70 px-3 py-2 text-white backdrop-blur">
-      {item.title && <p className="text-sm font-medium">{item.title}</p>}
-      {(hasLinks || hasFacts) && (
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          {item.links?.map((link) => (
-            <Link key={link.href} href={link.href} className="text-primary hover:underline">
-              {link.label}
-            </Link>
-          ))}
-          {item.facts?.map((fact) => (
-            <span key={fact} className="text-white/70">
-              {fact}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
+    <aside
+      aria-label="Image details"
+      className="absolute left-3 top-3 z-20 max-h-[calc(100vh-12rem)] w-[min(88vw,22rem)] space-y-2 overflow-y-auto rounded-lg border border-white/15 bg-white/10 p-3 text-white backdrop-blur-md backdrop-brightness-50"
+    >
+      {item.title && <p className="font-medium">{item.title}</p>}
+      {details.length > 0 && <DetailsTable details={details} />}
+      {channels.length > 0 && <ChannelLegend channels={channels} />}
+    </aside>
   )
 }
 

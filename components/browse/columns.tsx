@@ -1,8 +1,9 @@
 "use client"
 
 import { ImageCarouselDialog, type CarouselImage } from "@/components/browse/image-carousel-dialog"
-import { SpecificityBadge, WorksBadge } from "@/components/browse/report-badges"
+import { RecommendationBadge, ValidationCount } from "@/components/browse/report-badges"
 import { ReportsDialog } from "@/components/browse/reports-dialog"
+import { VerdictRing } from "@/components/browse/verdict-ring"
 import { DataTableColumnHeader } from "@/components/data-table/column-header"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { NotAvailable } from "@/components/shared/not-available"
@@ -10,6 +11,7 @@ import { TruncatedOrNotAvailable, TruncatedText } from "@/components/shared/trun
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { formatDate } from "@/lib/format"
+import type { Recommendation } from "@/lib/generated/prisma/enums"
 import { doiUrl, pubmedUrl, type PublicationLink } from "@/lib/publication"
 import { antibodyHref, cellTypeHref, markerHref, profileHref } from "@/lib/routes"
 import { ColumnDef } from "@tanstack/react-table"
@@ -17,6 +19,7 @@ import { ImageIcon } from "lucide-react"
 import Link from "next/link"
 
 import type { OntologyValue as OntologyRef } from "@/components/ontology-combobox"
+import type { ReportIssueEntry, ReportValidationEntry, VerdictCounts } from "@/models/experimental-report/transforms"
 
 export type { OntologyRef }
 
@@ -31,7 +34,7 @@ export type MarkerReport = {
   dataSource: { name: string; url: string | null } | null
   method: string
   species: string
-  works: boolean | null
+  recommendation: Recommendation | null
 }
 
 export type MarkerEntry = {
@@ -46,6 +49,7 @@ export type MarkerEntry = {
   tissue: string
   validatedMethods: string[]
   reportCount: number
+  verdicts: VerdictCounts
   reports: MarkerReport[]
   images: CarouselImage[]
 }
@@ -59,6 +63,7 @@ export type AntibodyEntry = {
   vendor: string | null
   clone: string | null
   reportCount: number
+  verdicts: VerdictCounts
   reports: MarkerReport[]
   images: CarouselImage[]
 }
@@ -75,8 +80,9 @@ export type ReportEntry = {
   method: string
   cellTypes: OntologyRef[]
   subcellular: string | null
-  specificity: string | null
-  works: boolean | null
+  recommendation: Recommendation | null
+  validations: ReportValidationEntry[]
+  issues: ReportIssueEntry[]
   images: CarouselImage[]
   submitter: MemberRef | null
 }
@@ -91,7 +97,7 @@ export type ExperimentEntry = {
   tissue: string
   condition: string | null
   stainingCount: number
-  workingCount: number
+  usableCount: number
   antibodyCount: number
   images: CarouselImage[]
   createdAt: string
@@ -202,11 +208,20 @@ export const columns: ColumnDef<MarkerEntry>[] = [
     header: () => <DataTableColumnHeader field="reportCount" title="Reports" />,
     cell: ({ row }) => (
       <ReportsDialog
-        marker={row.original.marker}
-        cellType={row.original.cellTypes.map((c) => c.label).join(", ")}
+        title={row.original.marker}
+        context={
+          row.original.cellTypes.length > 0
+            ? `staining ${row.original.cellTypes.map((c) => c.label).join(", ")}`
+            : undefined
+        }
         reports={row.original.reports}
       />
     ),
+  },
+  {
+    accessorKey: "verdicts",
+    header: () => <DataTableColumnHeader field="verdicts" title="Verdicts" />,
+    cell: ({ row }) => <VerdictRing counts={row.original.verdicts} />,
   },
   {
     id: "images",
@@ -293,11 +308,16 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
     header: () => <DataTableColumnHeader field="reportCount" title="Reports" />,
     cell: ({ row }) => (
       <ReportsDialog
-        marker={row.original.name}
-        cellType={row.original.target ?? "reported cell types"}
+        title={row.original.name}
+        context={row.original.target ? `targeting ${row.original.target}` : undefined}
         reports={row.original.reports}
       />
     ),
+  },
+  {
+    accessorKey: "verdicts",
+    header: () => <DataTableColumnHeader field="verdicts" title="Verdicts" />,
+    cell: ({ row }) => <VerdictRing counts={row.original.verdicts} />,
   },
   {
     id: "images",
@@ -380,15 +400,15 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
     cell: ({ row }) => <TruncatedText text={row.original.method} className="max-w-[140px] text-muted-foreground" />,
   },
   {
-    accessorKey: "specificity",
-    meta: { label: "Specificity", hiddenByDefault: true },
-    header: () => <DataTableColumnHeader field="specificity" title="Specificity" />,
-    cell: ({ row }) => <SpecificityBadge specificity={row.original.specificity} />,
+    id: "validation",
+    meta: { label: "Specificity controls", hiddenByDefault: true },
+    header: () => <DataTableColumnHeader field="validation" title="Controls" />,
+    cell: ({ row }) => <ValidationCount validations={row.original.validations} />,
   },
   {
-    accessorKey: "works",
-    header: () => <DataTableColumnHeader field="works" title="Result" />,
-    cell: ({ row }) => <WorksBadge works={row.original.works} />,
+    accessorKey: "recommendation",
+    header: () => <DataTableColumnHeader field="recommendation" title="Verdict" />,
+    cell: ({ row }) => <RecommendationBadge recommendation={row.original.recommendation} />,
   },
   {
     id: "images",
@@ -555,11 +575,11 @@ export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
     ),
   },
   {
-    accessorKey: "workingCount",
-    header: () => <DataTableColumnHeader field="workingCount" title="Working" />,
+    accessorKey: "usableCount",
+    header: () => <DataTableColumnHeader field="usableCount" title="Usable" />,
     cell: ({ row }) => (
       <span className="text-muted-foreground">
-        {row.original.workingCount}/{row.original.stainingCount}
+        {row.original.usableCount}/{row.original.stainingCount}
       </span>
     ),
   },

@@ -6,13 +6,13 @@ test.describe("Error handling and edge cases", () => {
 
     await expect(page.getByText("Page Not Found")).toBeVisible()
     await expect(page.getByRole("link", { name: "Go to Homepage" })).toHaveAttribute("href", "/")
-    await expect(page.getByRole("link", { name: "Browse Markers" })).toHaveAttribute("href", "/browse")
+    await expect(page.getByRole("link", { name: "Browse Antibodies" })).toHaveAttribute("href", "/browse")
   })
 
   test("the 404 page navigates to browse", async ({ page }) => {
     await page.goto("/another-page-that-does-not-exist")
 
-    await page.getByRole("link", { name: "Browse Markers" }).click()
+    await page.getByRole("link", { name: "Browse Antibodies" }).click()
 
     await expect(page).toHaveURL("/browse")
     await expect(page.getByRole("heading", { level: 1, name: "Browse" })).toBeVisible()

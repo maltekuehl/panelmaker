@@ -1,5 +1,6 @@
-import type { CarouselChannel } from "@/components/browse/image-carousel-dialog"
+import type { CarouselChannel, CarouselDetail, CarouselDetailValue } from "@/components/browse/image-carousel-dialog"
 import type { Prisma } from "@/lib/generated/prisma/client"
+import { antibodyHref, markerHref } from "@/lib/routes"
 
 const channelFluorophoreSelect = { select: { name: true } } as const
 
@@ -60,4 +61,29 @@ export function toCarouselChannels(image: ImageWithChannels, highlightReportId?:
     role: channel.role,
     highlighted: highlightReportId !== undefined && channel.reportId === highlightReportId,
   }))
+}
+
+// Marker and antibody rows for the stains of interest in one image.
+export function targetDetails(image: ImageWithChannels): CarouselDetail[] {
+  const markers: CarouselDetailValue[] = []
+  const antibodies: CarouselDetailValue[] = []
+  for (const channel of image.channels) {
+    const antibody = channel.report?.antibody
+    if (!antibody || channel.role !== "TARGET") continue
+    const markerName = antibody.targetName ?? antibody.name
+    markers.push({
+      text: markerName,
+      href: antibody.targetProteinId ? markerHref(antibody.targetProteinId) : undefined,
+    })
+    antibodies.push({ text: antibody.name, href: antibodyHref(antibody.rrid) ?? undefined })
+  }
+  return [
+    { label: markers.length > 1 ? "Markers" : "Marker", values: markers },
+    { label: antibodies.length > 1 ? "Antibodies" : "Antibody", values: antibodies },
+  ].filter((detail) => detail.values.length > 0)
+}
+
+export function imageTitle(image: ImageWithChannels): string | undefined {
+  const target = image.channels.find((channel) => channel.role === "TARGET" && channel.report?.antibody)
+  return target?.report?.antibody?.targetName ?? target?.report?.antibody?.name ?? undefined
 }

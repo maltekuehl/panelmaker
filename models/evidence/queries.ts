@@ -1,7 +1,7 @@
 import "server-only"
 
 import type { Prisma } from "@/lib/generated/prisma/client"
-import type { Clonality, Preservation, SignalQuality, Specificity } from "@/lib/generated/prisma/enums"
+import type { Clonality, Preservation, Recommendation, ValidationResult } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { imagingMethodSelect } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
@@ -24,9 +24,9 @@ export interface EvidenceFilter {
   clonalities?: string[]
   conjugates?: string[]
   fluorophoreIds?: string[]
-  works?: boolean
-  signalQualityIn?: string[]
-  specificityIn?: string[]
+  recommendationIn?: string[]
+  validatedBy?: string[]
+  issueIds?: string[]
   submitterIds?: string[]
   conditionIds?: string[]
   preservations?: string[]
@@ -37,9 +37,10 @@ export interface EvidenceFilter {
 
 const evidenceSelect = {
   id: true,
-  works: true,
-  signalQuality: true,
-  specificity: true,
+  recommendation: true,
+  concentrationUgPerMl: true,
+  validations: { select: { result: true, method: { select: { id: true, label: true } } } },
+  issues: { select: { issue: { select: { id: true, label: true } } } },
   dilution: true,
   incubation: true,
   metalTag: true,
@@ -83,10 +84,11 @@ type EvidenceRow = Prisma.ExperimentalReportGetPayload<{ select: typeof evidence
 export interface EvidenceReport {
   id: string
   reportUrl: string
-  works: boolean | null
-  signalQuality: SignalQuality | null
-  specificity: Specificity | null
+  recommendation: Recommendation | null
+  validations: { method: string; result: ValidationResult }[]
+  issues: string[]
   dilution: string | null
+  concentrationUgPerMl: number | null
   incubation: string | null
   fluorophore: string | null
   metalTag: string | null
@@ -143,9 +145,11 @@ function buildEvidenceWhere(filter: EvidenceFilter): Prisma.ExperimentalReportWh
   if (filter.fluorophoreIds?.length) where.fluorophoreId = { in: filter.fluorophoreIds }
   if (filter.subcellularIds?.length) where.subcellularId = { in: filter.subcellularIds }
   if (filter.cellTypeIds?.length) where.cellTypes = { some: { cellTypeId: { in: filter.cellTypeIds } } }
-  if (filter.works !== undefined) where.works = filter.works
-  if (filter.signalQualityIn?.length) where.signalQuality = { in: filter.signalQualityIn as SignalQuality[] }
-  if (filter.specificityIn?.length) where.specificity = { in: filter.specificityIn as Specificity[] }
+  if (filter.recommendationIn?.length) where.recommendation = { in: filter.recommendationIn as Recommendation[] }
+  if (filter.validatedBy?.length) {
+    where.validations = { some: { methodId: { in: filter.validatedBy }, result: "SUPPORTS" } }
+  }
+  if (filter.issueIds?.length) where.issues = { some: { issueId: { in: filter.issueIds } } }
 
   return where
 }
@@ -154,10 +158,11 @@ function toEvidenceReport(row: EvidenceRow): EvidenceReport {
   return {
     id: row.id,
     reportUrl: `/report/${row.id}`,
-    works: row.works,
-    signalQuality: row.signalQuality,
-    specificity: row.specificity,
+    recommendation: row.recommendation,
+    validations: row.validations.map(({ method, result }) => ({ method: method.label, result })),
+    issues: row.issues.map(({ issue }) => issue.label),
     dilution: row.dilution,
+    concentrationUgPerMl: row.concentrationUgPerMl,
     incubation: row.incubation,
     fluorophore: row.fluorophore?.name ?? null,
     metalTag: row.metalTag,
@@ -238,9 +243,23 @@ export interface EvidenceGroup {
   key: string
   label: string
   count: number
-  worksCount: number
-  worksRate: number
-  strongSignalCount: number
+  recommendedCount: number
+  withCaveatsCount: number
+  notRecommendedCount: number
+  usableRate: number
+  validatedCount: number
+  topIssues: { label: string; count: number }[]
+}
+
+const TOP_ISSUES = 3
+
+type GroupTally = {
+  label: string
+  count: number
+  rated: number
+  outcomes: Record<Recommendation, number>
+  validated: number
+  issues: Map<string, number>
 }
 
 function groupKeyOf(report: EvidenceReport, groupBy: EvidenceGroupBy): { key: string; label: string } | null {
@@ -278,8 +297,9 @@ function groupKeyOf(report: EvidenceReport, groupBy: EvidenceGroupBy): { key: st
   }
 }
 
-// Groups reports along one dimension and reports count + works-rate + strong-signal counts. Powers
-// protocol aggregation, clone comparison, fluorophore-contrast, and expertise-style rollups.
+// Groups reports along one dimension and counts outcomes per group: how many reports recommend, accept with
+// caveats or reject, how many back specificity with a supporting control, and the most frequent issues.
+// The usable rate counts recommended and with-caveats reports over reports that state an outcome.
 export async function aggregateReports(
   viewer: ViewerContext | null,
   filter: EvidenceFilter,
@@ -287,18 +307,26 @@ export async function aggregateReports(
   limit = 400,
 ): Promise<EvidenceGroup[]> {
   const reports = await loadEvidenceReports(viewer, filter, limit, MAX_AGGREGATE_REPORTS)
-  const groups = new Map<string, { label: string; count: number; works: number; rated: number; strong: number }>()
+  const groups = new Map<string, GroupTally>()
 
   for (const report of reports) {
     const group = groupKeyOf(report, groupBy)
     if (!group) continue
-    const entry = groups.get(group.key) ?? { label: group.label, count: 0, works: 0, rated: 0, strong: 0 }
-    entry.count += 1
-    if (report.works !== null) {
-      entry.rated += 1
-      if (report.works) entry.works += 1
+    const entry = groups.get(group.key) ?? {
+      label: group.label,
+      count: 0,
+      rated: 0,
+      outcomes: { RECOMMENDED: 0, WITH_CAVEATS: 0, NOT_RECOMMENDED: 0 },
+      validated: 0,
+      issues: new Map<string, number>(),
     }
-    if (report.signalQuality === "EXCELLENT" || report.signalQuality === "GOOD") entry.strong += 1
+    entry.count += 1
+    if (report.recommendation) {
+      entry.rated += 1
+      entry.outcomes[report.recommendation] += 1
+    }
+    if (report.validations.some((validation) => validation.result === "SUPPORTS")) entry.validated += 1
+    for (const issue of report.issues) entry.issues.set(issue, (entry.issues.get(issue) ?? 0) + 1)
     groups.set(group.key, entry)
   }
 
@@ -307,9 +335,15 @@ export async function aggregateReports(
       key,
       label: entry.label,
       count: entry.count,
-      worksCount: entry.works,
-      worksRate: entry.rated > 0 ? entry.works / entry.rated : 0,
-      strongSignalCount: entry.strong,
+      recommendedCount: entry.outcomes.RECOMMENDED,
+      withCaveatsCount: entry.outcomes.WITH_CAVEATS,
+      notRecommendedCount: entry.outcomes.NOT_RECOMMENDED,
+      usableRate: entry.rated > 0 ? (entry.outcomes.RECOMMENDED + entry.outcomes.WITH_CAVEATS) / entry.rated : 0,
+      validatedCount: entry.validated,
+      topIssues: [...entry.issues.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, TOP_ISSUES)
+        .map(([label, count]) => ({ label, count })),
     }))
-    .sort((a, b) => b.worksRate - a.worksRate || b.count - a.count)
+    .sort((a, b) => b.usableRate - a.usableRate || b.recommendedCount - a.recommendedCount || b.count - a.count)
 }

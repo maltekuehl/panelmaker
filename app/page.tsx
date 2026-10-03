@@ -67,7 +67,7 @@ const destinations = [
   {
     href: "/browse",
     icon: Search,
-    title: "Browse Markers",
+    title: "Browse Antibodies",
     description: "Search experimentally validated antibodies and cell type markers across the database.",
   },
   {
@@ -79,7 +79,7 @@ const destinations = [
   {
     href: "/submit",
     icon: Plus,
-    title: "Submit a Marker",
+    title: "Submit a Report",
     description: "Contribute your validated markers and staining protocols to this instance's marker database.",
   },
   {

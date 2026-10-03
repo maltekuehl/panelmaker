@@ -4,11 +4,11 @@ import {
   DonorSex,
   LabRole,
   Preservation,
+  Recommendation,
   SampleType,
-  SignalQuality,
-  Specificity,
   UserRole,
   UserStatus,
+  ValidationResult,
   ValidationStatus,
   Visibility,
 } from "@/lib/generated/prisma/enums"
@@ -59,18 +59,22 @@ export const CLONALITY_LABELS: Record<Clonality, string> = {
   OLIGOCLONAL: "Oligoclonal",
 }
 
-export const SPECIFICITY_LABELS: Record<Specificity, string> = {
-  HIGH: "High",
-  MODERATE: "Moderate",
-  LOW: "Low",
-  NON_SPECIFIC: "Non-specific",
+export const RECOMMENDATION_LABELS: Record<Recommendation, string> = {
+  RECOMMENDED: "Recommended",
+  WITH_CAVEATS: "Usable with caveats",
+  NOT_RECOMMENDED: "Not recommended",
 }
 
-export const SPECIFICITY_RANK: Record<Specificity, number> = {
-  HIGH: 3,
-  MODERATE: 2,
-  LOW: 1,
-  NON_SPECIFIC: 0,
+export const RECOMMENDATION_RANK: Record<Recommendation, number> = {
+  RECOMMENDED: 2,
+  WITH_CAVEATS: 1,
+  NOT_RECOMMENDED: 0,
+}
+
+export const VALIDATION_RESULT_LABELS: Record<ValidationResult, string> = {
+  SUPPORTS: "Supports",
+  CONTRADICTS: "Contradicts",
+  INCONCLUSIVE: "Inconclusive",
 }
 
 export const VISIBILITY_LABELS: Record<Visibility, string> = {
@@ -100,12 +104,4 @@ export const VALIDATION_STATUS_LABELS: Record<ValidationStatus, string> = {
   PENDING: "Pending review",
   PUBLISHED: "Published",
   REJECTED: "Rejected",
-}
-
-export const SIGNAL_QUALITY_LABELS: Record<SignalQuality, string> = {
-  EXCELLENT: "Excellent",
-  GOOD: "Good",
-  MODERATE: "Moderate",
-  POOR: "Poor",
-  NONE: "None",
 }

@@ -55,7 +55,7 @@ npm run ibex:import   # load the committed tables into the database
 | Detergent                       | `ExperimentalReport.notes` only                                             |
 | Antigen Retrieval Conditions    | `Experiment.antigenRetrieval` + exact string in `description`               |
 | Dye Inactivation Conditions     | `ExperimentalReport.notes` only                                             |
-| Recommend                       | `ExperimentalReport.works`                                                  |
+| Recommend                       | `ExperimentalReport.recommendation` (RECOMMENDED / NOT_RECOMMENDED)         |
 | Agree / Disagree / Contributor  | `ExperimentalReport.notes` only (see decision 6)                            |
 | Image Files                     | `ReportImage.url`, pointing at the upstream repository                      |
 | Captions                        | `ReportImage.caption`, positionally matched to `Image Files`                |
@@ -65,20 +65,21 @@ npm run ibex:import   # load the committed tables into the database
 
 **1. Report status is `PUBLISHED`, not `PENDING`.** These are curated community records in a versioned, publicly
 released knowledge base, each with a named ORCID contributor, reviewed upstream before merge. `PENDING` means
-"waiting for a PanelMaker reviewer", which would misrepresent them. `Recommend = No` becomes `works = false` on a
+"waiting for a PanelMaker reviewer", which would misrepresent them. `Recommend = No` becomes `recommendation = NOT_RECOMMENDED` on a
 `PUBLISHED` report: a published negative result, which is exactly what the source says.
 
-**2. Only the two antibody reagent types are imported.** `Primary Antibody` (1155 rows) and `Secondary Antibody`
-(122 rows) become `Antibody` rows with a report each. The remaining 44 rows are skipped and listed by the importer:
+**2. Only primary antibodies are imported.** `Primary Antibody` rows become `Antibody` rows with a report each.
+`Secondary Antibody` (122 rows) is skipped: a secondary has no target protein, and its validation only means
+something together with the primary it detected, which the table does not record. The remaining 44 rows are skipped
+too and listed by the importer:
 nuclear dyes (14), streptavidin conjugates (8), Zenon labeling kits (7), lectins (5), FlexAble labeling kits (5),
 blocking reagents (2), avidin/biotin blocking kits (2), one phalloidin stain. None of them is an antibody, and
 PanelMaker has no reagent model that is not an antibody, so importing them would put "Hoechst 33342" and
 "Avidin/Biotin Blocking Kit" into the antibody and marker browse surfaces. Attaching them to the primary they serve
 is not possible: the table has no column linking a secondary or a kit to a primary.
 
-Secondaries are kept rather than dropped because they carry RRIDs, host species and validated conditions, and the
-panel host cross-reactivity check in `models/panel/intelligence.ts` works off host species. They get
-`targetProteinId = null` and keep their target ("Rabbit IgG (H+L)") in `targetName`.
+Recording indirect detection properly would take a report-level link from a primary's report to the secondary
+used, entered by the submitter. It is not reconstructed from shared images or captions.
 
 The two `Fc Block` rows are the one casualty worth naming: they are antibody-based blocking reagents with a real
 RRID, skipped only because there is no field to mark a reagent as non-marker.
@@ -96,7 +97,7 @@ formalin fixed but the source never says it was paraffin embedded, and `FFPE` wo
 preserved on every experiment.
 
 **5. Antigen retrieval.** AR6 Akoya, ER1 (AR9961) and the sodium citrate protocols are all citrate-type pH 6, so they
-map to `CITRATE_PH6`. The Borg Decloaker at pH 9.5 maps to `TRIS_EDTA_PH9`. `NA` maps to `NONE`. The Leica Bond entry
+map to `CITRATE_PH6`. The Borg Decloaker at pH 9.5 maps to `TRIS_EDTA_PH9`. `NA` is the table's blank marker in every column, so it stays empty (not recorded), never `NONE`. The Leica Bond entry
 that names **both** ER1 (pH 6) and ER2 (pH 9) in one string covers two different retrievals, so the enum is left
 `null` on those 119 imported rows rather than silently picking one. The string is preserved either way.
 
@@ -106,7 +107,7 @@ that names **both** ER1 (pH 6) and ER2 (pH 9) in one string covers two different
 `Disagree` is populated on exactly one row.
 
 **7. One experiment per experimental context.** The grouping key is Target Species, Target Tissue, Tissue State,
-Method, Tissue Preservation and Antigen Retrieval Conditions, which yields **104 experiments** over **1277 reports**.
+Method, Tissue Preservation and Antigen Retrieval Conditions, which yields **56 experiments** over **605 reports** once the identity gate and the skipped reagent types are applied.
 Those six columns are exactly the ones that have a home on `Experiment`. Detergent would split the set into 109
 groups, but `Experiment` has no detergent field, so detergent stays per report in `notes`. No two rows inside a group
 share a reagent identity, so the report key (group + RRID + vendor + catalog + conjugate + target + host) is unique.
@@ -196,8 +197,8 @@ emission 754 in `fluorescent_probes.csv` (the maxima look swapped), and the prob
 - Fluorophores created from the probe table have no `fpbaseId`. The fluorophore table is meant to be
   FPbase-anchored; these 52 rows are anchored on the IBEX probe table instead, and an FPbase backfill is still owed.
 - `Tissue.partOfIds` is left empty on newly created tissues rather than guessed.
-- `ExperimentalReport.signalQuality` and `specificity` stay null. The source has no such grading, only the binary
-  recommendation, and inventing a grade would be fabrication.
+- No staining issues or specificity controls are recorded. The source has only the binary recommendation, and
+  inventing evidence would be fabrication. `WITH_CAVEATS` is never produced.
 - `prisma/data/ontology.ts` in the base seed has two wrong UBERON ids that this import does **not** touch:
   `UBERON:0000082` is labelled "Lymph Node" but is _adult mammalian kidney_, and `UBERON:0001723` is labelled "Tonsil"
   but is _tongue_. The IBEX import uses the correct `UBERON:0000029` and `UBERON:0002372`, so the dev database now

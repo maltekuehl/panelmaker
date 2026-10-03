@@ -1,6 +1,7 @@
 import type { AntibodyEntry, MarkerEntry, MarkerReport, ReportEntry } from "@/components/browse/columns"
-import type { CarouselChannel, CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
-import { ANTIGEN_RETRIEVAL_LABELS, PRESERVATION_LABELS, SPECIFICITY_RANK } from "@/lib/constants"
+import type { CarouselChannel, CarouselDetail, CarouselImage } from "@/components/browse/image-carousel-dialog"
+import { ANTIGEN_RETRIEVAL_LABELS, PRESERVATION_LABELS, RECOMMENDATION_RANK } from "@/lib/constants"
+import type { Recommendation, ValidationResult } from "@/lib/generated/prisma/enums"
 import { publicationLinkOf } from "@/lib/publication"
 import { antibodyHref, cellTypeHref, markerHref } from "@/lib/routes"
 import { toSpecimenDetail, type SpecimenDetail } from "@/models/experiment/transforms"
@@ -34,6 +35,43 @@ export function toReportResponse(report: ReportRow): ReportResponse {
   }
 }
 
+export type AssessmentTerm = { id: string; label: string; description: string | null }
+
+export type ReportValidationEntry = { id: string; label: string; result: ValidationResult }
+
+export type ReportIssueEntry = { id: string; label: string }
+
+function validationsOf(report: ReportRow): ReportValidationEntry[] {
+  return report.validations.map(({ method, result }) => ({ id: method.id, label: method.label, result }))
+}
+
+function issuesOf(report: ReportRow): ReportIssueEntry[] {
+  return report.issues.map(({ issue }) => ({ id: issue.id, label: issue.label }))
+}
+
+export type VerdictCounts = Record<Recommendation, number> & { unrated: number }
+
+export function isUsable(recommendation: Recommendation | null): boolean {
+  return recommendation === "RECOMMENDED" || recommendation === "WITH_CAVEATS"
+}
+
+export function verdictCountsOf(recommendations: (Recommendation | null)[]): VerdictCounts {
+  const counts: VerdictCounts = { RECOMMENDED: 0, WITH_CAVEATS: 0, NOT_RECOMMENDED: 0, unrated: 0 }
+  for (const recommendation of recommendations) {
+    if (recommendation) counts[recommendation] += 1
+    else counts.unrated += 1
+  }
+  return counts
+}
+
+// Recommended counts fully and with-caveats half, over the reports that state a verdict; rows without
+// any verdict sort below every rated row.
+function verdictScore(counts: VerdictCounts): number {
+  const rated = counts.RECOMMENDED + counts.WITH_CAVEATS + counts.NOT_RECOMMENDED
+  if (rated === 0) return -1
+  return (counts.RECOMMENDED + counts.WITH_CAVEATS / 2) / rated
+}
+
 export type ReportUsage = {
   id: string
   experimentId: string
@@ -48,9 +86,10 @@ export type ReportUsage = {
   dilution: string | null
   incubation: string | null
   antigenRetrieval: string | null
-  works: boolean | null
-  signalQuality: string | null
-  specificity: string | null
+  concentrationUgPerMl: number | null
+  recommendation: Recommendation | null
+  validations: ReportValidationEntry[]
+  issues: ReportIssueEntry[]
   fluorophore: string | null
   metalTag: string | null
   cycleNumber: number | null
@@ -96,9 +135,10 @@ export function toReportUsage(report: ReportRow): ReportUsage {
     antigenRetrieval: report.experiment.antigenRetrieval
       ? (ANTIGEN_RETRIEVAL_LABELS[report.experiment.antigenRetrieval] ?? report.experiment.antigenRetrieval)
       : null,
-    works: report.works,
-    signalQuality: report.signalQuality,
-    specificity: report.specificity,
+    concentrationUgPerMl: report.concentrationUgPerMl,
+    recommendation: report.recommendation,
+    validations: validationsOf(report),
+    issues: issuesOf(report),
     fluorophore: report.fluorophore?.name ?? null,
     metalTag: report.metalTag,
     cycleNumber: report.cycleNumber,
@@ -131,30 +171,30 @@ export function toReportUsage(report: ReportRow): ReportUsage {
 }
 
 export function reportUsageImages(usage: ReportUsage): CarouselImage[] {
-  const links: CarouselImageLink[] = []
-  if (usage.proteinId && usage.markerName) {
-    links.push({ label: usage.markerName, href: markerHref(usage.proteinId) })
-  }
   const abHref = antibodyHref(usage.antibodyId)
-  if (abHref) {
-    links.push({ label: usage.antibodyName, href: abHref })
-  }
-  for (const cellType of usage.cellTypes) {
-    links.push({ label: cellType.label, href: cellTypeHref(cellType.id) })
-  }
-
-  const facts: string[] = []
-  if (usage.subcellularLabel) facts.push(usage.subcellularLabel)
-  if (usage.tissueLabel) facts.push(usage.tissueLabel)
-  if (usage.species && usage.species !== "Unknown") facts.push(usage.species)
+  const details: CarouselDetail[] = [
+    {
+      label: "Marker",
+      values: usage.markerName
+        ? [{ text: usage.markerName, href: usage.proteinId ? markerHref(usage.proteinId) : undefined }]
+        : [],
+    },
+    { label: "Antibody", values: [{ text: usage.antibodyName, href: abHref ?? undefined }] },
+    {
+      label: usage.cellTypes.length > 1 ? "Cell types" : "Cell type",
+      values: usage.cellTypes.map((cellType) => ({ text: cellType.label, href: cellTypeHref(cellType.id) })),
+    },
+    { label: "Subcellular", values: usage.subcellularLabel ? [{ text: usage.subcellularLabel }] : [] },
+    { label: "Tissue", values: usage.tissueLabel ? [{ text: usage.tissueLabel }] : [] },
+    { label: "Species", values: usage.species && usage.species !== "Unknown" ? [{ text: usage.species }] : [] },
+  ].filter((detail) => detail.values.length > 0)
 
   const title = usage.markerName ?? usage.antibodyName
   return usage.images.map((image) => ({
     src: image.url,
     caption: image.caption,
     title,
-    links,
-    facts,
+    details,
     channels: image.channels,
   }))
 }
@@ -193,6 +233,7 @@ const MARKER_SORT_ACCESSORS: Record<string, SortAccessor<MarkerEntry>> = {
   tissue: (entry) => entry.tissue.toLowerCase(),
   methods: (entry) => entry.validatedMethods.join(", ").toLowerCase(),
   reportCount: (entry) => entry.reportCount,
+  verdicts: (entry) => verdictScore(entry.verdicts),
 }
 
 const ANTIBODY_SORT_ACCESSORS: Record<string, SortAccessor<AntibodyEntry>> = {
@@ -202,6 +243,11 @@ const ANTIBODY_SORT_ACCESSORS: Record<string, SortAccessor<AntibodyEntry>> = {
   vendor: (entry) => (entry.vendor ?? "").toLowerCase(),
   clone: (entry) => (entry.clone ?? "").toLowerCase(),
   reportCount: (entry) => entry.reportCount,
+  verdicts: (entry) => verdictScore(entry.verdicts),
+}
+
+export function supportingCount(validations: ReportValidationEntry[]): number {
+  return validations.filter((validation) => validation.result === "SUPPORTS").length
 }
 
 const REPORT_SORT_ACCESSORS: Record<string, SortAccessor<ReportEntry>> = {
@@ -213,8 +259,8 @@ const REPORT_SORT_ACCESSORS: Record<string, SortAccessor<ReportEntry>> = {
   species: (entry) => entry.species.toLowerCase(),
   tissue: (entry) => entry.tissue.toLowerCase(),
   method: (entry) => entry.method.toLowerCase(),
-  specificity: (entry) => SPECIFICITY_RANK[entry.specificity as keyof typeof SPECIFICITY_RANK] ?? -1,
-  works: (entry) => (entry.works === null ? -1 : entry.works ? 1 : 0),
+  validation: (entry) => supportingCount(entry.validations),
+  recommendation: (entry) => (entry.recommendation ? RECOMMENDATION_RANK[entry.recommendation] : -1),
 }
 
 export function sortMarkerEntries(entries: MarkerEntry[], sort?: string | null, order: string = "desc"): MarkerEntry[] {
@@ -259,7 +305,7 @@ function toMarkerReport(r: ReportRow): MarkerReport {
     dataSource: r.experiment.source ? { name: r.experiment.source.name, url: r.experiment.source.url } : null,
     method: r.experiment.imagingMethod?.label ?? "Unknown",
     species: r.experiment.species?.label ?? "Unknown",
-    works: r.works,
+    recommendation: r.recommendation,
   }
 }
 
@@ -309,6 +355,7 @@ export function aggregateMarkerEntries(reports: ReportRow[]): MarkerEntry[] {
       tissue: tissues.join(", ") || "Unknown",
       validatedMethods: methods,
       reportCount: group.reports.length,
+      verdicts: verdictCountsOf(group.reports.map((r) => r.recommendation)),
       images: collectImages(group.reports),
       reports: group.reports.map(toMarkerReport),
     }
@@ -336,6 +383,7 @@ export function aggregateAntibodyEntries(reports: ReportRow[]): AntibodyEntry[] 
     vendor: antibody.vendorName,
     clone: antibody.cloneId,
     reportCount: rows.length,
+    verdicts: verdictCountsOf(rows.map((r) => r.recommendation)),
     images: collectImages(rows),
     reports: rows.map(toMarkerReport),
   }))
@@ -354,8 +402,9 @@ export function toReportEntry(report: ReportRow): ReportEntry {
     method: report.experiment.imagingMethod?.label ?? "Unknown",
     cellTypes: report.cellTypes.map((l) => ({ id: l.cellType.id, label: l.cellType.label })),
     subcellular: report.subcellular?.label ?? null,
-    specificity: report.specificity,
-    works: report.works,
+    recommendation: report.recommendation,
+    validations: validationsOf(report),
+    issues: issuesOf(report),
     images: collectImages([report]),
     submitter: report.experiment.submitter
       ? { id: report.experiment.submitter.id, name: report.experiment.submitter.name }

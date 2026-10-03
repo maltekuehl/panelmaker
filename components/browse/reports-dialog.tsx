@@ -1,7 +1,7 @@
 "use client"
 
 import type { MarkerReport } from "@/components/browse/columns"
-import { WorksBadge } from "@/components/browse/report-badges"
+import { RecommendationBadge } from "@/components/browse/report-badges"
 import { NotAvailable } from "@/components/shared/not-available"
 import { TruncatedText } from "@/components/shared/truncated-text"
 import { Badge } from "@/components/ui/badge"
@@ -71,12 +71,12 @@ function ReportSource({ report }: { report: MarkerReport }) {
 }
 
 interface ReportsDialogProps {
-  marker: string
-  cellType: string
+  title: string
+  context?: string
   reports: MarkerReport[]
 }
 
-export function ReportsDialog({ marker, cellType, reports }: ReportsDialogProps) {
+export function ReportsDialog({ title, context, reports }: ReportsDialogProps) {
   const label = `${reports.length} ${reports.length === 1 ? "report" : "reports"}`
 
   if (reports.length === 0) {
@@ -90,7 +90,7 @@ export function ReportsDialog({ marker, cellType, reports }: ReportsDialogProps)
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button type="button" aria-label={`View ${label} for ${marker}`}>
+        <button type="button" aria-label={`View ${label} for ${title}`}>
           <Badge
             variant="secondary"
             className="cursor-pointer bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
@@ -99,23 +99,21 @@ export function ReportsDialog({ marker, cellType, reports }: ReportsDialogProps)
           </Badge>
         </button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader className="min-w-0 pr-8">
-          <DialogTitle className="min-w-0">
-            <TruncatedText text={`Experimental reports for ${marker}`} />
-          </DialogTitle>
+          <DialogTitle className="line-clamp-2 min-w-0 break-words">{title}</DialogTitle>
           <DialogDescription>
-            {label} validating {marker} in {cellType}. Open a report for the full protocol and images.
+            {context ? `${label}, ${context}.` : `${label}.`} Open a report for the full protocol and images.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[60vh] overflow-y-auto rounded-md border">
+        <div className="max-h-[60vh] min-w-0 overflow-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Author</TableHead>
                 <TableHead>Technology</TableHead>
                 <TableHead>Sample species</TableHead>
-                <TableHead>Result</TableHead>
+                <TableHead>Verdict</TableHead>
                 <TableHead className="text-right">Report</TableHead>
               </TableRow>
             </TableHeader>
@@ -128,7 +126,7 @@ export function ReportsDialog({ marker, cellType, reports }: ReportsDialogProps)
                   <TableCell>{report.method}</TableCell>
                   <TableCell className="text-muted-foreground">{report.species}</TableCell>
                   <TableCell>
-                    <WorksBadge works={report.works} />
+                    <RecommendationBadge recommendation={report.recommendation} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Link

@@ -1,8 +1,8 @@
 import "server-only"
 
 import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
-import type { CarouselImage, CarouselImageLink } from "@/components/browse/image-carousel-dialog"
-import { CLONALITY_LABELS, PRESERVATION_LABELS, SPECIFICITY_LABELS } from "@/lib/constants"
+import type { CarouselImage } from "@/components/browse/image-carousel-dialog"
+import { CLONALITY_LABELS, PRESERVATION_LABELS, RECOMMENDATION_LABELS } from "@/lib/constants"
 import { FILTER_KEYS, type BrowseMarkerParams, type EntryFilterParams, type LabContentParams } from "@/lib/data-table"
 import { UnprocessableError } from "@/lib/error-handling"
 import type { Prisma, ValidationStatus } from "@/lib/generated/prisma/client"
@@ -21,11 +21,16 @@ import {
   searchUberon,
 } from "@/lib/ontology"
 import { prisma } from "@/lib/prisma"
-import { antibodyHref, markerHref } from "@/lib/routes"
 import { normalizeRrid } from "@/lib/utils"
 import { registryToAntibodyCreate } from "@/models/antibody/transforms"
 import type { SpecimenInput } from "@/models/experiment/schema"
-import { imageWithChannelsSelect, reportImagesSelect, toCarouselChannels } from "@/models/image/transforms"
+import {
+  imageTitle,
+  imageWithChannelsSelect,
+  reportImagesSelect,
+  targetDetails,
+  toCarouselChannels,
+} from "@/models/image/transforms"
 import { imagingMethodSelect } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { resolveResourceVisibility } from "@/models/lab/queries"
@@ -38,6 +43,7 @@ import {
   sortMarkerEntries,
   sortReportEntries,
   toReportEntry,
+  type AssessmentTerm,
 } from "./transforms"
 
 export type ReportQueryParams = {
@@ -67,10 +73,17 @@ const reportSelect = {
   dilution: true,
   incubation: true,
   status: true,
-  works: true,
-  signalQuality: true,
-  specificity: true,
+  recommendation: true,
+  concentrationUgPerMl: true,
   notes: true,
+  validations: {
+    select: { result: true, method: { select: { id: true, label: true } } },
+    orderBy: { method: { label: "asc" } },
+  },
+  issues: {
+    select: { issue: { select: { id: true, label: true } } },
+    orderBy: { issue: { label: "asc" } },
+  },
   imageChannels: reportImagesSelect,
   createdAt: true,
   updatedAt: true,
@@ -133,15 +146,6 @@ const reportSelect = {
 
 export type ReportRow = Prisma.ExperimentalReportGetPayload<{ select: typeof reportSelect }>
 
-function resultWhere(values: string[]): Prisma.ExperimentalReportWhereInput | null {
-  const wantsWorks = values.includes("works")
-  const wantsFailed = values.includes("failed")
-  if (wantsWorks && wantsFailed) return { works: { not: null } }
-  if (wantsWorks) return { works: true }
-  if (wantsFailed) return { works: false }
-  return null
-}
-
 const WHERE_BUILDERS: Record<string, (values: string[]) => Prisma.ExperimentalReportWhereInput | null> = {
   marker: (v) => ({ antibody: { targetProteinId: { in: v } } }),
   cellType: (v) => ({ cellTypes: { some: { cellTypeId: { in: v } } } }),
@@ -156,8 +160,9 @@ const WHERE_BUILDERS: Record<string, (values: string[]) => Prisma.ExperimentalRe
   clonality: (v) => ({ antibody: { clonality: { in: v as Prisma.EnumClonalityNullableFilter["in"] } } }),
   subcellular: (v) => ({ subcellularId: { in: v } }),
   condition: (v) => ({ experiment: { conditionId: { in: v } } }),
-  specificity: (v) => ({ specificity: { in: v as Prisma.EnumSpecificityNullableFilter["in"] } }),
-  result: (v) => resultWhere(v),
+  recommendation: (v) => ({ recommendation: { in: v as Prisma.EnumRecommendationNullableFilter["in"] } }),
+  validation: (v) => ({ validations: { some: { methodId: { in: v }, result: "SUPPORTS" } } }),
+  issue: (v) => ({ issues: { some: { issueId: { in: v } } } }),
   lab: (v) => ({ experiment: { owningLabId: { in: v } } }),
   source: (v) => ({ experiment: { sourceId: { in: v } } }),
 }
@@ -170,8 +175,9 @@ const REPORT_LEVEL_FILTER_KEYS = [
   "conjugate",
   "clonality",
   "subcellular",
-  "specificity",
-  "result",
+  "recommendation",
+  "validation",
+  "issue",
 ] as const satisfies (keyof EntryFilterParams)[]
 
 // The report-level dimensions as one predicate, so a parent (an experiment) can require a single report
@@ -396,10 +402,13 @@ const FACET_EXTRACTORS: Record<string, FacetExtractor> = {
           },
         ]
       : [],
-  specificity: (r) =>
-    r.specificity ? [{ value: r.specificity, label: SPECIFICITY_LABELS[r.specificity] ?? r.specificity }] : [],
-  result: (r) =>
-    r.works === null ? [] : [{ value: r.works ? "works" : "failed", label: r.works ? "Works" : "Failed" }],
+  recommendation: (r) =>
+    r.recommendation ? [{ value: r.recommendation, label: RECOMMENDATION_LABELS[r.recommendation] }] : [],
+  validation: (r) =>
+    r.validations
+      .filter((validation) => validation.result === "SUPPORTS")
+      .map(({ method }) => ({ value: method.id, label: method.label })),
+  issue: (r) => r.issues.map(({ issue }) => ({ value: issue.id, label: issue.label })),
   lab: (r) =>
     r.experiment.owningLab ? [{ value: r.experiment.owningLab.id, label: r.experiment.owningLab.name }] : [],
   source: (r) => (r.experiment.source ? [{ value: r.experiment.source.id, label: r.experiment.source.name }] : []),
@@ -499,20 +508,13 @@ export async function getImagesForCellType(cellTypeId: string): Promise<Carousel
     orderBy: { createdAt: "desc" },
   })
 
-  return images.map((image) => {
-    const links: CarouselImageLink[] = []
-    for (const channel of image.channels) {
-      const antibody = channel.report?.antibody
-      if (!antibody || channel.role !== "TARGET") continue
-      const markerName = antibody.targetName ?? antibody.name
-      if (antibody.targetProteinId) links.push({ label: markerName, href: markerHref(antibody.targetProteinId) })
-      const abHref = antibodyHref(antibody.rrid)
-      if (abHref) links.push({ label: antibody.name, href: abHref })
-    }
-    const target = image.channels.find((channel) => channel.role === "TARGET" && channel.report?.antibody)
-    const title = target?.report?.antibody?.targetName ?? target?.report?.antibody?.name ?? undefined
-    return { src: image.url, caption: image.caption, title, links, channels: toCarouselChannels(image) }
-  })
+  return images.map((image) => ({
+    src: image.url,
+    caption: image.caption,
+    title: imageTitle(image),
+    details: targetDetails(image),
+    channels: toCarouselChannels(image),
+  }))
 }
 
 export async function getConditionById(conditionId: string): Promise<{ id: string; label: string } | null> {
@@ -695,6 +697,29 @@ async function validateAntibody(data: CreateReportData): Promise<void> {
   }
 }
 
+async function validateAssessmentTerms(data: Pick<CreateReportData, "issueIds" | "validations">): Promise<void> {
+  const methodIds = data.validations?.map((entry) => entry.methodId) ?? []
+  const issueIds = data.issueIds ?? []
+  const [methods, issues] = await Promise.all([
+    methodIds.length
+      ? prisma.validationMethod.findMany({ where: { id: { in: methodIds } }, select: { id: true } })
+      : [],
+    issueIds.length ? prisma.stainingIssue.findMany({ where: { id: { in: issueIds } }, select: { id: true } }) : [],
+  ])
+  if (methods.length !== methodIds.length) throw new UnprocessableError("Unknown validation method")
+  if (issues.length !== issueIds.length) throw new UnprocessableError("Unknown staining issue")
+}
+
+const assessmentTermSelect = { id: true, label: true, description: true } as const
+
+export async function getValidationMethods(): Promise<AssessmentTerm[]> {
+  return prisma.validationMethod.findMany({ select: assessmentTermSelect, orderBy: { label: "asc" } })
+}
+
+export async function getStainingIssues(): Promise<AssessmentTerm[]> {
+  return prisma.stainingIssue.findMany({ select: assessmentTermSelect, orderBy: { label: "asc" } })
+}
+
 type ExperimentContextInput = {
   name?: string | null
   description?: string | null
@@ -829,6 +854,7 @@ export async function resolveAndCreateReport(data: CreateReportData, experimentI
     : undefined
 
   await validateAntibody(data)
+  await validateAssessmentTerms(data)
 
   return prisma.$transaction(async (tx) => {
     const proteinId = await resolveProtein(tx, data)
@@ -859,13 +885,23 @@ export async function resolveAndCreateReport(data: CreateReportData, experimentI
         cycleNumber: data.cycleNumber ?? null,
         dilution: data.dilution ?? null,
         incubation: data.incubation ?? null,
-        works: data.works ?? null,
-        signalQuality: data.signalQuality ?? null,
-        specificity: data.specificity ?? null,
+        recommendation: data.recommendation ?? null,
+        concentrationUgPerMl: data.concentrationUgPerMl ?? null,
         notes: data.notes ?? null,
       },
       select: { id: true },
     })
+
+    if (data.validations?.length) {
+      await tx.reportValidation.createMany({
+        data: data.validations.map(({ methodId, result }) => ({ reportId: report.id, methodId, result })),
+      })
+    }
+    if (data.issueIds?.length) {
+      await tx.reportStainingIssue.createMany({
+        data: data.issueIds.map((issueId) => ({ reportId: report.id, issueId })),
+      })
+    }
 
     if (resolvedCellTypes.length > 0) {
       await tx.reportCellType.createMany({
@@ -976,9 +1012,10 @@ export async function resolveAndCreateReports(
       fluorophoreId: item.fluorophoreId,
       metalTag: item.metalTag,
       cycleNumber: item.cycleNumber,
-      works: item.works,
-      signalQuality: item.signalQuality,
-      specificity: item.specificity,
+      recommendation: item.recommendation,
+      concentrationUgPerMl: item.concentrationUgPerMl,
+      issueIds: item.issueIds,
+      validations: item.validations,
       subcellularLocation: item.subcellularLocation,
       notes: item.notes,
       images: item.images,

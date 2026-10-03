@@ -5,8 +5,8 @@ import { browseMarkerParsers } from "@/lib/data-table"
 import { useQueryStates } from "nuqs"
 
 const MODES = [
-  { value: "markers", label: "Cell markers" },
   { value: "antibodies", label: "Antibodies" },
+  { value: "markers", label: "Cell markers" },
   { value: "reports", label: "Reports" },
   { value: "experiments", label: "Experiments" },
   { value: "panels", label: "Panels" },

@@ -12,7 +12,7 @@ export const sortParsers = {
 
 export type BrowseMode = "markers" | "antibodies" | "reports" | "experiments" | "panels"
 
-const BROWSE_MODES: BrowseMode[] = ["markers", "antibodies", "reports", "experiments", "panels"]
+const BROWSE_MODES: BrowseMode[] = ["antibodies", "markers", "reports", "experiments", "panels"]
 
 export type FilterDimension = {
   key: string
@@ -39,8 +39,9 @@ export const FILTER_DIMENSIONS: FilterDimension[] = [
   { key: "clonality", title: "Clonality", tabs: BROWSE_MODES },
   { key: "subcellular", title: "Subcellular", tabs: REPORT_MODES },
   { key: "condition", title: "Condition", tabs: BROWSE_MODES },
-  { key: "specificity", title: "Specificity", tabs: REPORT_MODES },
-  { key: "result", title: "Result", tabs: REPORT_MODES },
+  { key: "recommendation", title: "Recommendation", tabs: REPORT_MODES },
+  { key: "validation", title: "Specificity control", tabs: REPORT_MODES },
+  { key: "issue", title: "Issue", tabs: REPORT_MODES },
   { key: "lab", title: "Lab", tabs: BROWSE_MODES },
   { key: "source", title: "Source", tabs: REPORT_MODES },
 ]
@@ -65,11 +66,12 @@ export const browseMarkerParsers = {
   clonality: filterArrayParser,
   subcellular: filterArrayParser,
   condition: filterArrayParser,
-  specificity: filterArrayParser,
-  result: filterArrayParser,
+  recommendation: filterArrayParser,
+  validation: filterArrayParser,
+  issue: filterArrayParser,
   lab: filterArrayParser,
   source: filterArrayParser,
-  mode: parseAsStringEnum<BrowseMode>(BROWSE_MODES).withDefault("markers"),
+  mode: parseAsStringEnum<BrowseMode>(BROWSE_MODES).withDefault("antibodies"),
 }
 
 // Shared shape for every faceted/sorted/paged entry table (browse modes and the lab overview).
@@ -91,8 +93,9 @@ export type EntryFilterParams = {
   clonality: string[]
   subcellular: string[]
   condition: string[]
-  specificity: string[]
-  result: string[]
+  recommendation: string[]
+  validation: string[]
+  issue: string[]
   lab: string[]
   source: string[]
 }
@@ -157,8 +160,9 @@ export const labContentParsers = {
   clonality: filterArrayParser,
   subcellular: filterArrayParser,
   condition: filterArrayParser,
-  specificity: filterArrayParser,
-  result: filterArrayParser,
+  recommendation: filterArrayParser,
+  validation: filterArrayParser,
+  issue: filterArrayParser,
   lab: filterArrayParser,
   source: filterArrayParser,
   view: parseAsStringEnum<LabView>(LAB_VIEWS).withDefault("experiments"),

@@ -17,6 +17,8 @@ export {
   getReportsForCellType,
   getReportsForCondition,
   getReportsForProtein,
+  getStainingIssues,
+  getValidationMethods,
   getVisibleReportById,
   getVisibleReportsForExperiment,
   resolveAndCreateReport,
@@ -45,10 +47,19 @@ export type { CreateReportBatchData, CreateReportData, SearchParams, UpdateRepor
 export {
   aggregateAntibodyEntries,
   aggregateMarkerEntries,
+  isUsable,
   reportUsageImages,
   sortMarkerEntries,
   toReportEntry,
   toReportResponse,
   toReportUsage,
 } from "./transforms"
-export type { ReportImageResponse, ReportResponse, ReportUsage } from "./transforms"
+export type {
+  AssessmentTerm,
+  ReportImageResponse,
+  ReportIssueEntry,
+  ReportResponse,
+  ReportUsage,
+  ReportValidationEntry,
+  VerdictCounts,
+} from "./transforms"

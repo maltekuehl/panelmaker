@@ -18,3 +18,7 @@ export function getInitials(name: string | null | undefined): string {
     .toUpperCase()
     .slice(0, 2)
 }
+
+export function formatConcentration(ugPerMl: number): string {
+  return `${ugPerMl.toLocaleString("en-US", { maximumSignificantDigits: 4 })} µg/mL`
+}

@@ -63,7 +63,8 @@ async function MarkerContent({ id }: { id: string }) {
   const species = [...new Set(reports.map((r) => r.experiment.species?.label).filter(Boolean))]
   const uniqueAntibodies = new Set(usages.map((u) => u.antibodyId).filter(Boolean)).size
   const contributors = new Set(usages.map((u) => u.submitterId ?? u.submitter).filter(Boolean)).size
-  const worksCount = usages.filter((u) => u.works === true).length
+  const recommendedCount = usages.filter((u) => u.recommendation === "RECOMMENDED").length
+  const controlledCount = usages.filter((u) => u.validations.some((v) => v.result === "SUPPORTS")).length
 
   const cellTypesForTable = relatedCellTypes.map((ct) => ({
     id: ct.id,
@@ -75,7 +76,7 @@ async function MarkerContent({ id }: { id: string }) {
   return (
     <>
       <CustomBreadcrumbs
-        items={[{ label: "Markers", href: "/browse" }, { label: protein.geneSymbol ?? protein.label }]}
+        items={[{ label: "Markers", href: "/browse?mode=markers" }, { label: protein.geneSymbol ?? protein.label }]}
       />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
@@ -187,8 +188,12 @@ async function MarkerContent({ id }: { id: string }) {
                 <dd className="font-medium tabular-nums">{reports.length}</dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="text-muted-foreground">Validated (works)</dt>
-                <dd className="font-medium tabular-nums">{worksCount}</dd>
+                <dt className="text-muted-foreground">Recommended</dt>
+                <dd className="font-medium tabular-nums">{recommendedCount}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-muted-foreground">With specificity controls</dt>
+                <dd className="font-medium tabular-nums">{controlledCount}</dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-muted-foreground">Antibodies</dt>

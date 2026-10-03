@@ -119,6 +119,50 @@ test.describe("Report submission with a session", () => {
     expect(cd20.images[0].references).toEqual([{ role: "NUCLEAR", label: "DAPI" }])
   })
 
+  test("the verdict, issues, specificity controls and concentration are submitted", async ({ page }) => {
+    const png = await sharp({ create: { width: 300, height: 300, channels: 3, background: "#204060" } })
+      .png()
+      .toBuffer()
+    let payload: { antibodies: Record<string, unknown>[] } | undefined
+    await page.route("**/api/reports/batch", async (route) => {
+      payload = route.request().postDataJSON()
+      await route.fulfill({ status: 201, json: { createdCount: 1, created: [{ experimentId: "x" }], failed: [] } })
+    })
+
+    await page.goto("/submit")
+    await page.getByRole("textbox", { name: "Experiment name" }).fill("Assessment run")
+    await page
+      .getByRole("navigation", { name: "Submission steps" })
+      .getByRole("button", { name: /Antibodies/ })
+      .click()
+
+    await page.getByRole("textbox", { name: "Marker name" }).fill("CD3")
+    await page.getByRole("spinbutton", { name: "Concentration (µg/mL)" }).fill("2.5")
+    await page.getByRole("radiogroup", { name: "Verdict" }).getByRole("radio", { name: "Usable with caveats" }).click()
+    await page.getByRole("toolbar", { name: "Issues" }).getByRole("button", { name: "High background" }).click()
+    await page
+      .getByRole("radiogroup", { name: "Knockout or knockdown control" })
+      .getByRole("radio", { name: "Supports" })
+      .click()
+
+    await page
+      .locator('input[type="file"]')
+      .first()
+      .setInputFiles({ name: "fov.png", mimeType: "image/png", buffer: png })
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("button", { name: "Next" }).click()
+    await dialog.getByRole("button", { name: "Save image" }).click()
+
+    await page.getByRole("button", { name: /Submit 1 report/ }).click()
+    await expect(page.getByRole("heading", { name: "Reports submitted" })).toBeVisible()
+
+    const [cd3] = payload!.antibodies
+    expect(cd3.concentrationUgPerMl).toBe(2.5)
+    expect(cd3.recommendation).toBe("WITH_CAVEATS")
+    expect(cd3.issueIds).toEqual(["high-background"])
+    expect(cd3.validations).toEqual([{ methodId: "knockout-control", result: "SUPPORTS" }])
+  })
+
   test("breadcrumbs point back to the home page", async ({ page }) => {
     await page.goto("/submit")
 

@@ -34,6 +34,7 @@ Run these with `npm run <script>` on a bare-metal install, or `docker compose ru
 | `seed:demo`        | **Deletes every row in the database**, then loads reference data plus fictional users, labs, antibodies, reports and panels                                     | **yes**                       | development, demo servers |
 | `seed:demo-user`   | Creates the `demo@panelmaker.local` admin with a known password and writes it to `DEMO_CREDENTIALS.txt`                                                         | no                            | development only |
 | `pathoplex:lookup` | Resolves RRIDs for the PathoPlex reagent list against the Antibody Registry. Needs `SCICRUNCH_API_KEY`. Writes `prisma/data/pathoplex-antibodies.resolved.json` | no (database)                 | maintainers      |
+| `pathoplex:proteins` | Resolves the curated PathoPlex target genes (`prisma/data/pathoplex-target-genes.ts`) to reviewed UniProt entries. Writes `prisma/data/pathoplex-proteins.resolved.json` | no (database) | maintainers |
 | `pathoplex:seed`   | Adds the PathoPlex antibody inventory and two kidney experiments to the demo Puelles lab. Needs `seed:demo` first                                               | no                            | development, demo servers |
 | `seed:all`         | Runs `seed:demo`, `seed:demo-user`, `pathoplex:seed`, `ibex:import` and `fpbase:sync` in order                                                                  | **yes**                       | development only |
 
@@ -43,7 +44,7 @@ Run these with `npm run <script>` on a bare-metal install, or `docker compose ru
 
 ## IBEX knowledge base
 
-The [IBEX Imaging Community knowledge base](https://github.com/IBEXImagingCommunity/ibex_imaging_knowledge_base) is a curated, versioned collection of antibody validation records for IBEX multiplexed imaging, licensed CC BY 4.0. `npm run ibex:import` turns it into 104 public experiments with 1,277 published reports, plus the antibodies, proteins and fluorophores they reference.
+The [IBEX Imaging Community knowledge base](https://github.com/IBEXImagingCommunity/ibex_imaging_knowledge_base) is a curated, versioned collection of antibody validation records for IBEX multiplexed imaging, licensed CC BY 4.0. `npm run ibex:import` turns it into 56 public experiments with 605 published reports, plus the antibodies, proteins and fluorophores they reference.
 
 - It reads the copy of the source tables committed under `prisma/data/ibex/`, so it needs no network access.
 - It is idempotent: records are keyed on stable identifiers, shared records are only filled in and never overwritten, and nothing is deleted.

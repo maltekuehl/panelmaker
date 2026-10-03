@@ -19,6 +19,7 @@ import { PATHOPLEX } from "../prisma/data/reports"
 import { TAXA, taxonIdForHost } from "../prisma/data/taxa"
 import { storeLocalImagingMethod } from "../prisma/imaging-methods"
 import type { ResolvedReagent } from "./lookup-pathoplex-antibodies"
+import type { ResolvedTarget } from "./resolve-pathoplex-proteins"
 
 const LAB_ID = "seed_lab_puelles"
 const HUMAN_TAXON = "NCBITaxon:9606"
@@ -349,6 +350,15 @@ function loadResolved(): ResolvedReagent[] {
   }
 }
 
+function loadResolvedTargets(): Record<string, ResolvedTarget> {
+  const file = path.resolve(process.cwd(), "prisma/data/pathoplex-proteins.resolved.json")
+  try {
+    return (JSON.parse(readFileSync(file, "utf8")) as { targets: Record<string, ResolvedTarget> }).targets
+  } catch {
+    throw new Error(`Could not read ${file}. Run \`npm run pathoplex:proteins\` first.`)
+  }
+}
+
 runScript(async (prisma) => {
   const lab = await prisma.lab.findUnique({ where: { id: LAB_ID }, select: { id: true, name: true, slug: true } })
   if (!lab) throw new Error(`Lab ${LAB_ID} not found. Run \`npm run seed:demo\` first to create the Puelles lab.`)
@@ -408,6 +418,18 @@ runScript(async (prisma) => {
       existingProteins.add(marker.protein.id)
     }
     for (const key of marker.antibodyKeys) proteinByKey.set(key, marker.protein.id)
+  }
+
+  // Every other target, resolved against UniProt by `npm run pathoplex:proteins`.
+  for (const [key, target] of Object.entries(loadResolvedTargets())) {
+    if (proteinByKey.has(key)) continue
+    if (!existingProteins.has(target.accession)) {
+      await prisma.protein.create({
+        data: { id: target.accession, label: target.label, geneSymbol: target.geneSymbol },
+      })
+      existingProteins.add(target.accession)
+    }
+    proteinByKey.set(key, target.accession)
   }
 
   const linkProtein = (key: string): string | null => proteinByKey.get(key) ?? null
@@ -537,14 +559,14 @@ runScript(async (prisma) => {
       const reportId = `pp_rpt_${exp.id}_${r.key}`
       await prisma.experimentalReport.upsert({
         where: { id: reportId },
-        update: { dilution: r.dilution, status: "PUBLISHED", works: true },
+        update: { dilution: r.dilution, status: "PUBLISHED", recommendation: "RECOMMENDED" },
         create: {
           id: reportId,
           experimentId: exp.id,
           antibodyId: antibodyIdByKey.get(r.key) ?? null,
           dilution: r.dilution,
           status: "PUBLISHED",
-          works: true,
+          recommendation: "RECOMMENDED",
           notes: r.note ?? null,
         },
       })

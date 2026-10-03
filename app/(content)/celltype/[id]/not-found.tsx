@@ -25,7 +25,7 @@ export default function CellTypeNotFound() {
               The cell type you&apos;re looking for doesn&apos;t exist or may have been removed.
             </p>
             <Button asChild>
-              <Link href="/browse">Browse All Markers</Link>
+              <Link href="/browse?mode=markers">Browse All Markers</Link>
             </Button>
           </CardContent>
         </Card>

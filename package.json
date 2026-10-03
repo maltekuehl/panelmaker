@@ -14,6 +14,7 @@
     "ibex:import": "tsx scripts/import-ibex.ts",
     "lint": "prettier --config .prettierrc.json --check . && eslint .",
     "pathoplex:lookup": "tsx scripts/lookup-pathoplex-antibodies.ts",
+    "pathoplex:proteins": "tsx scripts/resolve-pathoplex-proteins.ts",
     "pathoplex:seed": "tsx scripts/seed-pathoplex-inventory.ts",
     "postinstall": "prisma generate",
     "prepare": "husky",

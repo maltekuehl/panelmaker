@@ -34,7 +34,7 @@ export default function NotFound() {
               <Button asChild variant="outline">
                 <Link href="/browse">
                   <Search className="size-4" />
-                  Browse Markers
+                  Browse Antibodies
                 </Link>
               </Button>
             </div>

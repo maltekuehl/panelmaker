@@ -11,13 +11,13 @@ test.describe("Search", () => {
     await search.press("Enter")
 
     await expect(page).toHaveURL("/browse?q=CD4")
-    await expect(page.getByText('Showing markers results for "CD4"')).toBeVisible()
+    await expect(page.getByText('Showing antibodies results for "CD4"')).toBeVisible()
   })
 
   test("a query in the URL is applied to the browse table", async ({ page }) => {
     await page.goto("/browse?q=CD8")
 
-    await expect(page.getByText('Showing markers results for "CD8"')).toBeVisible()
+    await expect(page.getByText('Showing antibodies results for "CD8"')).toBeVisible()
     await expect(page.getByRole("table")).toBeVisible()
   })
 
@@ -27,7 +27,7 @@ test.describe("Search", () => {
     await page.getByRole("searchbox", { name: "tissues" }).fill("FOXP3")
 
     await page.waitForURL(/[?&]q=FOXP3/)
-    await expect(page.getByText('Showing markers results for "FOXP3"')).toBeVisible()
+    await expect(page.getByText('Showing antibodies results for "FOXP3"')).toBeVisible()
   })
 
   test("an empty query shows the default browse description", async ({ page }) => {

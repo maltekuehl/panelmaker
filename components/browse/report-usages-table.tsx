@@ -1,9 +1,10 @@
 "use client"
 
-import { QualityBadge, WorksBadge } from "@/components/browse/report-badges"
+import { IssueBadges, RecommendationBadge, ValidationList } from "@/components/browse/report-badges"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { NotAvailable, ValueOrNotAvailable } from "@/components/shared/not-available"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { formatConcentration } from "@/lib/format"
 import { antibodyHref, cellTypeHref, conditionHref, markerHref, profileHref } from "@/lib/routes"
 import type { ReportUsage } from "@/models/experimental-report"
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
@@ -73,9 +74,16 @@ function MarkerLeadCell({ usage }: { usage: ReportUsage }) {
   return <span className="font-medium">{usage.markerName ?? "Unknown"}</span>
 }
 
-function QualityOrNotAvailable({ label }: { label: string | null }) {
-  if (!label) return <NotAvailable />
-  return <QualityBadge label={label} />
+function WorkingAmount({ usage }: { usage: ReportUsage }) {
+  if (!usage.dilution && usage.concentrationUgPerMl === null) return <NotAvailable />
+  return (
+    <div className="flex flex-col">
+      {usage.dilution && <span>{usage.dilution}</span>}
+      {usage.concentrationUgPerMl !== null && (
+        <span className="text-muted-foreground">{formatConcentration(usage.concentrationUgPerMl)}</span>
+      )}
+    </div>
+  )
 }
 
 export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProps) {
@@ -111,7 +119,7 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
             <TableHead className="h-8 py-1 text-xs">Method</TableHead>
             <TableHead className="h-8 py-1 text-xs">Sample</TableHead>
             <TableHead className="h-8 py-1 text-xs">Dilution</TableHead>
-            <TableHead className="h-8 py-1 text-xs">Result</TableHead>
+            <TableHead className="h-8 py-1 text-xs">Verdict</TableHead>
             <TableHead className="h-8 py-1 text-xs">Submitter</TableHead>
             <TableHead className="h-8 py-1 text-xs"></TableHead>
             {actions && <TableHead className="h-8 py-1 text-xs"></TableHead>}
@@ -168,13 +176,10 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                     </div>
                   </TableCell>
                   <TableCell className="py-1.5">
-                    <ValueOrNotAvailable value={usage.dilution} />
+                    <WorkingAmount usage={usage} />
                   </TableCell>
                   <TableCell className="py-1.5">
-                    <div className="flex flex-col items-start gap-0.5">
-                      <WorksBadge works={usage.works} className="text-xs" />
-                      <QualityBadge label={usage.signalQuality} />
-                    </div>
+                    <RecommendationBadge recommendation={usage.recommendation} className="text-xs" />
                   </TableCell>
                   <TableCell className="py-1.5">
                     <div className="flex flex-col">
@@ -254,11 +259,11 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                          <DetailField label="Signal Quality">
-                            <QualityOrNotAvailable label={usage.signalQuality} />
+                          <DetailField label="Issues">
+                            <IssueBadges issues={usage.issues} />
                           </DetailField>
-                          <DetailField label="Specificity">
-                            <QualityOrNotAvailable label={usage.specificity} />
+                          <DetailField label="Specificity controls">
+                            <ValidationList validations={usage.validations} />
                           </DetailField>
                           <DetailField label="Cell Types">
                             {usage.cellTypes.length > 0 ? (

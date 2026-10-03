@@ -25,7 +25,7 @@ export default function ReportNotFound() {
               The experimental report you&apos;re looking for doesn&apos;t exist or may have been removed.
             </p>
             <Button asChild>
-              <Link href="/browse">Browse All Markers</Link>
+              <Link href="/browse?mode=reports">Browse All Reports</Link>
             </Button>
           </CardContent>
         </Card>

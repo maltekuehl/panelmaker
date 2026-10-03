@@ -12,15 +12,15 @@ test.describe("Home Page", () => {
     await expect(page.getByText("Validated Reports", { exact: true })).toBeVisible()
 
     const destinations = page.locator("section").last()
-    for (const title of ["Browse Markers", "Design a Panel", "Submit a Marker", "Documentation"]) {
+    for (const title of ["Browse Antibodies", "Design a Panel", "Submit a Report", "Documentation"]) {
       await expect(destinations.getByRole("link", { name: title })).toBeVisible()
     }
   })
 
-  test("the Browse Markers card navigates to the browse page", async ({ page }) => {
+  test("the Browse Antibodies card navigates to the browse page", async ({ page }) => {
     await page.goto("/")
 
-    await page.getByRole("link", { name: "Browse Markers" }).click()
+    await page.getByRole("link", { name: "Browse Antibodies" }).click()
 
     await expect(page).toHaveURL("/browse")
     await expect(page.getByRole("heading", { level: 1, name: "Browse" })).toBeVisible()

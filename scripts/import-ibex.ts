@@ -589,7 +589,7 @@ runScript(async (prisma) => {
       antibodyId: string | null
       fluorophoreId: string | null
       status: "PUBLISHED"
-      works: boolean
+      recommendation: "RECOMMENDED" | "NOT_RECOMMENDED"
       notes: string
     }
   }[] = []
@@ -631,7 +631,7 @@ runScript(async (prisma) => {
           antibodyId: antibodyIdByKey.get(antibodyKey) ?? null,
           fluorophoreId: fluorophoreIdByConjugate.get(row["Conjugate"]) ?? null,
           status: "PUBLISHED",
-          works: row["Recommend"] === "Yes",
+          recommendation: row["Recommend"] === "Yes" ? "RECOMMENDED" : "NOT_RECOMMENDED",
           notes,
         },
       })

@@ -64,19 +64,16 @@ enum ValidationStatus {
   REJECTED
 }
 
-enum SignalQuality {
-  EXCELLENT
-  GOOD
-  MODERATE
-  POOR
-  NONE
+enum Recommendation {
+  RECOMMENDED
+  WITH_CAVEATS
+  NOT_RECOMMENDED
 }
 
-enum Specificity {
-  HIGH
-  MODERATE
-  LOW
-  NON_SPECIFIC
+enum ValidationResult {
+  SUPPORTS
+  CONTRADICTS
+  INCONCLUSIVE
 }
 
 enum LabRole {
@@ -556,27 +553,28 @@ model Experiment {
 }
 
 model ExperimentalReport {
-  id            String           @id @default(cuid())
-  experimentId  String
-  antibodyId    String?
-  subcellularId String?
-  fluorophoreId String?
-  metalTag      String?
-  cycleNumber   Int?
-  dilution      String?
-  incubation    String?
-  status        ValidationStatus @default(PENDING)
-  works         Boolean?
-  signalQuality SignalQuality?
-  specificity   Specificity?
-  notes         String?
+  id                   String           @id @default(cuid())
+  experimentId         String
+  antibodyId           String?
+  subcellularId        String?
+  fluorophoreId        String?
+  metalTag             String?
+  cycleNumber          Int?
+  dilution             String?
+  incubation           String?
+  status               ValidationStatus @default(PENDING)
+  recommendation       Recommendation?
+  concentrationUgPerMl Float?
+  notes                String?
 
-  experiment    Experiment         @relation(fields: [experimentId], references: [id], onDelete: Cascade)
-  antibody      Antibody?          @relation(fields: [antibodyId], references: [id], onDelete: Restrict)
-  subcellular   CellularComponent? @relation(fields: [subcellularId], references: [id], onDelete: SetNull)
-  fluorophore   Fluorophore?       @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
+  experiment    Experiment            @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  antibody      Antibody?             @relation(fields: [antibodyId], references: [id], onDelete: Restrict)
+  subcellular   CellularComponent?    @relation(fields: [subcellularId], references: [id], onDelete: SetNull)
+  fluorophore   Fluorophore?          @relation(fields: [fluorophoreId], references: [id], onDelete: SetNull)
   cellTypes     ReportCellType[]
   imageChannels ImageChannel[]
+  validations   ReportValidation[]
+  issues        ReportStainingIssue[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -586,7 +584,54 @@ model ExperimentalReport {
   @@index([subcellularId])
   @@index([fluorophoreId])
   @@index([status])
+  @@index([recommendation])
   @@index([createdAt])
+}
+
+// Ways of showing that a stain is specific, after the antibody validation pillars of Uhlen et al. 2016.
+// No ontology covers these, so they are local rows with stable slug ids.
+model ValidationMethod {
+  id          String  @id
+  label       String
+  description String?
+
+  reports ReportValidation[]
+
+  @@index([label])
+}
+
+// Problems a submitter saw with a stain, including multiplex ones such as loss across cycles.
+model StainingIssue {
+  id          String  @id
+  label       String
+  description String?
+
+  reports ReportStainingIssue[]
+
+  @@index([label])
+}
+
+model ReportValidation {
+  reportId String
+  methodId String
+  result   ValidationResult
+
+  report ExperimentalReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  method ValidationMethod   @relation(fields: [methodId], references: [id], onDelete: Restrict)
+
+  @@id([reportId, methodId])
+  @@index([methodId])
+}
+
+model ReportStainingIssue {
+  reportId String
+  issueId  String
+
+  report ExperimentalReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  issue  StainingIssue      @relation(fields: [issueId], references: [id], onDelete: Restrict)
+
+  @@id([reportId, issueId])
+  @@index([issueId])
 }
 
 // One field of view from an experiment. Its channels say what each colour in the picture is: the stains

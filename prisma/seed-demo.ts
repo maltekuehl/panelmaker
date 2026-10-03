@@ -148,11 +148,11 @@ async function seedExperimentalReports(prisma: PrismaClient, antibodyMap: Antibo
           dilution: r.dilution,
           incubation: r.incubation ?? null,
           status: r.status,
-          works: r.works,
-          signalQuality: r.signalQuality,
-          specificity: r.specificity,
+          recommendation: r.recommendation,
           notes: r.notes,
           cellTypes: { create: cellTypeIds.map((cellTypeId) => ({ cellTypeId })) },
+          issues: { create: (r.issueIds ?? []).map((issueId) => ({ issueId })) },
+          validations: { create: r.validations ?? [] },
         },
         select: { id: true },
       })
@@ -260,11 +260,11 @@ async function seedLabs(prisma: PrismaClient) {
     if (i === 0) {
       await prisma.experimentalReport.updateMany({
         where: { experimentId: exp.id },
-        data: { status: "PENDING", works: true },
+        data: { status: "PENDING", recommendation: "RECOMMENDED" },
       })
     }
     const reports = await prisma.experimentalReport.findMany({
-      where: { experimentId: exp.id, works: true, antibodyId: { not: null } },
+      where: { experimentId: exp.id, recommendation: "RECOMMENDED", antibodyId: { not: null } },
       select: { antibodyId: true },
     })
     for (const r of reports) if (r.antibodyId) antibodyIdsToStock.add(r.antibodyId)
@@ -317,6 +317,8 @@ async function resetDatabase(prisma: PrismaClient) {
   await prisma.panel.deleteMany()
   await prisma.image.deleteMany()
   await prisma.reportCellType.deleteMany()
+  await prisma.reportValidation.deleteMany()
+  await prisma.reportStainingIssue.deleteMany()
   await prisma.experimentalReport.deleteMany()
   await prisma.experiment.deleteMany()
   await prisma.dataSource.deleteMany()
@@ -331,6 +333,8 @@ async function resetDatabase(prisma: PrismaClient) {
   await prisma.diseaseCondition.deleteMany()
   await prisma.fixative.deleteMany()
   await prisma.developmentalStage.deleteMany()
+  await prisma.validationMethod.deleteMany()
+  await prisma.stainingIssue.deleteMany()
   await prisma.chatMessage.deleteMany()
   await prisma.rateLimit.deleteMany()
   await prisma.verificationToken.deleteMany()
