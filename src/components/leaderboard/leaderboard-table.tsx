@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { LAB_ROLE_LABELS } from "@/lib/constants"
 import { getInitials } from "@/lib/format"
 import { profileHref } from "@/lib/routes"
+import { cn } from "@/lib/utils"
 import type { LabLeaderboardEntry, LeaderboardEntry } from "@/models/user"
 import { Award, Medal, Trophy } from "lucide-react"
 import Link from "next/link"
@@ -41,21 +42,34 @@ function ContributorCell({ entry }: { entry: LeaderboardEntry }) {
   )
 }
 
-function rowClass(rank: number, scoring: boolean): string {
-  return scoring && rank <= 3 ? "bg-muted/40" : ""
+type ExtraColumn<T> = {
+  header: string
+  numeric?: boolean
+  cellClassName: string
+  cell: (entry: T) => React.ReactNode
 }
 
-export function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
+function RankedTable<T extends LeaderboardEntry>({
+  entries,
+  memberHeader,
+  columns,
+}: {
+  entries: T[]
+  memberHeader: string
+  columns: ExtraColumn<T>[]
+}) {
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="h-9 w-12 py-2 text-xs">Rank</TableHead>
-            <TableHead className="h-9 py-2 text-xs">Contributor</TableHead>
-            <TableHead className="h-9 py-2 text-xs">Institution</TableHead>
-            <TableHead className="h-9 py-2 text-right text-xs">Reports</TableHead>
-            <TableHead className="h-9 py-2 text-right text-xs">Published</TableHead>
+            <TableHead className="h-9 py-2 text-xs">{memberHeader}</TableHead>
+            {columns.map((column) => (
+              <TableHead key={column.header} className={cn("h-9 py-2 text-xs", column.numeric && "text-right")}>
+                {column.header}
+              </TableHead>
+            ))}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -63,14 +77,14 @@ export function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
             const rank = index + 1
             const scoring = entry.reportCount > 0
             return (
-              <TableRow key={entry.userId} className={rowClass(rank, scoring)}>
+              <TableRow key={entry.userId} className={scoring && rank <= 3 ? "bg-muted/40" : ""}>
                 <RankCell rank={rank} scoring={scoring} />
                 <ContributorCell entry={entry} />
-                <TableCell className="py-3 text-sm text-muted-foreground">
-                  {entry.institution ?? <NotAvailable />}
-                </TableCell>
-                <TableCell className="py-3 text-right font-semibold">{entry.reportCount}</TableCell>
-                <TableCell className="py-3 text-right font-medium text-success">{entry.publishedCount}</TableCell>
+                {columns.map((column) => (
+                  <TableCell key={column.header} className={cn("py-3", column.cellClassName)}>
+                    {column.cell(entry)}
+                  </TableCell>
+                ))}
               </TableRow>
             )
           })}
@@ -80,43 +94,61 @@ export function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
   )
 }
 
+const reportsColumn: ExtraColumn<LeaderboardEntry> = {
+  header: "Reports",
+  numeric: true,
+  cellClassName: "text-right font-semibold",
+  cell: (entry) => entry.reportCount,
+}
+
+const publishedColumn: ExtraColumn<LeaderboardEntry> = {
+  header: "Published",
+  numeric: true,
+  cellClassName: "text-right font-medium text-success",
+  cell: (entry) => entry.publishedCount,
+}
+
+export function LeaderboardTable({ entries }: { entries: LeaderboardEntry[] }) {
+  return (
+    <RankedTable
+      entries={entries}
+      memberHeader="Contributor"
+      columns={[
+        {
+          header: "Institution",
+          cellClassName: "text-sm text-muted-foreground",
+          cell: (entry) => entry.institution ?? <NotAvailable />,
+        },
+        reportsColumn,
+        publishedColumn,
+      ]}
+    />
+  )
+}
+
 // The lab board trades the institution column (the same for nearly every member) for the member's lab
 // role and for how much of their work is lab-visible rather than public.
 export function LabLeaderboardTable({ entries }: { entries: LabLeaderboardEntry[] }) {
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="h-9 w-12 py-2 text-xs">Rank</TableHead>
-            <TableHead className="h-9 py-2 text-xs">Member</TableHead>
-            <TableHead className="h-9 py-2 text-xs">Role</TableHead>
-            <TableHead className="h-9 py-2 text-right text-xs">Reports</TableHead>
-            <TableHead className="h-9 py-2 text-right text-xs">Lab only</TableHead>
-            <TableHead className="h-9 py-2 text-right text-xs">Published</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entries.map((entry, index) => {
-            const rank = index + 1
-            const scoring = entry.reportCount > 0
-            return (
-              <TableRow key={entry.userId} className={rowClass(rank, scoring)}>
-                <RankCell rank={rank} scoring={scoring} />
-                <ContributorCell entry={entry} />
-                <TableCell className="py-3 text-sm">
-                  {entry.role ? <Badge variant="outline">{LAB_ROLE_LABELS[entry.role]}</Badge> : <NotAvailable />}
-                </TableCell>
-                <TableCell className="py-3 text-right font-semibold">{entry.reportCount}</TableCell>
-                <TableCell className="py-3 text-right font-medium text-muted-foreground">
-                  {entry.labOnlyCount}
-                </TableCell>
-                <TableCell className="py-3 text-right font-medium text-success">{entry.publishedCount}</TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <RankedTable<LabLeaderboardEntry>
+      entries={entries}
+      memberHeader="Member"
+      columns={[
+        {
+          header: "Role",
+          cellClassName: "text-sm",
+          cell: (entry) =>
+            entry.role ? <Badge variant="outline">{LAB_ROLE_LABELS[entry.role]}</Badge> : <NotAvailable />,
+        },
+        reportsColumn,
+        {
+          header: "Lab only",
+          numeric: true,
+          cellClassName: "text-right font-medium text-muted-foreground",
+          cell: (entry) => entry.labOnlyCount,
+        },
+        publishedColumn,
+      ]}
+    />
   )
 }

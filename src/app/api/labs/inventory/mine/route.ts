@@ -1,4 +1,4 @@
-import { authErrorResponse, requireAuth, resolveViewerContext } from "@/lib/auth"
+import { requireViewer } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getImportableInventory } from "@/models/lab"
 import { NextRequest } from "next/server"
@@ -7,11 +7,10 @@ import { NextRequest } from "next/server"
 // into a submission row. Scoped to the viewer's own lab memberships (resolved server-side).
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth(request)
-    const viewer = await resolveViewerContext(user.id)
+    const viewer = await requireViewer(request)
     const q = new URL(request.url).searchParams.get("q") ?? undefined
 
-    const rows = await getImportableInventory(viewer?.labIds ?? [], q)
+    const rows = await getImportableInventory(viewer.labIds, q)
     const items = rows.map((row) => ({
       id: row.id,
       labName: row.lab.name,
@@ -27,6 +26,6 @@ export async function GET(request: NextRequest) {
 
     return createSuccessResponse({ items })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch lab inventory")
+    return createErrorResponse(error, "Failed to fetch lab inventory")
   }
 }

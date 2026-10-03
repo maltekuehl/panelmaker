@@ -1,6 +1,32 @@
-import type { CarouselChannel, CarouselDetail, CarouselDetailValue } from "@/components/browse/image-carousel-dialog"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import { antibodyHref, markerHref } from "@/lib/routes"
+
+export interface CarouselDetailValue {
+  text: string
+  href?: string
+}
+
+// One labelled row of the info table, e.g. "Cell types" with a linked value per cell type.
+export interface CarouselDetail {
+  label: string
+  values: CarouselDetailValue[]
+}
+
+export interface CarouselChannel {
+  label: string
+  detail: string | null
+  color: string | null
+  role: "TARGET" | "NUCLEAR" | "STRUCTURAL"
+  highlighted: boolean
+}
+
+export interface CarouselImage {
+  src: string
+  title?: string
+  caption?: string | null
+  details?: CarouselDetail[]
+  channels?: CarouselChannel[]
+}
 
 const channelFluorophoreSelect = { select: { name: true } } as const
 

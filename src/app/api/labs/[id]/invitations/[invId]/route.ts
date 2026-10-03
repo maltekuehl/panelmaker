@@ -1,4 +1,4 @@
-import { authErrorResponse, requireLabRole } from "@/lib/auth"
+import { requireLabRole } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { revokeInvitation } from "@/models/lab"
@@ -20,6 +20,6 @@ export async function DELETE(request: NextRequest, context: Context) {
     })
     return createSuccessResponse({ success: true })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to revoke invitation")
+    return createErrorResponse(error, "Failed to revoke invitation")
   }
 }

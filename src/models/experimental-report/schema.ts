@@ -1,10 +1,4 @@
-import {
-  AntigenRetrieval,
-  Preservation,
-  Recommendation,
-  ValidationResult,
-  Visibility,
-} from "@/lib/generated/prisma/enums"
+import { AntigenRetrieval, Preservation, Recommendation, ValidationResult } from "@/lib/generated/prisma/enums"
 import { normalizeRrid } from "@/lib/utils"
 import {
   citationFields,
@@ -13,13 +7,8 @@ import {
   ontologyValueSchema,
   specimenFields,
 } from "@/models/experiment/schema"
+import { resourceVisibilityFields } from "@/models/lab/schema"
 import { z } from "zod"
-
-const visibilityFields = {
-  visibility: z.nativeEnum(Visibility).optional(),
-  sharedLabIds: z.array(z.string().min(1)).max(50).optional(),
-  owningLabId: z.string().min(1).nullable().optional(),
-}
 
 const rridSchema = z.string().max(100).transform(normalizeRrid)
 
@@ -133,7 +122,7 @@ const createReportFieldsSchema = z.object({
   ...assessmentFields,
   notes: z.string().max(5000).optional(),
   images: reportImagesSchema.optional(),
-  ...visibilityFields,
+  ...resourceVisibilityFields,
   ...citationFields,
   antibodyData: antibodySubmissionSchema.nullable().optional(),
   proteinData: proteinSubmissionSchema.nullable().optional(),
@@ -162,7 +151,7 @@ const batchContextSchema = z.object({
   imagingMethod: ontologyValueSchema.nullable().optional(),
   antigenRetrieval: z.nativeEnum(AntigenRetrieval).optional(),
   condition: ontologyValueSchema.nullable().optional(),
-  ...visibilityFields,
+  ...resourceVisibilityFields,
 })
 
 const batchAntibodySchema = z.object({

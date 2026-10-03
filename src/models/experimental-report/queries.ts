@@ -1,29 +1,26 @@
 import "server-only"
 
-import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/components/browse/columns"
-import type { CarouselImage } from "@/components/browse/image-carousel-dialog"
 import { CLONALITY_LABELS, PRESERVATION_LABELS, RECOMMENDATION_LABELS } from "@/lib/constants"
-import { FILTER_KEYS, type BrowseMarkerParams, type EntryFilterParams, type LabContentParams } from "@/lib/data-table"
+import {
+  BROWSE_AGGREGATION_CAP,
+  type BrowseMarkerParams,
+  type EntriesPage,
+  type EntryFilterParams,
+  FILTER_KEYS,
+  type LabContentParams,
+  paginate,
+} from "@/lib/data-table"
 import { UnprocessableError } from "@/lib/error-handling"
 import type { Prisma, ValidationStatus } from "@/lib/generated/prisma/client"
 import type { Visibility } from "@/lib/generated/prisma/enums"
 import { lookupAntibodyByRrid, searchAntibodyRegistry } from "@/lib/integrations/antibody-registry"
-import type { OntologyResult } from "@/lib/ontology"
-import {
-  searchCellOntology,
-  searchChebi,
-  searchDiseaseOntology,
-  searchEfoImagingMethods,
-  searchGoCellularComponent,
-  searchHsapDv,
-  searchMmusDv,
-  searchSpecies,
-  searchUberon,
-} from "@/lib/ontology"
 import { prisma } from "@/lib/prisma"
 import { normalizeRrid } from "@/lib/utils"
 import { registryToAntibodyCreate } from "@/models/antibody/transforms"
+import { experimentDetailSelect } from "@/models/experiment/queries"
 import type { SpecimenInput } from "@/models/experiment/schema"
+import type { AntibodyEntry, MarkerEntry, ReportEntry } from "@/models/experimental-report/entries"
+import type { CarouselImage } from "@/models/image/transforms"
 import {
   imageTitle,
   imageWithChannelsSelect,
@@ -31,19 +28,26 @@ import {
   targetDetails,
   toCarouselChannels,
 } from "@/models/image/transforms"
-import { imagingMethodSelect } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { resolveResourceVisibility } from "@/models/lab/queries"
-import { buildReportVisibilityWhere } from "@/models/lab/visibility"
+import { buildReportVisibilityWhere, labContentScope } from "@/models/lab/visibility"
+import {
+  type OntologyValue,
+  persistOntologyTerms,
+  resolveOptionalTerm,
+  validateAndResolveOntologyTerm,
+} from "@/models/ontology-term"
+import { ensureProtein } from "@/models/protein/queries"
+import { REPORT_FILTER_WHERE } from "./filters"
 import type { CreateReportBatchData, CreateReportData } from "./schema"
 import {
   aggregateAntibodyEntries,
   aggregateMarkerEntries,
+  type AssessmentTerm,
   sortAntibodyEntries,
   sortMarkerEntries,
   sortReportEntries,
   toReportEntry,
-  type AssessmentTerm,
 } from "./transforms"
 
 export type ReportQueryParams = {
@@ -87,36 +91,7 @@ const reportSelect = {
   imageChannels: reportImagesSelect,
   createdAt: true,
   updatedAt: true,
-  experiment: {
-    select: {
-      id: true,
-      name: true,
-      citation: true,
-      pmid: true,
-      doi: true,
-      imagingMethod: { select: imagingMethodSelect },
-      antigenRetrieval: true,
-      preservation: true,
-      preservationText: true,
-      fixativeConcentration: true,
-      antigenRetrievalText: true,
-      sampleType: true,
-      sectionThicknessUm: true,
-      donorSex: true,
-      donorAge: true,
-      protocolDoi: true,
-      fixative: { select: { id: true, label: true } },
-      developmentalStage: { select: { id: true, label: true } },
-      visibility: true,
-      createdAt: true,
-      species: { select: { id: true, label: true } },
-      tissue: { select: { id: true, label: true } },
-      condition: { select: { id: true, label: true } },
-      submitter: { select: { id: true, name: true, institution: true } },
-      owningLab: { select: { id: true, name: true, slug: true } },
-      source: { select: { id: true, name: true, url: true, license: true, attribution: true } },
-    },
-  },
+  experiment: { select: experimentDetailSelect },
   antibody: {
     select: {
       id: true,
@@ -146,63 +121,13 @@ const reportSelect = {
 
 export type ReportRow = Prisma.ExperimentalReportGetPayload<{ select: typeof reportSelect }>
 
-const WHERE_BUILDERS: Record<string, (values: string[]) => Prisma.ExperimentalReportWhereInput | null> = {
-  marker: (v) => ({ antibody: { targetProteinId: { in: v } } }),
-  cellType: (v) => ({ cellTypes: { some: { cellTypeId: { in: v } } } }),
-  species: (v) => ({ experiment: { speciesId: { in: v } } }),
-  tissue: (v) => ({ experiment: { tissueId: { in: v } } }),
-  method: (v) => ({ experiment: { imagingMethodId: { in: v } } }),
-  preservation: (v) => ({ experiment: { preservation: { in: v as Prisma.EnumPreservationNullableFilter["in"] } } }),
-  fixative: (v) => ({ experiment: { fixativeId: { in: v } } }),
-  vendor: (v) => ({ antibody: { vendorName: { in: v } } }),
-  host: (v) => ({ antibody: { hostTaxonId: { in: v } } }),
-  conjugate: (v) => ({ antibody: { conjugate: { in: v } } }),
-  clonality: (v) => ({ antibody: { clonality: { in: v as Prisma.EnumClonalityNullableFilter["in"] } } }),
-  subcellular: (v) => ({ subcellularId: { in: v } }),
-  condition: (v) => ({ experiment: { conditionId: { in: v } } }),
-  recommendation: (v) => ({ recommendation: { in: v as Prisma.EnumRecommendationNullableFilter["in"] } }),
-  validation: (v) => ({ validations: { some: { methodId: { in: v }, result: "SUPPORTS" } } }),
-  issue: (v) => ({ issues: { some: { issueId: { in: v } } } }),
-  lab: (v) => ({ experiment: { owningLabId: { in: v } } }),
-  source: (v) => ({ experiment: { sourceId: { in: v } } }),
-}
-
-const REPORT_LEVEL_FILTER_KEYS = [
-  "marker",
-  "cellType",
-  "vendor",
-  "host",
-  "conjugate",
-  "clonality",
-  "subcellular",
-  "recommendation",
-  "validation",
-  "issue",
-] as const satisfies (keyof EntryFilterParams)[]
-
-// The report-level dimensions as one predicate, so a parent (an experiment) can require a single report
-// that satisfies all of them together rather than one report per dimension.
-export function reportLevelWhere(params: EntryFilterParams): Prisma.ExperimentalReportWhereInput | null {
-  const conditions = REPORT_LEVEL_FILTER_KEYS.flatMap((key) => {
-    const values = params[key]
-    const condition = values.length > 0 ? WHERE_BUILDERS[key](values) : null
-    return condition ? [condition] : []
-  })
-  return conditions.length > 0 ? { AND: conditions } : null
-}
-
 const BROWSE_REPORT_SCOPE: Prisma.ExperimentalReportWhereInput = {
   status: "PUBLISHED",
   experiment: { visibility: "PUBLIC" },
 }
 
 function labReportScope(labId: string): Prisma.ExperimentalReportWhereInput {
-  return {
-    experiment: {
-      visibility: { not: "PRIVATE" },
-      OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }],
-    },
-  }
+  return { experiment: labContentScope(labId) }
 }
 
 function buildReportWhere(
@@ -228,7 +153,7 @@ function buildReportWhere(
 
   for (const [key, values] of Object.entries(filters)) {
     if (!values || values.length === 0) continue
-    const condition = WHERE_BUILDERS[key]?.(values)
+    const condition = REPORT_FILTER_WHERE[key]?.(values)
     if (condition) conditions.push(condition)
   }
 
@@ -262,31 +187,12 @@ export async function getAllReports(params: ReportQueryParams): Promise<ReportRo
   })
 }
 
-const BROWSE_AGGREGATION_CAP = 2000
-
 export type BrowseQueryParams = BrowseMarkerParams & { pageSize?: number }
 
-export type MarkerEntriesParams = BrowseQueryParams
-
-export type EntriesPage<T> = {
-  rows: T[]
-  total: number
-  page: number
-  pageSize: number
-  pageCount: number
-}
-
-export type MarkerEntriesPage = EntriesPage<MarkerEntry>
-
-export function paginate<T>(rows: T[], page = 1, pageSize = 20): EntriesPage<T> {
-  const total = rows.length
-  const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  const current = Math.min(Math.max(1, page), pageCount)
-  return { rows: rows.slice((current - 1) * pageSize, current * pageSize), total, page: current, pageSize, pageCount }
-}
+type EntryQueryParams = EntryFilterParams & { pageSize?: number }
 
 async function fetchBrowseReports(
-  params: BrowseQueryParams,
+  params: EntryQueryParams,
   scope: Prisma.ExperimentalReportWhereInput = BROWSE_REPORT_SCOPE,
 ): Promise<ReportRow[]> {
   return prisma.experimentalReport.findMany({
@@ -321,12 +227,7 @@ export async function getLabReportEntriesPage(
   labId: string,
   params: LabContentParams & { pageSize?: number },
 ): Promise<EntriesPage<ReportEntry>> {
-  const reports = await prisma.experimentalReport.findMany({
-    select: reportSelect,
-    where: buildReportWhere(params.q, browseFilters(params), labReportScope(labId)),
-    orderBy: { createdAt: "desc" },
-    take: BROWSE_AGGREGATION_CAP,
-  })
+  const reports = await fetchBrowseReports(params, labReportScope(labId))
   const sorted = sortReportEntries(reports.map(toReportEntry), params.sort, params.order)
   return paginate(sorted, params.page, params.pageSize)
 }
@@ -432,24 +333,20 @@ function buildFacets(reports: ReportRow[]): BrowseFacets {
   return facets
 }
 
+async function facetsWithin(where: Prisma.ExperimentalReportWhereInput): Promise<BrowseFacets> {
+  return buildFacets(
+    await prisma.experimentalReport.findMany({ select: reportSelect, where, take: BROWSE_AGGREGATION_CAP }),
+  )
+}
+
 export async function getBrowseFacets(): Promise<BrowseFacets> {
-  const reports = await prisma.experimentalReport.findMany({
-    select: reportSelect,
-    where: BROWSE_REPORT_SCOPE,
-    take: BROWSE_AGGREGATION_CAP,
-  })
-  return buildFacets(reports)
+  return facetsWithin(BROWSE_REPORT_SCOPE)
 }
 
 // Lab-scoped facet set: derived from every report on the lab's experiments (all statuses/visibility),
 // mirroring how browse derives a single report-based facet set shared across all of its modes.
 export async function getLabContentFacets(labId: string): Promise<BrowseFacets> {
-  const reports = await prisma.experimentalReport.findMany({
-    select: reportSelect,
-    where: labReportScope(labId),
-    take: BROWSE_AGGREGATION_CAP,
-  })
-  return buildFacets(reports)
+  return facetsWithin(labReportScope(labId))
 }
 
 // Public lane: only ever returns a PUBLISHED report on a PUBLIC experiment. Used by the cached
@@ -542,17 +439,6 @@ export async function getReportsForProtein(proteinId: string): Promise<ReportRow
 }
 
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-type OntologyValue = { id: string; label: string }
-
-async function resolveProtein(tx: TxClient, data: CreateReportData): Promise<string | undefined> {
-  const pd = data.proteinData
-  if (!pd) return undefined
-
-  const existing = await tx.protein.findUnique({ where: { id: pd.id } })
-  if (existing) return existing.id
-
-  return (await tx.protein.create({ data: { id: pd.id, label: pd.label, geneSymbol: pd.geneSymbol ?? null } })).id
-}
 
 async function resolveAntibody(
   tx: TxClient,
@@ -591,91 +477,6 @@ async function resolveAntibody(
       },
     })
   ).id
-}
-
-type OntologyKind =
-  | "cellType"
-  | "cellularComponent"
-  | "condition"
-  | "developmentalStage"
-  | "fixative"
-  | "imagingMethod"
-  | "taxon"
-  | "tissue"
-
-const ONTOLOGY_RESOLVERS: Record<
-  OntologyKind,
-  {
-    exists: (id: string) => Promise<boolean>
-    search: (q: string) => Promise<OntologyResult[]>
-    noun: string
-    ontology: string
-  }
-> = {
-  cellType: {
-    exists: async (id) => (await prisma.cellType.findUnique({ where: { id }, select: { id: true } })) !== null,
-    search: searchCellOntology,
-    noun: "Cell type",
-    ontology: "Cell Ontology",
-  },
-  cellularComponent: {
-    exists: async (id) => (await prisma.cellularComponent.findUnique({ where: { id }, select: { id: true } })) !== null,
-    search: searchGoCellularComponent,
-    noun: "Subcellular location",
-    ontology: "GO Cellular Component",
-  },
-  condition: {
-    exists: async (id) => (await prisma.diseaseCondition.findUnique({ where: { id }, select: { id: true } })) !== null,
-    search: searchDiseaseOntology,
-    noun: "Disease condition",
-    ontology: "Disease Ontology",
-  },
-  developmentalStage: {
-    exists: async (id) =>
-      (await prisma.developmentalStage.findUnique({ where: { id }, select: { id: true } })) !== null,
-    // HsapDv covers human donors and MmusDv mouse; the submit form picks the ontology from the
-    // experiment species, so accept an id from either here.
-    search: async (q) => [...(await searchHsapDv(q)), ...(await searchMmusDv(q))],
-    noun: "Developmental stage",
-    ontology: "HsapDv or MmusDv",
-  },
-  fixative: {
-    exists: async (id) => (await prisma.fixative.findUnique({ where: { id }, select: { id: true } })) !== null,
-    search: searchChebi,
-    noun: "Fixative",
-    ontology: "ChEBI",
-  },
-  imagingMethod: {
-    exists: async (id) => (await prisma.imagingMethod.findUnique({ where: { id }, select: { id: true } })) !== null,
-    search: searchEfoImagingMethods,
-    noun: "Imaging method",
-    ontology: "EFO",
-  },
-  taxon: {
-    exists: async (id) => (await prisma.taxon.findUnique({ where: { id }, select: { id: true } })) !== null,
-    search: searchSpecies,
-    noun: "Species",
-    ontology: "NCBI Taxonomy",
-  },
-  tissue: {
-    exists: async (id) => (await prisma.tissue.findUnique({ where: { id }, select: { id: true } })) !== null,
-    search: searchUberon,
-    noun: "Tissue",
-    ontology: "UBERON",
-  },
-}
-
-// Accepts a term already in the catalog, otherwise requires the source ontology to confirm that the
-// submitted id really carries the submitted label before anything is written.
-export async function validateAndResolveOntologyTerm(kind: OntologyKind, value: OntologyValue): Promise<OntologyValue> {
-  const resolver = ONTOLOGY_RESOLVERS[kind]
-  if (await resolver.exists(value.id)) return value
-
-  const match = (await resolver.search(value.label)).find((term) => term.id === value.id)
-  if (!match) {
-    throw new UnprocessableError(`${resolver.noun} ${value.id} (${value.label}) not found in ${resolver.ontology}`)
-  }
-  return { id: match.id, label: match.label }
 }
 
 async function validateAntibody(data: CreateReportData): Promise<void> {
@@ -736,33 +537,13 @@ type ExperimentContextInput = {
   owningLabId?: string | null
 } & SpecimenInput
 
-function specimenContextOf(source: SpecimenInput): SpecimenInput {
-  return {
-    preservation: source.preservation,
-    preservationText: source.preservationText,
-    fixative: source.fixative,
-    fixativeConcentration: source.fixativeConcentration,
-    antigenRetrievalText: source.antigenRetrievalText,
-    sampleType: source.sampleType,
-    sectionThicknessUm: source.sectionThicknessUm,
-    donorSex: source.donorSex,
-    donorAge: source.donorAge,
-    developmentalStage: source.developmentalStage,
-    protocolDoi: source.protocolDoi,
-  }
-}
-
 export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, submitterId: string): Promise<string> {
-  const resolvedSpecies = ctx.species ? await validateAndResolveOntologyTerm("taxon", ctx.species) : undefined
-  const resolvedTissue = ctx.tissue ? await validateAndResolveOntologyTerm("tissue", ctx.tissue) : undefined
-  const resolvedCondition = ctx.condition ? await validateAndResolveOntologyTerm("condition", ctx.condition) : undefined
-  const resolvedFixative = ctx.fixative ? await validateAndResolveOntologyTerm("fixative", ctx.fixative) : undefined
-  const resolvedStage = ctx.developmentalStage
-    ? await validateAndResolveOntologyTerm("developmentalStage", ctx.developmentalStage)
-    : undefined
-  const resolvedImagingMethod = ctx.imagingMethod
-    ? await validateAndResolveOntologyTerm("imagingMethod", ctx.imagingMethod)
-    : undefined
+  const resolvedSpecies = await resolveOptionalTerm("taxon", ctx.species)
+  const resolvedTissue = await resolveOptionalTerm("tissue", ctx.tissue)
+  const resolvedCondition = await resolveOptionalTerm("condition", ctx.condition)
+  const resolvedFixative = await resolveOptionalTerm("fixative", ctx.fixative)
+  const resolvedStage = await resolveOptionalTerm("developmentalStage", ctx.developmentalStage)
+  const resolvedImagingMethod = await resolveOptionalTerm("imagingMethod", ctx.imagingMethod)
   // New submissions default to LAB when the submitter belongs to a lab, otherwise PRIVATE.
   const access = await resolveResourceVisibility({
     ownerId: submitterId,
@@ -773,32 +554,14 @@ export async function resolveAndCreateExperiment(ctx: ExperimentContextInput, su
   })
 
   return prisma.$transaction(async (tx) => {
-    if (resolvedSpecies) {
-      await tx.taxon.upsert({ where: { id: resolvedSpecies.id }, update: {}, create: resolvedSpecies })
-    }
-    if (resolvedTissue) {
-      await tx.tissue.upsert({ where: { id: resolvedTissue.id }, update: {}, create: resolvedTissue })
-    }
-    if (resolvedCondition) {
-      await tx.diseaseCondition.upsert({
-        where: { id: resolvedCondition.id },
-        update: {},
-        create: resolvedCondition,
-      })
-    }
-    if (resolvedFixative) {
-      await tx.fixative.upsert({ where: { id: resolvedFixative.id }, update: {}, create: resolvedFixative })
-    }
-    if (resolvedStage) {
-      await tx.developmentalStage.upsert({ where: { id: resolvedStage.id }, update: {}, create: resolvedStage })
-    }
-    if (resolvedImagingMethod) {
-      await tx.imagingMethod.upsert({
-        where: { id: resolvedImagingMethod.id },
-        update: {},
-        create: resolvedImagingMethod,
-      })
-    }
+    await persistOntologyTerms(tx, [
+      ["taxon", resolvedSpecies],
+      ["tissue", resolvedTissue],
+      ["condition", resolvedCondition],
+      ["fixative", resolvedFixative],
+      ["developmentalStage", resolvedStage],
+      ["imagingMethod", resolvedImagingMethod],
+    ])
 
     const experiment = await tx.experiment.create({
       data: {
@@ -846,29 +609,19 @@ export async function resolveAndCreateReport(data: CreateReportData, experimentI
   for (const ct of data.cellTypes ?? []) {
     resolvedCellTypes.push(await validateAndResolveOntologyTerm("cellType", ct))
   }
-  const resolvedHostTaxon = data.hostSpecies
-    ? await validateAndResolveOntologyTerm("taxon", data.hostSpecies)
-    : undefined
-  const resolvedSubcellular = data.subcellularLocation
-    ? await validateAndResolveOntologyTerm("cellularComponent", data.subcellularLocation)
-    : undefined
+  const resolvedHostTaxon = await resolveOptionalTerm("taxon", data.hostSpecies)
+  const resolvedSubcellular = await resolveOptionalTerm("cellularComponent", data.subcellularLocation)
 
   await validateAntibody(data)
   await validateAssessmentTerms(data)
 
   return prisma.$transaction(async (tx) => {
-    const proteinId = await resolveProtein(tx, data)
+    const proteinId = data.proteinData ? await ensureProtein(data.proteinData, tx) : undefined
 
-    if (resolvedHostTaxon) {
-      await tx.taxon.upsert({ where: { id: resolvedHostTaxon.id }, update: {}, create: resolvedHostTaxon })
-    }
-    if (resolvedSubcellular) {
-      await tx.cellularComponent.upsert({
-        where: { id: resolvedSubcellular.id },
-        update: {},
-        create: resolvedSubcellular,
-      })
-    }
+    await persistOntologyTerms(tx, [
+      ["taxon", resolvedHostTaxon],
+      ["cellularComponent", resolvedSubcellular],
+    ])
     if (resolvedCellTypes.length > 0) {
       await tx.cellType.createMany({ data: resolvedCellTypes, skipDuplicates: true })
     }
@@ -977,51 +730,11 @@ export async function resolveAndCreateReports(
   const created: ReportRow[] = []
   const failed: BatchReportResult["failed"] = []
 
-  const experimentId = await resolveAndCreateExperiment(
-    {
-      name: context.name ?? null,
-      description: context.description ?? null,
-      citation: context.citation ?? null,
-      pmid: context.pmid ?? null,
-      doi: context.doi ?? null,
-      species: context.species ?? null,
-      tissue: context.tissue ?? null,
-      condition: context.condition ?? null,
-      ...specimenContextOf(context),
-      imagingMethod: context.imagingMethod ?? null,
-      antigenRetrieval: context.antigenRetrieval,
-      visibility: context.visibility,
-      sharedLabIds: context.sharedLabIds,
-      owningLabId: context.owningLabId,
-    },
-    submitterId,
-  )
+  const experimentId = await resolveAndCreateExperiment(context, submitterId)
 
   for (let index = 0; index < antibodies.length; index++) {
     const item = antibodies[index]
-    const reportData: CreateReportData = {
-      markerName: item.markerName,
-      rrid: item.rrid,
-      antibodyVendor: item.antibodyVendor,
-      catalogNumber: item.catalogNumber,
-      cloneId: item.cloneId,
-      hostSpecies: item.hostSpecies ?? null,
-      cellTypes: item.cellTypes,
-      dilution: item.dilution,
-      incubation: item.incubation,
-      fluorophoreId: item.fluorophoreId,
-      metalTag: item.metalTag,
-      cycleNumber: item.cycleNumber,
-      recommendation: item.recommendation,
-      concentrationUgPerMl: item.concentrationUgPerMl,
-      issueIds: item.issueIds,
-      validations: item.validations,
-      subcellularLocation: item.subcellularLocation,
-      notes: item.notes,
-      images: item.images,
-      antibodyData: item.antibodyData,
-      proteinData: item.proteinData,
-    }
+    const reportData: CreateReportData = { ...item, hostSpecies: item.hostSpecies ?? null }
 
     try {
       created.push(await resolveAndCreateReport(reportData, experimentId))
@@ -1042,24 +755,7 @@ export async function resolveAndCreateReports(
 }
 
 export async function createReport(data: CreateReportData, submitterId: string): Promise<ReportRow> {
-  const experimentId = await resolveAndCreateExperiment(
-    {
-      citation: data.citation ?? null,
-      pmid: data.pmid ?? null,
-      doi: data.doi ?? null,
-      species: data.species ?? null,
-      tissue: data.tissue ?? null,
-      condition: data.condition ?? null,
-      ...specimenContextOf(data),
-      imagingMethod: data.imagingMethod ?? null,
-      antigenRetrieval: data.antigenRetrieval,
-      visibility: data.visibility,
-      sharedLabIds: data.sharedLabIds,
-      owningLabId: data.owningLabId,
-    },
-    submitterId,
-  )
-  return resolveAndCreateReport(data, experimentId)
+  return resolveAndCreateReport(data, await resolveAndCreateExperiment(data, submitterId))
 }
 
 export async function getPendingReports(): Promise<ReportRow[]> {

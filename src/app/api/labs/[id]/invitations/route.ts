@@ -1,10 +1,10 @@
-import { authErrorResponse, requireLabRole } from "@/lib/auth"
+import { requireLabRole } from "@/lib/auth"
 import { env } from "@/lib/env"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { createInvitation, inviteToLabSchema, listLabInvitations, toLabInvitationResponse } from "@/models/lab"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest, context: Context) {
     const invitations = await listLabInvitations(labId)
     return createSuccessResponse({ invitations: invitations.map(toLabInvitationResponse) })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch invitations")
+    return createErrorResponse(error, "Failed to fetch invitations")
   }
 }
 
@@ -28,12 +28,9 @@ export async function POST(request: NextRequest, context: Context) {
     const { user } = await requireLabRole(request, labId, "ADMIN")
 
     const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.LAB_INVITATIONS_SEND)
-    if (!rateLimitResult.allowed) {
-      return createRateLimitError(rateLimitResult) as NextResponse
-    }
+    if (!rateLimitResult.allowed) return createRateLimitError(rateLimitResult)
 
-    const body = await request.json()
-    const data = inviteToLabSchema.parse(body)
+    const data = inviteToLabSchema.parse(await request.json())
     const email = data.email && data.email.length > 0 ? data.email : null
 
     const { invitation, token } = await createInvitation({
@@ -54,14 +51,6 @@ export async function POST(request: NextRequest, context: Context) {
     const acceptUrl = new URL(`/lab/join/${token}`, env.NEXT_PUBLIC_BASE_URL).toString()
     return createSuccessResponse({ invitation: toLabInvitationResponse(invitation), token, acceptUrl }, 201)
   } catch (error) {
-    if (
-      error instanceof Error &&
-      (error.message.includes("Invite links") ||
-        error.message.includes("Admin invitations") ||
-        error.message.includes("as an owner"))
-    ) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to create invitation")
+    return createErrorResponse(error, "Failed to create invitation")
   }
 }

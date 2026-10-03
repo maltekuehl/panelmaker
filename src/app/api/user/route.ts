@@ -1,5 +1,6 @@
-import { createAuthHandler, getAllUsers } from "@/lib/auth"
+import { createAuthHandler } from "@/lib/auth"
 import { createErrorResponse } from "@/lib/error-handling"
+import { getAllUsers } from "@/models/user"
 import { connection, NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 

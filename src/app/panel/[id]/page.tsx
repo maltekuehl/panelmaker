@@ -1,4 +1,3 @@
-import { auth } from "@/auth"
 import { LabLink } from "@/components/lab/lab-link"
 import { PanelExportMenu } from "@/components/panel/panel-export-menu"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
@@ -7,11 +6,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { resolveViewerContext } from "@/lib/auth"
+import { getSessionUser, resolveViewerContext } from "@/lib/auth"
 import { PRESERVATION_LABELS } from "@/lib/constants"
 import { antibodyHref, markerHref, profileHref } from "@/lib/routes"
-import { canViewPanel } from "@/models/lab"
-import { getPanelById } from "@/models/panel"
+import { getPanelById, getVisiblePanelById } from "@/models/panel"
 import { Edit, Layers, Microscope } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
@@ -53,18 +51,14 @@ export default async function PanelDetailPage({ params }: PanelDetailPageProps) 
     notFound()
   }
 
-  const [panel, session] = await Promise.all([getPanelById(id), auth()])
+  const user = await getSessionUser()
+  const panel = await getVisiblePanelById(id, await resolveViewerContext(user?.id ?? null))
 
   if (!panel) {
     notFound()
   }
 
-  const viewer = await resolveViewerContext(session?.user?.id ?? null)
-  if (!canViewPanel(viewer, panel)) {
-    notFound()
-  }
-
-  const isOwner = session?.user?.id === panel.ownerId
+  const isOwner = user?.id === panel.ownerId
   const speciesLabel = panel.species?.label ?? null
   const preservationLabel = panel.preservation ? PRESERVATION_LABELS[panel.preservation] : null
   const totalMarkers = panel.cycles.reduce((sum, cycle) => sum + cycle.markers.length, 0)

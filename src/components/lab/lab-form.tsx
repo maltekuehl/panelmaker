@@ -1,11 +1,13 @@
 "use client"
 
-import { OntologyCombobox, type OntologyValue } from "@/components/ontology-combobox"
+import { InstitutionField } from "@/components/institution-field"
+import type { OntologyValue } from "@/components/ontology-combobox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { useApiRequest } from "@/hooks/use-api-request"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -33,7 +35,7 @@ export function LabForm({ mode, initial }: LabFormProps) {
   const [institution, setInstitution] = useState<OntologyValue | null>(
     initial?.institution && initial?.institutionId ? { id: initial.institutionId, label: initial.institution } : null,
   )
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { pending, request } = useApiRequest()
   const [nameError, setNameError] = useState<string | null>(null)
 
   // On create, omit empty fields (the schema treats them as optional). On edit, send null to clear.
@@ -45,41 +47,26 @@ export function LabForm({ mode, initial }: LabFormProps) {
       return
     }
     setNameError(null)
-    setIsSubmitting(true)
-    try {
-      const payload = {
+    const data = await request<{ lab: { slug: string } }>(true, {
+      url: mode === "edit" && initial?.id ? `/api/labs/${initial.id}` : "/api/labs",
+      method: mode === "edit" ? "PATCH" : "POST",
+      errorMessage: `Failed to ${mode === "edit" ? "update" : "create"} lab`,
+      body: {
         name: name.trim(),
         institution: institution?.label ?? emptyValue,
         institutionId: institution?.id ?? emptyValue,
         website: website.trim() || emptyValue,
         description: description.trim() || emptyValue,
         isPublicProfile,
-      }
-      const url = mode === "edit" && initial?.id ? `/api/labs/${initial.id}` : "/api/labs"
-      const method = mode === "edit" ? "PATCH" : "POST"
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error ?? `Failed to ${mode === "edit" ? "update" : "create"} lab`)
-      }
-
-      if (mode === "create") {
-        toast.success("Lab created")
-        router.push(`/labs/${data.lab.slug}`)
-      } else {
-        toast.success("Lab updated")
-        router.refresh()
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Something went wrong")
-    } finally {
-      setIsSubmitting(false)
+      },
+    })
+    if (!data) return
+    if (mode === "create") {
+      toast.success("Lab created")
+      router.push(`/labs/${data.lab.slug}`)
+    } else {
+      toast.success("Lab updated")
+      router.refresh()
     }
   }
 
@@ -111,27 +98,7 @@ export function LabForm({ mode, initial }: LabFormProps) {
         )}
       </div>
 
-      <div>
-        <Label htmlFor="lab-institution" className="text-sm font-medium">
-          Institution
-        </Label>
-        <p className="text-xs text-muted-foreground mb-1">
-          Search by institution name. Powered by the{" "}
-          <a href="https://ror.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-            Research Organization Registry
-          </a>
-          .
-        </p>
-        <div className="max-w-md">
-          <OntologyCombobox
-            id="lab-institution"
-            ontologyType="ror"
-            value={institution}
-            onChange={setInstitution}
-            placeholder="Search institution…"
-          />
-        </div>
-      </div>
+      <InstitutionField id="lab-institution" value={institution} onChange={setInstitution} />
 
       <div>
         <Label htmlFor="lab-website" className="text-sm font-medium">
@@ -171,8 +138,8 @@ export function LabForm({ mode, initial }: LabFormProps) {
         <Switch id="lab-public" checked={isPublicProfile} onCheckedChange={setIsPublicProfile} />
       </div>
 
-      <Button type="submit" disabled={isSubmitting} size="sm">
-        {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+      <Button type="submit" disabled={pending !== null} size="sm">
+        {pending !== null && <Loader2 className="size-4 animate-spin" />}
         {mode === "create" ? "Create lab" : "Save changes"}
       </Button>
     </form>

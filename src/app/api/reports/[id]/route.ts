@@ -1,6 +1,6 @@
-import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { NotFoundError, createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getPublicReportById, toReportResponse } from "@/models/experimental-report"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -8,9 +8,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const report = await getPublicReportById(id)
 
-    if (!report) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 })
-    }
+    if (!report) throw new NotFoundError("Report not found")
 
     return createSuccessResponse({ report: toReportResponse(report) })
   } catch (error) {

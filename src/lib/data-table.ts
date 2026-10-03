@@ -4,6 +4,45 @@ export type SortOrder = "asc" | "desc"
 
 export const DEFAULT_PAGE_SIZE = 20
 
+// Browse and lab tables aggregate and sort in memory, over at most this many source rows.
+export const BROWSE_AGGREGATION_CAP = 2000
+
+export type EntriesPage<T> = {
+  rows: T[]
+  total: number
+  page: number
+  pageSize: number
+  pageCount: number
+}
+
+export function paginate<T>(rows: T[], page = 1, pageSize = DEFAULT_PAGE_SIZE): EntriesPage<T> {
+  const total = rows.length
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const current = Math.min(Math.max(1, page), pageCount)
+  return { rows: rows.slice((current - 1) * pageSize, current * pageSize), total, page: current, pageSize, pageCount }
+}
+
+export type SortAccessor<T> = (entry: T) => string | number
+
+export function sortEntries<T>(
+  entries: T[],
+  accessors: Record<string, SortAccessor<T>>,
+  sort?: string | null,
+  order: string = "desc",
+): T[] {
+  const accessor = sort ? accessors[sort] : undefined
+  if (!accessor) return entries
+
+  const direction = order === "asc" ? 1 : -1
+  return [...entries].sort((a, b) => {
+    const aValue = accessor(a)
+    const bValue = accessor(b)
+    if (aValue < bValue) return -direction
+    if (aValue > bValue) return direction
+    return 0
+  })
+}
+
 export const sortParsers = {
   sort: parseAsString,
   order: parseAsStringEnum<SortOrder>(["asc", "desc"]).withDefault("desc"),
@@ -50,27 +89,21 @@ export const FILTER_KEYS = FILTER_DIMENSIONS.map((d) => d.key)
 
 const filterArrayParser = parseAsArrayOf(parseAsString).withDefault([])
 
-export const browseMarkerParsers = {
+function filterArrayParsers<K extends string>(keys: readonly string[]): Record<K, typeof filterArrayParser> {
+  return Object.fromEntries(keys.map((key) => [key, filterArrayParser])) as Record<K, typeof filterArrayParser>
+}
+
+type FilterKey = Exclude<keyof EntryFilterParams, "sort" | "order" | "page" | "q">
+
+// Search, sort, paging and every facet dimension, shared by browse and the lab overview.
+const entryFilterParsers = {
   ...sortParsers,
   q: parseAsString.withDefault(""),
-  marker: filterArrayParser,
-  cellType: filterArrayParser,
-  species: filterArrayParser,
-  tissue: filterArrayParser,
-  method: filterArrayParser,
-  preservation: filterArrayParser,
-  fixative: filterArrayParser,
-  vendor: filterArrayParser,
-  host: filterArrayParser,
-  conjugate: filterArrayParser,
-  clonality: filterArrayParser,
-  subcellular: filterArrayParser,
-  condition: filterArrayParser,
-  recommendation: filterArrayParser,
-  validation: filterArrayParser,
-  issue: filterArrayParser,
-  lab: filterArrayParser,
-  source: filterArrayParser,
+  ...filterArrayParsers<FilterKey>(FILTER_KEYS),
+}
+
+export const browseMarkerParsers = {
+  ...entryFilterParsers,
   mode: parseAsStringEnum<BrowseMode>(BROWSE_MODES).withDefault("antibodies"),
 }
 
@@ -145,26 +178,7 @@ export type LabView = "experiments" | "reports" | "panels"
 const LAB_VIEWS: LabView[] = ["experiments", "reports", "panels"]
 
 export const labContentParsers = {
-  ...sortParsers,
-  q: parseAsString.withDefault(""),
-  marker: filterArrayParser,
-  cellType: filterArrayParser,
-  species: filterArrayParser,
-  tissue: filterArrayParser,
-  method: filterArrayParser,
-  preservation: filterArrayParser,
-  fixative: filterArrayParser,
-  vendor: filterArrayParser,
-  host: filterArrayParser,
-  conjugate: filterArrayParser,
-  clonality: filterArrayParser,
-  subcellular: filterArrayParser,
-  condition: filterArrayParser,
-  recommendation: filterArrayParser,
-  validation: filterArrayParser,
-  issue: filterArrayParser,
-  lab: filterArrayParser,
-  source: filterArrayParser,
+  ...entryFilterParsers,
   view: parseAsStringEnum<LabView>(LAB_VIEWS).withDefault("experiments"),
 }
 
@@ -197,15 +211,7 @@ export const LEADERBOARD_FILTER_KEYS = [
 
 export type LeaderboardFilterKey = (typeof LEADERBOARD_FILTER_KEYS)[number]
 
-export const leaderboardParsers = {
-  lab: filterArrayParser,
-  species: filterArrayParser,
-  tissue: filterArrayParser,
-  method: filterArrayParser,
-  preservation: filterArrayParser,
-  fixative: filterArrayParser,
-  condition: filterArrayParser,
-}
+export const leaderboardParsers = filterArrayParsers<LeaderboardFilterKey>(LEADERBOARD_FILTER_KEYS)
 
 export type LeaderboardParams = Record<LeaderboardFilterKey, string[]>
 

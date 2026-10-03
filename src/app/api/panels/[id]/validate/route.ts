@@ -1,26 +1,13 @@
-import { getOptionalAuth, resolveViewerContext } from "@/lib/auth"
+import { getOptionalViewer } from "@/lib/auth"
 import { createErrorResponse } from "@/lib/error-handling"
-import { canViewPanel } from "@/models/lab"
-import { getPanelById, validatePanelWithSpectra } from "@/models/panel"
+import { requireVisiblePanel, validatePanelWithSpectra } from "@/models/panel"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id: panelId } = await params
-
-    const user = await getOptionalAuth(request)
-    const panel = await getPanelById(panelId)
-
-    if (!panel) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
-    if (!canViewPanel(await resolveViewerContext(user?.id ?? null), panel)) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
-    const result = await validatePanelWithSpectra(panel)
-    return NextResponse.json(result)
+    const { id } = await params
+    const panel = await requireVisiblePanel(id, await getOptionalViewer(request))
+    return NextResponse.json(await validatePanelWithSpectra(panel))
   } catch (error) {
     return createErrorResponse(error, "Failed to validate panel")
   }

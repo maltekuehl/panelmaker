@@ -1,5 +1,5 @@
-import { authErrorResponse, requireLabMember, requireLabRole } from "@/lib/auth"
-import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { requireLabMember, requireLabRole } from "@/lib/auth"
+import { createErrorResponse, createSuccessResponse, NotFoundError } from "@/lib/error-handling"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import {
   deleteLab,
@@ -10,7 +10,7 @@ import {
   updateLab,
   updateLabSchema,
 } from "@/models/lab"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -20,16 +20,14 @@ export async function GET(request: NextRequest, context: Context) {
     const { id } = await context.params
     const { role } = await requireLabMember(request, id)
     const lab = await getLabById(id)
-    if (!lab) {
-      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
-    }
+    if (!lab) throw new NotFoundError("Resource not found")
     const members = await getLabMembers(id)
     return createSuccessResponse({
       lab: toLabResponse(lab, role),
       members: members.map(toLabMemberResponse),
     })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch lab")
+    return createErrorResponse(error, "Failed to fetch lab")
   }
 }
 
@@ -38,12 +36,11 @@ export async function PATCH(request: NextRequest, context: Context) {
   try {
     const { id } = await context.params
     await requireLabRole(request, id, "ADMIN")
-    const body = await request.json()
-    const data = updateLabSchema.parse(body)
+    const data = updateLabSchema.parse(await request.json())
     const lab = await updateLab(id, data)
     return createSuccessResponse({ lab: toLabResponse(lab) })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to update lab")
+    return createErrorResponse(error, "Failed to update lab")
   }
 }
 
@@ -61,6 +58,6 @@ export async function DELETE(request: NextRequest, context: Context) {
     })
     return createSuccessResponse({ success: true })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to delete lab")
+    return createErrorResponse(error, "Failed to delete lab")
   }
 }

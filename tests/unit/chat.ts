@@ -29,6 +29,7 @@ import {
 } from "../../src/models/chat/keys"
 import { deriveRole, storedMessageId } from "../../src/models/chat/transforms"
 import type { ViewerContext } from "../../src/models/lab/access"
+import { check, finish } from "./harness"
 
 const moduleLoader = Module as unknown as { _load: (request: string, ...rest: unknown[]) => unknown }
 const originalLoad = moduleLoader._load
@@ -43,17 +44,6 @@ const localRequire = createRequire(__filename)
 const { decryptSecret, encryptSecret, isEncryptionConfigured, maskSecret } = localRequire(
   "../../src/lib/crypto",
 ) as typeof import("../../src/lib/crypto")
-
-let failures = 0
-function check(name: string, fn: () => void) {
-  try {
-    fn()
-    console.log(`  ok  ${name}`)
-  } catch (error) {
-    failures += 1
-    console.error(`FAIL  ${name}\n      ${error instanceof Error ? error.message : String(error)}`)
-  }
-}
 
 check("crypto round-trips a secret", () => {
   const secret = "sk-test-ABCDEF1234567890"
@@ -299,8 +289,4 @@ check("chat error copy avoids dashes and middle dots", () => {
   }
 })
 
-if (failures > 0) {
-  console.error(`\n${failures} assertion(s) failed`)
-  process.exit(1)
-}
-console.log("\nAll chat unit assertions passed")
+finish("chat unit")

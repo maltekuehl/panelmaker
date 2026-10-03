@@ -17,8 +17,8 @@ import { Plus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { CycleSection } from "./cycle-section"
-import type { PanelMarker } from "./types"
-import { PanelCycle } from "./types"
+import { panelUrl, sendJson } from "./panel-api"
+import type { PanelCycle, PanelMarker } from "./types"
 
 interface PanelListProps {
   panelId: string
@@ -110,46 +110,38 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
 
     if (apiItems.length === 0) return
 
+    const revert = () => {
+      onCyclesChange(previousCycles.current)
+      syncFromProps(previousCycles.current)
+      toast.error("Failed to reorder markers")
+    }
+
     try {
-      const res = await fetch(`/api/panels/${panelId}/markers/reorder`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: apiItems }),
-      })
+      const res = await sendJson(`${panelUrl(panelId)}/markers/reorder`, "PUT", { items: apiItems })
       if (!res.ok) {
-        onCyclesChange(previousCycles.current)
-        syncFromProps(previousCycles.current)
-        toast.error("Failed to reorder markers")
+        revert()
       } else {
         previousCycles.current = finalCycles
       }
     } catch {
-      onCyclesChange(previousCycles.current)
-      syncFromProps(previousCycles.current)
-      toast.error("Failed to reorder markers")
+      revert()
     }
   }
 
   const handleRemoveMarker = async (cycleId: string, markerId: string) => {
     try {
-      const res = await fetch(`/api/panels/${panelId}/markers`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markerId }),
-      })
+      const res = await sendJson(`${panelUrl(panelId)}/markers`, "DELETE", { markerId })
 
       if (!res.ok) {
         toast.error("Failed to remove marker")
         return
       }
 
-      const newCycles = cycles.map((cycle) => {
-        if (cycle.id === cycleId) {
-          return { ...cycle, markers: cycle.markers.filter((m) => m.id !== markerId) }
-        }
-        return cycle
-      })
-      onCyclesChange(newCycles)
+      onCyclesChange(
+        cycles.map((cycle) =>
+          cycle.id === cycleId ? { ...cycle, markers: cycle.markers.filter((m) => m.id !== markerId) } : cycle,
+        ),
+      )
     } catch {
       toast.error("Failed to remove marker")
     }
@@ -162,10 +154,9 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
     const nextSortOrder = Math.max(-1, ...cycles.map((cycle) => cycle.sortOrder)) + 1
 
     try {
-      const res = await fetch(`/api/panels/${panelId}/cycles`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `Cycle ${nextNumber}`, sortOrder: nextSortOrder }),
+      const res = await sendJson(`${panelUrl(panelId)}/cycles`, "POST", {
+        name: `Cycle ${nextNumber}`,
+        sortOrder: nextSortOrder,
       })
 
       if (!res.ok) {
@@ -185,9 +176,7 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
   const deleteCycle = async (cycleId: string) => {
     setIsDeletingCycle(true)
     try {
-      const res = await fetch(`/api/panels/${panelId}/cycles/${cycleId}`, {
-        method: "DELETE",
-      })
+      const res = await fetch(`${panelUrl(panelId)}/cycles/${cycleId}`, { method: "DELETE" })
 
       if (!res.ok) {
         toast.error("Failed to remove cycle")
@@ -214,7 +203,7 @@ export function PanelList({ panelId, cycles, species, onCyclesChange }: PanelLis
   }
 
   const handleMarkerAdded = async () => {
-    const res = await fetch(`/api/panels/${panelId}`)
+    const res = await fetch(panelUrl(panelId))
     if (res.ok) {
       const json = await res.json()
       const updatedPanel = json.panel

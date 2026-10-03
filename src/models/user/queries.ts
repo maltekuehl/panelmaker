@@ -1,11 +1,15 @@
 import "server-only"
 
+import { ConflictError, ForbiddenError, NotFoundError } from "@/lib/error-handling"
 import type { Prisma, ValidationStatus } from "@/lib/generated/prisma/client"
-import type { LabRole } from "@/lib/generated/prisma/enums"
+import { type LabRole, UserRole, UserStatus, Visibility } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { isLabMember, type ViewerContext } from "@/models/lab/access"
-import { getLabMembers } from "@/models/lab/queries"
+import { getLabMembers, getSoleOwnerLabIds } from "@/models/lab/queries"
 import { buildExperimentVisibilityWhere } from "@/models/lab/visibility"
+import bcrypt from "bcryptjs"
+import type { RegisterData, UpdateProfileData } from "./schema"
+import { normalizeEmail } from "./transforms"
 
 const userProfileSelect = {
   id: true,
@@ -293,7 +297,7 @@ export async function getLabLeaderboard(
   limit = 50,
   filters: LeaderboardFilters = {},
 ): Promise<LabLeaderboardEntry[]> {
-  if (!viewer || !isLabMember(viewer, labId)) throw new Error("Lab membership required")
+  if (!viewer || !isLabMember(viewer, labId)) throw new ForbiddenError("Lab membership required")
 
   const role = viewer.roleByLab[labId]
   const lens: ViewerContext = { ...viewer, labIds: [labId], roleByLab: role ? { [labId]: role } : {} }
@@ -344,13 +348,181 @@ export async function getLabLeaderboard(
     .slice(0, limit)
 }
 
-export async function updateUserProfile(
-  userId: string,
-  data: { name?: string | null; orcid?: string | null; institution?: string | null; institutionId?: string | null },
-): Promise<UserProfileRow> {
+export async function updateUserProfile(userId: string, data: UpdateProfileData): Promise<UserProfileRow> {
   return prisma.user.update({
     where: { id: userId },
     data,
     select: userProfileSelect,
   })
+}
+
+export async function registerUser(
+  data: RegisterData,
+): Promise<{ id: string; name: string | null; email: string | null }> {
+  const email = normalizeEmail(data.email)
+  if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) {
+    throw new ConflictError("An account with this email already exists")
+  }
+  if (data.orcid && (await prisma.user.findUnique({ where: { orcid: data.orcid }, select: { id: true } }))) {
+    throw new ConflictError("An account with this ORCID already exists")
+  }
+
+  return prisma.user.create({
+    data: {
+      name: data.name,
+      email,
+      password: await bcrypt.hash(data.password, 12),
+      orcid: data.orcid || null,
+      institution: data.institution || null,
+      institutionId: data.institutionId || null,
+    },
+    select: { id: true, name: true, email: true },
+  })
+}
+
+async function requireUserRole(userId: string): Promise<{ role: UserRole }> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+  if (!user) throw new NotFoundError("User not found", "USER_NOT_FOUND")
+  return user
+}
+
+export async function blockUser(userId: string): Promise<void> {
+  const target = await requireUserRole(userId)
+  if (target.role === UserRole.ADMIN) throw new ConflictError("Admin accounts cannot be blocked", "ADMIN_USER")
+  await prisma.user.update({
+    where: { id: userId },
+    data: { status: UserStatus.BLOCKED },
+  })
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId },
+    data: { status: UserStatus.ACTIVE },
+  })
+  if (count === 0) throw new NotFoundError("User not found", "USER_NOT_FOUND")
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  const user = await requireUserRole(userId)
+  if (user.role === UserRole.ADMIN) throw new ForbiddenError("Cannot delete admin users", "ADMIN_USER")
+
+  const soleOwnerLabIds = await getSoleOwnerLabIds(userId)
+  if (soleOwnerLabIds.length > 0) {
+    throw new ConflictError(
+      "Cannot delete a user who is the sole owner of a lab. Delete the lab first.",
+      "SOLE_LAB_OWNER",
+      { labIds: soleOwnerLabIds },
+    )
+  }
+
+  // Panels and experiments keep the User relation with onDelete: SetNull so public contributions stay
+  // in place. Private ones would become unreachable orphans, so they go with the account.
+  await prisma.$transaction([
+    prisma.panel.deleteMany({ where: { ownerId: userId, visibility: Visibility.PRIVATE, owningLabId: null } }),
+    prisma.experiment.deleteMany({ where: { submitterId: userId, visibility: Visibility.PRIVATE, owningLabId: null } }),
+    prisma.rateLimit.deleteMany({ where: { userId } }),
+    prisma.chatMessage.updateMany({ where: { userId }, data: { userId: null } }),
+    prisma.user.delete({ where: { id: userId } }),
+  ])
+}
+
+const userExportSelect = {
+  id: true,
+  name: true,
+  email: true,
+  emailVerified: true,
+  image: true,
+  role: true,
+  status: true,
+  orcid: true,
+  institution: true,
+  institutionId: true,
+  createdAt: true,
+  updatedAt: true,
+  accounts: {
+    select: { provider: true, providerAccountId: true, type: true, createdAt: true, updatedAt: true },
+  },
+  experiments: {
+    include: {
+      reports: { include: { cellTypes: true, validations: true, issues: true } },
+      images: { include: { channels: true, cellTypes: true } },
+    },
+  },
+  panels: {
+    include: {
+      cycles: { include: { markers: true } },
+    },
+  },
+  labMemberships: {
+    select: { labId: true, role: true, joinedAt: true, lab: { select: { name: true, slug: true } } },
+  },
+  labInvitesSent: {
+    select: { id: true, labId: true, email: true, role: true, status: true, expiresAt: true, createdAt: true },
+  },
+  labInvitesAccepted: {
+    select: { id: true, labId: true, email: true, role: true, status: true, acceptedAt: true },
+  },
+  labAntibodiesAdded: {
+    select: {
+      id: true,
+      labId: true,
+      antibodyId: true,
+      storageLocation: true,
+      lotNumber: true,
+      status: true,
+      notes: true,
+      addedAt: true,
+    },
+  },
+  chatConversations: {
+    select: {
+      id: true,
+      title: true,
+      model: true,
+      createdAt: true,
+      updatedAt: true,
+      messages: { select: { id: true, role: true, content: true, model: true, createdAt: true } },
+    },
+  },
+  apiCredentials: {
+    select: { provider: true, label: true, last4: true, scope: true, createdAt: true },
+  },
+} satisfies Prisma.UserSelect
+
+export type UserExportRow = Prisma.UserGetPayload<{ select: typeof userExportSelect }>
+
+export async function getUserExport(userId: string): Promise<UserExportRow | null> {
+  return prisma.user.findUnique({ where: { id: userId }, select: userExportSelect })
+}
+
+export async function getAllUsers(page = 1, pageSize = 20, search?: string) {
+  const where: Prisma.UserWhereInput = search
+    ? {
+        OR: [{ name: { contains: search, mode: "insensitive" } }, { email: { contains: search, mode: "insensitive" } }],
+      }
+    : {}
+
+  const [users, totalUsers] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { panels: true, experiments: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.user.count({ where }),
+  ])
+
+  return { users, pagination: { page, pageSize, totalUsers, totalPages: Math.ceil(totalUsers / pageSize) } }
 }

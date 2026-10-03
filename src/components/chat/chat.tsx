@@ -4,6 +4,7 @@ import { storeActiveConversationId } from "@/components/chat/active-conversation
 import ChatAbout from "@/components/chat/chat-about"
 import { ChatMessage } from "@/components/chat/chat-message"
 import { ChatSidebarContent, ChatSidebarMobile } from "@/components/chat/chat-sidebar"
+import { deleteMessagesFrom } from "@/components/chat/conversation-api"
 import { ChatErrorNotice, MissingKeyNotice } from "@/components/chat/key-notice"
 import { hasVisibleParts, isAwaitingFirstContent, MessageParts } from "@/components/chat/message-parts"
 import { ModelPicker, ReasoningPicker } from "@/components/chat/model-picker"
@@ -59,7 +60,7 @@ export default function Chat({ conversationId, initialMessages, conversations, n
   // Delete a message and everything after it (server + local), keeping the linear thread consistent.
   const handleDeleteMessage = async (messageId: string) => {
     const index = messages.findIndex((m) => m.id === messageId)
-    await fetch(`/api/chat/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" })
+    await deleteMessagesFrom(conversationId, messageId)
     setMessages(index === -1 ? messages : messages.slice(0, index))
     router.refresh()
   }
@@ -69,7 +70,7 @@ export default function Chat({ conversationId, initialMessages, conversations, n
     const messageIndex = messages.findIndex((m) => m.id === messageId)
     if (messageIndex === -1) return
 
-    await fetch(`/api/chat/conversations/${conversationId}/messages/${messageId}`, { method: "DELETE" })
+    await deleteMessagesFrom(conversationId, messageId)
     setMessages(messages.slice(0, messageIndex))
     pinToBottom()
     send(newContent, sendOptions)

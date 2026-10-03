@@ -1,8 +1,8 @@
-import { authErrorResponse, requireLabRole } from "@/lib/auth"
+import { requireLabRole } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { removeLabAntibody, toLabAntibodyResponse, updateLabAntibody, updateLabAntibodySchema } from "@/models/lab"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 type Context = { params: Promise<{ id: string; itemId: string }> }
 
@@ -13,16 +13,13 @@ export async function PATCH(request: NextRequest, context: Context) {
     const { user } = await requireLabRole(request, labId, "MEMBER")
 
     const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.INVENTORY_MUTATE)
-    if (!rateLimitResult.allowed) {
-      return createRateLimitError(rateLimitResult) as NextResponse
-    }
+    if (!rateLimitResult.allowed) return createRateLimitError(rateLimitResult)
 
-    const body = await request.json()
-    const data = updateLabAntibodySchema.parse(body)
+    const data = updateLabAntibodySchema.parse(await request.json())
     const item = await updateLabAntibody(labId, itemId, data)
     return createSuccessResponse({ item: toLabAntibodyResponse(item) })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to update antibody")
+    return createErrorResponse(error, "Failed to update antibody")
   }
 }
 
@@ -33,13 +30,11 @@ export async function DELETE(request: NextRequest, context: Context) {
     const { user } = await requireLabRole(request, labId, "MEMBER")
 
     const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.INVENTORY_MUTATE)
-    if (!rateLimitResult.allowed) {
-      return createRateLimitError(rateLimitResult) as NextResponse
-    }
+    if (!rateLimitResult.allowed) return createRateLimitError(rateLimitResult)
 
     await removeLabAntibody(labId, itemId)
     return createSuccessResponse({ success: true })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to remove antibody")
+    return createErrorResponse(error, "Failed to remove antibody")
   }
 }

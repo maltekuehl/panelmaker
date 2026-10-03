@@ -1,8 +1,7 @@
 import { requireKeyManager } from "@/lib/ai/credential-api"
-import { authErrorResponse } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { deleteLabApiCredential } from "@/models/chat"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 type Context = { params: Promise<{ id: string; credentialId: string }> }
 
@@ -11,11 +10,9 @@ export async function DELETE(request: NextRequest, context: Context) {
   try {
     const { id, credentialId } = await context.params
     await requireKeyManager(request, id)
-    if (!(await deleteLabApiCredential(id, credentialId))) {
-      return NextResponse.json({ error: "API key not found" }, { status: 404 })
-    }
+    await deleteLabApiCredential(id, credentialId)
     return createSuccessResponse({ success: true })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to delete lab API key")
+    return createErrorResponse(error, "Failed to delete lab API key")
   }
 }

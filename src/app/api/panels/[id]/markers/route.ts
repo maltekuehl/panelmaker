@@ -1,102 +1,25 @@
-import { authErrorResponse, requireAuth, resolveViewerContext } from "@/lib/auth"
-import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
-import { prisma } from "@/lib/prisma"
+import { requireViewer } from "@/lib/auth"
+import { BadRequestError, createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { fluorophoreExists } from "@/models/fluorophore"
-import { canEditPanel } from "@/models/lab"
 import {
   addMarker,
   addMarkerSchema,
-  getPanelById,
   removeMarker,
+  requireEditablePanel,
+  requirePanelCycle,
+  requirePanelMarker,
   toPanelMarkerResponse,
   updateMarker,
 } from "@/models/panel"
-import { NextRequest, NextResponse } from "next/server"
+import { ensureProtein } from "@/models/protein"
+import { NextRequest } from "next/server"
 import { z } from "zod"
+
+type Context = { params: Promise<{ id: string }> }
 
 const addMarkerBodySchema = addMarkerSchema.extend({ cycleId: z.string().min(1) })
 
 const removeMarkerSchema = z.object({ markerId: z.string().min(1) }).strict()
-
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id: panelId } = await params
-
-    const user = await requireAuth(request)
-    const panel = await getPanelById(panelId)
-
-    if (!panel) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
-    if (!canEditPanel(await resolveViewerContext(user.id), panel)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    const { cycleId, ...validated } = addMarkerBodySchema.parse(await request.json())
-
-    const validCycle = panel.cycles.find((c) => c.id === cycleId)
-    if (!validCycle) {
-      return NextResponse.json({ error: "Cycle not found in this panel" }, { status: 404 })
-    }
-
-    if (validated.fluorophoreId && !(await fluorophoreExists(validated.fluorophoreId))) {
-      return NextResponse.json({ error: "Unknown fluorophore" }, { status: 400 })
-    }
-
-    if (validated.proteinId) {
-      await prisma.protein.upsert({
-        where: { id: validated.proteinId },
-        update: {
-          ...(validated.ensemblGeneId ? { ensemblGeneId: validated.ensemblGeneId } : {}),
-        },
-        create: {
-          id: validated.proteinId,
-          label: validated.proteinLabel ?? validated.proteinId,
-          geneSymbol: validated.geneSymbol ?? null,
-          ensemblGeneId: validated.ensemblGeneId ?? null,
-        },
-      })
-    }
-
-    const marker = await addMarker(cycleId, validated)
-
-    return createSuccessResponse({ marker: toPanelMarkerResponse(marker) }, 201)
-  } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to add marker")
-  }
-}
-
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const { id: panelId } = await params
-
-    const user = await requireAuth(request)
-    const panel = await getPanelById(panelId)
-
-    if (!panel) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
-    if (!canEditPanel(await resolveViewerContext(user.id), panel)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    const body = await request.json()
-    const { markerId } = removeMarkerSchema.parse(body)
-
-    const markerExists = panel.cycles.some((c) => c.markers.some((m) => m.id === markerId))
-    if (!markerExists) {
-      return NextResponse.json({ error: "Marker not found in this panel" }, { status: 404 })
-    }
-
-    await removeMarker(markerId)
-
-    return createSuccessResponse({ message: "Marker removed successfully" })
-  } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to remove marker")
-  }
-}
 
 const updateMarkerSchema = z
   .object({
@@ -107,37 +30,61 @@ const updateMarkerSchema = z
   })
   .strict()
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function loadPanel(request: NextRequest, context: Context) {
+  const { id } = await context.params
+  return requireEditablePanel(id, await requireViewer(request))
+}
+
+async function assertFluorophore(fluorophoreId: string | null | undefined): Promise<void> {
+  if (fluorophoreId && !(await fluorophoreExists(fluorophoreId))) throw new BadRequestError("Unknown fluorophore")
+}
+
+export async function POST(request: NextRequest, context: Context) {
   try {
-    const { id: panelId } = await params
+    const panel = await loadPanel(request, context)
+    const { cycleId, ...validated } = addMarkerBodySchema.parse(await request.json())
+    requirePanelCycle(panel, cycleId)
+    await assertFluorophore(validated.fluorophoreId)
 
-    const user = await requireAuth(request)
-    const panel = await getPanelById(panelId)
-
-    if (!panel) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
+    if (validated.proteinId) {
+      await ensureProtein({
+        id: validated.proteinId,
+        label: validated.proteinLabel,
+        geneSymbol: validated.geneSymbol,
+        ensemblGeneId: validated.ensemblGeneId,
+      })
     }
 
-    if (!canEditPanel(await resolveViewerContext(user.id), panel)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    const marker = await addMarker(cycleId, validated)
+    return createSuccessResponse({ marker: toPanelMarkerResponse(marker) }, 201)
+  } catch (error) {
+    return createErrorResponse(error, "Failed to add marker")
+  }
+}
 
-    const body = await request.json()
-    const { markerId, ...updateData } = updateMarkerSchema.parse(body)
+export async function DELETE(request: NextRequest, context: Context) {
+  try {
+    const panel = await loadPanel(request, context)
+    const { markerId } = removeMarkerSchema.parse(await request.json())
+    requirePanelMarker(panel, markerId)
 
-    const markerExists = panel.cycles.some((c) => c.markers.some((m) => m.id === markerId))
-    if (!markerExists) {
-      return NextResponse.json({ error: "Marker not found in this panel" }, { status: 404 })
-    }
+    await removeMarker(markerId)
+    return createSuccessResponse({ message: "Marker removed successfully" })
+  } catch (error) {
+    return createErrorResponse(error, "Failed to remove marker")
+  }
+}
 
-    if (updateData.fluorophoreId && !(await fluorophoreExists(updateData.fluorophoreId))) {
-      return NextResponse.json({ error: "Unknown fluorophore" }, { status: 400 })
-    }
+export async function PATCH(request: NextRequest, context: Context) {
+  try {
+    const panel = await loadPanel(request, context)
+    const { markerId, ...updateData } = updateMarkerSchema.parse(await request.json())
+    requirePanelMarker(panel, markerId)
+    await assertFluorophore(updateData.fluorophoreId)
 
     const marker = await updateMarker(markerId, updateData)
-
     return createSuccessResponse({ marker: toPanelMarkerResponse(marker) })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to update marker")
+    return createErrorResponse(error, "Failed to update marker")
   }
 }

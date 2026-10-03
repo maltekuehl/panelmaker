@@ -1,11 +1,11 @@
 "use client"
 
-import { IssueBadges, RecommendationBadge, ValidationList } from "@/components/browse/report-badges"
-import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
+import { RecommendationBadge } from "@/components/browse/report-badges"
+import { ReportUsageDetails } from "@/components/browse/report-usage-details"
 import { NotAvailable, ValueOrNotAvailable } from "@/components/shared/not-available"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatConcentration } from "@/lib/format"
-import { antibodyHref, cellTypeHref, conditionHref, markerHref, profileHref } from "@/lib/routes"
+import { antibodyHref, conditionHref, markerHref, profileHref } from "@/lib/routes"
 import type { ReportUsage } from "@/models/experimental-report"
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
 import Link from "next/link"
@@ -17,13 +17,8 @@ export interface ReportUsagesTableProps {
   actions?: (usage: ReportUsage) => React.ReactNode
 }
 
-function DetailField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <span className="block text-muted-foreground">{label}</span>
-      {children}
-    </div>
-  )
+function stopPropagation(event: React.MouseEvent) {
+  event.stopPropagation()
 }
 
 function AntibodyLeadCell({ usage }: { usage: ReportUsage }) {
@@ -38,7 +33,7 @@ function AntibodyLeadCell({ usage }: { usage: ReportUsage }) {
         <Link
           href={href}
           className="w-fit text-xs text-muted-foreground hover:text-primary hover:underline"
-          onClick={(e) => e.stopPropagation()}
+          onClick={stopPropagation}
         >
           {usage.antibodyId}
         </Link>
@@ -49,23 +44,13 @@ function AntibodyLeadCell({ usage }: { usage: ReportUsage }) {
   )
 }
 
-function AntibodyDetailLink({ usage }: { usage: ReportUsage }) {
-  const href = antibodyHref(usage.antibodyId)
-  if (!href) return <span className="font-medium">{usage.antibodyName}</span>
-  return (
-    <Link href={href} className="font-medium text-primary hover:underline">
-      {usage.antibodyName}
-    </Link>
-  )
-}
-
 function MarkerLeadCell({ usage }: { usage: ReportUsage }) {
   if (usage.markerName && usage.proteinId) {
     return (
       <Link
         href={markerHref(usage.proteinId)}
         className="font-medium text-primary hover:underline"
-        onClick={(e) => e.stopPropagation()}
+        onClick={stopPropagation}
       >
         {usage.markerName}
       </Link>
@@ -168,7 +153,7 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                         <Link
                           href={conditionHref(usage.conditionId)}
                           className="w-fit text-xs text-primary hover:underline"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={stopPropagation}
                         >
                           {usage.conditionLabel}
                         </Link>
@@ -187,7 +172,7 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                         <Link
                           href={profileHref(usage.submitterId)}
                           className="hover:text-primary hover:underline"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={stopPropagation}
                         >
                           {usage.submitter}
                         </Link>
@@ -203,14 +188,14 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                     <Link
                       href={`/report/${usage.id}`}
                       className="text-muted-foreground hover:text-primary"
-                      onClick={(e) => e.stopPropagation()}
+                      onClick={stopPropagation}
                     >
                       <ExternalLink className="size-3.5" />
                       <span className="sr-only">View full report</span>
                     </Link>
                   </TableCell>
                   {actions && (
-                    <TableCell className="py-1.5" onClick={(e) => e.stopPropagation()}>
+                    <TableCell className="py-1.5" onClick={stopPropagation}>
                       {actions(usage)}
                     </TableCell>
                   )}
@@ -218,114 +203,7 @@ export function ReportUsagesTable({ data, lead, actions }: ReportUsagesTableProp
                 {expanded && (
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
                     <TableCell colSpan={actions ? 9 : 8} className="p-0 whitespace-normal">
-                      <div className="space-y-3 p-4 text-xs">
-                        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                          {lead === "antibody" && (
-                            <DetailField label="Antibody">
-                              <AntibodyDetailLink usage={usage} />
-                            </DetailField>
-                          )}
-                          <DetailField label="Clone">
-                            <ValueOrNotAvailable value={usage.clone} className="font-medium" />
-                          </DetailField>
-                          <DetailField label="Catalog #">
-                            <ValueOrNotAvailable value={usage.catalogNumber} className="font-medium" />
-                          </DetailField>
-                          <DetailField label="Host Species">
-                            <ValueOrNotAvailable value={usage.hostSpecies} className="font-medium" />
-                          </DetailField>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                          <DetailField label="Preservation">
-                            <ValueOrNotAvailable value={usage.preservation} className="font-medium" />
-                          </DetailField>
-                          <DetailField label="Fixative">
-                            <ValueOrNotAvailable value={usage.fixative} className="font-medium" />
-                          </DetailField>
-                          <DetailField label="Antigen Retrieval">
-                            <ValueOrNotAvailable value={usage.antigenRetrieval} className="font-medium" />
-                          </DetailField>
-                          <DetailField label="Conjugate">
-                            <span className="font-medium">
-                              {usage.conjugate ?? usage.fluorophore ?? usage.metalTag ?? <NotAvailable />}
-                            </span>
-                          </DetailField>
-                          {usage.cycleNumber !== null && (
-                            <DetailField label="Cycle">
-                              <span className="font-medium">{usage.cycleNumber}</span>
-                            </DetailField>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                          <DetailField label="Issues">
-                            <IssueBadges issues={usage.issues} />
-                          </DetailField>
-                          <DetailField label="Specificity controls">
-                            <ValidationList validations={usage.validations} />
-                          </DetailField>
-                          <DetailField label="Cell Types">
-                            {usage.cellTypes.length > 0 ? (
-                              <span className="flex flex-wrap gap-x-1 font-medium">
-                                {usage.cellTypes.map((ct, idx) => (
-                                  <span key={ct.id}>
-                                    <Link href={cellTypeHref(ct.id)} className="text-primary hover:underline">
-                                      {ct.label}
-                                    </Link>
-                                    {idx < usage.cellTypes.length - 1 && ", "}
-                                  </span>
-                                ))}
-                              </span>
-                            ) : (
-                              <NotAvailable />
-                            )}
-                          </DetailField>
-                          <DetailField label="Subcellular Location">
-                            <ValueOrNotAvailable value={usage.subcellularLabel} className="font-medium" />
-                          </DetailField>
-                          <DetailField label="Condition">
-                            {usage.conditionId ? (
-                              <Link
-                                href={conditionHref(usage.conditionId)}
-                                className="font-medium text-primary hover:underline"
-                              >
-                                {usage.conditionLabel}
-                              </Link>
-                            ) : (
-                              <NotAvailable />
-                            )}
-                          </DetailField>
-                        </div>
-
-                        {usage.notes && (
-                          <div className="border-t pt-2">
-                            <span className="mb-1 block text-muted-foreground">Notes</span>
-                            <p className="break-words whitespace-pre-line italic text-muted-foreground">
-                              {usage.notes}
-                            </p>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between border-t pt-2">
-                          <Link
-                            href={`/report/${usage.id}`}
-                            className="text-xs font-medium text-primary hover:underline"
-                          >
-                            View full report
-                          </Link>
-                          {usage.antibodyDbId && (
-                            <AddToPanelButton
-                              antibodyId={usage.antibodyDbId}
-                              proteinId={usage.proteinId ?? undefined}
-                              label={usage.markerName ?? usage.clone ?? usage.antibodyName}
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                            />
-                          )}
-                        </div>
-                      </div>
+                      <ReportUsageDetails usage={usage} lead={lead} />
                     </TableCell>
                   </TableRow>
                 )}

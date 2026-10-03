@@ -19,6 +19,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useState, type ComponentProps } from "react"
 import { toast } from "sonner"
+import { addPanelMarker, sendJson } from "./panel-api"
 import { PanelForm, type CreatePanelFormData } from "./panel-form"
 
 type PanelOption = {
@@ -96,23 +97,18 @@ export function AddToPanelButton({
     setIsAdding(true)
 
     try {
-      const res = await fetch(`/api/panels/${panelId}/markers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cycleId: selectedCycleId,
-          proteinId: proteinId || undefined,
-          proteinLabel: proteinLabel || label || undefined,
-          geneSymbol: geneSymbol || undefined,
-          ensemblGeneId: ensemblGeneId || undefined,
-          antibodyId: antibodyId || undefined,
-          fluorophoreId: fluorophore?.id || undefined,
-        }),
+      const error = await addPanelMarker(panelId, {
+        cycleId: selectedCycleId,
+        proteinId: proteinId || undefined,
+        proteinLabel: proteinLabel || label || undefined,
+        geneSymbol: geneSymbol || undefined,
+        ensemblGeneId: ensemblGeneId || undefined,
+        antibodyId: antibodyId || undefined,
+        fluorophoreId: fluorophore?.id || undefined,
       })
 
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
-        toast.error(json.error ?? "Failed to add marker")
+      if (error) {
+        toast.error(error)
         return
       }
 
@@ -129,11 +125,7 @@ export function AddToPanelButton({
   const handleCreatePanel = async (data: CreatePanelFormData) => {
     setIsCreating(true)
     try {
-      const res = await fetch("/api/panels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
+      const res = await sendJson("/api/panels", "POST", data)
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))

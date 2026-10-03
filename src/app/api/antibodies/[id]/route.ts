@@ -1,6 +1,6 @@
-import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { NotFoundError, createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getAntibodyById, toAntibodyResponse } from "@/models/antibody"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -8,9 +8,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const antibody = await getAntibodyById(id)
 
-    if (!antibody) {
-      return NextResponse.json({ error: "Antibody not found" }, { status: 404 })
-    }
+    if (!antibody) throw new NotFoundError("Antibody not found")
 
     return createSuccessResponse({ antibody: toAntibodyResponse(antibody) })
   } catch (error) {

@@ -1,5 +1,4 @@
 import { requireKeyManager, testStoredCredential } from "@/lib/ai/credential-api"
-import { authErrorResponse } from "@/lib/auth"
 import { createErrorResponse } from "@/lib/error-handling"
 import { getLabCredentialSecret } from "@/models/chat"
 import { NextRequest } from "next/server"
@@ -13,6 +12,6 @@ export async function POST(request: NextRequest, context: Context) {
     await requireKeyManager(request, id)
     return await testStoredCredential(credentialId, await getLabCredentialSecret(id, credentialId))
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to test lab API key")
+    return createErrorResponse(error, "Failed to test lab API key")
   }
 }

@@ -8,6 +8,7 @@ import { Check, ChevronDown, ChevronRight, MessageSquare, Pencil, Trash2, X } fr
 import { useState } from "react"
 import { toast } from "sonner"
 import { AddMarkerForm } from "./add-marker-form"
+import { panelUrl, sendJson } from "./panel-api"
 import { SortableMarkerCard } from "./sortable-marker-card"
 import { PanelCycle } from "./types"
 
@@ -58,10 +59,8 @@ export function CycleSection({
   const saveNotes = async () => {
     setIsSaving(true)
     try {
-      const res = await fetch(`/api/panels/${panelId}/cycles/${cycle.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: draftNotes.trim() || null }),
+      const res = await sendJson(`${panelUrl(panelId)}/cycles/${cycle.id}`, "PATCH", {
+        notes: draftNotes.trim() || null,
       })
       if (!res.ok) {
         toast.error("Failed to save notes")

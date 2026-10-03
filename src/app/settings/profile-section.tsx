@@ -1,17 +1,13 @@
 "use client"
 
-import { OntologyCombobox } from "@/components/ontology-combobox"
+import { InstitutionField } from "@/components/institution-field"
+import type { OntologyValue } from "@/components/ontology-combobox"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-
-type OntologyValue = {
-  id: string
-  label: string
-}
 
 type OriginalState = {
   name: string
@@ -138,24 +134,7 @@ export default function ProfileSection({
         />
       </div>
 
-      <div>
-        <Label className="text-sm font-medium">Institution</Label>
-        <p className="text-xs text-muted-foreground mb-1">
-          Search by institution name. Powered by the{" "}
-          <a href="https://ror.org" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-            Research Organization Registry
-          </a>
-          .
-        </p>
-        <div className="max-w-md">
-          <OntologyCombobox
-            ontologyType="ror"
-            value={institutionValue}
-            onChange={setInstitutionValue}
-            placeholder="Search institution..."
-          />
-        </div>
-      </div>
+      <InstitutionField id="profile-institution" value={institutionValue} onChange={setInstitutionValue} />
 
       <Button onClick={handleSave} disabled={isSaving || !hasChanges} size="sm">
         {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}

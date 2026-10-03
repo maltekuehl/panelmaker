@@ -1,13 +1,20 @@
 "use client"
 
+import { OptionSelect } from "@/components/option-select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useApiRequest } from "@/hooks/use-api-request"
+import { LAB_ROLE_LABELS } from "@/lib/constants"
 import { Copy, Link as LinkIcon, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+
+const INVITE_ROLE_OPTIONS = (["MEMBER", "ADMIN", "VIEWER"] as const).map((value) => ({
+  value,
+  label: LAB_ROLE_LABELS[value],
+}))
 
 interface InviteMemberFormProps {
   labId: string
@@ -18,45 +25,33 @@ export function InviteMemberForm({ labId }: InviteMemberFormProps) {
   const [email, setEmail] = useState("")
   const [role, setRole] = useState("MEMBER")
   const [maxUses, setMaxUses] = useState("")
-  const [loading, setLoading] = useState(false)
+  const { pending, request } = useApiRequest()
+  const loading = pending !== null
   const [acceptUrl, setAcceptUrl] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true)
     setAcceptUrl(null)
 
-    try {
-      const body: Record<string, unknown> = { role }
-      if (email.trim()) body.email = email.trim()
-      if (maxUses.trim()) {
-        const n = parseInt(maxUses, 10)
-        if (!isNaN(n) && n > 0) body.maxUses = n
-      }
-
-      const res = await fetch(`/api/labs/${labId}/invitations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to create invitation")
-        return
-      }
-
-      setAcceptUrl(data.acceptUrl)
-      toast.success(email.trim() ? "Invitation created" : "Invite link created")
-      setEmail("")
-      setMaxUses("")
-      router.refresh()
-    } catch {
-      toast.error("Something went wrong")
-    } finally {
-      setLoading(false)
+    const body: Record<string, unknown> = { role }
+    if (email.trim()) body.email = email.trim()
+    if (maxUses.trim()) {
+      const n = parseInt(maxUses, 10)
+      if (!isNaN(n) && n > 0) body.maxUses = n
     }
+
+    const data = await request<{ acceptUrl: string }>(true, {
+      url: `/api/labs/${labId}/invitations`,
+      method: "POST",
+      body,
+      errorMessage: "Failed to create invitation",
+    })
+    if (!data) return
+    setAcceptUrl(data.acceptUrl)
+    toast.success(email.trim() ? "Invitation created" : "Invite link created")
+    setEmail("")
+    setMaxUses("")
+    router.refresh()
   }
 
   async function copyLink() {
@@ -87,16 +82,13 @@ export function InviteMemberForm({ labId }: InviteMemberFormProps) {
         <div className="flex flex-wrap gap-3">
           <div className="space-y-1.5 flex-1 min-w-32">
             <Label htmlFor="invite-role">Role</Label>
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger id="invite-role" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="MEMBER">Member</SelectItem>
-                <SelectItem value="ADMIN">Admin</SelectItem>
-                <SelectItem value="VIEWER">Viewer</SelectItem>
-              </SelectContent>
-            </Select>
+            <OptionSelect
+              id="invite-role"
+              value={role}
+              onValueChange={setRole}
+              options={INVITE_ROLE_OPTIONS}
+              className="w-full"
+            />
           </div>
 
           <div className="space-y-1.5 w-28">

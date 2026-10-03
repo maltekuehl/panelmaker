@@ -1,7 +1,12 @@
 "use client"
 
-import { AntibodyRegistryCombobox, type AntibodyRegistryValue } from "@/components/antibody-registry-combobox"
+import {
+  AntibodyRegistryCombobox,
+  lookupHostSpecies,
+  type AntibodyRegistryValue,
+} from "@/components/antibody-registry-combobox"
 import { OntologyCombobox, type OntologyValue } from "@/components/ontology-combobox"
+import { OptionSelect } from "@/components/option-select"
 import { Field } from "@/components/shared/field"
 import { ProteinCombobox } from "@/components/submit/protein-combobox"
 import type { ProteinValue } from "@/components/submit/types"
@@ -15,20 +20,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useApiRequest } from "@/hooks/use-api-request"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import type { InventoryItem } from "./inventory-columns"
-
-const STATUS_OPTIONS = [
-  { value: "IN_STOCK", label: "In stock" },
-  { value: "LOW", label: "Low" },
-  { value: "ORDERED", label: "Ordered" },
-  { value: "OUT_OF_STOCK", label: "Out of stock" },
-]
+import { INVENTORY_STATUS_OPTIONS, type InventoryItem } from "./inventory-columns"
 
 interface InventoryFormDialogProps {
   labId: string
@@ -54,7 +52,8 @@ export function InventoryFormDialog({ labId, mode, open, onOpenChange, item }: I
   const [vendorCatalog, setVendorCatalog] = useState("")
   const [aliquots, setAliquots] = useState("")
   const [notes, setNotes] = useState("")
-  const [saving, setSaving] = useState(false)
+  const { pending, request } = useApiRequest()
+  const saving = pending !== null
 
   // Reset/prefill whenever the dialog opens.
   useEffect(() => {
@@ -101,18 +100,8 @@ export function InventoryFormDialog({ labId, mode, open, onOpenChange, item }: I
     // constrain a resolution by, so the user picks the target protein themselves rather than risk a
     // wrong-species accession.
     if (value.sourceOrganism) {
-      try {
-        const res = await fetch(
-          `/api/ontology?type=ncbi_taxonomy&q=${encodeURIComponent(value.sourceOrganism)}&limit=1`,
-        )
-        if (res.ok) {
-          const data = await res.json()
-          const match = data.results?.[0]
-          if (match) setHostSpecies({ id: match.id, label: match.label })
-        }
-      } catch {
-        // best-effort; host species stays editable
-      }
+      const host = await lookupHostSpecies(value.sourceOrganism)
+      if (host) setHostSpecies(host)
     }
   }
 
@@ -124,64 +113,54 @@ export function InventoryFormDialog({ labId, mode, open, onOpenChange, item }: I
   }
 
   async function handleSave() {
-    setSaving(true)
-    try {
-      let res: Response
-      if (mode === "edit" && item) {
-        res = await fetch(`/api/labs/${labId}/inventory/${item.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status,
-            storageLocation: storageLocation.trim() || null,
-            freezerLocation: freezerLocation.trim() || null,
-            lotNumber: lotNumber.trim() || null,
-            vendorCatalog: vendorCatalog.trim() || null,
-            aliquotsRemaining: parsedAliquots(),
-            notes: notes.trim() || null,
-          }),
-        })
-      } else {
-        const resolvedRrid = rrid.trim() || registry?.citation || ""
-        if (!resolvedRrid) {
-          toast.error("Pick an antibody with an RRID, or enter one manually")
-          setSaving(false)
-          return
-        }
-        res = await fetch(`/api/labs/${labId}/inventory`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            rrid: resolvedRrid,
-            markerName: markerName.trim() || undefined,
-            proteinData: markerProtein
-              ? { id: markerProtein.id, label: markerProtein.label, geneSymbol: markerProtein.geneSymbol ?? null }
-              : undefined,
-            hostSpecies: hostSpecies ?? undefined,
-            status,
-            storageLocation: storageLocation.trim() || undefined,
-            freezerLocation: freezerLocation.trim() || undefined,
-            lotNumber: lotNumber.trim() || undefined,
-            vendorCatalog: vendorCatalog.trim() || undefined,
-            aliquotsRemaining: parsedAliquots() ?? undefined,
-            notes: notes.trim() || undefined,
-          }),
-        })
-      }
-
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to save antibody")
-        return
-      }
-      toast.success(mode === "edit" ? "Inventory updated" : "Antibody added to inventory")
-      onOpenChange(false)
-      router.refresh()
-    } catch {
-      toast.error("Something went wrong")
-    } finally {
-      setSaving(false)
+    const resolvedRrid = rrid.trim() || registry?.citation || ""
+    const isEdit = mode === "edit" && item
+    if (!isEdit && !resolvedRrid) {
+      toast.error("Pick an antibody with an RRID, or enter one manually")
+      return
     }
+    const data = await request(
+      true,
+      isEdit
+        ? {
+            url: `/api/labs/${labId}/inventory/${item.id}`,
+            method: "PATCH",
+            errorMessage: "Failed to save antibody",
+            body: {
+              status,
+              storageLocation: storageLocation.trim() || null,
+              freezerLocation: freezerLocation.trim() || null,
+              lotNumber: lotNumber.trim() || null,
+              vendorCatalog: vendorCatalog.trim() || null,
+              aliquotsRemaining: parsedAliquots(),
+              notes: notes.trim() || null,
+            },
+          }
+        : {
+            url: `/api/labs/${labId}/inventory`,
+            method: "POST",
+            errorMessage: "Failed to save antibody",
+            body: {
+              rrid: resolvedRrid,
+              markerName: markerName.trim() || undefined,
+              proteinData: markerProtein
+                ? { id: markerProtein.id, label: markerProtein.label, geneSymbol: markerProtein.geneSymbol ?? null }
+                : undefined,
+              hostSpecies: hostSpecies ?? undefined,
+              status,
+              storageLocation: storageLocation.trim() || undefined,
+              freezerLocation: freezerLocation.trim() || undefined,
+              lotNumber: lotNumber.trim() || undefined,
+              vendorCatalog: vendorCatalog.trim() || undefined,
+              aliquotsRemaining: parsedAliquots() ?? undefined,
+              notes: notes.trim() || undefined,
+            },
+          },
+    )
+    if (!data) return
+    toast.success(mode === "edit" ? "Inventory updated" : "Antibody added to inventory")
+    onOpenChange(false)
+    router.refresh()
   }
 
   return (
@@ -247,18 +226,13 @@ export function InventoryFormDialog({ labId, mode, open, onOpenChange, item }: I
           <div className="grid grid-cols-1 gap-4 border-t pt-5 sm:grid-cols-2">
             <Field labelClassName="text-sm font-medium" label="Status">
               {(id) => (
-                <Select value={status} onValueChange={setStatus}>
-                  <SelectTrigger id={id} className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <OptionSelect
+                  id={id}
+                  value={status}
+                  onValueChange={setStatus}
+                  options={INVENTORY_STATUS_OPTIONS}
+                  className="w-full"
+                />
               )}
             </Field>
             <Field labelClassName="text-sm font-medium" label="Aliquots remaining">

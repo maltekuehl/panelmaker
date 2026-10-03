@@ -1,7 +1,6 @@
 "use client"
 
-import { OntologyCombobox, type OntologyValue } from "@/components/ontology-combobox"
-import { VisibilitySelector } from "@/components/shared/visibility-selector"
+import { type OntologyValue } from "@/components/ontology-combobox"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,36 +16,25 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { Visibility } from "@/lib/generated/prisma/enums"
-import { cn } from "@/lib/utils"
 import { usePanelsSignal } from "@/stores/panels"
-import { AlertTriangle, Download, Info, Palette, Pencil, Plus, Trash2, XCircle } from "lucide-react"
+import { Palette, Pencil, Plus } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { PanelExportMenu } from "./panel-export-menu"
+import { panelUrl, sendJson } from "./panel-api"
 import type { CreatePanelFormData } from "./panel-form"
 import { PanelForm } from "./panel-form"
 import { PanelList } from "./panel-list"
+import { PanelSettings, type VisibilityValue } from "./panel-settings"
+import { PanelWarnings, type PanelWarning } from "./panel-warnings"
 import { Panel, PanelCycle, PRESERVATION_LABELS } from "./types"
 
-type VisibilityValue = {
-  visibility: Visibility
-  sharedLabIds: string[]
-}
-
-type PanelWarning = {
-  type: string
-  severity: "info" | "warning" | "error"
-  cycleId?: string
-  markers?: string[]
-  message: string
-}
-
-const SEVERITY_LABELS = { error: "Error", warning: "Warning", info: "Note" } as const
-
-function SeverityIcon({ severity }: { severity: PanelWarning["severity"] }) {
-  const Icon = severity === "error" ? XCircle : severity === "warning" ? AlertTriangle : Info
-  return <Icon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+function panelSummary(panel: Panel): string {
+  const species = panel.species?.label ?? null
+  const preservation = panel.preservation ? PRESERVATION_LABELS[panel.preservation] : null
+  return (
+    [species, preservation, panel.fixative?.label, panel.imagingMethod?.label].filter(Boolean).join(", ") ||
+    "No species, preservation or method set"
+  )
 }
 
 export function PanelWorkspace() {
@@ -118,7 +106,7 @@ export function PanelWorkspace() {
 
   const fetchValidation = async (panelId: string) => {
     try {
-      const res = await fetch(`/api/panels/${panelId}/validate`)
+      const res = await fetch(`${panelUrl(panelId)}/validate`)
       if (!res.ok) return
       const json = await res.json()
       setWarnings(json.warnings ?? [])
@@ -136,22 +124,18 @@ export function PanelWorkspace() {
   const handleCreatePanel = async (data: CreatePanelFormData) => {
     setIsCreating(true)
     try {
-      const res = await fetch("/api/panels", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name,
-          description: data.description || undefined,
-          speciesId: data.speciesId || undefined,
-          speciesLabel: data.speciesLabel || undefined,
-          preservation: data.preservation || undefined,
-          fixativeId: data.fixativeId || undefined,
-          fixativeLabel: data.fixativeLabel || undefined,
-          imagingMethodId: data.imagingMethodId || undefined,
-          imagingMethodLabel: data.imagingMethodLabel || undefined,
-          conditionId: data.conditionId || undefined,
-          conditionLabel: data.conditionLabel || undefined,
-        }),
+      const res = await sendJson("/api/panels", "POST", {
+        name: data.name,
+        description: data.description || undefined,
+        speciesId: data.speciesId || undefined,
+        speciesLabel: data.speciesLabel || undefined,
+        preservation: data.preservation || undefined,
+        fixativeId: data.fixativeId || undefined,
+        fixativeLabel: data.fixativeLabel || undefined,
+        imagingMethodId: data.imagingMethodId || undefined,
+        imagingMethodLabel: data.imagingMethodLabel || undefined,
+        conditionId: data.conditionId || undefined,
+        conditionLabel: data.conditionLabel || undefined,
       })
 
       if (!res.ok) {
@@ -189,7 +173,7 @@ export function PanelWorkspace() {
     if (!panelToDelete) return
 
     try {
-      const res = await fetch(`/api/panels/${panelToDelete.id}`, { method: "DELETE" })
+      const res = await fetch(panelUrl(panelToDelete.id), { method: "DELETE" })
 
       if (!res.ok) {
         toast.error("Failed to delete panel")
@@ -208,116 +192,79 @@ export function PanelWorkspace() {
     }
   }
 
+  const applyPanelFields = (panelId: string, fields: Partial<Panel>) =>
+    setPanels((ps) => ps.map((p) => (p.id === panelId ? { ...p, ...fields } : p)))
+
+  // Applies the change locally first, then rolls back to `previous` if the PATCH fails.
+  const updatePanel = async ({
+    panelId,
+    next,
+    previous,
+    body,
+    successMessage,
+    errorMessage,
+    onSuccess,
+  }: {
+    panelId: string
+    next: Partial<Panel>
+    previous: Partial<Panel>
+    body: Record<string, unknown>
+    successMessage: string
+    errorMessage: string
+    onSuccess?: () => void
+  }) => {
+    applyPanelFields(panelId, next)
+    try {
+      const res = await sendJson(panelUrl(panelId), "PATCH", body)
+      if (!res.ok) throw new Error("Request failed")
+      onSuccess?.()
+      notifyPanelsChanged()
+      toast.success(successMessage)
+    } catch {
+      applyPanelFields(panelId, previous)
+      toast.error(errorMessage)
+    }
+  }
+
   const commitRename = async (panelId: string) => {
     if (nameDraft === null || renameCancelledRef.current) return
     const nextName = nameDraft.trim()
     setNameDraft(null)
-    const previousName = panels.find((p) => p.id === panelId)?.name
-    if (!nextName || nextName === previousName) return
+    const previous = panels.find((p) => p.id === panelId)
+    if (!nextName || nextName === previous?.name) return
 
-    const applyName = (name: string | undefined) =>
-      setPanels((ps) => ps.map((p) => (p.id === panelId && name !== undefined ? { ...p, name } : p)))
-
-    applyName(nextName)
-
-    try {
-      const res = await fetch(`/api/panels/${panelId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nextName }),
-      })
-
-      if (!res.ok) throw new Error("Request failed")
-
-      notifyPanelsChanged()
-      toast.success("Panel renamed")
-    } catch {
-      applyName(previousName)
-      toast.error("Failed to rename panel")
-    }
+    await updatePanel({
+      panelId,
+      next: { name: nextName },
+      previous: previous ? { name: previous.name } : {},
+      body: { name: nextName },
+      successMessage: "Panel renamed",
+      errorMessage: "Failed to rename panel",
+    })
   }
 
   const handleImagingMethodChange = async (panelId: string, method: OntologyValue | null) => {
-    const previous = panels.find((p) => p.id === panelId) ?? null
-
-    setPanels((ps) =>
-      ps.map((p) =>
-        p.id === panelId
-          ? { ...p, imagingMethodId: method?.id ?? null, imagingMethod: method ? { ...method, parent: null } : null }
-          : p,
-      ),
-    )
-
-    try {
-      const res = await fetch(`/api/panels/${panelId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagingMethodId: method?.id ?? null, imagingMethodLabel: method?.label }),
-      })
-
-      if (!res.ok) throw new Error("Request failed")
-
-      fetchValidation(panelId)
-      notifyPanelsChanged()
-      toast.success(method ? `Imaging method set to ${method.label}` : "Imaging method cleared")
-    } catch {
-      setPanels((ps) =>
-        ps.map((p) =>
-          p.id === panelId && previous
-            ? { ...p, imagingMethodId: previous.imagingMethodId, imagingMethod: previous.imagingMethod }
-            : p,
-        ),
-      )
-      toast.error("Failed to update imaging method")
-    }
+    const previous = panels.find((p) => p.id === panelId)
+    await updatePanel({
+      panelId,
+      next: { imagingMethodId: method?.id ?? null, imagingMethod: method ? { ...method, parent: null } : null },
+      previous: previous ? { imagingMethodId: previous.imagingMethodId, imagingMethod: previous.imagingMethod } : {},
+      body: { imagingMethodId: method?.id ?? null, imagingMethodLabel: method?.label },
+      successMessage: method ? `Imaging method set to ${method.label}` : "Imaging method cleared",
+      errorMessage: "Failed to update imaging method",
+      onSuccess: () => fetchValidation(panelId),
+    })
   }
 
-  const handleVisibilityChange = async (panelId: string, prev: VisibilityValue, next: VisibilityValue) => {
-    setPanels((ps) =>
-      ps.map((p) =>
-        p.id === panelId
-          ? {
-              ...p,
-              visibility: next.visibility,
-              sharedLabIds: next.sharedLabIds,
-            }
-          : p,
-      ),
-    )
-
-    const rollback = () => {
-      setPanels((ps) =>
-        ps.map((p) =>
-          p.id === panelId
-            ? {
-                ...p,
-                visibility: prev.visibility,
-                sharedLabIds: prev.sharedLabIds,
-              }
-            : p,
-        ),
-      )
-      toast.error("Failed to update panel visibility")
-    }
-
-    try {
-      const res = await fetch(`/api/panels/${panelId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visibility: next.visibility, sharedLabIds: next.sharedLabIds }),
-      })
-
-      if (!res.ok) {
-        rollback()
-        return
-      }
-
-      notifyPanelsChanged()
-      toast.success("Panel visibility updated")
-    } catch {
-      rollback()
-    }
-  }
+  const handleVisibilityChange = (panelId: string, prev: VisibilityValue, next: VisibilityValue) =>
+    updatePanel({
+      panelId,
+      next: { visibility: next.visibility, sharedLabIds: next.sharedLabIds },
+      previous: { visibility: prev.visibility, sharedLabIds: prev.sharedLabIds },
+      body: { visibility: next.visibility, sharedLabIds: next.sharedLabIds },
+      successMessage: "Panel visibility updated",
+      errorMessage: "Failed to update panel visibility",
+    })
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? panels[0] ?? null
 
@@ -367,22 +314,14 @@ export function PanelWorkspace() {
                     <SelectValue placeholder="Select panel" />
                   </SelectTrigger>
                   <SelectContent>
-                    {panels.map((panel) => {
-                      const pSpecies = panel.species?.label ?? null
-                      const pPreservation = panel.preservation ? PRESERVATION_LABELS[panel.preservation] : null
-                      return (
-                        <SelectItem key={panel.id} value={String(panel.id)}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{panel.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {[pSpecies, pPreservation, panel.fixative?.label, panel.imagingMethod?.label]
-                                .filter(Boolean)
-                                .join(", ") || "No species, preservation or method set"}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      )
-                    })}
+                    {panels.map((panel) => (
+                      <SelectItem key={panel.id} value={String(panel.id)}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{panel.name}</span>
+                          <span className="text-xs text-muted-foreground">{panelSummary(panel)}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               )}
@@ -425,94 +364,18 @@ export function PanelWorkspace() {
         </div>
 
         {activePanel && (
-          <div className="bg-muted/40 p-3 rounded-lg border space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <VisibilitySelector
-                  value={{
-                    visibility: activePanel.visibility ?? "PRIVATE",
-                    sharedLabIds: activePanel.sharedLabIds ?? [],
-                  }}
-                  onChange={(next) => {
-                    const prev: VisibilityValue = {
-                      visibility: activePanel.visibility ?? "PRIVATE",
-                      sharedLabIds: activePanel.sharedLabIds ?? [],
-                    }
-                    handleVisibilityChange(activePanel.id, prev, next)
-                  }}
-                  labs={userLabs}
-                  disabled={labsLoading}
-                />
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <PanelExportMenu
-                  panelId={activePanel.id}
-                  trigger={
-                    <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-foreground">
-                      <Download className="size-3.5" />
-                      <span className="sr-only">Export Panel</span>
-                    </Button>
-                  }
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => handleDeletePanel(activePanel.id)}
-                >
-                  <Trash2 className="size-3.5" />
-                  <span className="sr-only">Delete Panel</span>
-                </Button>
-              </div>
-            </div>
-            <div className="border-t pt-3">
-              <label htmlFor="panel-imaging-method" className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                Imaging method
-              </label>
-              <OntologyCombobox
-                id="panel-imaging-method"
-                ontologyType="imaging_method"
-                value={activePanel.imagingMethod}
-                onChange={(next) => handleImagingMethodChange(activePanel.id, next)}
-                placeholder="Search EFO imaging methods…"
-              />
-            </div>
-            {(activePanel.description || activePanel.condition) && (
-              <div className="space-y-1 border-t pt-2">
-                {activePanel.description && <p className="text-xs text-muted-foreground">{activePanel.description}</p>}
-                {activePanel.condition && (
-                  <p className="text-xs text-muted-foreground font-medium">Condition: {activePanel.condition.label}</p>
-                )}
-              </div>
-            )}
-          </div>
+          <PanelSettings
+            panel={activePanel}
+            labs={userLabs}
+            labsLoading={labsLoading}
+            onVisibilityChange={(prev, next) => handleVisibilityChange(activePanel.id, prev, next)}
+            onImagingMethodChange={(next) => handleImagingMethodChange(activePanel.id, next)}
+            onDelete={() => handleDeletePanel(activePanel.id)}
+          />
         )}
       </div>
 
-      <div className="px-4 empty:hidden" aria-live="polite">
-        {warnings.length > 0 && (
-          <div className="space-y-1.5 pt-4">
-            {warnings.map((w, i) => (
-              <div
-                key={`${w.type}-${w.cycleId ?? "panel"}-${i}`}
-                className={cn(
-                  "flex items-start gap-2 rounded-md px-3 py-2 text-xs",
-                  w.severity === "error"
-                    ? "border border-destructive/20 bg-destructive/10 text-destructive"
-                    : w.severity === "warning"
-                      ? "border border-warning/30 bg-warning/10 text-warning"
-                      : "border border-primary/20 bg-primary/10 text-primary",
-                )}
-              >
-                <SeverityIcon severity={w.severity} />
-                <span>
-                  <span className="font-medium">{SEVERITY_LABELS[w.severity]}:</span> {w.message}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <PanelWarnings warnings={warnings} />
 
       {activePanel ? (
         <PanelList

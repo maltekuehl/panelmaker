@@ -11,19 +11,16 @@ import {
 } from "@/components/browse/columns"
 import { DataTable } from "@/components/browse/data-table"
 import { DataTableColumnHeader } from "@/components/data-table/column-header"
-import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
 import { DataTablePagination } from "@/components/data-table/pagination"
 import { DebouncedSearchInput } from "@/components/data-table/search-input"
 import { SegmentedTabs } from "@/components/data-table/segmented-tabs"
-import { BalancedGrid } from "@/components/shared/balanced-grid"
+import { clearedTableParams, FacetFilterToolbar } from "@/components/filter-toolbar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { VISIBILITY_LABELS } from "@/lib/constants"
 import { isLabContentParamsActive, LAB_FILTER_DIMENSIONS, labContentParsers, type LabView } from "@/lib/data-table"
 import type { Visibility } from "@/lib/generated/prisma/enums"
 import type { BrowseFacets } from "@/models/experimental-report"
 import { ColumnDef } from "@tanstack/react-table"
-import { X } from "lucide-react"
 import { useQueryStates } from "nuqs"
 import { type ReactNode } from "react"
 
@@ -85,47 +82,31 @@ function LabContentToolbar({ counts, facets }: { counts: LabContentCounts; facet
     (dimension) => dimension.tabs.includes(params.view) && (facets[dimension.key]?.length ?? 0) > 0,
   )
 
-  const resetFilters = () =>
-    setParams({
-      q: null,
-      sort: null,
-      order: null,
-      page: null,
-      ...Object.fromEntries(LAB_FILTER_DIMENSIONS.map((dimension) => [dimension.key, null])),
-    } as Parameters<typeof setParams>[0])
-
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <LabViewTabs counts={counts} />
-        <DebouncedSearchInput
-          placeholder="Search by name, marker, tissue…"
-          value={params.q}
-          onCommit={(q) => setParams({ q: q || null, page: 1 })}
-          className="h-8 w-[200px] lg:w-[280px]"
-        />
-        <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters} disabled={!isActive}>
-          <X className="size-4" />
-          Reset
-        </Button>
-      </div>
-      {visibleDimensions.length > 0 && (
-        <BalancedGrid>
-          {visibleDimensions.map((dimension) => (
-            <DataTableFacetedFilter
-              key={dimension.key}
-              className="w-full justify-start overflow-hidden"
-              title={dimension.title}
-              options={facets[dimension.key] ?? []}
-              value={(params[dimension.key as keyof typeof params] as string[]) ?? []}
-              onChange={(value) =>
-                setParams({ [dimension.key]: value.length ? value : null, page: 1 } as Parameters<typeof setParams>[0])
-              }
-            />
-          ))}
-        </BalancedGrid>
-      )}
-    </div>
+    <FacetFilterToolbar
+      onReset={() =>
+        setParams(
+          clearedTableParams(LAB_FILTER_DIMENSIONS.map((dimension) => dimension.key)) as Parameters<
+            typeof setParams
+          >[0],
+        )
+      }
+      isActive={isActive}
+      dimensions={visibleDimensions}
+      facets={facets}
+      selected={(key) => (params[key as keyof typeof params] as string[]) ?? []}
+      onFilterChange={(key, value) =>
+        setParams({ [key]: value.length ? value : null, page: 1 } as Parameters<typeof setParams>[0])
+      }
+    >
+      <LabViewTabs counts={counts} />
+      <DebouncedSearchInput
+        placeholder="Search by name, marker, tissue…"
+        value={params.q}
+        onCommit={(q) => setParams({ q: q || null, page: 1 })}
+        className="h-8 w-[200px] lg:w-[280px]"
+      />
+    </FacetFilterToolbar>
   )
 }
 

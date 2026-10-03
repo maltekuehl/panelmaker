@@ -152,10 +152,14 @@ export function emptyContext(): ExperimentContext {
 
 let rowCounter = 0
 
-export function emptyRow(): AntibodyRow {
+function nextRowKey(): string {
   rowCounter += 1
+  return `row-${rowCounter}`
+}
+
+export function emptyRow(): AntibodyRow {
   return {
-    key: `row-${rowCounter}`,
+    key: nextRowKey(),
     antibodyRegistry: null,
     markerProtein: null,
     markerName: "",
@@ -182,10 +186,9 @@ export function emptyRow(): AntibodyRow {
 }
 
 export function duplicateRow(row: AntibodyRow): AntibodyRow {
-  rowCounter += 1
   return {
     ...row,
-    key: `row-${rowCounter}`,
+    key: nextRowKey(),
     cellTypes: [...row.cellTypes],
     issueIds: [...row.issueIds],
     validations: { ...row.validations },
@@ -214,20 +217,13 @@ export function isContextComplete(context: ExperimentContext): boolean {
   return context.name.trim().length > 0
 }
 
-export const PRESERVATION_OPTIONS: { value: string; label: string }[] = Object.values(Preservation).map((value) => ({
-  value,
-  label: PRESERVATION_LABELS[value],
-}))
+function enumOptions<T extends string>(values: Record<string, T>, labels: Record<T, string>) {
+  return Object.values(values).map((value): { value: string; label: string } => ({ value, label: labels[value] }))
+}
 
-export const SAMPLE_TYPE_OPTIONS: { value: string; label: string }[] = Object.values(SampleType).map((value) => ({
-  value,
-  label: SAMPLE_TYPE_LABELS[value],
-}))
-
-export const DONOR_SEX_OPTIONS: { value: string; label: string }[] = Object.values(DonorSex).map((value) => ({
-  value,
-  label: DONOR_SEX_LABELS[value],
-}))
+export const PRESERVATION_OPTIONS = enumOptions(Preservation, PRESERVATION_LABELS)
+export const SAMPLE_TYPE_OPTIONS = enumOptions(SampleType, SAMPLE_TYPE_LABELS)
+export const DONOR_SEX_OPTIONS = enumOptions(DonorSex, DONOR_SEX_LABELS)
 
 // HsapDv for a human donor, MmusDv for a mouse one. Any other species has no species-specific
 // developmental stage ontology on OLS4, so the field is offered only for those two.

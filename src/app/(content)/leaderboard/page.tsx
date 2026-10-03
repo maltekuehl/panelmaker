@@ -66,7 +66,7 @@ type ResolvedScope = {
 
 // Resolves the URL into a scope the queries can trust. A lab in the URL is never used as-is: it is
 // matched against the labs the viewer is actually a member of, and anything else is dropped.
-async function resolveScope(searchParams: Promise<SearchParams>): Promise<ResolvedScope> {
+const resolveScope = cache(async (searchParams: Promise<SearchParams>): Promise<ResolvedScope> => {
   const params = await loadLeaderboardParams(searchParams)
   const user = await getSessionUser()
   const viewer = await resolveViewerContext(user?.id ?? null)
@@ -88,7 +88,7 @@ async function resolveScope(searchParams: Promise<SearchParams>): Promise<Resolv
     },
     labFilterRejected: params.lab.length > selectedLabs.length,
   }
-}
+})
 
 function categoryLabel(facets: BrowseFacets, params: LeaderboardParams): string | null {
   const labels = LEADERBOARD_FILTER_KEYS.filter((key) => key !== "lab").flatMap((key) =>

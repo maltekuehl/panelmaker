@@ -1,10 +1,10 @@
 import { auth } from "@/auth"
-import { ApiException, createErrorResponse } from "@/lib/error-handling"
-import { type LabRole, UserRole, UserStatus, Visibility } from "@/lib/generated/prisma/enums"
+import { createErrorResponse, ForbiddenError, UnauthorizedError } from "@/lib/error-handling"
+import { type LabRole, UserRole, UserStatus } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { ROLE_RANK, type ViewerContext } from "@/models/lab/access"
-import { getSoleOwnerLabIds, getUserLabMemberships, getUserLabRole } from "@/models/lab/queries"
+import { getUserLabMemberships, getUserLabRole } from "@/models/lab/queries"
 import { normalizeEmail } from "@/models/user/transforms"
 import { NextRequest, NextResponse } from "next/server"
 import { cache } from "react"
@@ -52,7 +52,7 @@ export async function requireAuth(request: NextRequest): Promise<AuthenticatedUs
       action: "access",
       success: false,
     })
-    throw new Error("Authentication required")
+    throw new UnauthorizedError()
   }
 
   return user
@@ -72,7 +72,7 @@ export async function requireAdmin(request: NextRequest): Promise<AuthenticatedU
         userRole: "USER",
       },
     })
-    throw new Error("Admin access required")
+    throw new ForbiddenError("Admin access required")
   }
 
   return {
@@ -88,32 +88,10 @@ export function createAuthHandler<T extends any[]>(
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
     try {
       const user = requireAdminAccess ? await requireAdmin(request) : await requireAuth(request)
-
       return await handler(request, user, ...args)
     } catch (error) {
-      const response = authErrorResponse(error)
-      if (response) return response
-      throw error
+      return createErrorResponse(error)
     }
-  }
-}
-
-// Maps ApiException and the string errors thrown by the require* guards to an HTTP response.
-// Returns null when the error is not a recognized auth error, so callers can fall through.
-export function authErrorResponse(error: unknown): NextResponse | null {
-  if (error instanceof ApiException) return createErrorResponse(error)
-  if (!(error instanceof Error)) return null
-  switch (error.message) {
-    case "Authentication required":
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
-    case "Admin access required":
-    case "Lab membership required":
-    case "Insufficient lab role":
-      return NextResponse.json({ error: error.message }, { status: 403 })
-    case "Resource not found":
-      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
-    default:
-      return null
   }
 }
 
@@ -123,22 +101,7 @@ export function authErrorResponse(error: unknown): NextResponse | null {
 // otherwise a stale cookie reaches Prisma and fails on a foreign key.
 export const getSessionUser = cache(async (): Promise<AuthenticatedUser | null> => {
   const session = await auth()
-  const id = session?.user?.id
-  if (!id) return null
-
-  const account = await prisma.user.findUnique({
-    where: { id },
-    select: { id: true, name: true, email: true, image: true, role: true, status: true },
-  })
-  if (!account || account.status === UserStatus.BLOCKED) return null
-
-  return {
-    id: account.id,
-    name: account.name,
-    email: account.email,
-    image: account.image,
-    isAdmin: account.role === UserRole.ADMIN,
-  }
+  return session?.user?.id ? loadSessionUser(session.user.id) : null
 })
 
 // Resolves the per-request lab context for a user (memberships, roles, site-admin flag).
@@ -163,6 +126,19 @@ export const resolveViewerContext = cache(async (userId: string | null): Promise
   }
 })
 
+// The signed-in viewer's lab context, for routes that apply viewer-scoped visibility or edit rules.
+export async function requireViewer(request: NextRequest): Promise<ViewerContext> {
+  const user = await requireAuth(request)
+  const viewer = await resolveViewerContext(user.id)
+  if (!viewer) throw new UnauthorizedError()
+  return viewer
+}
+
+export async function getOptionalViewer(request: NextRequest): Promise<ViewerContext | null> {
+  const user = await getOptionalAuth(request)
+  return resolveViewerContext(user?.id ?? null)
+}
+
 // Requires an authenticated user who is a member of the given lab. Returns the user and their role.
 export async function requireLabMember(
   request: NextRequest,
@@ -177,7 +153,7 @@ export async function requireLabMember(
       success: false,
       metadata: { labId },
     })
-    throw new Error("Lab membership required")
+    throw new ForbiddenError("Lab membership required")
   }
   return { user, role }
 }
@@ -196,16 +172,14 @@ export async function requireLabRole(
       success: false,
       metadata: { labId, requiredRole: minRole, role },
     })
-    throw new Error("Insufficient lab role")
+    throw new ForbiddenError("Insufficient lab role")
   }
   return { user, role }
 }
 
 // Helper function for optional auth (user might or might not be authenticated)
 export async function getOptionalAuth(_request: NextRequest): Promise<AuthenticatedUser | null> {
-  const session = await auth()
-  if (!session?.user?.id) return null
-  return loadSessionUser(session.user.id)
+  return getSessionUser()
 }
 
 // Check if a user can sign in (not blocked)
@@ -220,126 +194,4 @@ export async function canSignIn(email: string): Promise<boolean> {
 
   // Check if user is not blocked
   return user.status !== UserStatus.BLOCKED
-}
-
-// Block a user
-export async function blockUser(userId: string): Promise<void> {
-  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
-  if (!target) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
-  if (target.role === UserRole.ADMIN) {
-    throw new ApiException(409, { message: "Admin accounts cannot be blocked", code: "ADMIN_USER" })
-  }
-  await prisma.user.update({
-    where: { id: userId },
-    data: { status: UserStatus.BLOCKED },
-  })
-}
-
-// Unblock a user
-export async function unblockUser(userId: string): Promise<void> {
-  const { count } = await prisma.user.updateMany({
-    where: { id: userId },
-    data: { status: UserStatus.ACTIVE },
-  })
-  if (count === 0) throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
-}
-
-// Delete a user and all their data
-export async function deleteUser(userId: string): Promise<void> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { role: true },
-  })
-
-  if (!user) {
-    throw new ApiException(404, { message: "User not found", code: "USER_NOT_FOUND" })
-  }
-
-  if (user.role === UserRole.ADMIN) {
-    throw new ApiException(403, { message: "Cannot delete admin users", code: "ADMIN_USER" })
-  }
-
-  const soleOwnerLabIds = await getSoleOwnerLabIds(userId)
-  if (soleOwnerLabIds.length > 0) {
-    throw new ApiException(409, {
-      message: "Cannot delete a user who is the sole owner of a lab. Delete the lab first.",
-      code: "SOLE_LAB_OWNER",
-      details: { labIds: soleOwnerLabIds },
-    })
-  }
-
-  // Panels and experiments keep the User relation with onDelete: SetNull so public contributions stay
-  // in place. Private ones would become unreachable orphans, so they go with the account.
-  await prisma.$transaction([
-    prisma.panel.deleteMany({ where: { ownerId: userId, visibility: Visibility.PRIVATE, owningLabId: null } }),
-    prisma.experiment.deleteMany({ where: { submitterId: userId, visibility: Visibility.PRIVATE, owningLabId: null } }),
-    prisma.rateLimit.deleteMany({ where: { userId } }),
-    prisma.chatMessage.updateMany({ where: { userId }, data: { userId: null } }),
-    prisma.user.delete({ where: { id: userId } }),
-  ])
-}
-
-// Get all users with pagination (admin only)
-export async function getAllUsers(page: number = 1, pageSize: number = 20, search?: string) {
-  const skip = (page - 1) * pageSize
-
-  // Build where clause for search
-  const whereClause = search
-    ? {
-        OR: [
-          {
-            name: {
-              contains: search,
-              mode: "insensitive" as const,
-            },
-          },
-          {
-            email: {
-              contains: search,
-              mode: "insensitive" as const,
-            },
-          },
-        ],
-      }
-    : {}
-
-  const [users, totalUsers] = await Promise.all([
-    prisma.user.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        image: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: {
-          select: {
-            panels: true,
-            experiments: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: pageSize,
-    }),
-    prisma.user.count({
-      where: whereClause,
-    }),
-  ])
-
-  const totalPages = Math.ceil(totalUsers / pageSize)
-
-  return {
-    users,
-    pagination: {
-      page,
-      pageSize,
-      totalUsers,
-      totalPages,
-    },
-  }
 }

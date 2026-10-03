@@ -1,7 +1,12 @@
-import { getOptionalAuth, resolveViewerContext } from "@/lib/auth"
-import { createErrorResponse } from "@/lib/error-handling"
-import { canViewPanel } from "@/models/lab"
-import { exportPanelCsv, exportPanelJson, exportPanelOrderCsv, getPanelById, type PanelRow } from "@/models/panel"
+import { getOptionalViewer } from "@/lib/auth"
+import { BadRequestError, createErrorResponse } from "@/lib/error-handling"
+import {
+  exportPanelCsv,
+  exportPanelJson,
+  exportPanelOrderCsv,
+  type PanelRow,
+  requireVisiblePanel,
+} from "@/models/panel"
 import { NextRequest, NextResponse } from "next/server"
 
 const EXPORTERS = {
@@ -26,22 +31,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const format = request.nextUrl.searchParams.get("format") ?? "json"
     if (!isExportFormat(format)) {
-      return NextResponse.json(
-        { error: "Invalid format. Use ?format=csv, ?format=order, or ?format=json" },
-        { status: 400 },
-      )
+      throw new BadRequestError("Invalid format. Use ?format=csv, ?format=order, or ?format=json")
     }
 
-    const user = await getOptionalAuth(request)
-    const panel = await getPanelById(panelId)
-
-    if (!panel) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
-    if (!canViewPanel(await resolveViewerContext(user?.id ?? null), panel)) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
+    const panel = await requireVisiblePanel(panelId, await getOptionalViewer(request))
 
     const exporter = EXPORTERS[format]
     const safeName = panel.name.replace(/[^a-z0-9_-]/gi, "_")

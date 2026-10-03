@@ -1,8 +1,8 @@
-import { authErrorResponse, requireAuth } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { createPanel, createPanelSchema, getPanelsForUser, toPanelResponse } from "@/models/panel"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
     return createSuccessResponse({ panels: panels.map(toPanelResponse) })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch panels")
+    return createErrorResponse(error, "Failed to fetch panels")
   }
 }
 
@@ -21,17 +21,14 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth(request)
 
     const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.PANELS_CREATE)
-    if (!rateLimitResult.allowed) {
-      return createRateLimitError(rateLimitResult) as NextResponse
-    }
+    if (!rateLimitResult.allowed) return createRateLimitError(rateLimitResult)
 
-    const body = await request.json()
-    const validated = createPanelSchema.parse(body)
+    const validated = createPanelSchema.parse(await request.json())
 
     const panel = await createPanel(validated, user.id)
 
     return createSuccessResponse({ panel: toPanelResponse(panel) }, 201)
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to create panel")
+    return createErrorResponse(error, "Failed to create panel")
   }
 }

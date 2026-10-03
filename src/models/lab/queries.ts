@@ -1,7 +1,8 @@
 import "server-only"
 
+import { CLONALITY_LABELS } from "@/lib/constants"
 import { DEFAULT_PAGE_SIZE, type LabInventoryParams } from "@/lib/data-table"
-import { ForbiddenError, NotFoundError } from "@/lib/error-handling"
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from "@/lib/error-handling"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import type {
   Clonality,
@@ -12,6 +13,7 @@ import type {
 } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
 import { type AntibodyRow, resolveAntibodyByRrid } from "@/models/antibody"
+import { ensureProtein } from "@/models/protein/queries"
 import { normalizeEmail } from "@/models/user/transforms"
 import { createHash, randomBytes } from "node:crypto"
 import type { AddLabAntibodyData, CreateLabData, UpdateLabAntibodyData, UpdateLabData } from "./schema"
@@ -146,15 +148,17 @@ export async function deleteLab(id: string): Promise<void> {
   await prisma.lab.delete({ where: { id } })
 }
 
+async function requireMembershipRole(labId: string, userId: string): Promise<LabRole> {
+  const role = await getUserLabRole(userId, labId)
+  if (!role) throw new NotFoundError()
+  return role
+}
+
 // Demoting the last OWNER is blocked so a lab can never be left ownerless.
 export async function changeMemberRole(labId: string, targetUserId: string, role: LabRole): Promise<void> {
-  const membership = await prisma.labMembership.findUnique({
-    where: { userId_labId: { userId: targetUserId, labId } },
-    select: { role: true },
-  })
-  if (!membership) throw new Error("Resource not found")
-  if (membership.role === "OWNER" && role !== "OWNER" && (await countOwners(labId)) <= 1) {
-    throw new Error("Cannot demote the last owner")
+  const currentRole = await requireMembershipRole(labId, targetUserId)
+  if (currentRole === "OWNER" && role !== "OWNER" && (await countOwners(labId)) <= 1) {
+    throw new ConflictError("Cannot demote the last owner")
   }
   await prisma.labMembership.update({
     where: { userId_labId: { userId: targetUserId, labId } },
@@ -166,13 +170,8 @@ export async function changeMemberRole(labId: string, targetUserId: string, role
 // not owned by this lab, so the lab keeps its own data and the ex-member's private work stops being
 // lab-visible. Removing the last OWNER is blocked.
 export async function removeMember(labId: string, targetUserId: string): Promise<void> {
-  const membership = await prisma.labMembership.findUnique({
-    where: { userId_labId: { userId: targetUserId, labId } },
-    select: { role: true },
-  })
-  if (!membership) throw new Error("Resource not found")
-  if (membership.role === "OWNER" && (await countOwners(labId)) <= 1) {
-    throw new Error("Cannot remove the last owner")
+  if ((await requireMembershipRole(labId, targetUserId)) === "OWNER" && (await countOwners(labId)) <= 1) {
+    throw new ConflictError("Cannot remove the last owner")
   }
   await prisma.$transaction([
     prisma.experimentLabShare.deleteMany({
@@ -291,16 +290,16 @@ export async function createInvitation(
   const isLink = email === null
 
   if (input.role === "OWNER") {
-    throw new Error("Cannot invite a member as an owner")
+    throw new BadRequestError("Cannot invite a member as an owner")
   }
   if (isLink && input.role === "ADMIN") {
-    throw new Error("Invite links cannot grant the admin role; send an admin invitation by email")
+    throw new BadRequestError("Invite links cannot grant the admin role; send an admin invitation by email")
   }
 
   // Email invites default to single-use; reusable links default to unlimited.
   const maxUses = input.maxUses ?? (email ? 1 : null)
   if (input.role === "ADMIN" && (maxUses === null || maxUses < 1)) {
-    throw new Error("Admin invitations must have a limited number of uses")
+    throw new BadRequestError("Admin invitations must have a limited number of uses")
   }
 
   const token = randomBytes(32).toString("base64url")
@@ -378,7 +377,7 @@ export async function revokeInvitation(labId: string, invitationId: string): Pro
     where: { id: invitationId, labId, status: "PENDING" },
     data: { status: "REVOKED" },
   })
-  if (result.count === 0) throw new Error("Resource not found")
+  if (result.count === 0) throw new NotFoundError()
 }
 
 export type AcceptInvitationResult = { labId: string; slug: string; labName: string; role: LabRole }
@@ -407,14 +406,14 @@ export async function acceptInvitation(
         lab: { select: { slug: true, name: true } },
       },
     })
-    if (!invitation) throw new Error("Invitation not found")
-    if (invitation.status !== "PENDING") throw new Error("Invitation is no longer valid")
+    if (!invitation) throw new NotFoundError("Invitation not found")
+    if (invitation.status !== "PENDING") throw new ConflictError("Invitation is no longer valid")
     if (invitation.expiresAt.getTime() < Date.now()) {
       await tx.labInvitation.update({ where: { id: invitation.id }, data: { status: "EXPIRED" } })
-      throw new Error("Invitation has expired")
+      throw new ConflictError("Invitation has expired")
     }
     if (invitation.email && userEmail && invitation.email !== normalizeEmail(userEmail)) {
-      throw new Error("This invitation was sent to a different email address")
+      throw new ForbiddenError("This invitation was sent to a different email address")
     }
 
     // Atomically claim a use. For limited invitations this prevents redeeming beyond maxUses.
@@ -426,7 +425,7 @@ export async function acceptInvitation(
       },
       data: { useCount: { increment: 1 } },
     })
-    if (claim.count === 0) throw new Error("Invitation is no longer valid")
+    if (claim.count === 0) throw new ConflictError("Invitation is no longer valid")
 
     // Create the membership; keep any existing (possibly higher) role if already a member.
     await tx.labMembership.upsert({
@@ -452,10 +451,10 @@ export async function declineInvitation(rawToken: string, userEmail: string | nu
     where: { tokenHash: hashToken(rawToken) },
     select: { id: true, email: true, status: true },
   })
-  if (!invitation || invitation.status !== "PENDING") throw new Error("Invitation is no longer valid")
-  if (!invitation.email) throw new Error("Open invite links cannot be declined")
+  if (!invitation || invitation.status !== "PENDING") throw new ConflictError("Invitation is no longer valid")
+  if (!invitation.email) throw new BadRequestError("Open invite links cannot be declined")
   if (userEmail && invitation.email !== normalizeEmail(userEmail)) {
-    throw new Error("This invitation was sent to a different email address")
+    throw new ForbiddenError("This invitation was sent to a different email address")
   }
   await prisma.labInvitation.update({ where: { id: invitation.id }, data: { status: "DECLINED" } })
 }
@@ -508,6 +507,29 @@ export interface LabInventoryPage {
   pageCount: number
 }
 
+function antibodyFilterWhere(filter: {
+  markerIds?: string[]
+  hostTaxonIds?: string[]
+  clonalities?: string[]
+  rrids?: string[]
+}): Prisma.AntibodyWhereInput | undefined {
+  const antibody: Prisma.AntibodyWhereInput = {}
+  if (filter.markerIds?.length) antibody.targetProteinId = { in: filter.markerIds }
+  if (filter.hostTaxonIds?.length) antibody.hostTaxonId = { in: filter.hostTaxonIds }
+  if (filter.clonalities?.length) antibody.clonality = { in: filter.clonalities as Clonality[] }
+  if (filter.rrids?.length) antibody.rrid = { in: filter.rrids }
+  return Object.keys(antibody).length > 0 ? antibody : undefined
+}
+
+function inventorySearchWhere(q: string): Prisma.LabAntibodyWhereInput[] {
+  return [
+    { antibody: { name: { contains: q, mode: "insensitive" } } },
+    { antibody: { rrid: { contains: q, mode: "insensitive" } } },
+    { antibody: { targetName: { contains: q, mode: "insensitive" } } },
+    { antibody: { targetProtein: { geneSymbol: { contains: q, mode: "insensitive" } } } },
+  ]
+}
+
 export interface InventoryAcrossLabsFilter {
   markerIds?: string[]
   hostTaxonIds?: string[]
@@ -522,38 +544,22 @@ export async function getInventoryForLabs(
   filter: InventoryAcrossLabsFilter = {},
 ): Promise<LabAntibodyRow[]> {
   if (labIds.length === 0) return []
-  const where: Prisma.LabAntibodyWhereInput = { labId: { in: labIds } }
+  const where: Prisma.LabAntibodyWhereInput = { labId: { in: labIds }, antibody: antibodyFilterWhere(filter) }
   if (filter.status?.length) where.status = { in: filter.status as LabAntibodyStatus[] }
-
-  const antibody: Prisma.AntibodyWhereInput = {}
-  if (filter.markerIds?.length) antibody.targetProteinId = { in: filter.markerIds }
-  if (filter.hostTaxonIds?.length) antibody.hostTaxonId = { in: filter.hostTaxonIds }
-  if (filter.clonalities?.length) antibody.clonality = { in: filter.clonalities as Clonality[] }
-  if (filter.rrids?.length) antibody.rrid = { in: filter.rrids }
-  if (Object.keys(antibody).length) where.antibody = antibody
-
   return prisma.labAntibody.findMany({ where, select: labAntibodySelect, orderBy: { addedAt: "desc" }, take: 500 })
 }
 
 function buildInventoryWhere(labId: string, params: LabInventoryParams): Prisma.LabAntibodyWhereInput {
-  const where: Prisma.LabAntibodyWhereInput = { labId }
-
-  if (params.status.length > 0) {
-    where.status = { in: params.status as LabAntibodyStatus[] }
+  const where: Prisma.LabAntibodyWhereInput = {
+    labId,
+    antibody: antibodyFilterWhere({ hostTaxonIds: params.host, clonalities: params.clonality }),
   }
-
-  const antibodyFilter: Prisma.AntibodyWhereInput = {}
-  if (params.host.length > 0) antibodyFilter.hostTaxonId = { in: params.host }
-  if (params.clonality.length > 0) antibodyFilter.clonality = { in: params.clonality as Clonality[] }
-  if (Object.keys(antibodyFilter).length > 0) where.antibody = antibodyFilter
+  if (params.status.length > 0) where.status = { in: params.status as LabAntibodyStatus[] }
 
   const q = params.q.trim()
   if (q) {
     where.OR = [
-      { antibody: { name: { contains: q, mode: "insensitive" } } },
-      { antibody: { rrid: { contains: q, mode: "insensitive" } } },
-      { antibody: { targetName: { contains: q, mode: "insensitive" } } },
-      { antibody: { targetProtein: { geneSymbol: { contains: q, mode: "insensitive" } } } },
+      ...inventorySearchWhere(q),
       { lotNumber: { contains: q, mode: "insensitive" } },
       { storageLocation: { contains: q, mode: "insensitive" } },
     ]
@@ -615,13 +621,6 @@ export interface InventoryFacets {
   clonality: InventoryFacetOption[]
 }
 
-const CLONALITY_LABELS: Record<Clonality, string> = {
-  MONOCLONAL: "Monoclonal",
-  POLYCLONAL: "Polyclonal",
-  RECOMBINANT: "Recombinant",
-  OLIGOCLONAL: "Oligoclonal",
-}
-
 const importableInventorySelect = {
   id: true,
   lab: { select: { name: true } },
@@ -647,14 +646,7 @@ export async function getImportableInventory(labIds: string[], q?: string): Prom
   if (labIds.length === 0) return []
   const where: Prisma.LabAntibodyWhereInput = { labId: { in: labIds } }
   const trimmed = q?.trim()
-  if (trimmed) {
-    where.OR = [
-      { antibody: { name: { contains: trimmed, mode: "insensitive" } } },
-      { antibody: { rrid: { contains: trimmed, mode: "insensitive" } } },
-      { antibody: { targetName: { contains: trimmed, mode: "insensitive" } } },
-      { antibody: { targetProtein: { geneSymbol: { contains: trimmed, mode: "insensitive" } } } },
-    ]
-  }
+  if (trimmed) where.OR = inventorySearchWhere(trimmed)
   return prisma.labAntibody.findMany({
     where,
     select: importableInventorySelect,
@@ -707,15 +699,7 @@ async function enrichAntibodyIdentity(antibody: AntibodyRow, data: AddLabAntibod
   }
 
   if (data.proteinData && !antibody.targetProteinId) {
-    await prisma.protein.upsert({
-      where: { id: data.proteinData.id },
-      update: {},
-      create: {
-        id: data.proteinData.id,
-        label: data.proteinData.label,
-        geneSymbol: data.proteinData.geneSymbol ?? null,
-      },
-    })
+    await ensureProtein(data.proteinData)
     update.targetProtein = { connect: { id: data.proteinData.id } }
   }
 
@@ -726,6 +710,19 @@ async function enrichAntibodyIdentity(antibody: AntibodyRow, data: AddLabAntibod
 
   if (Object.keys(update).length > 0) {
     await prisma.antibody.update({ where: { id: antibody.id }, data: update })
+  }
+}
+
+// Only the fields present in the payload are written, with blank text stored as null.
+function labAntibodyPatch(data: UpdateLabAntibodyData): Prisma.LabAntibodyUpdateInput {
+  return {
+    ...(data.storageLocation !== undefined ? { storageLocation: data.storageLocation || null } : {}),
+    ...(data.freezerLocation !== undefined ? { freezerLocation: data.freezerLocation || null } : {}),
+    ...(data.lotNumber !== undefined ? { lotNumber: data.lotNumber || null } : {}),
+    ...(data.vendorCatalog !== undefined ? { vendorCatalog: data.vendorCatalog || null } : {}),
+    ...(data.aliquotsRemaining !== undefined ? { aliquotsRemaining: data.aliquotsRemaining } : {}),
+    ...(data.status !== undefined ? { status: data.status } : {}),
+    ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
   }
 }
 
@@ -740,7 +737,7 @@ export async function upsertLabAntibody(
 ): Promise<LabAntibodyRow> {
   const antibody = await resolveAntibodyByRrid(data.rrid.trim())
   if (!antibody) {
-    throw new Error("No antibody found for that RRID")
+    throw new UnprocessableError("No antibody found for that RRID")
   }
 
   await enrichAntibodyIdentity(antibody, data)
@@ -749,15 +746,7 @@ export async function upsertLabAntibody(
     where: { labId_antibodyId: { labId, antibodyId: antibody.id } },
     // Only fields the caller actually sent are applied, so re-adding an antibody someone else
     // already stocked refreshes what was filled in and leaves the rest alone.
-    update: {
-      ...(data.storageLocation !== undefined ? { storageLocation: data.storageLocation || null } : {}),
-      ...(data.freezerLocation !== undefined ? { freezerLocation: data.freezerLocation || null } : {}),
-      ...(data.lotNumber !== undefined ? { lotNumber: data.lotNumber || null } : {}),
-      ...(data.vendorCatalog !== undefined ? { vendorCatalog: data.vendorCatalog || null } : {}),
-      ...(data.aliquotsRemaining !== undefined ? { aliquotsRemaining: data.aliquotsRemaining } : {}),
-      ...(data.status !== undefined ? { status: data.status } : {}),
-      ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
-    },
+    update: labAntibodyPatch(data),
     create: {
       labId,
       antibodyId: antibody.id,
@@ -784,15 +773,7 @@ export async function updateLabAntibody(
   try {
     return await prisma.labAntibody.update({
       where: { id: itemId, labId },
-      data: {
-        ...(data.storageLocation !== undefined ? { storageLocation: data.storageLocation || null } : {}),
-        ...(data.freezerLocation !== undefined ? { freezerLocation: data.freezerLocation || null } : {}),
-        ...(data.lotNumber !== undefined ? { lotNumber: data.lotNumber || null } : {}),
-        ...(data.vendorCatalog !== undefined ? { vendorCatalog: data.vendorCatalog || null } : {}),
-        ...(data.aliquotsRemaining !== undefined ? { aliquotsRemaining: data.aliquotsRemaining } : {}),
-        ...(data.status !== undefined ? { status: data.status } : {}),
-        ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
-      },
+      data: labAntibodyPatch(data),
       select: labAntibodySelect,
     })
   } catch {
@@ -802,5 +783,5 @@ export async function updateLabAntibody(
 
 export async function removeLabAntibody(labId: string, itemId: string): Promise<void> {
   const result = await prisma.labAntibody.deleteMany({ where: { id: itemId, labId } })
-  if (result.count === 0) throw new Error("Resource not found")
+  if (result.count === 0) throw new NotFoundError()
 }

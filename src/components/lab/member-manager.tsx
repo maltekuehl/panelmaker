@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useApiRequest } from "@/hooks/use-api-request"
 import { LAB_ROLE_LABELS } from "@/lib/constants"
 import { formatDate, getInitials } from "@/lib/format"
 import type { LabRole } from "@/lib/generated/prisma/enums"
@@ -25,7 +26,6 @@ import { ROLE_RANK } from "@/models/lab/access"
 import { ChevronDown, Loader2, Trash2, UserMinus } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
 import { toast } from "sonner"
 
 interface Member {
@@ -80,74 +80,48 @@ function canRemoveMember(viewerRole: LabRole, targetRole: string, isSelf: boolea
 
 export function MemberManager({ labId, currentUserId, viewerRole, members, invitations }: MemberManagerProps) {
   const router = useRouter()
-  const [changingRole, setChangingRole] = useState<string | null>(null)
-  const [removing, setRemoving] = useState<string | null>(null)
-  const [revoking, setRevoking] = useState<string | null>(null)
+  const { pending: changingRole, request: requestRoleChange } = useApiRequest<string>()
+  const { pending: removing, request: requestRemoval } = useApiRequest<string>()
+  const { pending: revoking, request: requestRevoke } = useApiRequest<string>()
 
   async function changeRole(userId: string, newRole: string) {
-    setChangingRole(userId)
-    try {
-      const res = await fetch(`/api/labs/${labId}/members/${userId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to change role")
-        return
-      }
-      toast.success("Role updated")
-      router.refresh()
-    } catch {
-      toast.error("Something went wrong")
-    } finally {
-      setChangingRole(null)
-    }
+    const data = await requestRoleChange(userId, {
+      url: `/api/labs/${labId}/members/${userId}`,
+      method: "PATCH",
+      body: { role: newRole },
+      errorMessage: "Failed to change role",
+    })
+    if (!data) return
+    toast.success("Role updated")
+    router.refresh()
   }
 
   async function removeMember(userId: string, isSelf: boolean) {
-    setRemoving(userId)
-    try {
-      const res = await fetch(`/api/labs/${labId}/members/${userId}`, {
-        method: "DELETE",
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to remove member")
-        setRemoving(null)
-        return
-      }
-      toast.success(isSelf ? "You left the lab" : "Member removed")
-      if (isSelf) {
-        router.push("/labs")
-      } else {
-        router.refresh()
-      }
-    } catch {
-      toast.error("Something went wrong")
-      setRemoving(null)
+    const data = await requestRemoval(userId, {
+      url: `/api/labs/${labId}/members/${userId}`,
+      method: "DELETE",
+      errorMessage: "Failed to remove member",
+      holdPendingOnSuccess: true,
+    })
+    if (!data) return
+    toast.success(isSelf ? "You left the lab" : "Member removed")
+    if (isSelf) {
+      router.push("/labs")
+    } else {
+      router.refresh()
     }
   }
 
   async function revokeInvitation(invId: string) {
-    setRevoking(invId)
-    try {
-      const res = await fetch(`/api/labs/${labId}/invitations/${invId}`, {
-        method: "DELETE",
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to revoke invitation")
-        setRevoking(null)
-        return
-      }
-      toast.success("Invitation revoked")
-      router.refresh()
-    } catch {
-      toast.error("Something went wrong")
-      setRevoking(null)
-    }
+    const data = await requestRevoke(invId, {
+      url: `/api/labs/${labId}/invitations/${invId}`,
+      method: "DELETE",
+      errorMessage: "Failed to revoke invitation",
+      holdPendingOnSuccess: true,
+    })
+    if (!data) return
+    toast.success("Invitation revoked")
+    router.refresh()
   }
 
   const isAdminOrOwner = viewerRole === "ADMIN" || viewerRole === "OWNER"

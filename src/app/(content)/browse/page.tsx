@@ -3,7 +3,8 @@ import { DataTable } from "@/components/browse/data-table"
 import { MarkerTableToolbar } from "@/components/browse/marker-table-toolbar"
 import { DataTablePagination } from "@/components/data-table/pagination"
 import { Skeleton } from "@/components/ui/skeleton"
-import { browseMarkerParsers, type BrowseMarkerParams } from "@/lib/data-table"
+import type { EntriesPage } from "@/lib/data-table"
+import { browseMarkerParsers, type BrowseMarkerParams, type BrowseMode } from "@/lib/data-table"
 import { getExperimentEntriesPage } from "@/models/experiment"
 import {
   getAntibodyEntriesPage,
@@ -13,6 +14,7 @@ import {
   type BrowseFacets,
 } from "@/models/experimental-report"
 import { getPanelEntriesPage } from "@/models/panel"
+import type { ColumnDef } from "@tanstack/react-table"
 import type { Metadata } from "next"
 import { cacheLife, cacheTag } from "next/cache"
 import { createLoader, type SearchParams } from "nuqs/server"
@@ -39,6 +41,14 @@ export const metadata: Metadata = {
 
 const loadSearchParams = createLoader(browseMarkerParsers)
 
+const MODE_LABELS: Record<BrowseMode, string> = {
+  markers: "Markers",
+  antibodies: "Antibodies",
+  reports: "Reports",
+  experiments: "Experiments",
+  panels: "Panels",
+}
+
 interface BrowsePageProps {
   searchParams: Promise<SearchParams>
 }
@@ -50,58 +60,68 @@ async function cachedFacets(): Promise<BrowseFacets> {
   return getBrowseFacets()
 }
 
+interface PagedTableProps<TData, TValue> {
+  columns: ColumnDef<TData, TValue>[]
+  result: Pick<EntriesPage<TData>, "rows" | "total" | "page" | "pageCount">
+  emptyMessage: string
+}
+
+function PagedTable<TData, TValue>({ columns, result, emptyMessage }: PagedTableProps<TData, TValue>) {
+  return (
+    <>
+      <DataTable columns={columns} data={result.rows} emptyMessage={emptyMessage} />
+      <DataTablePagination page={result.page} pageCount={result.pageCount} total={result.total} />
+    </>
+  )
+}
+
 async function BrowseTable({ params }: { params: BrowseMarkerParams }) {
   "use cache"
   cacheLife("hours")
   cacheTag("browse")
 
-  if (params.mode === "antibodies") {
-    const { rows, total, page, pageCount } = await getAntibodyEntriesPage(params)
-    return (
-      <>
-        <DataTable columns={antibodyColumns} data={rows} emptyMessage="No antibodies match these filters." />
-        <DataTablePagination page={page} pageCount={pageCount} total={total} />
-      </>
-    )
+  switch (params.mode) {
+    case "antibodies":
+      return (
+        <PagedTable
+          columns={antibodyColumns}
+          result={await getAntibodyEntriesPage(params)}
+          emptyMessage="No antibodies match these filters."
+        />
+      )
+    case "reports":
+      return (
+        <PagedTable
+          columns={reportColumns}
+          result={await getReportEntriesPage(params)}
+          emptyMessage="No reports match these filters."
+        />
+      )
+    case "experiments":
+      return (
+        <PagedTable
+          columns={experimentColumns}
+          result={await getExperimentEntriesPage(params)}
+          emptyMessage="No experiments match these filters."
+        />
+      )
+    case "panels":
+      return (
+        <PagedTable
+          columns={panelColumns}
+          result={await getPanelEntriesPage(params)}
+          emptyMessage="No shared panels match these filters."
+        />
+      )
+    case "markers":
+      return (
+        <PagedTable
+          columns={columns}
+          result={await getMarkerEntriesPage(params)}
+          emptyMessage="No markers match these filters."
+        />
+      )
   }
-
-  if (params.mode === "reports") {
-    const { rows, total, page, pageCount } = await getReportEntriesPage(params)
-    return (
-      <>
-        <DataTable columns={reportColumns} data={rows} emptyMessage="No reports match these filters." />
-        <DataTablePagination page={page} pageCount={pageCount} total={total} />
-      </>
-    )
-  }
-
-  if (params.mode === "experiments") {
-    const { rows, total, page, pageCount } = await getExperimentEntriesPage(params)
-    return (
-      <>
-        <DataTable columns={experimentColumns} data={rows} emptyMessage="No experiments match these filters." />
-        <DataTablePagination page={page} pageCount={pageCount} total={total} />
-      </>
-    )
-  }
-
-  if (params.mode === "panels") {
-    const { rows, total, page, pageCount } = await getPanelEntriesPage(params)
-    return (
-      <>
-        <DataTable columns={panelColumns} data={rows} emptyMessage="No shared panels match these filters." />
-        <DataTablePagination page={page} pageCount={pageCount} total={total} />
-      </>
-    )
-  }
-
-  const { rows, total, page, pageCount } = await getMarkerEntriesPage(params)
-  return (
-    <>
-      <DataTable columns={columns} data={rows} emptyMessage="No markers match these filters." />
-      <DataTablePagination page={page} pageCount={pageCount} total={total} />
-    </>
-  )
 }
 
 function BrowseTableSkeleton() {
@@ -120,16 +140,7 @@ export default async function BrowsePage({ searchParams }: BrowsePageProps) {
   const params = await loadSearchParams(searchParams)
   const facets = await cachedFacets()
 
-  const modeLabel =
-    params.mode === "markers"
-      ? "Markers"
-      : params.mode === "reports"
-        ? "Reports"
-        : params.mode === "experiments"
-          ? "Experiments"
-          : params.mode === "panels"
-            ? "Panels"
-            : "Antibodies"
+  const modeLabel = MODE_LABELS[params.mode]
 
   return (
     <div className="container mx-auto space-y-6 px-4 py-6">

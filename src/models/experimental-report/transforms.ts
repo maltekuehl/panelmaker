@@ -1,11 +1,17 @@
-import type { AntibodyEntry, MarkerEntry, MarkerReport, ReportEntry } from "@/components/browse/columns"
-import type { CarouselChannel, CarouselDetail, CarouselImage } from "@/components/browse/image-carousel-dialog"
 import { ANTIGEN_RETRIEVAL_LABELS, PRESERVATION_LABELS, RECOMMENDATION_RANK } from "@/lib/constants"
+import { sortEntries, type SortAccessor } from "@/lib/data-table"
 import type { Recommendation, ValidationResult } from "@/lib/generated/prisma/enums"
 import { publicationLinkOf } from "@/lib/publication"
 import { antibodyHref, cellTypeHref, markerHref } from "@/lib/routes"
 import { toSpecimenDetail, type SpecimenDetail } from "@/models/experiment/transforms"
-import { imagesOfReport, toCarouselChannels } from "@/models/image/transforms"
+import {
+  imagesOfReport,
+  toCarouselChannels,
+  type CarouselChannel,
+  type CarouselDetail,
+  type CarouselImage,
+} from "@/models/image/transforms"
+import type { AntibodyEntry, MarkerEntry, MarkerReport, ReportEntry } from "./entries"
 import type { ReportRow } from "./queries"
 
 export type ReportImageResponse = { url: string; caption: string | null; channels: CarouselChannel[] }
@@ -197,27 +203,6 @@ export function reportUsageImages(usage: ReportUsage): CarouselImage[] {
     details,
     channels: image.channels,
   }))
-}
-
-type SortAccessor<T> = (entry: T) => string | number
-
-function sortEntries<T>(
-  entries: T[],
-  accessors: Record<string, SortAccessor<T>>,
-  sort?: string | null,
-  order: string = "desc",
-): T[] {
-  const accessor = sort ? accessors[sort] : undefined
-  if (!accessor) return entries
-
-  const direction = order === "asc" ? 1 : -1
-  return [...entries].sort((a, b) => {
-    const aValue = accessor(a)
-    const bValue = accessor(b)
-    if (aValue < bValue) return -direction
-    if (aValue > bValue) return direction
-    return 0
-  })
 }
 
 const joinedCellTypes = (cellTypes: { label: string }[]) =>

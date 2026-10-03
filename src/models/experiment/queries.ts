@@ -1,24 +1,34 @@
 import "server-only"
 
-import type { ExperimentEntry } from "@/components/browse/columns"
-import type { CarouselDetail, CarouselImage } from "@/components/browse/image-carousel-dialog"
-import type { BrowseMarkerParams, EntryFilterParams, LabContentParams } from "@/lib/data-table"
+import {
+  BROWSE_AGGREGATION_CAP,
+  type BrowseMarkerParams,
+  type EntriesPage,
+  type EntryFilterParams,
+  type LabContentParams,
+  paginate,
+  type SortAccessor,
+  sortEntries,
+} from "@/lib/data-table"
+import { ForbiddenError, NotFoundError } from "@/lib/error-handling"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import { validateAndResolveOntologyTerm } from "@/models/experimental-report"
-import { type EntriesPage, paginate, reportLevelWhere } from "@/models/experimental-report/queries"
+import type { ExperimentEntry } from "@/models/experimental-report/entries"
+import { reportLevelWhere } from "@/models/experimental-report/filters"
+import type { CarouselDetail, CarouselImage } from "@/models/image/transforms"
 import { imageTitle, imageWithChannelsSelect, targetDetails, toCarouselChannels } from "@/models/image/transforms"
 import { imagingMethodSelect as methodFields } from "@/models/imaging-method/queries"
-import type { ViewerContext } from "@/models/lab/access"
-import { buildExperimentVisibilityWhere } from "@/models/lab/visibility"
+import { canEditExperiment, type ViewerContext } from "@/models/lab/access"
+import { buildExperimentVisibilityWhere, labContentScope } from "@/models/lab/visibility"
+import { persistOntologyTerms, resolveOptionalTerm } from "@/models/ontology-term"
 import type { UpdateExperimentData } from "./schema"
 
 const imagingMethodSelect = { select: methodFields } as const
 
-const experimentHeaderSelect = {
+// What a report shows of its experiment. The header adds the description and the access fields.
+export const experimentDetailSelect = {
   id: true,
   name: true,
-  description: true,
   citation: true,
   pmid: true,
   doi: true,
@@ -37,9 +47,6 @@ const experimentHeaderSelect = {
   developmentalStage: { select: { id: true, label: true } },
   visibility: true,
   createdAt: true,
-  submitterId: true,
-  owningLabId: true,
-  labShares: { select: { labId: true } },
   species: { select: { id: true, label: true } },
   tissue: { select: { id: true, label: true } },
   condition: { select: { id: true, label: true } },
@@ -47,8 +54,6 @@ const experimentHeaderSelect = {
   owningLab: { select: { id: true, name: true, slug: true } },
   source: { select: { id: true, name: true, url: true, license: true, attribution: true } },
 } satisfies Prisma.ExperimentSelect
-
-export type ExperimentHeaderRow = Prisma.ExperimentGetPayload<{ select: typeof experimentHeaderSelect }>
 
 const experimentAccessSelect = {
   id: true,
@@ -58,10 +63,24 @@ const experimentAccessSelect = {
   labShares: { select: { labId: true } },
 } satisfies Prisma.ExperimentSelect
 
+const experimentHeaderSelect = {
+  ...experimentDetailSelect,
+  ...experimentAccessSelect,
+  description: true,
+} satisfies Prisma.ExperimentSelect
+
+export type ExperimentHeaderRow = Prisma.ExperimentGetPayload<{ select: typeof experimentHeaderSelect }>
+
 export type ExperimentAccessRow = Prisma.ExperimentGetPayload<{ select: typeof experimentAccessSelect }>
 
-export async function getExperimentAccessById(id: string): Promise<ExperimentAccessRow | null> {
-  return prisma.experiment.findUnique({ where: { id }, select: experimentAccessSelect })
+export async function requireEditableExperiment(
+  id: string,
+  viewer: ViewerContext | null,
+): Promise<ExperimentAccessRow> {
+  const experiment = await prisma.experiment.findUnique({ where: { id }, select: experimentAccessSelect })
+  if (!experiment) throw new NotFoundError("Experiment not found")
+  if (!canEditExperiment(viewer, experiment)) throw new ForbiddenError("Forbidden")
+  return experiment
 }
 
 export async function getExperimentById(id: string): Promise<ExperimentHeaderRow | null> {
@@ -80,25 +99,12 @@ export async function getVisibleExperimentById(
 }
 
 export async function updateExperiment(id: string, data: UpdateExperimentData): Promise<ExperimentHeaderRow> {
-  const fixative = data.fixative ? await validateAndResolveOntologyTerm("fixative", data.fixative) : null
-  const developmentalStage = data.developmentalStage
-    ? await validateAndResolveOntologyTerm("developmentalStage", data.developmentalStage)
-    : null
-
-  if (fixative) {
-    await prisma.fixative.upsert({
-      where: { id: fixative.id },
-      update: { label: fixative.label },
-      create: fixative,
-    })
-  }
-  if (developmentalStage) {
-    await prisma.developmentalStage.upsert({
-      where: { id: developmentalStage.id },
-      update: { label: developmentalStage.label },
-      create: developmentalStage,
-    })
-  }
+  const fixative = await resolveOptionalTerm("fixative", data.fixative)
+  const developmentalStage = await resolveOptionalTerm("developmentalStage", data.developmentalStage)
+  await persistOntologyTerms(prisma, [
+    ["fixative", fixative],
+    ["developmentalStage", developmentalStage],
+  ])
 
   return prisma.experiment.update({
     where: { id },
@@ -123,8 +129,6 @@ export async function updateExperiment(id: string, data: UpdateExperimentData): 
     select: experimentHeaderSelect,
   })
 }
-
-const BROWSE_AGGREGATION_CAP = 2000
 
 const MAX_ENTRY_IMAGES = 12
 
@@ -162,13 +166,6 @@ type ExperimentEntryRow = Prisma.ExperimentGetPayload<{ select: typeof experimen
 const BROWSE_EXPERIMENT_SCOPE: Prisma.ExperimentWhereInput = {
   visibility: "PUBLIC",
   reports: { some: { status: "PUBLISHED" } },
-}
-
-function labExperimentScope(labId: string): Prisma.ExperimentWhereInput {
-  return {
-    visibility: { not: "PRIVATE" },
-    OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }],
-  }
 }
 
 function buildExperimentWhere(
@@ -240,7 +237,7 @@ function toExperimentEntry(exp: ExperimentEntryRow): ExperimentEntry {
   }
 }
 
-const EXPERIMENT_SORT_ACCESSORS: Record<string, (e: ExperimentEntry) => string | number> = {
+const EXPERIMENT_SORT_ACCESSORS: Record<string, SortAccessor<ExperimentEntry>> = {
   name: (e) => (e.name ?? "").toLowerCase(),
   member: (e) => (e.submitter?.name ?? "").toLowerCase(),
   method: (e) => e.method.toLowerCase(),
@@ -252,21 +249,18 @@ const EXPERIMENT_SORT_ACCESSORS: Record<string, (e: ExperimentEntry) => string |
   createdAt: (e) => e.createdAt,
 }
 
-function sortExperimentEntries(
-  entries: ExperimentEntry[],
-  sort?: string | null,
-  order: string = "desc",
-): ExperimentEntry[] {
-  const accessor = sort ? EXPERIMENT_SORT_ACCESSORS[sort] : undefined
-  if (!accessor) return entries
-  const direction = order === "asc" ? 1 : -1
-  return [...entries].sort((a, b) => {
-    const av = accessor(a)
-    const bv = accessor(b)
-    if (av < bv) return -direction
-    if (av > bv) return direction
-    return 0
+async function experimentEntriesPage(
+  params: EntryFilterParams & { pageSize?: number },
+  base?: Prisma.ExperimentWhereInput,
+): Promise<EntriesPage<ExperimentEntry>> {
+  const experiments = await prisma.experiment.findMany({
+    select: experimentEntrySelect,
+    where: buildExperimentWhere(params, base),
+    orderBy: { createdAt: "desc" },
+    take: BROWSE_AGGREGATION_CAP,
   })
+  const entries = sortEntries(experiments.map(toExperimentEntry), EXPERIMENT_SORT_ACCESSORS, params.sort, params.order)
+  return paginate(entries, params.page, params.pageSize)
 }
 
 // Lab-scoped (private lane, member-gated by the page): every experiment owned by or shared with the
@@ -275,30 +269,15 @@ export async function getLabExperimentEntriesPage(
   labId: string,
   params: LabContentParams & { pageSize?: number },
 ): Promise<EntriesPage<ExperimentEntry>> {
-  const experiments = await prisma.experiment.findMany({
-    select: experimentEntrySelect,
-    where: buildExperimentWhere(params, labExperimentScope(labId)),
-    orderBy: { createdAt: "desc" },
-    take: BROWSE_AGGREGATION_CAP,
-  })
-  const entries = sortExperimentEntries(experiments.map(toExperimentEntry), params.sort, params.order)
-  return paginate(entries, params.page, params.pageSize)
+  return experimentEntriesPage(params, labContentScope(labId))
 }
 
 export async function getLabExperimentCount(labId: string): Promise<number> {
-  return prisma.experiment.count({ where: labExperimentScope(labId) })
+  return prisma.experiment.count({ where: labContentScope(labId) })
 }
 
 export async function getExperimentEntriesPage(
   params: BrowseMarkerParams & { pageSize?: number },
 ): Promise<EntriesPage<ExperimentEntry>> {
-  const experiments = await prisma.experiment.findMany({
-    select: experimentEntrySelect,
-    where: buildExperimentWhere(params),
-    orderBy: { createdAt: "desc" },
-    take: BROWSE_AGGREGATION_CAP,
-  })
-
-  const entries = sortExperimentEntries(experiments.map(toExperimentEntry), params.sort, params.order)
-  return paginate(entries, params.page, params.pageSize)
+  return experimentEntriesPage(params)
 }

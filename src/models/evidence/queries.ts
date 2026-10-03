@@ -1,8 +1,9 @@
 import "server-only"
 
 import type { Prisma } from "@/lib/generated/prisma/client"
-import type { Clonality, Preservation, Recommendation, ValidationResult } from "@/lib/generated/prisma/enums"
+import type { Clonality, Recommendation, ValidationResult } from "@/lib/generated/prisma/enums"
 import { prisma } from "@/lib/prisma"
+import { REPORT_FILTER_WHERE } from "@/models/experimental-report/filters"
 import { imagingMethodSelect } from "@/models/imaging-method/queries"
 import type { ViewerContext } from "@/models/lab/access"
 import { buildReportVisibilityWhere } from "@/models/lab/visibility"
@@ -119,39 +120,39 @@ export interface EvidenceReport {
   lab: { id: string; name: string; slug: string } | null
 }
 
+type FilterBuilder = (values: string[]) => Prisma.ExperimentalReportWhereInput | null
+
+// The browse filter builders, keyed by the AI filter names, plus the dimensions only the tools expose.
 function buildEvidenceWhere(filter: EvidenceFilter): Prisma.ExperimentalReportWhereInput {
-  const where: Prisma.ExperimentalReportWhereInput = {}
-  const experiment: Prisma.ExperimentWhereInput = {}
-  const antibody: Prisma.AntibodyWhereInput = {}
-
-  if (filter.tissueIds?.length) experiment.tissueId = { in: filter.tissueIds }
-  if (filter.speciesIds?.length) experiment.speciesId = { in: filter.speciesIds }
-  if (filter.conditionIds?.length) experiment.conditionId = { in: filter.conditionIds }
-  if (filter.preservations?.length) experiment.preservation = { in: filter.preservations as Preservation[] }
-  if (filter.fixativeIds?.length) experiment.fixativeId = { in: filter.fixativeIds }
-  if (filter.methods?.length) experiment.imagingMethodId = { in: filter.methods }
-  if (filter.submitterIds?.length) experiment.submitterId = { in: filter.submitterIds }
-  if (Object.keys(experiment).length) where.experiment = experiment
-
-  if (filter.markerIds?.length) antibody.targetProteinId = { in: filter.markerIds }
-  if (filter.rrids?.length) antibody.rrid = { in: filter.rrids }
-  if (filter.hostTaxonIds?.length) antibody.hostTaxonId = { in: filter.hostTaxonIds }
-  if (filter.clonalities?.length) antibody.clonality = { in: filter.clonalities as Clonality[] }
-  if (filter.conjugates?.length) antibody.conjugate = { in: filter.conjugates }
-  if (filter.vendors?.length) antibody.vendorName = { in: filter.vendors }
-  if (Object.keys(antibody).length) where.antibody = antibody
-
-  if (filter.antibodyIds?.length) where.antibodyId = { in: filter.antibodyIds }
-  if (filter.fluorophoreIds?.length) where.fluorophoreId = { in: filter.fluorophoreIds }
-  if (filter.subcellularIds?.length) where.subcellularId = { in: filter.subcellularIds }
-  if (filter.cellTypeIds?.length) where.cellTypes = { some: { cellTypeId: { in: filter.cellTypeIds } } }
-  if (filter.recommendationIn?.length) where.recommendation = { in: filter.recommendationIn as Recommendation[] }
-  if (filter.validatedBy?.length) {
-    where.validations = { some: { methodId: { in: filter.validatedBy }, result: "SUPPORTS" } }
+  const where = REPORT_FILTER_WHERE
+  const dimensions: [string[] | undefined, FilterBuilder][] = [
+    [filter.markerIds, where.marker],
+    [filter.cellTypeIds, where.cellType],
+    [filter.tissueIds, where.tissue],
+    [filter.speciesIds, where.species],
+    [filter.methods, where.method],
+    [filter.hostTaxonIds, where.host],
+    [filter.clonalities, where.clonality],
+    [filter.conjugates, where.conjugate],
+    [filter.recommendationIn, where.recommendation],
+    [filter.validatedBy, where.validation],
+    [filter.issueIds, where.issue],
+    [filter.conditionIds, where.condition],
+    [filter.preservations, where.preservation],
+    [filter.fixativeIds, where.fixative],
+    [filter.vendors, where.vendor],
+    [filter.subcellularIds, where.subcellular],
+    [filter.antibodyIds, (v) => ({ antibodyId: { in: v } })],
+    [filter.rrids, (v) => ({ antibody: { rrid: { in: v } } })],
+    [filter.fluorophoreIds, (v) => ({ fluorophoreId: { in: v } })],
+    [filter.submitterIds, (v) => ({ experiment: { submitterId: { in: v } } })],
+  ]
+  return {
+    AND: dimensions.flatMap(([values, build]) => {
+      const condition = values?.length ? build(values) : null
+      return condition ? [condition] : []
+    }),
   }
-  if (filter.issueIds?.length) where.issues = { some: { issueId: { in: filter.issueIds } } }
-
-  return where
 }
 
 function toEvidenceReport(row: EvidenceRow): EvidenceReport {
@@ -262,30 +263,28 @@ type GroupTally = {
   issues: Map<string, number>
 }
 
+const keyedBy = (value: string | null | undefined) => (value ? { key: value, label: value } : null)
+
 function groupKeyOf(report: EvidenceReport, groupBy: EvidenceGroupBy): { key: string; label: string } | null {
   switch (groupBy) {
     case "antibody":
       return report.antibody ? { key: report.antibody.id, label: report.antibody.name } : null
     case "clone":
-      return report.antibody?.cloneId
-        ? { key: report.antibody.cloneId, label: report.antibody.cloneId }
-        : report.antibody
-          ? { key: report.antibody.id, label: report.antibody.name }
-          : null
+      return keyedBy(report.antibody?.cloneId) ?? groupKeyOf(report, "antibody")
     case "marker":
       return report.antibody?.markerId
         ? { key: report.antibody.markerId, label: report.antibody.markerSymbol ?? report.antibody.markerId }
         : null
     case "tissue":
-      return report.tissue ? { key: report.tissue, label: report.tissue } : null
+      return keyedBy(report.tissue)
     case "species":
-      return report.species ? { key: report.species, label: report.species } : null
+      return keyedBy(report.species)
     case "dilution":
-      return report.dilution ? { key: report.dilution, label: report.dilution } : null
+      return keyedBy(report.dilution)
     case "antigenRetrieval":
-      return report.antigenRetrieval ? { key: report.antigenRetrieval, label: report.antigenRetrieval } : null
+      return keyedBy(report.antigenRetrieval)
     case "preservation":
-      return report.preservation ? { key: report.preservation, label: report.preservation } : null
+      return keyedBy(report.preservation)
     case "fixative":
       return report.fixative ? { key: report.fixative.id, label: report.fixative.label } : null
     case "method":
@@ -293,7 +292,7 @@ function groupKeyOf(report: EvidenceReport, groupBy: EvidenceGroupBy): { key: st
     case "submitter":
       return report.submitter ? { key: report.submitter.id, label: report.submitter.name ?? "Unnamed" } : null
     case "fluorophore":
-      return report.fluorophore ? { key: report.fluorophore, label: report.fluorophore } : null
+      return keyedBy(report.fluorophore)
   }
 }
 

@@ -1,4 +1,4 @@
-import { authErrorResponse, requireAuth } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { deleteMessageAndAfter } from "@/models/chat"
 import { NextRequest } from "next/server"
@@ -14,6 +14,6 @@ export async function DELETE(request: NextRequest, context: Context) {
     await deleteMessageAndAfter(user.id, id, messageId)
     return createSuccessResponse({ success: true })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to delete message")
+    return createErrorResponse(error, "Failed to delete message")
   }
 }

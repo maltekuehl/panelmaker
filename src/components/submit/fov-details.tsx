@@ -2,12 +2,12 @@
 
 import { FluorophoreCombobox } from "@/components/fluorophore-combobox"
 import { OntologyMultiCombobox } from "@/components/ontology-multi-combobox"
+import { OptionSelect } from "@/components/option-select"
 import { Field } from "@/components/shared/field"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import {
@@ -148,21 +148,14 @@ export function FovDetails({
                 key={reference.key}
                 className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-[8rem_minmax(0,1fr)_12rem_9rem_auto] sm:items-center"
               >
-                <Select
+                <OptionSelect
                   value={reference.role || undefined}
-                  onValueChange={(role) => updateReference(reference.key, { role: role as ReferenceRole })}
-                >
-                  <SelectTrigger className="w-full" aria-label="Counterstain role">
-                    <SelectValue placeholder="Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onValueChange={(role) => updateReference(reference.key, { role })}
+                  options={ROLE_OPTIONS}
+                  placeholder="Role"
+                  className="w-full"
+                  aria-label="Counterstain role"
+                />
                 <Input
                   value={reference.label}
                   onChange={(e) => updateReference(reference.key, { label: e.target.value })}

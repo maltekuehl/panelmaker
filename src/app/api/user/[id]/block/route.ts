@@ -1,6 +1,7 @@
-import { blockUser, createAuthHandler, unblockUser } from "@/lib/auth"
-import { createErrorResponse } from "@/lib/error-handling"
+import { createAuthHandler } from "@/lib/auth"
+import { BadRequestError, createErrorResponse } from "@/lib/error-handling"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
+import { blockUser, unblockUser } from "@/models/user"
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -14,9 +15,7 @@ export const PATCH = createAuthHandler(
       const userId = (await context.params).id
 
       // Prevent admin from blocking themselves
-      if (userId === user.id) {
-        return NextResponse.json({ error: "You cannot block yourself" }, { status: 400 })
-      }
+      if (userId === user.id) throw new BadRequestError("You cannot block yourself")
 
       if (action === "block") {
         await blockUser(userId)

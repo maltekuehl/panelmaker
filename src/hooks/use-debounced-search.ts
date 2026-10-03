@@ -1,69 +1,60 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
-interface UseDebouncedSearchOptions<T> {
+export type SearchParams = Record<string, string | undefined>
+
+interface UseDebouncedSearchOptions {
+  endpoint: string
+  params?: SearchParams
+  resultsKey: string
   query: string
   enabled: boolean
   minLength?: number
   debounceMs?: number
-  fetcher: (query: string, signal: AbortSignal) => Promise<Response>
-  extractResults: (json: unknown) => T[]
 }
 
 export function useDebouncedSearch<T>({
+  endpoint,
+  params,
+  resultsKey,
   query,
   enabled,
   minLength = 2,
   debounceMs = 300,
-  fetcher,
-  extractResults,
-}: UseDebouncedSearchOptions<T>) {
+}: UseDebouncedSearchOptions) {
   const [results, setResults] = useState<T[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const paramsKey = JSON.stringify(params ?? {})
 
   useEffect(() => {
     if (!enabled) return
 
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-
-    if (query.trim().length < minLength) {
+    const term = query.trim()
+    if (term.length < minLength) {
       setResults([])
+      setIsLoading(false)
       return
     }
 
     const controller = new AbortController()
-
-    debounceRef.current = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       setIsLoading(true)
       try {
-        const res = await fetcher(query.trim(), controller.signal)
-        if (controller.signal.aborted) return
-        if (!res.ok) {
-          setResults([])
-          return
-        }
-        const data = await res.json()
-        if (controller.signal.aborted) return
-        setResults(extractResults(data))
+        const search = new URLSearchParams({ ...(JSON.parse(paramsKey) as Record<string, string>), q: term })
+        const res = await fetch(`${endpoint}?${search}`, { signal: controller.signal })
+        const data = res.ok ? ((await res.json()) as Record<string, T[] | undefined>) : null
+        if (!controller.signal.aborted) setResults(data?.[resultsKey] ?? [])
       } catch {
-        if (controller.signal.aborted) return
-        setResults([])
+        if (!controller.signal.aborted) setResults([])
       } finally {
-        if (!controller.signal.aborted) {
-          setIsLoading(false)
-        }
+        if (!controller.signal.aborted) setIsLoading(false)
       }
     }, debounceMs)
 
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
-      }
+      clearTimeout(timer)
       controller.abort()
     }
-  }, [query, enabled, minLength, debounceMs, fetcher, extractResults])
+  }, [endpoint, paramsKey, resultsKey, query, enabled, minLength, debounceMs])
 
-  return { results, isLoading, setResults }
+  return { results, isLoading }
 }

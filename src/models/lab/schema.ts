@@ -1,6 +1,13 @@
-import { LabAntibodyStatus, LabRole } from "@/lib/generated/prisma/enums"
+import { LabAntibodyStatus, LabRole, Visibility } from "@/lib/generated/prisma/enums"
 import { normalizeRrid } from "@/lib/utils"
 import { z } from "zod"
+
+// Who can see a panel or an experiment. Lab ids are re-checked against the owner's memberships server side.
+export const resourceVisibilityFields = {
+  visibility: z.nativeEnum(Visibility).optional(),
+  sharedLabIds: z.array(z.string().min(1)).max(50).optional(),
+  owningLabId: z.string().min(1).nullable().optional(),
+}
 
 export const createLabSchema = z
   .object({

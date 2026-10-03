@@ -12,9 +12,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { useApiRequest } from "@/hooks/use-api-request"
 import { Loader2, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
 import { toast } from "sonner"
 
 interface DeleteLabButtonProps {
@@ -24,31 +24,24 @@ interface DeleteLabButtonProps {
 
 export function DeleteLabButton({ labId, labName }: DeleteLabButtonProps) {
   const router = useRouter()
-  const [deleting, setDeleting] = useState(false)
+  const { pending, request } = useApiRequest()
 
   async function handleDelete() {
-    setDeleting(true)
-    try {
-      const res = await fetch(`/api/labs/${labId}`, { method: "DELETE" })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to delete lab")
-        return
-      }
-      toast.success("Lab deleted")
-      router.push("/labs")
-    } catch {
-      toast.error("Something went wrong")
-    } finally {
-      setDeleting(false)
-    }
+    const data = await request(true, {
+      url: `/api/labs/${labId}`,
+      method: "DELETE",
+      errorMessage: "Failed to delete lab",
+    })
+    if (!data) return
+    toast.success("Lab deleted")
+    router.push("/labs")
   }
 
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive" size="sm" disabled={deleting}>
-          {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+        <Button variant="destructive" size="sm" disabled={pending !== null}>
+          {pending !== null ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
           Delete lab
         </Button>
       </AlertDialogTrigger>

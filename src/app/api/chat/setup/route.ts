@@ -1,8 +1,8 @@
 import { getChatSetup } from "@/lib/ai/models"
-import { authErrorResponse, requireAuth, resolveViewerContext } from "@/lib/auth"
-import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { requireAuth, resolveViewerContext } from "@/lib/auth"
+import { BadRequestError, ForbiddenError, createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getLastChatSettings, getOwnedConversation, resolveLabContext } from "@/models/chat"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { z } from "zod"
 
 const querySchema = z.object({
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth(request)
     const query = querySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
-    if (!query.success) return NextResponse.json({ error: "Invalid query" }, { status: 400 })
+    if (!query.success) throw new BadRequestError("Invalid query")
 
     const [viewer, conversation, last] = await Promise.all([
       resolveViewerContext(user.id),
@@ -24,15 +24,13 @@ export async function GET(request: NextRequest) {
       getLastChatSettings(user.id),
     ])
     const labContext = resolveLabContext(viewer, query.data.labId, conversation?.labId ?? last.labId)
-    if (!labContext.ok) {
-      return NextResponse.json({ error: "Lab membership required", code: labContext.code }, { status: 403 })
-    }
+    if (!labContext.ok) throw new ForbiddenError("Lab membership required", labContext.code)
     const setup = await getChatSetup(viewer, {
       labContextId: labContext.labId,
       preferredModels: [conversation?.model, last.model],
     })
     return createSuccessResponse(setup)
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to load chat setup")
+    return createErrorResponse(error, "Failed to load chat setup")
   }
 }

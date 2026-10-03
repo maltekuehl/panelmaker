@@ -14,7 +14,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { BookOpen, Boxes, FlaskConical, Layers, MessageSquare, Microscope, Search, Users } from "lucide-react"
+import { BookOpen, Boxes, FlaskConical, Landmark, Layers, MessageSquare, Microscope, Search, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as React from "react"
@@ -30,6 +30,7 @@ const navItems = [
 
 const resourceItems = [
   { href: "/docs/about", title: "About", icon: Users, external: false },
+  { href: "https://spatialbiologysociety.eu/", title: "ESSB", icon: Landmark, external: true },
   { href: "https://scverse.org", title: "scverse", icon: Boxes, external: true },
   { href: "https://github.com/complextissue/panelmaker", title: "GitHub", icon: GitHub, external: true },
 ]

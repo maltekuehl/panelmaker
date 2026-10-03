@@ -1,6 +1,5 @@
 import { getInstanceProviders } from "@/lib/ai/config"
 import { requireKeyManager, saveCredentialFromRequest } from "@/lib/ai/credential-api"
-import { authErrorResponse } from "@/lib/auth"
 import { isEncryptionConfigured } from "@/lib/crypto"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getLabApiCredentials, upsertLabApiCredential } from "@/models/chat"
@@ -20,7 +19,7 @@ export async function GET(request: NextRequest, context: Context) {
       fallbacks: { labs: [], instance: getInstanceProviders() },
     })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch lab API keys")
+    return createErrorResponse(error, "Failed to fetch lab API keys")
   }
 }
 
@@ -31,6 +30,6 @@ export async function POST(request: NextRequest, context: Context) {
     const { user } = await requireKeyManager(request, id)
     return await saveCredentialFromRequest(request, (input) => upsertLabApiCredential(id, user.id, input))
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to save lab API key")
+    return createErrorResponse(error, "Failed to save lab API key")
   }
 }

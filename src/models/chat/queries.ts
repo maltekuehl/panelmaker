@@ -2,6 +2,7 @@ import "server-only"
 
 import { getInstanceKey, getInstanceProviders } from "@/lib/ai/config"
 import { decryptSecret, encryptSecret, isEncryptionConfigured, maskSecret } from "@/lib/crypto"
+import { NotFoundError } from "@/lib/error-handling"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import type { ApiCredentialScope, ApiCredentialStatus } from "@/lib/generated/prisma/enums"
 import { logger } from "@/lib/monitoring"
@@ -32,6 +33,10 @@ interface UsageInfo {
   outputTokens?: number
 }
 
+function ownedConversationWhere(userId: string, conversationId: string): Prisma.ChatConversationWhereInput {
+  return { id: conversationId, userId, deleted: false }
+}
+
 export async function getConversationsForUser(userId: string): Promise<ConversationSummary[]> {
   const rows = await prisma.chatConversation.findMany({
     where: { userId, deleted: false },
@@ -54,7 +59,7 @@ export async function getConversation(
   conversationId: string,
 ): Promise<ConversationWithMessages | null> {
   const conversation = await prisma.chatConversation.findFirst({
-    where: { id: conversationId, userId, deleted: false },
+    where: ownedConversationWhere(userId, conversationId),
     select: {
       id: true,
       title: true,
@@ -100,11 +105,7 @@ export async function getMostRecentConversationId(userId: string): Promise<strin
 }
 
 export async function conversationBelongsToUser(userId: string, conversationId: string): Promise<boolean> {
-  const conversation = await prisma.chatConversation.findFirst({
-    where: { id: conversationId, userId, deleted: false },
-    select: { id: true },
-  })
-  return Boolean(conversation)
+  return (await prisma.chatConversation.count({ where: ownedConversationWhere(userId, conversationId) })) > 0
 }
 
 // Ownership check and the fields the stream route needs (the persisted model and the title trigger)
@@ -114,7 +115,7 @@ export async function getOwnedConversation(
   conversationId: string,
 ): Promise<{ id: string; title: string | null; model: string | null; labId: string | null } | null> {
   return prisma.chatConversation.findFirst({
-    where: { id: conversationId, userId, deleted: false },
+    where: ownedConversationWhere(userId, conversationId),
     select: { id: true, title: true, model: true, labId: true },
   })
 }
@@ -193,7 +194,7 @@ export async function updateConversation(
   conversationId: string,
   data: { title?: string; model?: string; pinned?: boolean; labId?: string | null },
 ): Promise<void> {
-  await prisma.chatConversation.updateMany({ where: { id: conversationId, userId, deleted: false }, data })
+  await prisma.chatConversation.updateMany({ where: ownedConversationWhere(userId, conversationId), data })
 }
 
 // The UI promises "this cannot be undone", so the row really goes (messages cascade with it).
@@ -250,20 +251,16 @@ const credentialSelect = {
   updatedAt: true,
 } as const
 
+function listCredentials(where: Prisma.ApiCredentialWhereInput): Promise<CredentialView[]> {
+  return prisma.apiCredential.findMany({ where, select: credentialSelect, orderBy: { provider: "asc" } })
+}
+
 export async function getUserApiCredentials(userId: string): Promise<CredentialView[]> {
-  return prisma.apiCredential.findMany({
-    where: { scope: "USER", userId },
-    select: credentialSelect,
-    orderBy: { provider: "asc" },
-  })
+  return listCredentials({ scope: "USER", userId })
 }
 
 export async function getLabApiCredentials(labId: string): Promise<CredentialView[]> {
-  return prisma.apiCredential.findMany({
-    where: { scope: "LAB", labId },
-    select: credentialSelect,
-    orderBy: { provider: "asc" },
-  })
+  return listCredentials({ scope: "LAB", labId })
 }
 
 function credentialData(input: UpsertCredentialInput) {
@@ -298,14 +295,17 @@ export async function upsertLabApiCredential(
   })
 }
 
-export async function deleteUserApiCredential(userId: string, credentialId: string): Promise<boolean> {
-  const result = await prisma.apiCredential.deleteMany({ where: { id: credentialId, userId, scope: "USER" } })
-  return result.count > 0
+async function deleteCredential(where: Prisma.ApiCredentialWhereInput): Promise<void> {
+  const { count } = await prisma.apiCredential.deleteMany({ where })
+  if (count === 0) throw new NotFoundError("API key not found")
 }
 
-export async function deleteLabApiCredential(labId: string, credentialId: string): Promise<boolean> {
-  const result = await prisma.apiCredential.deleteMany({ where: { id: credentialId, labId, scope: "LAB" } })
-  return result.count > 0
+export async function deleteUserApiCredential(userId: string, credentialId: string): Promise<void> {
+  await deleteCredential({ id: credentialId, userId, scope: "USER" })
+}
+
+export async function deleteLabApiCredential(labId: string, credentialId: string): Promise<void> {
+  await deleteCredential({ id: credentialId, labId, scope: "LAB" })
 }
 
 export type StoredSecret = { provider: ProviderId; key: string } | { provider: ProviderId; key: null }

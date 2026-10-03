@@ -1,5 +1,6 @@
 import { Prisma } from "@/lib/generated/prisma/client"
 import { logger } from "@/lib/monitoring"
+import { unstable_rethrow } from "next/navigation"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
@@ -23,6 +24,13 @@ export class BadRequestError extends ApiException {
   constructor(message: string, code?: string, details?: unknown) {
     super(400, { message, code, details })
     this.name = "BadRequestError"
+  }
+}
+
+export class UnauthorizedError extends ApiException {
+  constructor(message = "Authentication required", code?: string) {
+    super(401, { message, code })
+    this.name = "UnauthorizedError"
   }
 }
 
@@ -66,160 +74,56 @@ function prismaErrorMapping(error: unknown) {
   return PRISMA_ERROR_MAP[error.code] ?? null
 }
 
-/**
- * Sanitizes error messages to prevent information disclosure
- * In production, returns generic messages unless explicitly allowed
- */
-export function sanitizeError(error: unknown, includeDetails = false): string {
-  // In production, return generic messages by default
-  if (process.env.NODE_ENV === "production" && !includeDetails) {
-    if (error instanceof z.ZodError) {
-      return "Validation error"
-    }
-    if (error instanceof ApiException) {
-      return error.apiError.message // Only user-facing message
-    }
-    const prismaMapping = prismaErrorMapping(error)
-    if (prismaMapping) {
-      return prismaMapping.message
-    }
-    if (error instanceof Error) {
-      // Check for known safe error messages
-      const safeMessages = [
-        "Authentication required",
-        "Admin access required",
-        "Unauthorized",
-        "Not found",
-        "Resource not found",
-        "Invalid credentials",
-      ]
-
-      if (safeMessages.some((msg) => error.message.includes(msg))) {
-        return error.message
-      }
-
-      // Generic error for everything else
-      return "An error occurred"
-    }
-    return "An error occurred"
-  }
-
-  // In development or when details are explicitly requested
-  if (error instanceof Error) {
-    // Remove sensitive information patterns from error messages
-    let message = error.message
-
-    // Remove database connection strings (PostgreSQL only - we don't use MongoDB)
-    message = message.replace(/postgresql:\/\/[^\s]+/g, "[DATABASE_URL]")
-
-    // Remove API keys and tokens (be more aggressive to prevent leaking user API keys)
-    message = message.replace(/Bearer\s+[a-zA-Z0-9_-]+/gi, "Bearer [REDACTED]")
-    message = message.replace(/api[_-]?key[:\s=]+[a-zA-Z0-9_-]+/gi, "api_key: [REDACTED]")
-    message = message.replace(/token[:\s=]+[a-zA-Z0-9_-]+/gi, "token: [REDACTED]")
-    // Remove any potential API keys (32+ char hex strings that might be keys)
-    message = message.replace(/[a-f0-9]{32,}/gi, "[KEY_REDACTED]")
-
-    // Remove file paths
-    message = message.replace(/\/[^\s]+\/(node_modules|lib|app|src)/g, "/[PATH]/$1")
-
-    return message
-  }
-
-  return String(error)
+function redactMessage(error: unknown): string {
+  if (!(error instanceof Error)) return String(error)
+  return error.message
+    .replace(/postgresql:\/\/[^\s]+/g, "[DATABASE_URL]")
+    .replace(/Bearer\s+[a-zA-Z0-9_-]+/gi, "Bearer [REDACTED]")
+    .replace(/api[_-]?key[:\s=]+[a-zA-Z0-9_-]+/gi, "api_key: [REDACTED]")
+    .replace(/token[:\s=]+[a-zA-Z0-9_-]+/gi, "token: [REDACTED]")
+    .replace(/[a-f0-9]{32,}/gi, "[KEY_REDACTED]")
+    .replace(/\/[^\s]+\/(node_modules|lib|app|src)/g, "/[PATH]/$1")
 }
 
-/**
- * Gets appropriate HTTP status code for an error
- */
-export function getErrorStatusCode(error: unknown): number {
-  if (error instanceof ApiException) {
-    return error.statusCode
-  }
-
-  if (error instanceof z.ZodError) {
-    return 400
-  }
-
-  const prismaMapping = prismaErrorMapping(error)
-  if (prismaMapping) {
-    return prismaMapping.status
-  }
-
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase()
-
-    if (message.includes("not found")) {
-      return 404
-    }
-    if (message.includes("unauthorized") || message.includes("authentication required")) {
-      return 401
-    }
-    if (message.includes("admin access required") || message.includes("forbidden")) {
-      return 403
-    }
-    if (message.includes("duplicate") || message.includes("unique constraint")) {
-      return 409
-    }
-    if (message.includes("rate limit")) {
-      return 429
-    }
-  }
-
-  return 500
-}
-
-/**
- * Creates a standardized error response with sanitized messages
- */
+// Unknown errors become a 500 carrying the caller's default message in production and a redacted
+// message in development, so internals never reach a production client.
 export function createErrorResponse(error: unknown, defaultMessage = "Internal server error"): NextResponse {
+  unstable_rethrow(error)
   logger.error("API error", error instanceof Error ? error : new Error(String(error)))
+  const isProduction = process.env.NODE_ENV === "production"
 
-  const statusCode = getErrorStatusCode(error)
-  const sanitizedMessage = sanitizeError(error)
-
-  // Handle Zod validation errors with more detail
   if (error instanceof z.ZodError) {
-    // In production, only return field names, not values
-    const sanitizedErrors =
-      process.env.NODE_ENV === "production"
-        ? error.errors.map((err) => ({
-            field: err.path.join("."),
-            message: err.message,
-          }))
-        : error.errors
-
-    return NextResponse.json(
-      {
-        error: "Validation error",
-        details: sanitizedErrors,
-      },
-      { status: 400 },
-    )
+    const details = isProduction
+      ? error.errors.map((err) => ({ field: err.path.join("."), message: err.message }))
+      : error.errors
+    return NextResponse.json({ error: "Validation error", details }, { status: 400 })
   }
 
-  // Handle custom API exceptions
   if (error instanceof ApiException) {
     return NextResponse.json(
       {
         error: error.apiError.message,
         code: error.apiError.code,
-        // Only include details in development or if explicitly allowed
-        ...(process.env.NODE_ENV !== "production" && { details: error.apiError.details }),
+        ...(!isProduction && { details: error.apiError.details }),
       },
       { status: error.statusCode },
     )
   }
 
-  // Default error response
+  const prismaMapping = prismaErrorMapping(error)
+  if (prismaMapping) {
+    return NextResponse.json(
+      { error: isProduction ? prismaMapping.message : redactMessage(error) },
+      { status: prismaMapping.status },
+    )
+  }
+
   return NextResponse.json(
     {
-      error: sanitizedMessage || defaultMessage,
-      // In development, include more context
-      ...(process.env.NODE_ENV !== "production" && {
-        type: error instanceof Error ? error.name : typeof error,
-      }),
+      error: isProduction ? defaultMessage : redactMessage(error) || defaultMessage,
+      ...(!isProduction && { type: error instanceof Error ? error.name : typeof error }),
     },
-    { status: statusCode },
+    { status: 500 },
   )
 }
 

@@ -44,6 +44,8 @@ const STATUS_META: Record<string, { label: string; variant: "default" | "seconda
   OUT_OF_STOCK: { label: "Out of stock", variant: "destructive" },
 }
 
+export const INVENTORY_STATUS_OPTIONS = Object.entries(STATUS_META).map(([value, { label }]) => ({ value, label }))
+
 interface BuildColumnsOptions {
   canManage: boolean
   onEdit: (item: InventoryItem) => void

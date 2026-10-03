@@ -1,82 +1,51 @@
-import { authErrorResponse, getOptionalAuth, requireAuth, resolveViewerContext } from "@/lib/auth"
+import { getOptionalViewer, requireViewer } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
-import { canEditPanel, canViewPanel } from "@/models/lab"
-import { deletePanel, getPanelById, toPanelResponse, updatePanel, updatePanelSchema } from "@/models/panel"
-import { NextRequest, NextResponse } from "next/server"
+import {
+  deletePanel,
+  requireEditablePanel,
+  requireVisiblePanel,
+  toPanelResponse,
+  updatePanel,
+  updatePanelSchema,
+} from "@/models/panel"
+import { NextRequest } from "next/server"
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+type Context = { params: Promise<{ id: string }> }
+
+async function loadEditable(request: NextRequest, context: Context): Promise<string> {
+  const { id } = await context.params
+  return (await requireEditablePanel(id, await requireViewer(request))).id
+}
+
+export async function GET(request: NextRequest, context: Context) {
   try {
-    const { id: panelId } = await params
-
-    const user = await getOptionalAuth(request)
-    const panel = await getPanelById(panelId)
-
-    if (!panel) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
-    const viewer = await resolveViewerContext(user?.id ?? null)
-    if (!canViewPanel(viewer, panel)) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
+    const { id } = await context.params
+    const panel = await requireVisiblePanel(id, await getOptionalViewer(request))
     return createSuccessResponse({ panel: toPanelResponse(panel) })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch panel")
+    return createErrorResponse(error, "Failed to fetch panel")
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(request: NextRequest, context: Context) {
   try {
-    const { id: panelId } = await params
-
-    const user = await requireAuth(request)
-    const panel = await getPanelById(panelId)
-
-    if (!panel) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
-    const viewer = await resolveViewerContext(user.id)
-    if (!canEditPanel(viewer, panel)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    const body = await request.json()
-    const validated = updatePanelSchema.parse(body)
-
-    const updated = await updatePanel(panelId, validated)
-
+    const id = await loadEditable(request, context)
+    const validated = updatePanelSchema.parse(await request.json())
+    const updated = await updatePanel(id, validated)
     return createSuccessResponse({ panel: toPanelResponse(updated) })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to update panel")
+    return createErrorResponse(error, "Failed to update panel")
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  return PUT(request, { params })
-}
+export const PATCH = PUT
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: NextRequest, context: Context) {
   try {
-    const { id: panelId } = await params
-
-    const user = await requireAuth(request)
-    const panel = await getPanelById(panelId)
-
-    if (!panel) {
-      return NextResponse.json({ error: "Panel not found" }, { status: 404 })
-    }
-
-    const viewer = await resolveViewerContext(user.id)
-    if (!canEditPanel(viewer, panel)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
-    await deletePanel(panelId)
-
+    const id = await loadEditable(request, context)
+    await deletePanel(id)
     return createSuccessResponse({ message: "Panel deleted successfully" })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to delete panel")
+    return createErrorResponse(error, "Failed to delete panel")
   }
 }

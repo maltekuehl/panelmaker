@@ -1,11 +1,6 @@
-import { Preservation, Visibility } from "@/lib/generated/prisma/enums"
+import { Preservation } from "@/lib/generated/prisma/enums"
+import { resourceVisibilityFields } from "@/models/lab/schema"
 import { z } from "zod"
-
-const visibilityFields = {
-  visibility: z.nativeEnum(Visibility).optional(),
-  sharedLabIds: z.array(z.string().min(1)).max(50).optional(),
-  owningLabId: z.string().min(1).nullable().optional(),
-}
 
 export const createPanelSchema = z
   .object({
@@ -20,28 +15,17 @@ export const createPanelSchema = z
     imagingMethodLabel: z.string().max(255).optional(),
     conditionId: z.string().max(255).optional(),
     conditionLabel: z.string().max(255).optional(),
-    ...visibilityFields,
+    ...resourceVisibilityFields,
   })
   .strict()
 
 export type CreatePanelData = z.infer<typeof createPanelSchema>
 
-export const updatePanelSchema = z
-  .object({
-    name: z.string().min(1).max(255).optional(),
-    description: z.string().max(2000).optional(),
-    speciesId: z.string().max(255).optional(),
-    speciesLabel: z.string().max(255).optional(),
-    preservation: z.nativeEnum(Preservation).nullable().optional(),
-    fixativeId: z.string().max(255).nullable().optional(),
-    fixativeLabel: z.string().max(255).optional(),
-    imagingMethodId: z.string().max(255).nullable().optional(),
-    imagingMethodLabel: z.string().max(255).optional(),
-    conditionId: z.string().max(255).optional(),
-    conditionLabel: z.string().max(255).optional(),
-    ...visibilityFields,
-  })
-  .strict()
+export const updatePanelSchema = createPanelSchema.partial().extend({
+  preservation: z.nativeEnum(Preservation).nullable().optional(),
+  fixativeId: z.string().max(255).nullable().optional(),
+  imagingMethodId: z.string().max(255).nullable().optional(),
+})
 
 export type UpdatePanelData = z.infer<typeof updatePanelSchema>
 

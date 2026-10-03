@@ -10,6 +10,7 @@ import { parseTaxonUid } from "@/models/taxon/id"
 import { Check, ChevronsUpDown, Loader2, Plus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import { addPanelMarker } from "./panel-api"
 
 type SearchResult = {
   type: "protein" | "antibody"
@@ -22,6 +23,64 @@ type SearchResult = {
   rrid?: string
   vendorName?: string
   conjugate?: string
+}
+
+async function searchMarkers(query: string, species?: { id: string; label: string } | null): Promise<SearchResult[]> {
+  const organismId = species ? parseTaxonUid(species.id) : null
+  const proteinParams = new URLSearchParams({ q: query, limit: "5" })
+  if (organismId) proteinParams.set("organismId", organismId)
+
+  const antibodyParams = new URLSearchParams({ q: query, limit: "5" })
+  if (species) antibodyParams.set("species", species.label)
+
+  const [proteinsRes, antibodiesRes] = await Promise.all([
+    fetch(`/api/proteins?${proteinParams}`),
+    fetch(`/api/antibodies?${antibodyParams}`),
+  ])
+
+  const combined: SearchResult[] = []
+
+  if (proteinsRes.ok) {
+    const json = await proteinsRes.json()
+    for (const p of json.proteins ?? []) {
+      combined.push({
+        type: "protein",
+        proteinId: p.id,
+        proteinLabel: p.label,
+        geneSymbol: p.geneSymbol,
+        ensemblGeneId: p.ensemblGeneId ?? undefined,
+      })
+    }
+  }
+
+  if (antibodiesRes.ok) {
+    const json = await antibodiesRes.json()
+    for (const ab of json.antibodies ?? []) {
+      combined.push({
+        type: "antibody",
+        antibodyId: ab.id,
+        antibodyName: ab.name,
+        rrid: ab.rrid,
+        vendorName: ab.vendorName,
+        conjugate: ab.conjugate ?? undefined,
+        proteinId: ab.targetProtein?.id,
+        proteinLabel: ab.targetProtein?.label,
+        geneSymbol: ab.targetProtein?.geneSymbol,
+      })
+    }
+  }
+
+  return combined
+}
+
+function selectedLabelOf(selected: SearchResult): string {
+  return selected.type === "antibody"
+    ? `${selected.antibodyName}${selected.rrid ? ` (${selected.rrid})` : ""}`
+    : `${selected.proteinLabel}${selected.geneSymbol ? ` (${selected.geneSymbol})` : ""}`
+}
+
+function SelectedCheck({ active }: { active: boolean }) {
+  return <Check className={cn("mr-2 h-4 w-4 shrink-0", active ? "opacity-100" : "opacity-0")} />
 }
 
 interface AddMarkerFormProps {
@@ -54,53 +113,7 @@ export function AddMarkerForm({ panelId, cycleId, species, onMarkerAdded }: AddM
     debounceRef.current = setTimeout(async () => {
       setIsSearching(true)
       try {
-        const organismId = species ? parseTaxonUid(species.id) : null
-        const proteinParams = new URLSearchParams({ q: query.trim(), limit: "5" })
-        if (organismId) proteinParams.set("organismId", organismId)
-
-        const antibodyParams = new URLSearchParams({ q: query.trim(), limit: "5" })
-        if (species) antibodyParams.set("species", species.label)
-
-        const [proteinsRes, antibodiesRes] = await Promise.all([
-          fetch(`/api/proteins?${proteinParams}`),
-          fetch(`/api/antibodies?${antibodyParams}`),
-        ])
-
-        const combined: SearchResult[] = []
-
-        if (proteinsRes.ok) {
-          const json = await proteinsRes.json()
-          const proteins = json.proteins ?? []
-          for (const p of proteins) {
-            combined.push({
-              type: "protein",
-              proteinId: p.id,
-              proteinLabel: p.label,
-              geneSymbol: p.geneSymbol,
-              ensemblGeneId: p.ensemblGeneId ?? undefined,
-            })
-          }
-        }
-
-        if (antibodiesRes.ok) {
-          const json = await antibodiesRes.json()
-          const antibodies = json.antibodies ?? []
-          for (const ab of antibodies) {
-            combined.push({
-              type: "antibody",
-              antibodyId: ab.id,
-              antibodyName: ab.name,
-              rrid: ab.rrid,
-              vendorName: ab.vendorName,
-              conjugate: ab.conjugate ?? undefined,
-              proteinId: ab.targetProtein?.id,
-              proteinLabel: ab.targetProtein?.label,
-              geneSymbol: ab.targetProtein?.geneSymbol,
-            })
-          }
-        }
-
-        setResults(combined)
+        setResults(await searchMarkers(query.trim(), species))
       } catch {
         setResults([])
       } finally {
@@ -124,23 +137,18 @@ export function AddMarkerForm({ panelId, cycleId, species, onMarkerAdded }: AddM
     setIsAdding(true)
 
     try {
-      const res = await fetch(`/api/panels/${panelId}/markers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cycleId,
-          proteinId: selected.proteinId || undefined,
-          proteinLabel: selected.proteinLabel || undefined,
-          geneSymbol: selected.geneSymbol || undefined,
-          ensemblGeneId: selected.ensemblGeneId || undefined,
-          antibodyId: selected.antibodyId || undefined,
-          fluorophoreId: fluorophore?.id || undefined,
-        }),
+      const error = await addPanelMarker(panelId, {
+        cycleId,
+        proteinId: selected.proteinId || undefined,
+        proteinLabel: selected.proteinLabel || undefined,
+        geneSymbol: selected.geneSymbol || undefined,
+        ensemblGeneId: selected.ensemblGeneId || undefined,
+        antibodyId: selected.antibodyId || undefined,
+        fluorophoreId: fluorophore?.id || undefined,
       })
 
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}))
-        toast.error(json.error ?? "Failed to add marker")
+      if (error) {
+        toast.error(error)
         return
       }
 
@@ -155,11 +163,9 @@ export function AddMarkerForm({ panelId, cycleId, species, onMarkerAdded }: AddM
     }
   }
 
-  const selectedLabel = selected
-    ? selected.type === "antibody"
-      ? `${selected.antibodyName}${selected.rrid ? ` (${selected.rrid})` : ""}`
-      : `${selected.proteinLabel}${selected.geneSymbol ? ` (${selected.geneSymbol})` : ""}`
-    : null
+  const selectedLabel = selected ? selectedLabelOf(selected) : null
+  const proteinResults = results.filter((r) => r.type === "protein")
+  const antibodyResults = results.filter((r) => r.type === "antibody")
 
   return (
     <div className="space-y-3">
@@ -197,66 +203,50 @@ export function AddMarkerForm({ panelId, cycleId, species, onMarkerAdded }: AddM
                 {!isSearching && query.trim().length < 2 && (
                   <CommandEmpty>Type at least 2 characters to search.</CommandEmpty>
                 )}
-                {results.filter((r) => r.type === "protein").length > 0 && (
+                {proteinResults.length > 0 && (
                   <CommandGroup heading="Proteins">
-                    {results
-                      .filter((r) => r.type === "protein")
-                      .map((result) => (
-                        <CommandItem
-                          key={`p-${result.proteinId}`}
-                          value={`protein-${result.proteinId}`}
-                          onSelect={() => handleSelect(result)}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4 shrink-0",
-                              selected?.proteinId === result.proteinId && selected?.type === "protein"
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                          <div className="flex flex-col">
-                            <span className="font-medium">{result.proteinLabel}</span>
-                            {result.geneSymbol && (
-                              <span className="text-xs text-muted-foreground">{result.geneSymbol}</span>
-                            )}
-                          </div>
-                        </CommandItem>
-                      ))}
+                    {proteinResults.map((result) => (
+                      <CommandItem
+                        key={`p-${result.proteinId}`}
+                        value={`protein-${result.proteinId}`}
+                        onSelect={() => handleSelect(result)}
+                      >
+                        <SelectedCheck
+                          active={selected?.proteinId === result.proteinId && selected?.type === "protein"}
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-medium">{result.proteinLabel}</span>
+                          {result.geneSymbol && (
+                            <span className="text-xs text-muted-foreground">{result.geneSymbol}</span>
+                          )}
+                        </div>
+                      </CommandItem>
+                    ))}
                   </CommandGroup>
                 )}
-                {results.filter((r) => r.type === "antibody").length > 0 && (
+                {antibodyResults.length > 0 && (
                   <CommandGroup heading="Antibodies">
-                    {results
-                      .filter((r) => r.type === "antibody")
-                      .map((result) => (
-                        <CommandItem
-                          key={`ab-${result.antibodyId}`}
-                          value={`antibody-${result.antibodyId}`}
-                          onSelect={() => handleSelect(result)}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4 shrink-0",
-                              selected?.antibodyId === result.antibodyId && selected?.type === "antibody"
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {result.antibodyName}
-                              {result.rrid && (
-                                <span className="ml-1 text-xs text-muted-foreground">({result.rrid})</span>
-                              )}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {result.vendorName ?? "Unknown vendor"}
-                              {result.proteinLabel && ` \u2192 ${result.proteinLabel}`}
-                            </span>
-                          </div>
-                        </CommandItem>
-                      ))}
+                    {antibodyResults.map((result) => (
+                      <CommandItem
+                        key={`ab-${result.antibodyId}`}
+                        value={`antibody-${result.antibodyId}`}
+                        onSelect={() => handleSelect(result)}
+                      >
+                        <SelectedCheck
+                          active={selected?.antibodyId === result.antibodyId && selected?.type === "antibody"}
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {result.antibodyName}
+                            {result.rrid && <span className="ml-1 text-xs text-muted-foreground">({result.rrid})</span>}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {result.vendorName ?? "Unknown vendor"}
+                            {result.proteinLabel && ` \u2192 ${result.proteinLabel}`}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    ))}
                   </CommandGroup>
                 )}
               </CommandList>

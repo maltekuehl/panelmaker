@@ -1,4 +1,4 @@
-import { authErrorResponse, requireAuth } from "@/lib/auth"
+import { requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { createConversation, createConversationSchema, getConversationsForUser } from "@/models/chat"
 import { NextRequest } from "next/server"
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const conversations = await getConversationsForUser(user.id)
     return createSuccessResponse({ conversations })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch conversations")
+    return createErrorResponse(error, "Failed to fetch conversations")
   }
 }
 
@@ -27,6 +27,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return createErrorResponse(error, "Validation error")
     }
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to create conversation")
+    return createErrorResponse(error, "Failed to create conversation")
   }
 }

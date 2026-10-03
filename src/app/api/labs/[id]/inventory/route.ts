@@ -1,8 +1,8 @@
-import { authErrorResponse, requireLabMember, requireLabRole } from "@/lib/auth"
+import { requireLabMember, requireLabRole } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
 import { addLabAntibodySchema, getLabInventory, toLabAntibodyResponse, upsertLabAntibody } from "@/models/lab"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 type Context = { params: Promise<{ id: string }> }
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, context: Context) {
     const inventory = await getLabInventory(labId)
     return createSuccessResponse({ inventory: inventory.map(toLabAntibodyResponse) })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch inventory")
+    return createErrorResponse(error, "Failed to fetch inventory")
   }
 }
 
@@ -25,18 +25,12 @@ export async function POST(request: NextRequest, context: Context) {
     const { user } = await requireLabRole(request, labId, "MEMBER")
 
     const rateLimitResult = await checkUserRateLimit(user.id, RATE_LIMITS.INVENTORY_MUTATE)
-    if (!rateLimitResult.allowed) {
-      return createRateLimitError(rateLimitResult) as NextResponse
-    }
+    if (!rateLimitResult.allowed) return createRateLimitError(rateLimitResult)
 
-    const body = await request.json()
-    const data = addLabAntibodySchema.parse(body)
+    const data = addLabAntibodySchema.parse(await request.json())
     const item = await upsertLabAntibody(labId, data, user.id)
     return createSuccessResponse({ item: toLabAntibodyResponse(item) }, 201)
   } catch (error) {
-    if (error instanceof Error && error.message.includes("No antibody found")) {
-      return NextResponse.json({ error: error.message }, { status: 422 })
-    }
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to add antibody")
+    return createErrorResponse(error, "Failed to add antibody")
   }
 }

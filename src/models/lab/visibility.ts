@@ -48,3 +48,12 @@ export function buildPanelVisibilityWhere(viewer: ViewerContext | null): Prisma.
   }
   return { OR: or }
 }
+
+// Lab-scoped content (the lab overview): work the lab owns or was shared, minus anyone's PRIVATE drafts.
+// One shape that is a valid experiment and panel filter alike.
+export function labContentScope(labId: string) {
+  return {
+    visibility: { not: "PRIVATE" as const },
+    OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }],
+  } satisfies Prisma.ExperimentWhereInput & Prisma.PanelWhereInput
+}

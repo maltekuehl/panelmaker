@@ -1,5 +1,6 @@
 import "server-only"
 
+import { ApiException, ForbiddenError } from "@/lib/error-handling"
 import { Clonality, LabAntibodyStatus, type LabRole, Preservation, Recommendation } from "@/lib/generated/prisma/enums"
 import { checkUserRateLimit, RATE_LIMITS } from "@/lib/rate-limiting"
 import { getAntibodyById, lookupByRrid, searchAntibodies } from "@/models/antibody"
@@ -19,12 +20,16 @@ import {
   createPanelSchema,
   getPanelById,
   getPanelsForUser,
-  getVisiblePanelById,
   getVisiblePanels,
+  type PanelMarkerRow,
   type PanelRow,
   removeCycle,
   removeMarker,
   reorderMarkers,
+  requireEditablePanel,
+  requirePanelCycle,
+  requirePanelMarker,
+  requireVisiblePanel,
   validatePanelWithSpectra,
 } from "@/models/panel"
 import { getProteinById, searchProteins } from "@/models/protein"
@@ -101,12 +106,27 @@ function pickFilter(input: Record<string, unknown>): EvidenceFilter {
 
 const LABILE_PATTERN = /phospho|(^|[^a-z])p-|cleaved|^p[STY]\d|active\s/i
 
+// Tools report a failed model-layer check (not found, not editable) as data the model can relay.
+async function asToolResult<T>(run: () => Promise<T>): Promise<T | { error: string }> {
+  try {
+    return await run()
+  } catch (error) {
+    if (error instanceof ForbiddenError) return { error: "You do not have permission to edit this panel" }
+    if (error instanceof ApiException) return { error: error.message }
+    throw error
+  }
+}
+
+const toIdLabel = (term: { id: string; label: string }) => ({ id: term.id, label: term.label })
+
+const markerLabel = (marker: PanelMarkerRow) => marker.protein?.geneSymbol ?? marker.protein?.label ?? null
+
 function mapPanel(panel: PanelRow) {
   const markers = panel.cycles.flatMap((cycle) =>
     cycle.markers.map((marker) => ({
       cycle: cycle.name,
       markerId: marker.protein?.id ?? null,
-      marker: marker.protein?.geneSymbol ?? marker.protein?.label ?? null,
+      marker: markerLabel(marker),
       antibody: marker.antibody?.name ?? null,
       rrid: marker.antibody?.rrid ?? null,
       host: marker.antibody?.hostTaxon?.label ?? null,
@@ -138,7 +158,7 @@ function mapPanelForEditing(panel: PanelRow) {
       sortOrder: cycle.sortOrder,
       markers: cycle.markers.map((marker) => ({
         markerId: marker.id,
-        marker: marker.protein?.geneSymbol ?? marker.protein?.label ?? null,
+        marker: markerLabel(marker),
         antibody: marker.antibody?.name ?? null,
         rrid: marker.antibody?.rrid ?? null,
         fluorophore: marker.fluorophore?.name ?? null,
@@ -184,7 +204,7 @@ export function createChatTools(viewer: ViewerContext) {
         expandedIds = [...new Set(sets.flat())]
       }
       return {
-        matches: matches.map((c) => ({ id: c.id, label: c.label })),
+        matches: matches.map(toIdLabel),
         expandedIds,
       }
     },
@@ -193,15 +213,13 @@ export function createChatTools(viewer: ViewerContext) {
   const resolveSpecies = tool({
     description: "Resolve a species name (e.g. 'mouse', 'human') to taxon ids used by reports.",
     inputSchema: z.object({ query: z.string() }),
-    execute: async ({ query }) => ({ species: (await searchTaxa(query)).map((t) => ({ id: t.id, label: t.label })) }),
+    execute: async ({ query }) => ({ species: (await searchTaxa(query)).map(toIdLabel) }),
   })
 
   const resolveTissues = tool({
     description: "Resolve a tissue/organ name (e.g. 'kidney', 'tonsil') to tissue ids used by reports.",
     inputSchema: z.object({ query: z.string() }),
-    execute: async ({ query }) => ({
-      tissues: (await searchTissues(query)).map((t) => ({ id: t.id, label: t.label })),
-    }),
+    execute: async ({ query }) => ({ tissues: (await searchTissues(query)).map(toIdLabel) }),
   })
 
   const resolveAntibodies = tool({
@@ -378,25 +396,21 @@ export function createChatTools(viewer: ViewerContext) {
       panelId: z.string().optional(),
       limit: z.number().int().min(1).max(100).default(50),
     }),
-    execute: async ({ scope, labIds, panelId, limit }) => {
-      if (panelId) {
-        const panel = await getVisiblePanelById(panelId, viewer)
-        return panel ? { panels: [mapPanel(panel)] } : { error: "Panel not found or not visible to you" }
-      }
-      const panels = await getVisiblePanels(scopedViewer(viewer, scope, labIds) ?? viewer, { limit })
-      return { panels: panels.map(mapPanel) }
-    },
+    execute: ({ scope, labIds, panelId, limit }) =>
+      asToolResult(async () => {
+        const panels = panelId
+          ? [await requireVisiblePanel(panelId, viewer)]
+          : await getVisiblePanels(scopedViewer(viewer, scope, labIds) ?? viewer, { limit })
+        return { panels: panels.map(mapPanel) }
+      }),
   })
 
   const analyzePanel = tool({
     description:
       "Validate a panel for fluorophore spectral overlap and host cross-reactivity conflicts. Use after proposing or to review a layout.",
     inputSchema: z.object({ panelId: z.string() }),
-    execute: async ({ panelId }) => {
-      const panel = await getVisiblePanelById(panelId, viewer)
-      if (!panel) return { error: "Panel not found or not visible to you" }
-      return await validatePanelWithSpectra(panel)
-    },
+    execute: ({ panelId }) =>
+      asToolResult(async () => validatePanelWithSpectra(await requireVisiblePanel(panelId, viewer))),
   })
 
   const getPanelLayoutSignals = tool({
@@ -495,16 +509,8 @@ export function createChatTools(viewer: ViewerContext) {
     },
   })
 
-  // --- Panel editing ---------------------------------------------------------
-  // Every mutation tool runs through this choke point: load the panel and confirm the viewer may
-  // edit it (owner or lab ADMIN, enforced exactly like the REST routes). Errors are returned as
-  // data, never thrown, so the model can relay them.
-  async function loadEditablePanel(panelId: string): Promise<{ panel: PanelRow } | { error: string }> {
-    const panel = await getPanelById(panelId)
-    if (!panel) return { error: `Panel ${panelId} not found` }
-    if (!canEditPanel(viewer, panel)) return { error: "You do not have permission to edit this panel" }
-    return { panel }
-  }
+  // Every panel mutation tool loads its panel through requireEditablePanel inside asToolResult, the same
+  // owner or lab ADMIN rule the REST routes enforce, with failures returned as data.
 
   // Re-fetch the panel after a write so the model always sees fresh cycle/marker ids.
   async function panelResult(panelId: string, message: string) {
@@ -553,9 +559,7 @@ export function createChatTools(viewer: ViewerContext) {
     inputSchema: z.object({ panelId: z.string().optional() }),
     execute: async ({ panelId }) => {
       if (panelId) {
-        const loaded = await loadEditablePanel(panelId)
-        if ("error" in loaded) return loaded
-        return { panel: mapPanelForEditing(loaded.panel) }
+        return asToolResult(async () => ({ panel: mapPanelForEditing(await requireEditablePanel(panelId, viewer)) }))
       }
       const panels = await getPanelsForUser(viewer.userId)
       return {
@@ -590,27 +594,24 @@ export function createChatTools(viewer: ViewerContext) {
   const addCycleTool = tool({
     description: "Add a new cycle to a panel. Only call when the user clearly asks to add a cycle.",
     inputSchema: addCycleSchema.omit({ sortOrder: true }).extend({ panelId: z.string() }),
-    execute: async ({ panelId, name, notes }) => {
-      const loaded = await loadEditablePanel(panelId)
-      if ("error" in loaded) return loaded
-      const nextOrder = loaded.panel.cycles.reduce((max, c) => Math.max(max, c.sortOrder), -1) + 1
-      await addCycle(panelId, { name, notes, sortOrder: nextOrder })
-      return panelResult(panelId, `Added cycle "${name}".`)
-    },
+    execute: ({ panelId, name, notes }) =>
+      asToolResult(async () => {
+        await requireEditablePanel(panelId, viewer)
+        await addCycle(panelId, { name, notes })
+        return panelResult(panelId, `Added cycle "${name}".`)
+      }),
   })
 
   const deleteCycleTool = tool({
     description:
       "Delete a cycle and every marker inside it. Only call when the user EXPLICITLY asks to delete the cycle. This cannot be undone.",
     inputSchema: z.object({ panelId: z.string(), cycleId: z.string() }),
-    execute: async ({ panelId, cycleId }) => {
-      const loaded = await loadEditablePanel(panelId)
-      if ("error" in loaded) return loaded
-      const cycle = loaded.panel.cycles.find((c) => c.id === cycleId)
-      if (!cycle) return { error: "Cycle not found in this panel" }
-      await removeCycle(cycleId)
-      return panelResult(panelId, `Deleted cycle "${cycle.name}".`)
-    },
+    execute: ({ panelId, cycleId }) =>
+      asToolResult(async () => {
+        const cycle = requirePanelCycle(await requireEditablePanel(panelId, viewer), cycleId)
+        await removeCycle(cycleId)
+        return panelResult(panelId, `Deleted cycle "${cycle.name}".`)
+      }),
   })
 
   const addAntibodyToCycleTool = tool({
@@ -619,33 +620,30 @@ export function createChatTools(viewer: ViewerContext) {
     inputSchema: addMarkerSchema
       .pick({ proteinId: true, antibodyId: true, fluorophoreId: true, metalTag: true })
       .extend({ panelId: z.string(), cycleId: z.string() }),
-    execute: async ({ panelId, cycleId, antibodyId, ...marker }) => {
-      const loaded = await loadEditablePanel(panelId)
-      if ("error" in loaded) return loaded
-      const cycle = loaded.panel.cycles.find((c) => c.id === cycleId)
-      if (!cycle) return { error: "Cycle not found in this panel" }
-      if (marker.fluorophoreId && !(await fluorophoreExists(marker.fluorophoreId))) {
-        return { error: "Unknown fluorophore id; resolve it with resolveFluorophores first" }
-      }
-      // The model may pass a real antibody id, an RRID, or (mistakenly) an inventory id; resolve it
-      // to a real Antibody record so we never trip the FK constraint.
-      let resolvedAntibodyId: string | undefined
-      if (antibodyId) {
-        const antibody = await resolveAntibodyFlexible(antibodyId)
-        if (!antibody) {
-          return { error: `Antibody ${antibodyId} not found; resolve it with resolveAntibodies first` }
+    execute: ({ panelId, cycleId, antibodyId, ...marker }) =>
+      asToolResult(async () => {
+        const cycle = requirePanelCycle(await requireEditablePanel(panelId, viewer), cycleId)
+        if (marker.fluorophoreId && !(await fluorophoreExists(marker.fluorophoreId))) {
+          return { error: "Unknown fluorophore id; resolve it with resolveFluorophores first" }
         }
-        resolvedAntibodyId = antibody.id
-      }
-      // Only markers that already exist in the catalog: a hallucinated id must never create a shared
-      // Protein row visible to every user at /marker/{id}.
-      if (marker.proteinId && !(await getProteinById(marker.proteinId))) {
-        return { error: `Unknown marker id ${marker.proteinId}; resolve it with resolveMarkers first` }
-      }
-      const nextOrder = cycle.markers.reduce((max, m) => Math.max(max, m.sortOrder), -1) + 1
-      await addMarker(cycleId, { ...marker, antibodyId: resolvedAntibodyId, sortOrder: nextOrder })
-      return panelResult(panelId, `Added marker to "${cycle.name}".`)
-    },
+        // The model may pass a real antibody id, an RRID, or (mistakenly) an inventory id; resolve it
+        // to a real Antibody record so we never trip the FK constraint.
+        let resolvedAntibodyId: string | undefined
+        if (antibodyId) {
+          const antibody = await resolveAntibodyFlexible(antibodyId)
+          if (!antibody) {
+            return { error: `Antibody ${antibodyId} not found; resolve it with resolveAntibodies first` }
+          }
+          resolvedAntibodyId = antibody.id
+        }
+        // Only markers that already exist in the catalog: a hallucinated id must never create a shared
+        // Protein row visible to every user at /marker/{id}.
+        if (marker.proteinId && !(await getProteinById(marker.proteinId))) {
+          return { error: `Unknown marker id ${marker.proteinId}; resolve it with resolveMarkers first` }
+        }
+        await addMarker(cycleId, { ...marker, antibodyId: resolvedAntibodyId })
+        return panelResult(panelId, `Added marker to "${cycle.name}".`)
+      }),
   })
 
   const moveMarkerTool = tool({
@@ -659,27 +657,23 @@ export function createChatTools(viewer: ViewerContext) {
       toCycleId: z.string().describe("Destination cycle's cycleId from listMyPanels (must be in the same panel)"),
       sortOrder: z.number().int().min(0).optional(),
     }),
-    execute: async ({ panelId, markerId, toCycleId, sortOrder }) => {
-      const loaded = await loadEditablePanel(panelId)
-      if ("error" in loaded) return loaded
-      const targetCycle = loaded.panel.cycles.find((c) => c.id === toCycleId)
-      if (!targetCycle) return { error: "Target cycle not found in this panel" }
-      if (!loaded.panel.cycles.some((c) => c.markers.some((m) => m.id === markerId))) {
-        return { error: "Marker not found in this panel" }
-      }
-      const sourceCycle = loaded.panel.cycles.find((c) => c.markers.some((m) => m.id === markerId))
-      const destination = targetCycle.markers.filter((m) => m.id !== markerId).map((m) => m.id)
-      const position = Math.min(sortOrder ?? destination.length, destination.length)
-      destination.splice(position, 0, markerId)
-      const updates = destination.map((id, index) => ({ markerId: id, cycleId: toCycleId, sortOrder: index }))
-      if (sourceCycle && sourceCycle.id !== toCycleId) {
-        sourceCycle.markers
-          .filter((m) => m.id !== markerId)
-          .forEach((m, index) => updates.push({ markerId: m.id, cycleId: sourceCycle.id, sortOrder: index }))
-      }
-      await reorderMarkers(updates)
-      return panelResult(panelId, `Moved marker to "${targetCycle.name}".`)
-    },
+    execute: ({ panelId, markerId, toCycleId, sortOrder }) =>
+      asToolResult(async () => {
+        const panel = await requireEditablePanel(panelId, viewer)
+        const targetCycle = requirePanelCycle(panel, toCycleId)
+        const sourceCycleId = requirePanelMarker(panel, markerId).cycleId
+        const destination = targetCycle.markers.filter((m) => m.id !== markerId).map((m) => m.id)
+        const position = Math.min(sortOrder ?? destination.length, destination.length)
+        destination.splice(position, 0, markerId)
+        const updates = destination.map((id, index) => ({ markerId: id, cycleId: toCycleId, sortOrder: index }))
+        if (sourceCycleId !== toCycleId) {
+          requirePanelCycle(panel, sourceCycleId)
+            .markers.filter((m) => m.id !== markerId)
+            .forEach((m, index) => updates.push({ markerId: m.id, cycleId: sourceCycleId, sortOrder: index }))
+        }
+        await reorderMarkers(updates)
+        return panelResult(panelId, `Moved marker to "${targetCycle.name}".`)
+      }),
   })
 
   const removeMarkerTool = tool({
@@ -691,15 +685,12 @@ export function createChatTools(viewer: ViewerContext) {
         .string()
         .describe("The marker's own id (markerId field from listMyPanels), not the antibody/protein id"),
     }),
-    execute: async ({ panelId, markerId }) => {
-      const loaded = await loadEditablePanel(panelId)
-      if ("error" in loaded) return loaded
-      if (!loaded.panel.cycles.some((c) => c.markers.some((m) => m.id === markerId))) {
-        return { error: "Marker not found in this panel" }
-      }
-      await removeMarker(markerId)
-      return panelResult(panelId, "Removed marker.")
-    },
+    execute: ({ panelId, markerId }) =>
+      asToolResult(async () => {
+        requirePanelMarker(await requireEditablePanel(panelId, viewer), markerId)
+        await removeMarker(markerId)
+        return panelResult(panelId, "Removed marker.")
+      }),
   })
 
   return {

@@ -1,8 +1,8 @@
-import { authErrorResponse, requireLabMember, requireLabRole } from "@/lib/auth"
-import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
+import { requireLabMember, requireLabRole } from "@/lib/auth"
+import { createErrorResponse, createSuccessResponse, ForbiddenError, NotFoundError } from "@/lib/error-handling"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
 import { changeMemberRole, changeMemberRoleSchema, getUserLabRole, removeMember, ROLE_RANK } from "@/models/lab"
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 
 type Context = { params: Promise<{ id: string; userId: string }> }
 
@@ -13,16 +13,12 @@ export async function PATCH(request: NextRequest, context: Context) {
     const { id: labId, userId: targetUserId } = await context.params
     const { user, role: actorRole } = await requireLabRole(request, labId, "ADMIN")
 
-    const body = await request.json()
-    const { role } = changeMemberRoleSchema.parse(body)
+    const { role } = changeMemberRoleSchema.parse(await request.json())
 
     const targetRole = await getUserLabRole(targetUserId, labId)
-    if (!targetRole) {
-      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
-    }
-    if (targetRole === "OWNER" && actorRole !== "OWNER") {
-      return NextResponse.json({ error: "Only an owner can change an owner's role" }, { status: 403 })
-    }
+    if (!targetRole) throw new NotFoundError()
+    if (targetRole === "OWNER" && actorRole !== "OWNER")
+      throw new ForbiddenError("Only an owner can change an owner's role")
 
     await changeMemberRole(labId, targetUserId, role)
     await logSecurityEventFromRequest(request, SecurityEventType.LAB_ROLE_CHANGED, {
@@ -33,10 +29,7 @@ export async function PATCH(request: NextRequest, context: Context) {
     })
     return createSuccessResponse({ success: true })
   } catch (error) {
-    if (error instanceof Error && error.message === "Cannot demote the last owner") {
-      return NextResponse.json({ error: error.message }, { status: 409 })
-    }
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to change member role")
+    return createErrorResponse(error, "Failed to change member role")
   }
 }
 
@@ -48,17 +41,12 @@ export async function DELETE(request: NextRequest, context: Context) {
     const { user, role: actorRole } = await requireLabMember(request, labId)
 
     const isSelf = targetUserId === user.id
-    if (!isSelf && ROLE_RANK[actorRole] < ROLE_RANK.ADMIN) {
-      return NextResponse.json({ error: "Insufficient lab role" }, { status: 403 })
-    }
+    if (!isSelf && ROLE_RANK[actorRole] < ROLE_RANK.ADMIN) throw new ForbiddenError("Insufficient lab role")
 
     const targetRole = await getUserLabRole(targetUserId, labId)
-    if (!targetRole) {
-      return NextResponse.json({ error: "Resource not found" }, { status: 404 })
-    }
-    if (!isSelf && targetRole === "OWNER" && actorRole !== "OWNER") {
-      return NextResponse.json({ error: "Only an owner can remove an owner" }, { status: 403 })
-    }
+    if (!targetRole) throw new NotFoundError()
+    if (!isSelf && targetRole === "OWNER" && actorRole !== "OWNER")
+      throw new ForbiddenError("Only an owner can remove an owner")
 
     await removeMember(labId, targetUserId)
     await logSecurityEventFromRequest(request, SecurityEventType.LAB_MEMBER_REMOVED, {
@@ -69,9 +57,6 @@ export async function DELETE(request: NextRequest, context: Context) {
     })
     return createSuccessResponse({ success: true })
   } catch (error) {
-    if (error instanceof Error && error.message === "Cannot remove the last owner") {
-      return NextResponse.json({ error: error.message }, { status: 409 })
-    }
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to remove member")
+    return createErrorResponse(error, "Failed to remove member")
   }
 }

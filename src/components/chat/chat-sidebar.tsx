@@ -1,5 +1,6 @@
 "use client"
 
+import { conversationUrl, createConversation, patchConversation } from "@/components/chat/conversation-api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
@@ -175,19 +176,13 @@ export const ChatSidebarContent = ({
     if (isStreaming || busy) return
     setBusy(true)
     try {
-      const response = await fetch("/api/chat/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      })
-      if (!response.ok) {
+      const id = await createConversation()
+      if (!id) {
         toast.error("Could not start a new conversation")
         return
       }
-      const json = await response.json()
-      const id = json?.conversation?.id as string | undefined
       onClose?.()
-      if (id) router.push(`/chat/${id}`)
+      router.push(`/chat/${id}`)
     } finally {
       setBusy(false)
     }
@@ -204,7 +199,7 @@ export const ChatSidebarContent = ({
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Delete this conversation? This cannot be undone.")) return
-    const response = await fetch(`/api/chat/conversations/${id}`, { method: "DELETE" })
+    const response = await fetch(conversationUrl(id), { method: "DELETE" })
     if (!response.ok) {
       toast.error("Could not delete conversation")
       return
@@ -218,11 +213,7 @@ export const ChatSidebarContent = ({
   }
 
   const handleRename = async (id: string, title: string) => {
-    const response = await fetch(`/api/chat/conversations/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    })
+    const response = await patchConversation(id, { title })
     if (!response.ok) {
       toast.error("Could not rename conversation")
       return

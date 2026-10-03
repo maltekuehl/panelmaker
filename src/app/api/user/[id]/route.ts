@@ -1,6 +1,7 @@
-import { createAuthHandler, deleteUser } from "@/lib/auth"
-import { createErrorResponse } from "@/lib/error-handling"
+import { createAuthHandler } from "@/lib/auth"
+import { BadRequestError, createErrorResponse } from "@/lib/error-handling"
 import { logSecurityEventFromRequest, SecurityEventType } from "@/lib/security-events"
+import { deleteUser } from "@/models/user"
 import { NextRequest, NextResponse } from "next/server"
 
 // DELETE /api/user/[id] - Delete a user (admin only)
@@ -10,9 +11,7 @@ export const DELETE = createAuthHandler(
       const userId = (await context.params).id
 
       // Prevent admin from deleting themselves
-      if (userId === user.id) {
-        return NextResponse.json({ error: "You cannot delete yourself" }, { status: 400 })
-      }
+      if (userId === user.id) throw new BadRequestError("You cannot delete yourself")
 
       await deleteUser(userId)
       await logSecurityEventFromRequest(request, SecurityEventType.USER_DELETED, {

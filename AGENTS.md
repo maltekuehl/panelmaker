@@ -38,7 +38,7 @@ src/models/
   chat/             -- conversations, messages, encrypted provider credentials
   evidence/         -- viewer-scoped report search and aggregation used by the AI tools
   experiment/
-  experimental-report/
+  experimental-report/ -- also entries.ts (browse row types) and filters.ts (pure filter builders)
   fluorophore/
   image/            -- fields of view and their channels (shared select, viewer legend transform)
   imaging-method/   -- EFO spatial proteomics terms, plus local methods filed under an EFO term
@@ -49,6 +49,7 @@ src/models/
     transforms.ts
     schema.ts
     index.ts
+  ontology-term/     -- one resolver table that confirms and persists ontology-backed terms (taxon, condition, fixative, ...)
   panel/
     queries.ts
     transforms.ts

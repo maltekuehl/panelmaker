@@ -1,18 +1,26 @@
 import "server-only"
 
-import type { BrowseMarkerParams, EntryFilterParams, LabContentParams } from "@/lib/data-table"
-import { BadRequestError, NotFoundError } from "@/lib/error-handling"
+import {
+  BROWSE_AGGREGATION_CAP,
+  type BrowseMarkerParams,
+  type EntriesPage,
+  type EntryFilterParams,
+  type LabContentParams,
+  paginate,
+  type SortAccessor,
+  sortEntries,
+} from "@/lib/data-table"
+import { ForbiddenError, NotFoundError } from "@/lib/error-handling"
 import type { Prisma } from "@/lib/generated/prisma/client"
 import type { Visibility } from "@/lib/generated/prisma/enums"
-import { searchChebi, searchDiseaseOntology, searchEfoImagingMethods, searchSpecies } from "@/lib/ontology"
 import { prisma } from "@/lib/prisma"
-import { type EntriesPage, paginate } from "@/models/experimental-report/queries"
 import { getFluorophoreSpectra } from "@/models/fluorophore/queries"
 import type { FluorophoreSpectraMap } from "@/models/fluorophore/spectra"
 import { imagingMethodSelect } from "@/models/imaging-method/queries"
-import type { ViewerContext } from "@/models/lab/access"
+import { canEditPanel, type ViewerContext } from "@/models/lab/access"
 import { resolveResourceVisibility } from "@/models/lab/queries"
-import { buildPanelVisibilityWhere } from "@/models/lab/visibility"
+import { buildPanelVisibilityWhere, labContentScope } from "@/models/lab/visibility"
+import { ensureOntologyTermId } from "@/models/ontology-term"
 import { type PanelValidationResult, validatePanel } from "./intelligence"
 import type { AddCycleData, AddMarkerData, CreatePanelData, UpdatePanelData } from "./schema"
 
@@ -206,36 +214,34 @@ function toLabPanelEntry(panel: PanelEntryRow): LabPanelEntry {
   }
 }
 
+async function panelEntriesPage(
+  params: EntryFilterParams & { pageSize?: number },
+  base?: Prisma.PanelWhereInput,
+): Promise<EntriesPage<LabPanelEntry>> {
+  const panels = await prisma.panel.findMany({
+    select: labPanelEntrySelect,
+    where: buildBrowsePanelWhere(params, base),
+    orderBy: { updatedAt: "desc" },
+    take: BROWSE_AGGREGATION_CAP,
+  })
+  const entries = sortEntries(panels.map(toLabPanelEntry), PANEL_SORT_ACCESSORS, params.sort, params.order)
+  return paginate(entries, params.page, params.pageSize)
+}
+
 // Lab-scoped (private lane, member-gated by the page): every panel owned by or shared with the lab,
 // regardless of visibility, with the same search/filter/sort/paging surface as browse.
 export async function getLabPanelEntriesPage(
   labId: string,
   params: LabContentParams & { pageSize?: number },
 ): Promise<EntriesPage<LabPanelEntry>> {
-  const panels = await prisma.panel.findMany({
-    select: labPanelEntrySelect,
-    where: buildBrowsePanelWhere(params, labPanelScope(labId)),
-    orderBy: { updatedAt: "desc" },
-    take: BROWSE_AGGREGATION_CAP,
-  })
-  const entries = sortPanelEntries(panels.map(toLabPanelEntry), params.sort, params.order)
-  return paginate(entries, params.page, params.pageSize)
+  return panelEntriesPage(params, labContentScope(labId))
 }
 
 export async function getLabPanelCount(labId: string): Promise<number> {
-  return prisma.panel.count({ where: labPanelScope(labId) })
+  return prisma.panel.count({ where: labContentScope(labId) })
 }
-
-const BROWSE_AGGREGATION_CAP = 2000
 
 const BROWSE_PANEL_SCOPE: Prisma.PanelWhereInput = { visibility: "PUBLIC" }
-
-function labPanelScope(labId: string): Prisma.PanelWhereInput {
-  return {
-    visibility: { not: "PRIVATE" },
-    OR: [{ owningLabId: labId }, { labShares: { some: { labId } } }],
-  }
-}
 
 // Marker and antibody dimensions as one predicate, so they must all hold for the same panel marker.
 function panelMarkerWhere(params: EntryFilterParams): Prisma.PanelMarkerWhereInput | null {
@@ -281,7 +287,7 @@ function buildBrowsePanelWhere(
   return { AND: and }
 }
 
-const PANEL_SORT_ACCESSORS: Record<string, (p: LabPanelEntry) => string | number> = {
+const PANEL_SORT_ACCESSORS: Record<string, SortAccessor<LabPanelEntry>> = {
   name: (p) => p.name.toLowerCase(),
   member: (p) => (p.ownerName ?? "").toLowerCase(),
   species: (p) => (p.species ?? "").toLowerCase(),
@@ -291,33 +297,12 @@ const PANEL_SORT_ACCESSORS: Record<string, (p: LabPanelEntry) => string | number
   updatedAt: (p) => p.updatedAt,
 }
 
-function sortPanelEntries(entries: LabPanelEntry[], sort?: string | null, order: string = "desc"): LabPanelEntry[] {
-  const accessor = sort ? PANEL_SORT_ACCESSORS[sort] : undefined
-  if (!accessor) return entries
-  const direction = order === "asc" ? 1 : -1
-  return [...entries].sort((a, b) => {
-    const av = accessor(a)
-    const bv = accessor(b)
-    if (av < bv) return -direction
-    if (av > bv) return direction
-    return 0
-  })
-}
-
 // Public lane: published panels for the browse table, with the same search/filter/sort/paging
 // surface as the other browse modes.
 export async function getPanelEntriesPage(
   params: BrowseMarkerParams & { pageSize?: number },
 ): Promise<EntriesPage<LabPanelEntry>> {
-  const panels = await prisma.panel.findMany({
-    select: labPanelEntrySelect,
-    where: buildBrowsePanelWhere(params),
-    orderBy: { updatedAt: "desc" },
-    take: BROWSE_AGGREGATION_CAP,
-  })
-
-  const entries = sortPanelEntries(panels.map(toLabPanelEntry), params.sort, params.order)
-  return paginate(entries, params.page, params.pageSize)
+  return panelEntriesPage(params)
 }
 
 export async function getVisiblePanels(viewer: ViewerContext, params: PanelQueryParams): Promise<PanelRow[]> {
@@ -339,74 +324,36 @@ export async function getVisiblePanelById(id: string, viewer: ViewerContext | nu
   })
 }
 
-// Taxon and DiseaseCondition are global tables shown in every facet and filter, so an unknown id is
-// only written after the ontology confirms it, the same rule the report path applies.
-async function resolveCondition(conditionId?: string, conditionLabel?: string): Promise<string | undefined> {
-  if (!conditionId) return undefined
-
-  const existing = await prisma.diseaseCondition.findUnique({ where: { id: conditionId } })
-  if (existing) return existing.id
-
-  if (!conditionLabel) throw new BadRequestError(`Unknown disease condition ${conditionId}`)
-  const match = (await searchDiseaseOntology(conditionLabel)).find((r) => r.id === conditionId)
-  if (!match) {
-    throw new BadRequestError(`Disease condition ${conditionId} (${conditionLabel}) not found in Disease Ontology`)
-  }
-
-  await prisma.diseaseCondition.create({ data: { id: match.id, label: match.label } })
-  return match.id
+export async function requireVisiblePanel(id: string, viewer: ViewerContext | null): Promise<PanelRow> {
+  const panel = await getVisiblePanelById(id, viewer)
+  if (!panel) throw new NotFoundError("Panel not found")
+  return panel
 }
 
-async function resolveTaxon(speciesId?: string, speciesLabel?: string): Promise<string | undefined> {
-  if (!speciesId) return undefined
-
-  const existing = await prisma.taxon.findUnique({ where: { id: speciesId } })
-  if (existing) return existing.id
-
-  if (!speciesLabel) throw new BadRequestError(`Unknown species ${speciesId}`)
-  const match = (await searchSpecies(speciesLabel)).find((r) => r.id === speciesId)
-  if (!match) throw new BadRequestError(`Species ${speciesId} (${speciesLabel}) not found in NCBI Taxonomy`)
-
-  await prisma.taxon.create({ data: { id: match.id, label: match.label } })
-  return match.id
+export async function requireEditablePanel(id: string, viewer: ViewerContext | null): Promise<PanelRow> {
+  const panel = await getPanelById(id)
+  if (!panel) throw new NotFoundError("Panel not found")
+  if (!canEditPanel(viewer, panel)) throw new ForbiddenError("Forbidden")
+  return panel
 }
 
-async function resolveFixative(fixativeId?: string, fixativeLabel?: string): Promise<string | undefined> {
-  if (!fixativeId) return undefined
-
-  const existing = await prisma.fixative.findUnique({ where: { id: fixativeId } })
-  if (existing) return existing.id
-
-  if (!fixativeLabel) throw new BadRequestError(`Unknown fixative ${fixativeId}`)
-  const match = (await searchChebi(fixativeLabel)).find((r) => r.id === fixativeId)
-  if (!match) throw new BadRequestError(`Fixative ${fixativeId} (${fixativeLabel}) not found in ChEBI`)
-
-  await prisma.fixative.create({ data: { id: match.id, label: match.label } })
-  return match.id
+export function requirePanelCycle(panel: PanelRow, cycleId: string): PanelCycleRow {
+  const cycle = panel.cycles.find((c) => c.id === cycleId)
+  if (!cycle) throw new NotFoundError(`Cycle ${cycleId} not found in this panel`)
+  return cycle
 }
 
-async function resolveImagingMethod(
-  imagingMethodId?: string | null,
-  imagingMethodLabel?: string,
-): Promise<string | null | undefined> {
-  if (imagingMethodId === undefined || imagingMethodId === null) return imagingMethodId
-
-  const existing = await prisma.imagingMethod.findUnique({ where: { id: imagingMethodId } })
-  if (existing) return existing.id
-
-  if (!imagingMethodLabel) throw new BadRequestError(`Unknown imaging method ${imagingMethodId}`)
-  const match = (await searchEfoImagingMethods(imagingMethodLabel)).find((r) => r.id === imagingMethodId)
-  if (!match) throw new BadRequestError(`Imaging method ${imagingMethodId} (${imagingMethodLabel}) not found in EFO`)
-
-  await prisma.imagingMethod.create({ data: { id: match.id, label: match.label } })
-  return match.id
+export function requirePanelMarker(panel: PanelRow, markerId: string): PanelMarkerRow {
+  const marker = panel.cycles.flatMap((c) => c.markers).find((m) => m.id === markerId)
+  if (!marker) throw new NotFoundError(`Marker ${markerId} not found in this panel`)
+  return marker
 }
 
 export async function createPanel(data: CreatePanelData, ownerId: string): Promise<PanelRow> {
-  const resolvedConditionId = await resolveCondition(data.conditionId, data.conditionLabel)
-  const resolvedSpeciesId = await resolveTaxon(data.speciesId, data.speciesLabel)
-  const resolvedFixativeId = await resolveFixative(data.fixativeId, data.fixativeLabel)
-  const resolvedImagingMethodId = await resolveImagingMethod(data.imagingMethodId, data.imagingMethodLabel)
+  const conditionId = await ensureOntologyTermId("condition", data.conditionId, data.conditionLabel)
+  const speciesId = await ensureOntologyTermId("taxon", data.speciesId, data.speciesLabel)
+  const fixativeId = await ensureOntologyTermId("fixative", data.fixativeId, data.fixativeLabel)
+  const imagingMethodId = await ensureOntologyTermId("imagingMethod", data.imagingMethodId, data.imagingMethodLabel)
   // Panels default to PRIVATE (draft); the owner opts in to sharing or publishing.
   const access = await resolveResourceVisibility({
     ownerId,
@@ -420,11 +367,11 @@ export async function createPanel(data: CreatePanelData, ownerId: string): Promi
     data: {
       name: data.name,
       description: data.description,
-      speciesId: resolvedSpeciesId,
+      speciesId,
       preservation: data.preservation,
-      fixativeId: resolvedFixativeId,
-      imagingMethodId: resolvedImagingMethodId ?? undefined,
-      conditionId: resolvedConditionId,
+      fixativeId,
+      imagingMethodId,
+      conditionId,
       visibility: access.visibility,
       owningLabId: access.owningLabId,
       ownerId,
@@ -441,13 +388,14 @@ export async function createPanel(data: CreatePanelData, ownerId: string): Promi
 }
 
 export async function updatePanel(id: string, data: UpdatePanelData): Promise<PanelRow> {
-  const resolvedConditionId =
-    data.conditionId !== undefined ? await resolveCondition(data.conditionId, data.conditionLabel) : undefined
-  const resolvedSpeciesId =
-    data.speciesId !== undefined ? await resolveTaxon(data.speciesId, data.speciesLabel) : undefined
-  const resolvedFixativeId =
-    data.fixativeId === null ? null : await resolveFixative(data.fixativeId, data.fixativeLabel)
-  const resolvedImagingMethodId = await resolveImagingMethod(data.imagingMethodId, data.imagingMethodLabel)
+  const conditionId = await ensureOntologyTermId("condition", data.conditionId, data.conditionLabel)
+  const speciesId = await ensureOntologyTermId("taxon", data.speciesId, data.speciesLabel)
+  const fixativeId =
+    data.fixativeId === null ? null : await ensureOntologyTermId("fixative", data.fixativeId, data.fixativeLabel)
+  const imagingMethodId =
+    data.imagingMethodId === null
+      ? null
+      : await ensureOntologyTermId("imagingMethod", data.imagingMethodId, data.imagingMethodLabel)
 
   const touchesVisibility =
     data.visibility !== undefined || data.sharedLabIds !== undefined || data.owningLabId !== undefined
@@ -479,11 +427,11 @@ export async function updatePanel(id: string, data: UpdatePanelData): Promise<Pa
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(resolvedSpeciesId !== undefined && { speciesId: resolvedSpeciesId }),
+        ...(speciesId !== undefined && { speciesId }),
         ...(data.preservation !== undefined && { preservation: data.preservation }),
-        ...(resolvedFixativeId !== undefined && { fixativeId: resolvedFixativeId }),
-        ...(resolvedImagingMethodId !== undefined && { imagingMethodId: resolvedImagingMethodId }),
-        ...(resolvedConditionId !== undefined && { conditionId: resolvedConditionId }),
+        ...(fixativeId !== undefined && { fixativeId }),
+        ...(imagingMethodId !== undefined && { imagingMethodId }),
+        ...(conditionId !== undefined && { conditionId }),
         ...(access ? { visibility: access.visibility, owningLabId: access.owningLabId } : {}),
       },
       select: panelSelect,

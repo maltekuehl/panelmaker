@@ -1,9 +1,8 @@
 "use client"
 
 import { OntologyCombobox } from "@/components/ontology-combobox"
+import { OptionSelect } from "@/components/option-select"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AntigenRetrieval } from "@/lib/generated/prisma/enums"
 import { SpecimenSection } from "./specimen-section"
 import { ANTIGEN_RETRIEVAL_OPTIONS, PRESERVATION_OPTIONS, type ExperimentContext } from "./types"
 
@@ -71,42 +70,26 @@ export function ExperimentMethodSection({
 
             <div className="space-y-1.5">
               <Label htmlFor="method-preservation">Preservation</Label>
-              <Select
+              <OptionSelect
+                id="method-preservation"
                 value={context.preservation}
                 onValueChange={(preservation) => onChange({ ...context, preservation })}
-              >
-                <SelectTrigger id="method-preservation" className="w-full">
-                  <SelectValue placeholder="Select preservation" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRESERVATION_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                options={PRESERVATION_OPTIONS}
+                placeholder="Select preservation"
+                className="w-full"
+              />
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="method-retrieval">Antigen retrieval</Label>
-              <Select
+              <OptionSelect
+                id="method-retrieval"
                 value={context.antigenRetrieval}
-                onValueChange={(antigenRetrieval) =>
-                  onChange({ ...context, antigenRetrieval: antigenRetrieval as AntigenRetrieval })
-                }
-              >
-                <SelectTrigger id="method-retrieval" className="w-full">
-                  <SelectValue placeholder="Select retrieval" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ANTIGEN_RETRIEVAL_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>
-                      {o.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onValueChange={(antigenRetrieval) => onChange({ ...context, antigenRetrieval })}
+                options={ANTIGEN_RETRIEVAL_OPTIONS}
+                placeholder="Select retrieval"
+                className="w-full"
+              />
             </div>
           </div>
         </div>

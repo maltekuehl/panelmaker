@@ -5,29 +5,14 @@ import { mkdir, unlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import sharp from "sharp"
 import { env } from "./env"
+import { UnprocessableError } from "./error-handling"
 
 export const MIN_DIMENSION = 256
 export const MAX_DIMENSION = 4084
 export const MAX_UPLOAD_BYTES = 80 * 1024 * 1024
 export const ALLOWED_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/tiff"] as const
 
-export class ImageTooLargeError extends Error {
-  constructor(width: number, height: number) {
-    super(
-      `Image is ${width}x${height}px. Each side must be at most ${MAX_DIMENSION}px. Crop the image before uploading.`,
-    )
-    this.name = "ImageTooLargeError"
-  }
-}
-
-export class ImageTooSmallError extends Error {
-  constructor(width: number, height: number) {
-    super(`Image is ${width}x${height}px. Each side must be at least ${MIN_DIMENSION}px.`)
-    this.name = "ImageTooSmallError"
-  }
-}
-
-export class InvalidImageError extends Error {
+class InvalidImageError extends UnprocessableError {
   constructor(message = "The uploaded file is not a valid image.") {
     super(message)
     this.name = "InvalidImageError"
@@ -70,10 +55,12 @@ export async function saveUploadedImage(buffer: Buffer): Promise<{ url: string; 
     throw new InvalidImageError()
   }
   if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-    throw new ImageTooLargeError(width, height)
+    throw new InvalidImageError(
+      `Image is ${width}x${height}px. Each side must be at most ${MAX_DIMENSION}px. Crop the image before uploading.`,
+    )
   }
   if (width < MIN_DIMENSION || height < MIN_DIMENSION) {
-    throw new ImageTooSmallError(width, height)
+    throw new InvalidImageError(`Image is ${width}x${height}px. Each side must be at least ${MIN_DIMENSION}px.`)
   }
 
   const output = await pipeline.webp({ lossless: true }).toBuffer()

@@ -1,9 +1,8 @@
 "use client"
 
 import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
-import { Button } from "@/components/ui/button"
+import { ResetFiltersButton } from "@/components/filter-toolbar"
 import { isLeaderboardParamsActive, LEADERBOARD_FILTER_KEYS, leaderboardParsers } from "@/lib/data-table"
-import { X } from "lucide-react"
 import { useQueryStates } from "nuqs"
 
 export type LeaderboardFilterOption = { value: string; label: string; description?: string }
@@ -41,10 +40,7 @@ export function LeaderboardFilters({ dimensions }: { dimensions: LeaderboardDime
           }
         />
       ))}
-      <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters} disabled={!isActive}>
-        <X className="size-4" />
-        Reset
-      </Button>
+      <ResetFiltersButton onClick={resetFilters} disabled={!isActive} />
     </div>
   )
 }

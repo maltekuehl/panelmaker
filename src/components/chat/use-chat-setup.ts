@@ -1,15 +1,12 @@
 "use client"
 
+import { patchConversation } from "@/components/chat/conversation-api"
 import { annotateModels, parseModelId, type ChatSetupData, type ModelAvailability } from "@/models/chat/keys"
 import type { ProviderId } from "@/models/chat/schema"
 import { useMemo, useState } from "react"
 
 function persist(conversationId: string, data: { model?: string; labId?: string }) {
-  fetch(`/api/chat/conversations/${conversationId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  }).catch(() => undefined)
+  patchConversation(conversationId, data).catch(() => undefined)
 }
 
 // Model and lab-context state for one conversation. Availability is recomputed on the client from the

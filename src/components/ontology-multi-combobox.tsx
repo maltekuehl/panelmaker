@@ -1,16 +1,8 @@
 "use client"
 
+import { OntologySearch, type OntologyType, type OntologyValue } from "@/components/ontology-combobox"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { useDebouncedSearch } from "@/hooks/use-debounced-search"
-import type { OntologyResult, OntologyType } from "@/lib/ontology"
-import { cn } from "@/lib/utils"
-import { Check, ChevronsUpDown, Loader2, X } from "lucide-react"
-import { useCallback, useState } from "react"
-
-import type { OntologyValue } from "@/components/ontology-combobox"
+import { X } from "lucide-react"
 
 export type { OntologyValue }
 
@@ -28,100 +20,29 @@ export function OntologyMultiCombobox({
   ontologyType,
   values,
   onChange,
-  placeholder = "Search\u2026",
+  placeholder = "Search…",
   disabled = false,
 }: OntologyMultiComboboxProps) {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState("")
-
-  const fetcher = useCallback(
-    (q: string, signal: AbortSignal) =>
-      fetch(`/api/ontology?type=${ontologyType}&q=${encodeURIComponent(q)}`, { signal }),
-    [ontologyType],
-  )
-  const extractResults = useCallback((data: unknown) => (data as { results?: OntologyResult[] }).results ?? [], [])
-
-  const { results, isLoading } = useDebouncedSearch<OntologyResult>({
-    query,
-    enabled: open,
-    fetcher,
-    extractResults,
-  })
-
   const selectedIds = new Set(values.map((v) => v.id))
 
-  function handleToggle(result: OntologyResult) {
-    if (selectedIds.has(result.id)) {
-      onChange(values.filter((v) => v.id !== result.id))
-    } else {
-      onChange([...values, { id: result.id, label: result.label }])
-    }
-  }
-
-  function handleRemove(id: string) {
-    onChange(values.filter((v) => v.id !== id))
+  function remove(valueId: string) {
+    onChange(values.filter((v) => v.id !== valueId))
   }
 
   return (
     <div className="space-y-2">
-      <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen} modal>
-        <PopoverTrigger asChild>
-          <Button
-            id={id}
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between font-normal"
-            disabled={disabled}
-          >
-            <span className={cn(!values.length && "text-muted-foreground")}>
-              {values.length > 0 ? `${values.length} selected` : placeholder}
-            </span>
-            <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent aria-label={placeholder} className="w-(--radix-popover-trigger-width) p-0" align="start">
-          <Command shouldFilter={false}>
-            <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
-            <CommandList>
-              {isLoading && (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
-              )}
-              {!isLoading && query.trim().length >= 2 && results.length === 0 && (
-                <CommandEmpty>No results found.</CommandEmpty>
-              )}
-              {!isLoading && query.trim().length < 2 && (
-                <CommandEmpty>Type at least 2 characters to search.</CommandEmpty>
-              )}
-              {results.length > 0 && (
-                <CommandGroup>
-                  {results.map((result) => (
-                    <CommandItem
-                      key={result.id}
-                      value={result.id}
-                      onSelect={() => handleToggle(result)}
-                      className="flex flex-col items-start gap-0.5"
-                    >
-                      <div className="flex w-full items-center gap-2">
-                        <Check
-                          className={cn("h-4 w-4 shrink-0", selectedIds.has(result.id) ? "opacity-100" : "opacity-0")}
-                        />
-                        <span className="font-medium">{result.label}</span>
-                        <span className="ml-auto text-xs text-muted-foreground">{result.id}</span>
-                      </div>
-                      {result.description && (
-                        <span className="pl-6 text-xs text-muted-foreground line-clamp-1">{result.description}</span>
-                      )}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+      <OntologySearch
+        id={id}
+        ontologyType={ontologyType}
+        placeholder={placeholder}
+        disabled={disabled}
+        closeOnSelect={false}
+        triggerLabel={values.length > 0 ? `${values.length} selected` : null}
+        isSelected={(resultId) => selectedIds.has(resultId)}
+        onSelect={(result) =>
+          selectedIds.has(result.id) ? remove(result.id) : onChange([...values, { id: result.id, label: result.label }])
+        }
+      />
 
       {values.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -130,7 +51,7 @@ export function OntologyMultiCombobox({
               {v.label}
               <button
                 type="button"
-                onClick={() => handleRemove(v.id)}
+                onClick={() => remove(v.id)}
                 className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20"
               >
                 <X className="h-3 w-3" />

@@ -1,10 +1,10 @@
 export {
-  getExperimentAccessById,
   getExperimentById,
   getExperimentEntriesPage,
   getLabExperimentCount,
   getLabExperimentEntriesPage,
   getVisibleExperimentById,
+  requireEditableExperiment,
   updateExperiment,
 } from "./queries"
 export type { ExperimentAccessRow, ExperimentHeaderRow } from "./queries"

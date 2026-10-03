@@ -4,7 +4,8 @@ import { DataTable } from "@/components/browse/data-table"
 import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
 import { DataTablePagination } from "@/components/data-table/pagination"
 import { DebouncedSearchInput } from "@/components/data-table/search-input"
-import { buildInventoryColumns, type InventoryItem } from "@/components/lab/inventory-columns"
+import { clearedTableParams, ResetFiltersButton } from "@/components/filter-toolbar"
+import { buildInventoryColumns, INVENTORY_STATUS_OPTIONS, type InventoryItem } from "@/components/lab/inventory-columns"
 import { InventoryFormDialog } from "@/components/lab/inventory-form-dialog"
 import {
   AlertDialog,
@@ -17,19 +18,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { useApiRequest } from "@/hooks/use-api-request"
 import { isInventoryParamsActive, labInventoryParsers } from "@/lib/data-table"
-import { Package, Plus, X } from "lucide-react"
+import { Package, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useQueryStates } from "nuqs"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-
-const STATUS_OPTIONS = [
-  { value: "IN_STOCK", label: "In stock" },
-  { value: "LOW", label: "Low" },
-  { value: "ORDERED", label: "Ordered" },
-  { value: "OUT_OF_STOCK", label: "Out of stock" },
-]
 
 type FacetOption = { value: string; label: string; description?: string }
 
@@ -50,9 +45,16 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
   const [addOpen, setAddOpen] = useState(false)
   const [editing, setEditing] = useState<InventoryItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null)
-  const [deleting, setDeleting] = useState(false)
+  const { pending, request } = useApiRequest()
+  const deleting = pending !== null
 
   const isFiltered = isInventoryParamsActive(params)
+
+  const filters: { key: "status" | "host" | "clonality"; title: string; options: FacetOption[] }[] = [
+    { key: "status", title: "Status", options: INVENTORY_STATUS_OPTIONS },
+    { key: "host", title: "Host species", options: facets.host },
+    { key: "clonality", title: "Clonality", options: facets.clonality },
+  ]
 
   const columns = useMemo(
     () =>
@@ -66,22 +68,15 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
 
   async function confirmDelete() {
     if (!deleteTarget) return
-    setDeleting(true)
-    try {
-      const res = await fetch(`/api/labs/${labId}/inventory/${deleteTarget.id}`, { method: "DELETE" })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error ?? "Failed to remove antibody")
-        return
-      }
-      toast.success("Antibody removed from inventory")
-      setDeleteTarget(null)
-      router.refresh()
-    } catch {
-      toast.error("Something went wrong")
-    } finally {
-      setDeleting(false)
-    }
+    const data = await request(true, {
+      url: `/api/labs/${labId}/inventory/${deleteTarget.id}`,
+      method: "DELETE",
+      errorMessage: "Failed to remove antibody",
+    })
+    if (!data) return
+    toast.success("Antibody removed from inventory")
+    setDeleteTarget(null)
+    router.refresh()
   }
 
   // Truly empty (no items and no active search/filter): show the empty state instead of the table.
@@ -124,43 +119,23 @@ export function InventoryManager({ labId, canManage, items, total, page, pageCou
               onCommit={(q) => setParams({ q: q || null, page: 1 })}
               className="h-8 w-[200px] lg:w-[280px]"
             />
-            <DataTableFacetedFilter
-              className="w-[180px] justify-start overflow-hidden"
-              title="Status"
-              options={STATUS_OPTIONS}
-              value={params.status}
-              onChange={(value) => setParams({ status: value.length ? value : null, page: 1 })}
-            />
-            {facets.host.length > 0 && (
-              <DataTableFacetedFilter
-                className="w-[180px] justify-start overflow-hidden"
-                title="Host species"
-                options={facets.host}
-                value={params.host}
-                onChange={(value) => setParams({ host: value.length ? value : null, page: 1 })}
-              />
+            {filters.map(
+              (filter) =>
+                filter.options.length > 0 && (
+                  <DataTableFacetedFilter
+                    key={filter.key}
+                    className="w-[180px] justify-start overflow-hidden"
+                    title={filter.title}
+                    options={filter.options}
+                    value={params[filter.key]}
+                    onChange={(value) => setParams({ [filter.key]: value.length ? value : null, page: 1 })}
+                  />
+                ),
             )}
-            {facets.clonality.length > 0 && (
-              <DataTableFacetedFilter
-                className="w-[180px] justify-start overflow-hidden"
-                title="Clonality"
-                options={facets.clonality}
-                value={params.clonality}
-                onChange={(value) => setParams({ clonality: value.length ? value : null, page: 1 })}
-              />
-            )}
-            <Button
-              variant="secondary"
-              size="sm"
-              className="h-8 px-2 lg:px-3"
+            <ResetFiltersButton
               disabled={!isFiltered}
-              onClick={() =>
-                setParams({ q: null, status: null, host: null, clonality: null, sort: null, order: null, page: null })
-              }
-            >
-              <X className="h-4 w-4" />
-              Reset
-            </Button>
+              onClick={() => setParams(clearedTableParams(filters.map((filter) => filter.key)))}
+            />
           </div>
 
           <DataTable columns={columns} data={items} emptyMessage="No inventory items match these filters." />

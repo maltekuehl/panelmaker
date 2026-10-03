@@ -55,3 +55,25 @@ export async function searchProteins(query: string): Promise<ProteinRow[]> {
     orderBy: { label: "asc" },
   })
 }
+
+export type ProteinSeed = {
+  id: string
+  label?: string | null
+  geneSymbol?: string | null
+  ensemblGeneId?: string | null
+}
+
+export async function ensureProtein(seed: ProteinSeed, db: Prisma.TransactionClient = prisma): Promise<string> {
+  const protein = await db.protein.upsert({
+    where: { id: seed.id },
+    update: seed.ensemblGeneId ? { ensemblGeneId: seed.ensemblGeneId } : {},
+    create: {
+      id: seed.id,
+      label: seed.label ?? seed.id,
+      geneSymbol: seed.geneSymbol ?? null,
+      ensemblGeneId: seed.ensemblGeneId ?? null,
+    },
+    select: { id: true },
+  })
+  return protein.id
+}

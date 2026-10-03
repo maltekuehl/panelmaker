@@ -1,5 +1,5 @@
-export { getAllProteins, getProteinById, searchProteins } from "./queries"
-export type { ProteinQueryParams, ProteinRow } from "./queries"
+export { ensureProtein, getAllProteins, getProteinById, searchProteins } from "./queries"
+export type { ProteinQueryParams, ProteinRow, ProteinSeed } from "./queries"
 export { searchParamsSchema } from "./schema"
 export type { SearchParams } from "./schema"
 export { toProteinResponse } from "./transforms"

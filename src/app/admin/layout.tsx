@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   description: "Administrative tools and user management",
 }
 
+const ADMIN_LINKS = [
+  { href: "/admin/user", label: "User Management" },
+  { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/stats", label: "Statistics" },
+]
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser()
 
@@ -29,24 +35,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <h1 className="text-2xl font-bold">Admin Panel</h1>
               <div className="h-6 w-px bg-border" />
               <nav className="flex flex-wrap gap-x-4 gap-y-1">
-                <Link
-                  href="/admin/user"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  User Management
-                </Link>
-                <Link
-                  href="/admin/reports"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Reports
-                </Link>
-                <Link
-                  href="/admin/stats"
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Statistics
-                </Link>
+                {ADMIN_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </nav>
             </div>
             <div className="text-sm text-muted-foreground">Logged in as {user.name || user.email}</div>

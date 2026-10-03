@@ -1,167 +1,79 @@
 "use client"
 
-import { ImageCarouselDialog, type CarouselImage } from "@/components/browse/image-carousel-dialog"
+import {
+  addToPanelColumn,
+  cellTypesColumn,
+  countBadgeColumn,
+  imagesColumn,
+  methodColumn,
+  optionalTextColumn,
+  sortableHeader,
+  speciesColumn,
+  tissueColumn,
+  type AddToPanelTarget,
+} from "@/components/browse/column-helpers"
 import { RecommendationBadge, ValidationCount } from "@/components/browse/report-badges"
 import { ReportsDialog } from "@/components/browse/reports-dialog"
 import { VerdictRing } from "@/components/browse/verdict-ring"
-import { DataTableColumnHeader } from "@/components/data-table/column-header"
-import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { NotAvailable } from "@/components/shared/not-available"
-import { TruncatedOrNotAvailable, TruncatedText } from "@/components/shared/truncated-text"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { TruncatedText } from "@/components/shared/truncated-text"
 import { formatDate } from "@/lib/format"
-import type { Recommendation } from "@/lib/generated/prisma/enums"
-import { doiUrl, pubmedUrl, type PublicationLink } from "@/lib/publication"
-import { antibodyHref, cellTypeHref, markerHref, profileHref } from "@/lib/routes"
+import { doiUrl, pubmedUrl } from "@/lib/publication"
+import { antibodyHref, markerHref, profileHref } from "@/lib/routes"
 import { ColumnDef } from "@tanstack/react-table"
-import { ImageIcon } from "lucide-react"
 import Link from "next/link"
 
-import type { OntologyValue as OntologyRef } from "@/components/ontology-combobox"
-import type { ReportIssueEntry, ReportValidationEntry, VerdictCounts } from "@/models/experimental-report/transforms"
+import type {
+  AntibodyEntry,
+  ExperimentEntry,
+  MarkerEntry,
+  MarkerReport,
+  MemberRef,
+  PanelEntry,
+  ReportEntry,
+} from "@/models/experimental-report/entries"
+import type { VerdictCounts } from "@/models/experimental-report/transforms"
+import type { CarouselImage } from "@/models/image/transforms"
 
-export type { OntologyRef }
+export type {
+  AntibodyEntry,
+  ExperimentEntry,
+  MarkerEntry,
+  MarkerReport,
+  MemberRef,
+  PanelEntry,
+  ReportEntry,
+} from "@/models/experimental-report/entries"
 
-export type MemberRef = { id: string; name: string | null }
+type EvidenceEntry = { reports: MarkerReport[]; verdicts: VerdictCounts; images: CarouselImage[] }
 
-export type MarkerReport = {
-  id: string
-  submitter: string | null
-  submitterId: string | null
-  lab: string | null
-  publication: PublicationLink | null
-  dataSource: { name: string; url: string | null } | null
-  method: string
-  species: string
-  recommendation: Recommendation | null
-}
-
-export type MarkerEntry = {
-  // Grouping key for the table row. Equals proteinId when the antibody is linked to a protein,
-  // otherwise a synthetic key, so it must never be used to build a /marker/ link.
-  id: string
-  // The UniProt accession, null when no protein is linked. Only this may drive a marker link.
-  proteinId: string | null
-  marker: string
-  cellTypes: OntologyRef[]
-  species: string
-  tissue: string
-  validatedMethods: string[]
-  reportCount: number
-  verdicts: VerdictCounts
-  reports: MarkerReport[]
-  images: CarouselImage[]
-}
-
-export type AntibodyEntry = {
-  id: string
-  rrid: string | null
-  name: string
-  target: string | null
-  targetProteinId: string | null
-  vendor: string | null
-  clone: string | null
-  reportCount: number
-  verdicts: VerdictCounts
-  reports: MarkerReport[]
-  images: CarouselImage[]
-}
-
-export type ReportEntry = {
-  id: string
-  experimentId: string
-  marker: string
-  antibodyId: string | null
-  antibodyName: string
-  rrid: string | null
-  species: string
-  tissue: string
-  method: string
-  cellTypes: OntologyRef[]
-  subcellular: string | null
-  recommendation: Recommendation | null
-  validations: ReportValidationEntry[]
-  issues: ReportIssueEntry[]
-  images: CarouselImage[]
-  submitter: MemberRef | null
-}
-
-export type ExperimentEntry = {
-  id: string
-  name: string | null
-  pmid: string | null
-  doi: string | null
-  method: string
-  species: string
-  tissue: string
-  condition: string | null
-  stainingCount: number
-  usableCount: number
-  antibodyCount: number
-  images: CarouselImage[]
-  createdAt: string
-  submitter: MemberRef | null
-}
-
-const VISIBLE_CELL_TYPES = 2
-
-function CellTypeLinks({ cellTypes }: { cellTypes: OntologyRef[] }) {
-  if (cellTypes.length === 0) return <NotAvailable />
-  const visible = cellTypes.slice(0, VISIBLE_CELL_TYPES)
-  const hidden = cellTypes.slice(VISIBLE_CELL_TYPES)
-  return (
-    <div className="flex max-w-[240px] flex-col gap-0.5">
-      {visible.map((ct) => (
-        <TruncatedText key={ct.id} text={ct.label} href={cellTypeHref(ct.id)} />
-      ))}
-      {hidden.length > 0 && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="w-fit cursor-default text-xs text-muted-foreground">+{hidden.length} more</span>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-sm">{hidden.map((ct) => ct.label).join(", ")}</TooltipContent>
-        </Tooltip>
-      )}
-    </div>
-  )
-}
-
-function ImageCell({ images, title }: { images: CarouselImage[]; title: string }) {
-  if (!images || images.length === 0) {
-    return (
-      <span className="flex size-10 items-center justify-center rounded border bg-muted/40 text-muted-foreground">
-        <ImageIcon className="size-4" />
-      </span>
-    )
-  }
-  return (
-    <ImageCarouselDialog
-      images={images}
-      title={title}
-      trigger={
-        <button
-          type="button"
-          title="Quick image look"
-          className="group relative size-10 overflow-hidden rounded border bg-muted/40 transition-colors hover:border-primary/50"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={images[0].src} alt={`${title} image`} className="size-full object-cover" />
-          {images.length > 1 && (
-            <span className="absolute bottom-0 right-0 rounded-tl bg-black/70 px-1 text-[10px] leading-tight text-white">
-              {images.length}
-            </span>
-          )}
-        </button>
-      }
-    />
-  )
+function evidenceColumns<T extends EvidenceEntry>(
+  title: (entry: T) => string,
+  context: (entry: T) => string | undefined,
+  panelTarget: (entry: T) => AddToPanelTarget | null,
+): ColumnDef<T>[] {
+  return [
+    {
+      accessorKey: "reportCount",
+      header: sortableHeader("reportCount", "Reports"),
+      cell: ({ row }) => (
+        <ReportsDialog title={title(row.original)} context={context(row.original)} reports={row.original.reports} />
+      ),
+    },
+    {
+      accessorKey: "verdicts",
+      header: sortableHeader("verdicts", "Verdicts"),
+      cell: ({ row }) => <VerdictRing counts={row.original.verdicts} />,
+    },
+    imagesColumn(title),
+    addToPanelColumn(panelTarget),
+  ] as ColumnDef<T>[]
 }
 
 export const columns: ColumnDef<MarkerEntry>[] = [
   {
     accessorKey: "marker",
-    header: () => <DataTableColumnHeader field="marker" title="Marker" />,
+    header: sortableHeader("marker", "Marker"),
     cell: ({ row }) => (
       <TruncatedText
         text={row.original.marker}
@@ -170,98 +82,39 @@ export const columns: ColumnDef<MarkerEntry>[] = [
       />
     ),
   },
-  {
-    accessorKey: "cellTypes",
-    header: () => <DataTableColumnHeader field="cellType" title="Cell Types" />,
-    cell: ({ row }) => <CellTypeLinks cellTypes={row.original.cellTypes} />,
-    sortingFn: (a, b) =>
-      a.original.cellTypes
-        .map((c) => c.label)
-        .join(", ")
-        .localeCompare(b.original.cellTypes.map((c) => c.label).join(", ")),
-  },
-  {
-    accessorKey: "species",
-    header: () => <DataTableColumnHeader field="species" title="Sample species" />,
-    cell: ({ row }) => <TruncatedText text={row.original.species} className="max-w-[160px]" />,
-  },
-  {
-    accessorKey: "tissue",
-    header: () => <DataTableColumnHeader field="tissue" title="Tissue" />,
-    cell: ({ row }) => <TruncatedText text={row.original.tissue} className="max-w-[160px] text-muted-foreground" />,
-  },
+  cellTypesColumn(),
+  speciesColumn(),
+  tissueColumn(),
   {
     accessorKey: "validatedMethods",
-    header: () => <DataTableColumnHeader field="methods" title="Methods" />,
-    cell: ({ row }) => {
-      return (
-        <TruncatedText
-          text={row.original.validatedMethods.join(", ")}
-          className="max-w-[150px] text-muted-foreground"
-        />
-      )
-    },
+    header: sortableHeader("methods", "Methods"),
+    cell: ({ row }) => (
+      <TruncatedText text={row.original.validatedMethods.join(", ")} className="max-w-[150px] text-muted-foreground" />
+    ),
     sortingFn: (a, b) => a.original.validatedMethods.join(", ").localeCompare(b.original.validatedMethods.join(", ")),
   },
-  {
-    accessorKey: "reportCount",
-    header: () => <DataTableColumnHeader field="reportCount" title="Reports" />,
-    cell: ({ row }) => (
-      <ReportsDialog
-        title={row.original.marker}
-        context={
-          row.original.cellTypes.length > 0
-            ? `staining ${row.original.cellTypes.map((c) => c.label).join(", ")}`
-            : undefined
-        }
-        reports={row.original.reports}
-      />
-    ),
-  },
-  {
-    accessorKey: "verdicts",
-    header: () => <DataTableColumnHeader field="verdicts" title="Verdicts" />,
-    cell: ({ row }) => <VerdictRing counts={row.original.verdicts} />,
-  },
-  {
-    id: "images",
-    header: "Images",
-    cell: ({ row }) => <ImageCell images={row.original.images} title={row.original.marker} />,
-  },
-  {
-    id: "actions",
-    header: "",
-    cell: ({ row }) => (
-      <div className="text-right">
-        <AddToPanelButton
-          proteinId={row.original.id}
-          label={row.original.marker}
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs"
-        />
-      </div>
-    ),
-  },
+  ...evidenceColumns<MarkerEntry>(
+    (entry) => entry.marker,
+    (entry) => (entry.cellTypes.length > 0 ? `staining ${entry.cellTypes.map((c) => c.label).join(", ")}` : undefined),
+    (entry) => ({ proteinId: entry.id, label: entry.marker }),
+  ),
 ]
 
 export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
   {
     accessorKey: "name",
-    header: () => <DataTableColumnHeader field="name" title="Antibody" />,
-    cell: ({ row }) => {
-      return (
-        <TruncatedText
-          text={row.original.name}
-          href={antibodyHref(row.original.rrid) ?? undefined}
-          className="max-w-[280px] font-semibold"
-        />
-      )
-    },
+    header: sortableHeader("name", "Antibody"),
+    cell: ({ row }) => (
+      <TruncatedText
+        text={row.original.name}
+        href={antibodyHref(row.original.rrid) ?? undefined}
+        className="max-w-[280px] font-semibold"
+      />
+    ),
   },
   {
     accessorKey: "target",
-    header: () => <DataTableColumnHeader field="target" title="Target" />,
+    header: sortableHeader("target", "Target"),
     cell: ({ row }) => {
       const { target, targetProteinId } = row.original
       if (!target) return <NotAvailable />
@@ -276,7 +129,7 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
   },
   {
     accessorKey: "rrid",
-    header: () => <DataTableColumnHeader field="rrid" title="RRID" />,
+    header: sortableHeader("rrid", "RRID"),
     cell: ({ row }) => {
       const href = antibodyHref(row.original.rrid)
       return href ? (
@@ -288,63 +141,22 @@ export const antibodyColumns: ColumnDef<AntibodyEntry>[] = [
       )
     },
   },
-  {
-    accessorKey: "vendor",
-    header: () => <DataTableColumnHeader field="vendor" title="Vendor" />,
-    cell: ({ row }) => (
-      <TruncatedOrNotAvailable value={row.original.vendor} className="max-w-[160px] text-muted-foreground" />
-    ),
-  },
-  {
-    accessorKey: "clone",
-    meta: { label: "Clone", hiddenByDefault: true },
-    header: () => <DataTableColumnHeader field="clone" title="Clone" />,
-    cell: ({ row }) => (
-      <TruncatedOrNotAvailable value={row.original.clone} className="max-w-[120px] text-muted-foreground" />
-    ),
-  },
-  {
-    accessorKey: "reportCount",
-    header: () => <DataTableColumnHeader field="reportCount" title="Reports" />,
-    cell: ({ row }) => (
-      <ReportsDialog
-        title={row.original.name}
-        context={row.original.target ? `targeting ${row.original.target}` : undefined}
-        reports={row.original.reports}
-      />
-    ),
-  },
-  {
-    accessorKey: "verdicts",
-    header: () => <DataTableColumnHeader field="verdicts" title="Verdicts" />,
-    cell: ({ row }) => <VerdictRing counts={row.original.verdicts} />,
-  },
-  {
-    id: "images",
-    header: "Images",
-    cell: ({ row }) => <ImageCell images={row.original.images} title={row.original.name} />,
-  },
-  {
-    id: "actions",
-    header: "",
-    cell: ({ row }) => (
-      <div className="text-right">
-        <AddToPanelButton
-          antibodyId={row.original.id}
-          label={row.original.name}
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs"
-        />
-      </div>
-    ),
-  },
+  optionalTextColumn("vendor", "Vendor", "max-w-[160px] text-muted-foreground"),
+  optionalTextColumn("clone", "Clone", "max-w-[120px] text-muted-foreground", {
+    label: "Clone",
+    hiddenByDefault: true,
+  }),
+  ...evidenceColumns<AntibodyEntry>(
+    (entry) => entry.name,
+    (entry) => (entry.target ? `targeting ${entry.target}` : undefined),
+    (entry) => ({ antibodyId: entry.id, label: entry.name }),
+  ),
 ]
 
 export const reportColumns: ColumnDef<ReportEntry>[] = [
   {
     accessorKey: "marker",
-    header: () => <DataTableColumnHeader field="marker" title="Marker" />,
+    header: sortableHeader("marker", "Marker"),
     cell: ({ row }) => (
       <TruncatedText
         text={row.original.marker}
@@ -355,97 +167,37 @@ export const reportColumns: ColumnDef<ReportEntry>[] = [
   },
   {
     accessorKey: "antibodyName",
-    header: () => <DataTableColumnHeader field="antibodyName" title="Antibody" />,
-    cell: ({ row }) => {
-      return (
-        <TruncatedText
-          text={row.original.antibodyName}
-          href={antibodyHref(row.original.rrid) ?? undefined}
-          className="max-w-[240px]"
-        />
-      )
-    },
-  },
-  {
-    accessorKey: "cellTypes",
-    header: () => <DataTableColumnHeader field="cellType" title="Cell Types" />,
-    cell: ({ row }) => <CellTypeLinks cellTypes={row.original.cellTypes} />,
-    sortingFn: (a, b) =>
-      a.original.cellTypes
-        .map((c) => c.label)
-        .join(", ")
-        .localeCompare(b.original.cellTypes.map((c) => c.label).join(", ")),
-  },
-  {
-    accessorKey: "subcellular",
-    meta: { label: "Subcellular", hiddenByDefault: true },
-    header: () => <DataTableColumnHeader field="subcellular" title="Subcellular" />,
+    header: sortableHeader("antibodyName", "Antibody"),
     cell: ({ row }) => (
-      <TruncatedOrNotAvailable value={row.original.subcellular} className="max-w-[160px] text-muted-foreground" />
+      <TruncatedText
+        text={row.original.antibodyName}
+        href={antibodyHref(row.original.rrid) ?? undefined}
+        className="max-w-[240px]"
+      />
     ),
   },
-  {
-    accessorKey: "species",
-    header: () => <DataTableColumnHeader field="species" title="Sample species" />,
-    cell: ({ row }) => <TruncatedText text={row.original.species} className="max-w-[160px]" />,
-  },
-  {
-    accessorKey: "tissue",
-    header: () => <DataTableColumnHeader field="tissue" title="Tissue" />,
-    cell: ({ row }) => <TruncatedText text={row.original.tissue} className="max-w-[160px] text-muted-foreground" />,
-  },
-  {
-    accessorKey: "method",
-    header: () => <DataTableColumnHeader field="method" title="Method" />,
-    cell: ({ row }) => <TruncatedText text={row.original.method} className="max-w-[140px] text-muted-foreground" />,
-  },
+  cellTypesColumn(),
+  optionalTextColumn("subcellular", "Subcellular", "max-w-[160px] text-muted-foreground", {
+    label: "Subcellular",
+    hiddenByDefault: true,
+  }),
+  speciesColumn(),
+  tissueColumn(),
+  methodColumn(),
   {
     id: "validation",
     meta: { label: "Specificity controls", hiddenByDefault: true },
-    header: () => <DataTableColumnHeader field="validation" title="Controls" />,
+    header: sortableHeader("validation", "Controls"),
     cell: ({ row }) => <ValidationCount validations={row.original.validations} />,
   },
   {
     accessorKey: "recommendation",
-    header: () => <DataTableColumnHeader field="recommendation" title="Verdict" />,
+    header: sortableHeader("recommendation", "Verdict"),
     cell: ({ row }) => <RecommendationBadge recommendation={row.original.recommendation} />,
   },
-  {
-    id: "images",
-    header: "Images",
-    cell: ({ row }) => <ImageCell images={row.original.images} title={row.original.marker} />,
-  },
-  {
-    id: "actions",
-    header: "",
-    cell: ({ row }) =>
-      row.original.antibodyId ? (
-        <div className="text-right">
-          <AddToPanelButton
-            antibodyId={row.original.antibodyId}
-            label={row.original.antibodyName}
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-          />
-        </div>
-      ) : null,
-  },
+  imagesColumn((entry) => entry.marker),
+  addToPanelColumn((entry) => (entry.antibodyId ? { antibodyId: entry.antibodyId, label: entry.antibodyName } : null)),
 ]
-
-export type PanelEntry = {
-  id: string
-  name: string
-  description: string | null
-  ownerId: string | null
-  ownerName: string | null
-  species: string | null
-  method: string | null
-  visibility: string
-  cycleCount: number
-  markerCount: number
-  updatedAt: string
-}
 
 export function MemberCell({ member }: { member: MemberRef | null }) {
   if (!member) return <NotAvailable />
@@ -459,7 +211,7 @@ function panelOwner(panel: PanelEntry): MemberRef | null {
 export const panelColumns: ColumnDef<PanelEntry>[] = [
   {
     accessorKey: "name",
-    header: () => <DataTableColumnHeader field="name" title="Panel" />,
+    header: sortableHeader("name", "Panel"),
     cell: ({ row }) => (
       <div className="max-w-[320px] space-y-0.5">
         <TruncatedText text={row.original.name} href={`/panel/${row.original.id}`} className="font-semibold" />
@@ -471,38 +223,20 @@ export const panelColumns: ColumnDef<PanelEntry>[] = [
   },
   {
     id: "member",
-    header: () => <DataTableColumnHeader field="member" title="Creator" />,
+    header: sortableHeader("member", "Creator"),
     cell: ({ row }) => <MemberCell member={panelOwner(row.original)} />,
   },
-  {
-    accessorKey: "species",
-    header: () => <DataTableColumnHeader field="species" title="Sample species" />,
-    cell: ({ row }) => <TruncatedOrNotAvailable value={row.original.species} className="max-w-[160px]" />,
-  },
-  {
-    accessorKey: "method",
-    header: () => <DataTableColumnHeader field="method" title="Method" />,
-    cell: ({ row }) => (
-      <TruncatedOrNotAvailable value={row.original.method} className="max-w-[140px] text-muted-foreground" />
-    ),
-  },
-  {
-    accessorKey: "markerCount",
-    header: () => <DataTableColumnHeader field="markerCount" title="Antibodies" />,
-    cell: ({ row }) => (
-      <Badge variant="secondary">
-        {row.original.markerCount} {row.original.markerCount === 1 ? "antibody" : "antibodies"}
-      </Badge>
-    ),
-  },
+  optionalTextColumn("species", "Sample species", "max-w-[160px]"),
+  optionalTextColumn("method", "Method", "max-w-[140px] text-muted-foreground"),
+  countBadgeColumn("markerCount", "Antibodies", "antibody", "antibodies"),
   {
     accessorKey: "cycleCount",
-    header: () => <DataTableColumnHeader field="cycleCount" title="Cycles" />,
+    header: sortableHeader("cycleCount", "Cycles"),
     cell: ({ row }) => <span className="text-muted-foreground">{row.original.cycleCount}</span>,
   },
   {
     accessorKey: "updatedAt",
-    header: () => <DataTableColumnHeader field="updatedAt" title="Updated" />,
+    header: sortableHeader("updatedAt", "Updated"),
     cell: ({ row }) => <span className="text-muted-foreground">{formatDate(row.original.updatedAt)}</span>,
   },
 ]
@@ -525,72 +259,41 @@ function PublicationCell({ entry }: { entry: ExperimentEntry }) {
   return <NotAvailable />
 }
 
+function experimentTitle(entry: ExperimentEntry): string {
+  return entry.name ?? `Experiment ${entry.id.slice(0, 8)}`
+}
+
 export const experimentColumns: ColumnDef<ExperimentEntry>[] = [
   {
     accessorKey: "name",
-    header: () => <DataTableColumnHeader field="name" title="Experiment" />,
+    header: sortableHeader("name", "Experiment"),
     cell: ({ row }) => (
       <TruncatedText
-        text={row.original.name ?? `Experiment ${row.original.id.slice(0, 8)}`}
+        text={experimentTitle(row.original)}
         href={`/experiment/${row.original.id}`}
         className="max-w-[320px] font-semibold"
       />
     ),
   },
-  {
-    accessorKey: "method",
-    header: () => <DataTableColumnHeader field="method" title="Method" />,
-    cell: ({ row }) => <TruncatedText text={row.original.method} className="max-w-[140px] text-muted-foreground" />,
-  },
-  {
-    accessorKey: "species",
-    header: () => <DataTableColumnHeader field="species" title="Sample species" />,
-    cell: ({ row }) => <TruncatedText text={row.original.species} className="max-w-[160px]" />,
-  },
-  {
-    accessorKey: "tissue",
-    header: () => <DataTableColumnHeader field="tissue" title="Tissue" />,
-    cell: ({ row }) => <TruncatedText text={row.original.tissue} className="max-w-[160px] text-muted-foreground" />,
-  },
-  {
-    accessorKey: "condition",
-    header: () => <DataTableColumnHeader field="condition" title="Condition" />,
-    cell: ({ row }) => (
-      <TruncatedOrNotAvailable value={row.original.condition} className="max-w-[180px] text-muted-foreground" />
-    ),
-  },
+  methodColumn(),
+  speciesColumn(),
+  tissueColumn(),
+  optionalTextColumn("condition", "Condition", "max-w-[180px] text-muted-foreground"),
   {
     id: "publication",
     meta: { label: "Publication", hiddenByDefault: true },
     header: "Publication",
     cell: ({ row }) => <PublicationCell entry={row.original} />,
   },
-  {
-    accessorKey: "stainingCount",
-    header: () => <DataTableColumnHeader field="stainingCount" title="Stainings" />,
-    cell: ({ row }) => (
-      <Badge variant="secondary">
-        {row.original.stainingCount} {row.original.stainingCount === 1 ? "staining" : "stainings"}
-      </Badge>
-    ),
-  },
+  countBadgeColumn("stainingCount", "Stainings", "staining", "stainings"),
   {
     accessorKey: "usableCount",
-    header: () => <DataTableColumnHeader field="usableCount" title="Usable" />,
+    header: sortableHeader("usableCount", "Usable"),
     cell: ({ row }) => (
       <span className="text-muted-foreground">
         {row.original.usableCount}/{row.original.stainingCount}
       </span>
     ),
   },
-  {
-    id: "images",
-    header: "Images",
-    cell: ({ row }) => (
-      <ImageCell
-        images={row.original.images}
-        title={row.original.name ?? `Experiment ${row.original.id.slice(0, 8)}`}
-      />
-    ),
-  },
+  imagesColumn(experimentTitle),
 ]

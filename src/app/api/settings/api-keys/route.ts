@@ -1,5 +1,5 @@
 import { saveCredentialFromRequest } from "@/lib/ai/credential-api"
-import { authErrorResponse, requireAuth, resolveViewerContext } from "@/lib/auth"
+import { requireAuth, resolveViewerContext } from "@/lib/auth"
 import { isEncryptionConfigured } from "@/lib/crypto"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { getKeyInventory, getUserApiCredentials, upsertUserApiCredential } from "@/models/chat"
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       fallbacks: { labs: inventory.labs, instance: inventory.instance },
     })
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to fetch API keys")
+    return createErrorResponse(error, "Failed to fetch API keys")
   }
 }
 
@@ -30,6 +30,6 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth(request)
     return await saveCredentialFromRequest(request, (input) => upsertUserApiCredential(user.id, input))
   } catch (error) {
-    return authErrorResponse(error) ?? createErrorResponse(error, "Failed to save API key")
+    return createErrorResponse(error, "Failed to save API key")
   }
 }

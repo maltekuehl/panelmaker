@@ -1,10 +1,10 @@
 "use client"
 
 import { OntologyCombobox } from "@/components/ontology-combobox"
+import { OptionSelect } from "@/components/option-select"
 import { Field } from "@/components/shared/field"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { isValidDonorAge } from "@/models/experiment/schema"
 import {
   DONOR_SEX_OPTIONS,
@@ -86,18 +86,13 @@ export function SpecimenSection({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Sample type">
               {(id) => (
-                <Select value={specimen.sampleType} onValueChange={(value) => set("sampleType", value)}>
-                  <SelectTrigger id={id}>
-                    <SelectValue placeholder="Select sample type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SAMPLE_TYPE_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <OptionSelect
+                  id={id}
+                  value={specimen.sampleType}
+                  onValueChange={(value) => set("sampleType", value)}
+                  options={SAMPLE_TYPE_OPTIONS}
+                  placeholder="Select sample type"
+                />
               )}
             </Field>
 
@@ -116,18 +111,13 @@ export function SpecimenSection({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Field label="Donor sex">
               {(id) => (
-                <Select value={specimen.donorSex} onValueChange={(value) => set("donorSex", value)}>
-                  <SelectTrigger id={id}>
-                    <SelectValue placeholder="Select sex" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DONOR_SEX_OPTIONS.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <OptionSelect
+                  id={id}
+                  value={specimen.donorSex}
+                  onValueChange={(value) => set("donorSex", value)}
+                  options={DONOR_SEX_OPTIONS}
+                  placeholder="Select sex"
+                />
               )}
             </Field>
 

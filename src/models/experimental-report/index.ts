@@ -24,18 +24,8 @@ export {
   resolveAndCreateReport,
   resolveAndCreateReports,
   updateReportStatus,
-  validateAndResolveOntologyTerm,
 } from "./queries"
-export type {
-  BatchReportResult,
-  BrowseFacets,
-  BrowseQueryParams,
-  EntriesPage,
-  MarkerEntriesPage,
-  MarkerEntriesParams,
-  ReportQueryParams,
-  ReportRow,
-} from "./queries"
+export type { BatchReportResult, BrowseFacets, BrowseQueryParams, ReportQueryParams, ReportRow } from "./queries"
 export {
   IMAGE_CAPTION_MAX_LENGTH,
   createReportBatchSchema,

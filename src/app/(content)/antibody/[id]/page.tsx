@@ -1,5 +1,6 @@
 import { AntibodyUsagesTable } from "@/components/browse/antibody-usages-table"
-import { ImageCarouselDialog } from "@/components/browse/image-carousel-dialog"
+import { AsideSection, DetailLayout, DetailSection, ImagesSection } from "@/components/detail/detail-layout"
+import { MetaItem, MetaRow } from "@/components/detail/detail-meta"
 import { AddToPanelButton } from "@/components/panel/add-to-panel-button"
 import { CustomBreadcrumbs } from "@/components/shared/custom-breadcrumbs"
 import { ValueOrNotAvailable } from "@/components/shared/not-available"
@@ -20,10 +21,33 @@ interface AntibodyPageProps {
   }>
 }
 
+async function parseAntibodyParams(params: AntibodyPageProps["params"]): Promise<{ rrid: string; displayId: string }> {
+  const decodedId = decodeURIComponent((await params).id)
+  return {
+    rrid: decodedId.startsWith("RRID:") ? decodedId : `RRID:${decodedId}`,
+    displayId: decodedId.replace(/^RRID:/, ""),
+  }
+}
+
+function ExternalResourceCard({ href, title, subtitle }: { href: string; title: string; subtitle: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
+    >
+      <div className="space-y-1">
+        <div className="font-medium transition-colors group-hover:text-primary">{title}</div>
+        <div className="text-xs text-muted-foreground">{subtitle}</div>
+      </div>
+      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+    </a>
+  )
+}
+
 export async function generateMetadata({ params }: AntibodyPageProps): Promise<Metadata> {
-  const { id } = await params
-  const decodedId = decodeURIComponent(id)
-  const rrid = decodedId.startsWith("RRID:") ? decodedId : `RRID:${decodedId}`
+  const { rrid } = await parseAntibodyParams(params)
   const antibody = await resolveAntibodyByRrid(rrid)
   if (!antibody) return { title: "Antibody Not Found | PanelMaker" }
   return {
@@ -44,143 +68,113 @@ async function AntibodyContent({ rrid, displayId }: { rrid: string; displayId: s
   const images = usages.flatMap(reportUsageImages)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-2 space-y-6">
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-3xl font-bold tracking-tight text-balance">{antibody.name}</h1>
-            <div className="flex items-center gap-2">
-              <AddToPanelButton
-                antibodyId={antibody.id}
-                proteinId={antibody.targetProtein?.id}
-                label={antibody.name}
-                size="sm"
-                className="gap-2"
+    <DetailLayout
+      aside={
+        <>
+          {images.length > 0 && <ImagesSection images={images} title={antibody.name} />}
+          <AsideSection title="External Resources">
+            <ExternalResourceCard
+              href={`https://scicrunch.org/resolver/${displayId}`}
+              title="Antibody Registry"
+              subtitle="View full record on SciCrunch"
+            />
+            {antibody.vendorUrl && (
+              <ExternalResourceCard
+                href={antibody.vendorUrl}
+                title={antibody.vendorName ?? "Vendor"}
+                subtitle="View on vendor website"
               />
-              <Badge variant="outline" className="font-mono">
-                {rrid}
-              </Badge>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 text-muted-foreground mb-4">
-            <Badge variant="secondary">{antibody.vendorName ?? "Unknown Vendor"}</Badge>
-            <Badge variant="outline">Cat: {antibody.catalogNumber ?? "Not available"}</Badge>
-            {antibody.clonality && <Badge variant="outline">{antibody.clonality}</Badge>}
-            {antibody.targetName && <Badge variant="outline">Target: {antibody.targetName}</Badge>}
-            {antibody.hostTaxon?.label && <Badge variant="outline">Host: {antibody.hostTaxon.label}</Badge>}
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm">
-            <span>
-              <span className="text-muted-foreground">Clone ID: </span>
-              <ValueOrNotAvailable value={antibody.cloneId} className="font-medium" />
-            </span>
-            <span>
-              <span className="text-muted-foreground">Conjugate: </span>
-              <span className="font-medium">{antibody.conjugate ?? "Unconjugated"}</span>
-            </span>
-            {antibody.targetProtein && (
-              <span>
-                <span className="text-muted-foreground">Target: </span>
-                <Link href={markerHref(antibody.targetProtein.id)} className="font-medium text-primary hover:underline">
-                  {antibody.targetProtein.label} ({antibody.targetProtein.geneSymbol})
-                </Link>
-              </span>
             )}
-            <span>
-              <span className="text-muted-foreground">Citations: </span>
-              <span className="font-medium tabular-nums">{antibody.citationCount ?? 0}</span>
-            </span>
+          </AsideSection>
+        </>
+      }
+    >
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl font-bold tracking-tight text-balance">{antibody.name}</h1>
+          <div className="flex items-center gap-2">
+            <AddToPanelButton
+              antibodyId={antibody.id}
+              proteinId={antibody.targetProtein?.id}
+              label={antibody.name}
+              size="sm"
+              className="gap-2"
+            />
+            <Badge variant="outline" className="font-mono">
+              {rrid}
+            </Badge>
           </div>
         </div>
 
-        <div className="space-y-4 border-t pt-6">
-          <div>
-            <h2 className="text-lg font-semibold">Experimental Reports</h2>
-            <p className="text-sm text-muted-foreground">Documented usage of this antibody in various experiments.</p>
-          </div>
-          <AntibodyUsagesTable data={usages} />
+        <div className="flex flex-wrap items-center gap-2 text-muted-foreground mb-4">
+          <Badge variant="secondary">{antibody.vendorName ?? "Unknown Vendor"}</Badge>
+          <Badge variant="outline">Cat: {antibody.catalogNumber ?? "Not available"}</Badge>
+          {antibody.clonality && <Badge variant="outline">{antibody.clonality}</Badge>}
+          {antibody.targetName && <Badge variant="outline">Target: {antibody.targetName}</Badge>}
+          {antibody.hostTaxon?.label && <Badge variant="outline">Host: {antibody.hostTaxon.label}</Badge>}
         </div>
-      </div>
 
-      <div className="space-y-6">
-        {images.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="font-semibold">Images</h3>
-            <ImageCarouselDialog images={images} title={antibody.name} />
-          </div>
-        )}
-
-        <div className="space-y-3 border-t pt-6">
-          <h3 className="font-semibold">External Resources</h3>
-          <a
-            href={`https://scicrunch.org/resolver/${displayId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
-          >
-            <div className="space-y-1">
-              <div className="font-medium transition-colors group-hover:text-primary">Antibody Registry</div>
-              <div className="text-xs text-muted-foreground">View full record on SciCrunch</div>
-            </div>
-            <ExternalLink className="h-4 w-4 text-muted-foreground" />
-          </a>
-          {antibody.vendorUrl && (
-            <a
-              href={antibody.vendorUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-muted"
-            >
-              <div className="space-y-1">
-                <div className="font-medium transition-colors group-hover:text-primary">
-                  {antibody.vendorName ?? "Vendor"}
-                </div>
-                <div className="text-xs text-muted-foreground">View on vendor website</div>
-              </div>
-              <ExternalLink className="h-4 w-4 text-muted-foreground" />
-            </a>
+        <MetaRow className="mt-4">
+          <MetaItem label="Clone ID">
+            <ValueOrNotAvailable value={antibody.cloneId} className="font-medium" />
+          </MetaItem>
+          <MetaItem label="Conjugate">
+            <span className="font-medium">{antibody.conjugate ?? "Unconjugated"}</span>
+          </MetaItem>
+          {antibody.targetProtein && (
+            <MetaItem label="Target">
+              <Link href={markerHref(antibody.targetProtein.id)} className="font-medium text-primary hover:underline">
+                {antibody.targetProtein.label} ({antibody.targetProtein.geneSymbol})
+              </Link>
+            </MetaItem>
           )}
-        </div>
+          <MetaItem label="Citations">
+            <span className="font-medium tabular-nums">{antibody.citationCount ?? 0}</span>
+          </MetaItem>
+        </MetaRow>
       </div>
-    </div>
+
+      <DetailSection
+        title="Experimental Reports"
+        description="Documented usage of this antibody in various experiments."
+      >
+        <AntibodyUsagesTable data={usages} />
+      </DetailSection>
+    </DetailLayout>
   )
 }
 
 function AntibodyContentSkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-2 space-y-6">
-        <div>
-          <Skeleton className="h-9 w-72 mb-2" />
-          <div className="flex gap-2 mb-4">
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-6 w-28" />
-            <Skeleton className="h-6 w-20" />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="h-5 w-36" />
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-5 w-24" />
-          </div>
+    <DetailLayout
+      aside={
+        <>
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </>
+      }
+    >
+      <div>
+        <Skeleton className="h-9 w-72 mb-2" />
+        <div className="flex gap-2 mb-4">
+          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-6 w-28" />
+          <Skeleton className="h-6 w-20" />
         </div>
-        <Skeleton className="h-48 w-full" />
+        <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+          <Skeleton className="h-5 w-28" />
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-5 w-24" />
+        </div>
       </div>
-      <div className="space-y-6">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </div>
-    </div>
+      <Skeleton className="h-48 w-full" />
+    </DetailLayout>
   )
 }
 
 export default async function AntibodyPage({ params }: AntibodyPageProps) {
-  const { id } = await params
-  const decodedId = decodeURIComponent(id)
-  const rrid = decodedId.startsWith("RRID:") ? decodedId : `RRID:${decodedId}`
-  const displayId = decodedId.replace(/^RRID:/, "")
+  const { rrid, displayId } = await parseAntibodyParams(params)
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">

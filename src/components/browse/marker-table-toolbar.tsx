@@ -1,9 +1,7 @@
 "use client"
 
 import { FacetSearch } from "@/components/data-table/facet-search"
-import { DataTableFacetedFilter } from "@/components/data-table/faceted-filter"
-import { BalancedGrid } from "@/components/shared/balanced-grid"
-import { Button } from "@/components/ui/button"
+import { clearedTableParams, FacetFilterToolbar } from "@/components/filter-toolbar"
 import {
   browseMarkerParsers,
   FILTER_DIMENSIONS,
@@ -12,7 +10,6 @@ import {
   type BrowseMode,
 } from "@/lib/data-table"
 import type { BrowseFacets } from "@/models/experimental-report"
-import { X } from "lucide-react"
 import { useQueryStates } from "nuqs"
 import { BrowseModeTabs } from "./browse-mode-tabs"
 
@@ -33,59 +30,37 @@ export function MarkerTableToolbar({ facets }: { facets: BrowseFacets }) {
     (dimension) => dimension.tabs.includes(params.mode) && (facets[dimension.key]?.length ?? 0) > 0,
   )
 
-  const selectFacet = (key: string, value: string) => {
-    const current = (params[key as keyof typeof params] as string[]) ?? []
-    setParams({ [key]: [...current, value], q: null, page: 1 } as Parameters<typeof setParams>[0])
-  }
+  const selected = (key: string) => (params[key as keyof typeof params] as string[]) ?? []
 
-  const resetFilters = () =>
-    setParams({
-      q: null,
-      sort: null,
-      order: null,
-      page: null,
-      ...Object.fromEntries(FILTER_KEYS.map((key) => [key, null])),
-    } as Parameters<typeof setParams>[0])
+  const selectFacet = (key: string, value: string) =>
+    setParams({ [key]: [...selected(key), value], q: null, page: 1 } as Parameters<typeof setParams>[0])
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <BrowseModeTabs />
-        <FacetSearch
-          key={params.mode}
-          placeholder={SEARCH_PLACEHOLDERS[params.mode]}
-          value={params.q}
-          onCommit={(q) => setParams({ q: q || null, page: 1 })}
-          onSelectFacet={selectFacet}
-          facets={visibleDimensions.map((dimension) => ({
-            key: dimension.key,
-            title: dimension.title,
-            options: facets[dimension.key] ?? [],
-            selected: (params[dimension.key as keyof typeof params] as string[]) ?? [],
-          }))}
-          className="w-full sm:w-[320px] lg:w-[400px]"
-        />
-        <Button variant="secondary" size="sm" className="h-8 px-2 lg:px-3" onClick={resetFilters} disabled={!isActive}>
-          <X className="size-4" />
-          Reset
-        </Button>
-      </div>
-      {visibleDimensions.length > 0 && (
-        <BalancedGrid>
-          {visibleDimensions.map((dimension) => (
-            <DataTableFacetedFilter
-              key={dimension.key}
-              className="w-full justify-start overflow-hidden"
-              title={dimension.title}
-              options={facets[dimension.key] ?? []}
-              value={(params[dimension.key as keyof typeof params] as string[]) ?? []}
-              onChange={(value) =>
-                setParams({ [dimension.key]: value.length ? value : null, page: 1 } as Parameters<typeof setParams>[0])
-              }
-            />
-          ))}
-        </BalancedGrid>
-      )}
-    </div>
+    <FacetFilterToolbar
+      onReset={() => setParams(clearedTableParams(FILTER_KEYS) as Parameters<typeof setParams>[0])}
+      isActive={isActive}
+      dimensions={visibleDimensions}
+      facets={facets}
+      selected={selected}
+      onFilterChange={(key, value) =>
+        setParams({ [key]: value.length ? value : null, page: 1 } as Parameters<typeof setParams>[0])
+      }
+    >
+      <BrowseModeTabs />
+      <FacetSearch
+        key={params.mode}
+        placeholder={SEARCH_PLACEHOLDERS[params.mode]}
+        value={params.q}
+        onCommit={(q) => setParams({ q: q || null, page: 1 })}
+        onSelectFacet={selectFacet}
+        facets={visibleDimensions.map((dimension) => ({
+          key: dimension.key,
+          title: dimension.title,
+          options: facets[dimension.key] ?? [],
+          selected: selected(dimension.key),
+        }))}
+        className="w-full sm:w-[320px] lg:w-[400px]"
+      />
+    </FacetFilterToolbar>
   )
 }

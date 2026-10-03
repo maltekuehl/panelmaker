@@ -17,7 +17,7 @@ import { runScript } from "../prisma/client"
 import { PATHOPLEX } from "../prisma/data/reports"
 import { TAXA, taxonIdForHost } from "../prisma/data/taxa"
 import { storeLocalImagingMethod } from "../prisma/imaging-methods"
-import { type Clonality } from "../src/lib/generated/prisma/client"
+import { type Clonality, type Prisma } from "../src/lib/generated/prisma/client"
 import type { ResolvedReagent } from "./lookup-pathoplex-antibodies"
 import type { ResolvedTarget } from "./resolve-pathoplex-proteins"
 
@@ -500,53 +500,32 @@ runScript(async (prisma) => {
 
   let reportCount = 0
   for (const exp of EXPERIMENTS) {
+    const experimentData = {
+      name: exp.name,
+      description: exp.description,
+      speciesId: exp.speciesId,
+      tissueId: KIDNEY_TISSUE,
+      preservation: "FFPE",
+      preservationText: exp.specimen.preservationText,
+      fixativeId: FORMALDEHYDE_CHEBI_ID,
+      fixativeConcentration: exp.specimen.preservationText.startsWith("4% PFA") ? "4%" : "10% formalin",
+      antigenRetrievalText: exp.specimen.antigenRetrievalText,
+      sampleType: exp.specimen.sampleType,
+      sectionThicknessUm: exp.specimen.sectionThicknessUm,
+      donorSex: exp.specimen.donorSex,
+      donorAge: exp.specimen.donorAge,
+      developmentalStageId: exp.specimen.developmentalStageId,
+      protocolDoi: exp.specimen.protocolDoi,
+      imagingMethodId: pathoplex.id,
+      antigenRetrieval: "TRIS_EDTA_PH9",
+      submitterId: exp.submitterId,
+      visibility: "PUBLIC",
+      owningLabId: LAB_ID,
+    } satisfies Omit<Prisma.ExperimentUncheckedCreateInput, "id">
     await prisma.experiment.upsert({
       where: { id: exp.id },
-      update: {
-        name: exp.name,
-        description: exp.description,
-        speciesId: exp.speciesId,
-        tissueId: KIDNEY_TISSUE,
-        preservation: "FFPE",
-        preservationText: exp.specimen.preservationText,
-        fixativeId: FORMALDEHYDE_CHEBI_ID,
-        fixativeConcentration: exp.specimen.preservationText.startsWith("4% PFA") ? "4%" : "10% formalin",
-        antigenRetrievalText: exp.specimen.antigenRetrievalText,
-        sampleType: exp.specimen.sampleType,
-        sectionThicknessUm: exp.specimen.sectionThicknessUm,
-        donorSex: exp.specimen.donorSex,
-        donorAge: exp.specimen.donorAge,
-        developmentalStageId: exp.specimen.developmentalStageId,
-        protocolDoi: exp.specimen.protocolDoi,
-        imagingMethodId: pathoplex.id,
-        antigenRetrieval: "TRIS_EDTA_PH9",
-        submitterId: exp.submitterId,
-        visibility: "PUBLIC",
-        owningLabId: LAB_ID,
-      },
-      create: {
-        id: exp.id,
-        name: exp.name,
-        description: exp.description,
-        speciesId: exp.speciesId,
-        tissueId: KIDNEY_TISSUE,
-        preservation: "FFPE",
-        preservationText: exp.specimen.preservationText,
-        fixativeId: FORMALDEHYDE_CHEBI_ID,
-        fixativeConcentration: exp.specimen.preservationText.startsWith("4% PFA") ? "4%" : "10% formalin",
-        antigenRetrievalText: exp.specimen.antigenRetrievalText,
-        sampleType: exp.specimen.sampleType,
-        sectionThicknessUm: exp.specimen.sectionThicknessUm,
-        donorSex: exp.specimen.donorSex,
-        donorAge: exp.specimen.donorAge,
-        developmentalStageId: exp.specimen.developmentalStageId,
-        protocolDoi: exp.specimen.protocolDoi,
-        imagingMethodId: pathoplex.id,
-        antigenRetrieval: "TRIS_EDTA_PH9",
-        submitterId: exp.submitterId,
-        visibility: "PUBLIC",
-        owningLabId: LAB_ID,
-      },
+      update: experimentData,
+      create: { id: exp.id, ...experimentData },
     })
     await prisma.experimentLabShare.upsert({
       where: { experimentId_labId: { experimentId: exp.id, labId: LAB_ID } },

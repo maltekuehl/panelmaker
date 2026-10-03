@@ -13,17 +13,7 @@ import {
   type ViewerContext,
 } from "../../src/models/lab/access"
 import { buildPanelVisibilityWhere, buildReportVisibilityWhere } from "../../src/models/lab/visibility"
-
-let failures = 0
-function check(name: string, fn: () => void) {
-  try {
-    fn()
-    console.log(`  ok  ${name}`)
-  } catch (error) {
-    failures += 1
-    console.error(`FAIL  ${name}\n      ${error instanceof Error ? error.message : String(error)}`)
-  }
-}
+import { check, finish } from "./harness"
 
 const member: ViewerContext = {
   userId: "u1",
@@ -153,8 +143,4 @@ check('import guard: no "use client" file imports server-only lab/prisma modules
   assert.equal(offenders.length, 0, `client components must not pull in server-only code:\n  ${offenders.join("\n  ")}`)
 })
 
-if (failures > 0) {
-  console.error(`\n${failures} assertion(s) failed`)
-  process.exit(1)
-}
-console.log("\nAll lab-access assertions passed")
+finish("lab-access")

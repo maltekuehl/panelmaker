@@ -17,35 +17,20 @@ import { useRef, useState } from "react"
 import ReactCrop, { type Crop, type PixelCrop } from "react-image-crop"
 import "react-image-crop/dist/ReactCrop.css"
 import { toast } from "sonner"
-import * as UTIF from "utif2"
 import { displayColorName } from "./color-field"
 import { FovDetails, type FovPeer } from "./fov-details"
+import {
+  cropToPng,
+  fileToPreviewUrl,
+  isSupportedImage,
+  MAX_DIMENSION,
+  MIN_DIMENSION,
+  naturalRegion,
+} from "./image-files"
 import type { Fov, FovDraft, OntologyValue, RowImage } from "./types"
 
-const MIN_DIMENSION = 256
-const MAX_DIMENSION = 4084
 const ACCEPT = ".png,.jpg,.jpeg,.webp,.tiff,.tif"
 const DEFAULT_MAX = MAX_FOVS_PER_REPORT
-
-async function fileToPreviewUrl(file: File): Promise<string> {
-  const isTiff = /\.tiff?$/i.test(file.name) || file.type === "image/tiff"
-  if (!isTiff) return URL.createObjectURL(file)
-
-  const buffer = await file.arrayBuffer()
-  const ifds = UTIF.decode(buffer)
-  if (!ifds.length) throw new Error("Empty TIFF")
-  UTIF.decodeImage(buffer, ifds[0])
-  const rgba = UTIF.toRGBA8(ifds[0])
-  const { width, height } = ifds[0]
-
-  const canvas = document.createElement("canvas")
-  canvas.width = width
-  canvas.height = height
-  const ctx = canvas.getContext("2d")
-  if (!ctx) throw new Error("No canvas context")
-  ctx.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0)
-  return canvas.toDataURL("image/png")
-}
 
 type DialogState = { stage: "crop"; preview: string } | { stage: "details"; isNew: boolean; draft: FovDraft } | null
 
@@ -95,7 +80,7 @@ export function ImageUpload({
   const preview = dialog?.stage === "crop" ? dialog.preview : null
 
   async function openFile(file: File) {
-    if (!/\.(png|jpe?g|webp|tiff?)$/i.test(file.name) && !/^image\//.test(file.type)) {
+    if (!isSupportedImage(file)) {
       toast.error("Unsupported file. Supported formats: PNG, JPG, WebP, TIFF.")
       return
     }
@@ -165,6 +150,10 @@ export function ImageUpload({
     setBusy(false)
   }
 
+  function peersShowing(url: string): FovPeer[] {
+    return peers.filter((p) => p.images.some((im) => im.url === url))
+  }
+
   function editImage(image: RowImage) {
     const fov = fovByUrl.get(image.url)
     if (!fov) return
@@ -177,7 +166,7 @@ export function ImageUpload({
         references: fov.references,
         displayColor: image.displayColor,
         cellTypes: image.cellTypeIds.map((id) => ({ id, label: cellTypeLabels.get(id) ?? id })),
-        sharedWith: peers.filter((p) => p.images.some((im) => im.url === fov.url)).map((p) => p.key),
+        sharedWith: peersShowing(fov.url).map((p) => p.key),
       },
     })
   }
@@ -196,28 +185,12 @@ export function ImageUpload({
     }
     setBusy(true)
     try {
-      const scaleX = img.naturalWidth / img.width
-      const scaleY = img.naturalHeight / img.height
-      const sx = Math.round(completedCrop.x * scaleX)
-      const sy = Math.round(completedCrop.y * scaleY)
-      const sw = Math.min(Math.round(completedCrop.width * scaleX), MAX_DIMENSION)
-      const sh = Math.min(Math.round(completedCrop.height * scaleY), MAX_DIMENSION)
-
-      if (sw < MIN_DIMENSION || sh < MIN_DIMENSION) {
+      const region = naturalRegion(img, completedCrop)
+      if (region.width < MIN_DIMENSION || region.height < MIN_DIMENSION) {
         toast.error(`The cropped region must be at least ${MIN_DIMENSION}x${MIN_DIMENSION}px.`)
         return
       }
-
-      const canvas = document.createElement("canvas")
-      canvas.width = sw
-      canvas.height = sh
-      const ctx = canvas.getContext("2d")
-      if (!ctx) throw new Error("No canvas context")
-      ctx.imageSmoothingEnabled = false
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh)
-
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"))
-      if (!blob) throw new Error("Encoding failed")
+      const blob = await cropToPng(img, region)
 
       const formData = new FormData()
       formData.append("file", blob, "crop.png")
@@ -263,7 +236,7 @@ export function ImageUpload({
             const fov = fovByUrl.get(image.url)
             if (!fov) return null
             const colour = displayColorName(image.displayColor)
-            const sharedWith = peers.filter((p) => p.images.some((im) => im.url === image.url)).map((p) => p.label)
+            const sharedWith = peersShowing(image.url).map((p) => p.label)
             const counterstains = fov.references.map((r) => r.label.trim()).filter(Boolean)
             const cellTypes = image.cellTypeIds.map((id) => cellTypeLabels.get(id)).filter(Boolean)
             return (
