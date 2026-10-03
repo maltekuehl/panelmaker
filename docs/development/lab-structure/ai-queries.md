@@ -64,12 +64,12 @@ answerable, the primitive toolkit that covers them, and which primitives each qu
 
 Resolution (NL text -> ids):
 
-- `resolveMarkers(text)` -> proteins (UniProt id, gene symbol). Reuses `models/protein`.
+- `resolveMarkers(text)` -> proteins (UniProt id, gene symbol). Reuses `src/models/protein`.
 - `resolveCellTypes(text, { expandDescendants })` -> cell types, optionally with all descendants.
   Needs **`getCellTypeDescendantIds(rootId)`** (new; reverse index over `CellType.parentIds`).
 - `resolveTissues(text)`, `resolveSpecies(text)`, `resolveConditions(text)` -> UBERON / NCBI / DOID
-  ids. Reuse `lib/ontology` + the model search fns.
-- `resolveAntibodies(text|rrid)` -> antibodies. Reuses `models/antibody`.
+  ids. Reuse `src/lib/ontology` + the model search fns.
+- `resolveAntibodies(text|rrid)` -> antibodies. Reuses `src/models/antibody`.
 
 Evidence (the workhorse, viewer-scoped):
 
@@ -93,9 +93,9 @@ Inventory & lab context:
 Panels:
 
 - `getPanels({ scope: mine|labIds|public|panelId }, filter?)` -> panels + their markers
-  (protein, antibody, fluorophore, metal). Reuses `models/panel`.
+  (protein, antibody, fluorophore, metal). Reuses `src/models/panel`.
 - `analyzePanel(panelId | markerSet)` -> conflict report: fluorophore spectral overlap + host
-  cross-reactivity + channel/metal collisions. Reuses `models/panel/intelligence`
+  cross-reactivity + channel/metal collisions. Reuses `src/models/panel/intelligence`
   (`checkFluorophoreOverlap` / `checkCrossReactivity`).
 - `suggestPanelLayout(markers, { method, cycleCount? })` -> orders markers into cycles and assigns
   fluorophores/channels using the best-practice heuristics below, returns the layout + a per-decision
@@ -151,7 +151,7 @@ Detail:
 
 ### Shared helpers (code, not tools)
 
-- `getCellTypeDescendantIds(rootId)` - reverse `parentIds` index walk (new, `models/cell-type`).
+- `getCellTypeDescendantIds(rootId)` - reverse `parentIds` index walk (new, `src/models/cell-type`).
 - `buildReportVisibilityWhere(viewer)` - existing; the scope/fail-closed guard for every evidence tool.
 - A single ranking function (works-rate x quality x specificity x citations x recency) shared by the
   recommenders and `aggregateReports`.
@@ -191,12 +191,12 @@ Detail:
 
 ## Implementation plan
 
-- `models/cell-type`: add `getCellTypeDescendantIds(rootId)`.
-- `models/lab` (or `models/evidence`): add `findReports` / `aggregateReports` (viewer-scoped) and the
+- `src/models/cell-type`: add `getCellTypeDescendantIds(rootId)`.
+- `src/models/lab` (or `src/models/evidence`): add `findReports` / `aggregateReports` (viewer-scoped) and the
   recommenders, reusing existing report/inventory/panel queries + `buildReportVisibilityWhere`.
-- `lib/chat-tools.ts`: convert `chatTools` -> `createChatTools(viewer)` exposing the primitives above
+- `src/lib/chat-tools.ts`: convert `chatTools` -> `createChatTools(viewer)` exposing the primitives above
   (Vercel AI SDK v5 tools, Zod input schemas, each returning compact JSON).
-- `app/api/chat/route.ts`: resolve the viewer, pass `createChatTools(viewer)`, extend the system
+- `src/app/api/chat/route.ts`: resolve the viewer, pass `createChatTools(viewer)`, extend the system
   prompt with the toolkit + data-isolation clause.
 - Verify the 20 queries decompose correctly against the seed (the Puelles lab's mouse T-cell data
   backs #6/#16/#17/#19).

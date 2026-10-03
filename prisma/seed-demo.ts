@@ -4,7 +4,7 @@
 //
 //   npm run seed:demo      (refuses when NODE_ENV=production unless SEED_ALLOW_RESET=1)
 import "dotenv/config"
-import type { PrismaClient } from "../lib/generated/prisma/client"
+import type { PrismaClient } from "../src/lib/generated/prisma/client"
 import { runScript } from "./client"
 import { ANTIBODIES } from "./data/antibodies"
 import { LABS } from "./data/labs"

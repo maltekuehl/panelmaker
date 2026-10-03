@@ -4,7 +4,7 @@ node_modules
 .open-next
 .vercel
 out
-lib/generated
+src/lib/generated
 
 # VCS and tooling
 .git

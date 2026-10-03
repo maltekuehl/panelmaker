@@ -24,4 +24,4 @@ Working on the code: [development/](./development/README.md)
 
 ## For users
 
-End-user documentation (browsing, submitting reports, designing panels, the assistant, the public API) ships inside the app at `/docs` on every instance. Its source is in [`app/docs/`](../app/docs/).
+End-user documentation (browsing, submitting reports, designing panels, the assistant, the public API) ships inside the app at `/docs` on every instance. Its source is in [`src/app/docs/`](../app/docs/).

@@ -29,7 +29,7 @@ Without `ENCRYPTION_KEY`, users and labs cannot save keys (the key routes answer
 
 ## Models
 
-`AI_DEFAULT_MODEL` sets the default model as `provider:model`, for example `anthropic:claude-sonnet-5-5`. Without it the default is `google:gemini-3.5-flash-lite`. The model menu offers a short built-in catalog (in [`lib/ai/models.ts`](../../lib/ai/models.ts)) plus the default model if it is not in the catalog. Any `provider:model` string the provider accepts works, so newer models do not need a code change.
+`AI_DEFAULT_MODEL` sets the default model as `provider:model`, for example `anthropic:claude-sonnet-5-5`. Without it the default is `google:gemini-3.5-flash-lite`. The model menu offers a short built-in catalog (in [`src/lib/ai/models.ts`](../../lib/ai/models.ts)) plus the default model if it is not in the catalog. Any `provider:model` string the provider accepts works, so newer models do not need a code change.
 
 A new conversation starts with the model and lab of the user's most recent conversation, then the default model. If that model has no key, the first model that does is picked.
 

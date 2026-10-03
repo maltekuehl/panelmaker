@@ -24,7 +24,7 @@ The app serves three pages:
 | `/docs/legal/privacy` | Privacy policy | `<INSTANCE_CONFIG_DIR>/legal/privacy.md` |
 | `/docs/legal/terms`   | Terms          | `<INSTANCE_CONFIG_DIR>/legal/terms.md`   |
 
-Without an override file, each page is a generic, jurisdiction-neutral template filled in from the `INSTANCE_*` variables (see [`lib/instance.ts`](../../lib/instance.ts)). If none of operator, institution, address and contact email is set, each page starts with a notice that the instance has not configured this information.
+Without an override file, each page is a generic, jurisdiction-neutral template filled in from the `INSTANCE_*` variables (see [`src/lib/instance.ts`](../../lib/instance.ts)). If none of operator, institution, address and contact email is set, each page starts with a notice that the instance has not configured this information.
 
 The templates are a starting point, not legal advice. The privacy template states that the instance only sets strictly necessary cookies (the Auth.js session and CSRF cookies and a cookie that remembers the sidebar state), which is why PanelMaker shows no cookie banner. Check that this is still true for your deployment, for example if you add analytics or put the instance behind a service that sets its own cookies. Operators in jurisdictions with statutory imprint rules, such as Germany (§ 5 TMG, § 18 MStV), should write a proper `notice.md`.
 

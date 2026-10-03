@@ -13,11 +13,11 @@
 import "dotenv/config"
 import { readFileSync } from "node:fs"
 import path from "node:path"
-import { type Clonality } from "../lib/generated/prisma/client"
 import { runScript } from "../prisma/client"
 import { PATHOPLEX } from "../prisma/data/reports"
 import { TAXA, taxonIdForHost } from "../prisma/data/taxa"
 import { storeLocalImagingMethod } from "../prisma/imaging-methods"
+import { type Clonality } from "../src/lib/generated/prisma/client"
 import type { ResolvedReagent } from "./lookup-pathoplex-antibodies"
 import type { ResolvedTarget } from "./resolve-pathoplex-proteins"
 

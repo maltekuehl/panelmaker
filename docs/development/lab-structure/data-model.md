@@ -1,6 +1,6 @@
 # Data model
 
-Prisma generates to `lib/generated/prisma` (provider `prisma-client`). Enums import from `@/lib/generated/prisma/enums`. All PKs are `String @id @default(cuid())`.
+Prisma generates to `src/lib/generated/prisma` (provider `prisma-client`). Enums import from `@/lib/generated/prisma/enums`. All PKs are `String @id @default(cuid())`.
 
 ## New enums
 

@@ -21,7 +21,7 @@ const typescriptPlugin = nextPlugin.find((entry) => entry.plugins?.["@typescript
 
 const config = [
   {
-    ignores: ["lib/generated/**"],
+    ignores: ["src/lib/generated/**"],
   },
   ...nextPlugin,
   // MDX: apply recommended MDX linting and parser for .mdx files

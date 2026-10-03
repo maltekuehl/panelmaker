@@ -24,10 +24,10 @@ These decisions are final. Do not reconsider without explicit user approval.
 
 ### Data Layer: Model Folder Pattern
 
-All domain logic lives in `models/<entity>/` (not flat `lib/`). Current entities:
+All domain logic lives in `src/models/<entity>/` (not flat `src/lib/`). Current entities:
 
 ```
-models/
+src/models/
   protein/
     queries.ts      -- import "server-only"; Prisma queries (getAll, getById, search, getForCellType)
     transforms.ts   -- Prisma return types to API/UI shapes
@@ -60,12 +60,12 @@ models/
   user/
 ```
 
-`models/lab/access.ts` and `models/lab/visibility.ts` must stay pure: type-only Prisma imports, no `server-only`, no I/O. `tests/unit/lab-access.ts` enforces that, plus a guard that no `"use client"` file imports the server-only barrel.
+`src/models/lab/access.ts` and `src/models/lab/visibility.ts` must stay pure: type-only Prisma imports, no `server-only`, no I/O. `tests/unit/lab-access.ts` enforces that, plus a guard that no `"use client"` file imports the server-only barrel.
 
 Rules:
 - `queries.ts` always starts with `import "server-only"` and imports `prisma` from `@/lib/prisma`
 - `index.ts` re-exports everything public (types and query functions)
-- Do not add domain logic to `lib/` — `lib/` is for cross-cutting infrastructure only
+- Do not add domain logic to `src/lib/` — `src/lib/` is for cross-cutting infrastructure only
 
 ### Database: PostgreSQL via Prisma
 
@@ -75,7 +75,7 @@ datasource db {
 }
 ```
 
-- Connection via the `@prisma/adapter-pg` driver adapter (`PrismaPg`) in `lib/prisma.ts`
+- Connection via the `@prisma/adapter-pg` driver adapter (`PrismaPg`) in `src/lib/prisma.ts`
 - `DATABASE_URL` is required. `SHADOW_DATABASE_URL` is optional and only used by `migrate dev`
 - Migrations start from the single squashed baseline `prisma/migrations/0_init`
 - Primary keys are `String @id @default(cuid())` — do NOT use `Int @default(autoincrement())` on any model (autoincrement sequences drift out of sync when rows are seeded with explicit ids, causing P2002 unique-constraint errors on insert)
@@ -99,8 +99,8 @@ await prisma.protein.findMany({
 
 ### Image Storage: local disk
 
-- Wrapper: `lib/storage.ts`, which exports `saveUploadedImage()`, `deleteUploadedImage()`, `getUploadsDir()`, `resolveUploadPath()`
-- Upload route: `app/api/uploads/route.ts` (authenticated, rate-limited). Serving route: `app/uploads/[...path]/route.ts`
+- Wrapper: `src/lib/storage.ts`, which exports `saveUploadedImage()`, `deleteUploadedImage()`, `getUploadsDir()`, `resolveUploadPath()`
+- Upload route: `src/app/api/uploads/route.ts` (authenticated, rate-limited). Serving route: `src/app/uploads/[...path]/route.ts`
 - Images are converted to lossless WebP with sharp on upload
 - Constraints: `MAX_UPLOAD_BYTES` (80MB), PNG, JPEG, WebP and TIFF in, dimensions between `MIN_DIMENSION` and `MAX_DIMENSION`
 - Env var: `UPLOADS_DIR` (default `./data/uploads`). Requests for `/uploads/*` always go through the app route, never straight from disk, because report images can belong to PRIVATE or LAB experiments and only the app can apply the visibility check.
@@ -109,15 +109,15 @@ await prisma.protein.findMany({
 
 - Cell Ontology (CL) and UBERON: OLS4 REST API at `https://www.ebi.ac.uk/ols4/api`
 - Species/taxonomy: NCBI E-utilities API
-- Client-side: debounced autocomplete via `hooks/use-debounced-search.ts`
-- Wrapper: `lib/ontology.ts`, which exports `searchCellOntology()`, `searchUberon()`, `searchGoCellularComponent()`, `searchDiseaseOntology()`, `searchRor()`, `searchSpecies()`, `searchEfoImagingMethods()` (EFO spatial proteomics branch), reached through `GET /api/ontology?type=...`
+- Client-side: debounced autocomplete via `src/hooks/use-debounced-search.ts`
+- Wrapper: `src/lib/ontology.ts`, which exports `searchCellOntology()`, `searchUberon()`, `searchGoCellularComponent()`, `searchDiseaseOntology()`, `searchRor()`, `searchSpecies()`, `searchEfoImagingMethods()` (EFO spatial proteomics branch), reached through `GET /api/ontology?type=...`
 - Imaging methods are EFO terms keyed by CURIE. A method EFO has no term for (e.g. PathoPlex) is its own `ImagingMethod` row with a `parentId` on its closest EFO term, never a hardcoded catalog entry or a free-text column. `GET /api/ontology?type=imaging_method` returns those local rows plus the EFO search
 - Store the ontology id alongside the display name in every DB field
 - `docs/development/metadata-standards.md` holds the researched plan for where these are going (NCBITaxon CURIEs, OLS4 term lookup and hierarchy, MONDO for disease, EFO assay terms). Read it before changing ontology handling.
 
 ### External API Integrations
 
-All read-only enrichment in `lib/integrations/`:
+All read-only enrichment in `src/lib/integrations/`:
 - `antibody-registry.ts` — RRID lookup, auto-fill vendor/host/clone
 - `uniprot.ts` — protein metadata by UniProt ID or gene name
 - `scicrunch.ts` — RRID resolver plus the optional Elasticsearch index behind `SCICRUNCH_API_KEY`
@@ -127,25 +127,25 @@ All read-only enrichment in `lib/integrations/`:
 ### AI Chat: Vercel AI SDK (Direct Tools)
 
 - No MCP dependency. Tools call model query functions directly.
-- System prompt: spatial proteomics panel design context, in `app/api/chat/route.ts`
-- `lib/chat-tools.ts` exports `createChatTools(viewer)`, a viewer-scoped toolkit: resolve helpers for markers, cell types, species, tissues and antibodies, plus `findReports`, `aggregateReports`, `listMyLabs`, `getLabInventory`, `getLabPanels`, `analyzePanel` and panel editing. Every tool closes over the viewer and intersects any model-supplied lab scope with the viewer's real memberships.
-- Conversations and messages are persisted through `models/chat/`; provider API keys are encrypted at rest with `ENCRYPTION_KEY`.
-- No free or shared fallback key. Key precedence per provider is the user's own key, then the key of the lab the conversation acts in (`ChatConversation.labId`, members only), then the operator's instance env key. The pure rules live in `models/chat/keys.ts`, error codes in `models/chat/errors.ts`.
-- Model ids follow the `provider:model` convention. Any such string works at request time, so the catalog in `lib/ai/models.ts` is a convenience, not a whitelist.
+- System prompt: spatial proteomics panel design context, in `src/app/api/chat/route.ts`
+- `src/lib/chat-tools.ts` exports `createChatTools(viewer)`, a viewer-scoped toolkit: resolve helpers for markers, cell types, species, tissues and antibodies, plus `findReports`, `aggregateReports`, `listMyLabs`, `getLabInventory`, `getLabPanels`, `analyzePanel` and panel editing. Every tool closes over the viewer and intersects any model-supplied lab scope with the viewer's real memberships.
+- Conversations and messages are persisted through `src/models/chat/`; provider API keys are encrypted at rest with `ENCRYPTION_KEY`.
+- No free or shared fallback key. Key precedence per provider is the user's own key, then the key of the lab the conversation acts in (`ChatConversation.labId`, members only), then the operator's instance env key. The pure rules live in `src/models/chat/keys.ts`, error codes in `src/models/chat/errors.ts`.
+- Model ids follow the `provider:model` convention. Any such string works at request time, so the catalog in `src/lib/ai/models.ts` is a convenience, not a whitelist.
 
-### Public API: app/api/
+### Public API: src/app/api/
 
-The versioned `app/api/(versions)/v1/` tree described in earlier plans was never built. Public read endpoints live directly under `app/api/` (`proteins`, `antibodies`, `cell-types`, `reports`, `panels/public`, `fluorophores`, `imaging-methods`, `ontology`).
+The versioned `src/app/api/(versions)/v1/` tree described in earlier plans was never built. Public read endpoints live directly under `src/app/api/` (`proteins`, `antibodies`, `cell-types`, `reports`, `panels/public`, `fluorophores`, `imaging-methods`, `ontology`).
 
 Conventions for these routes:
-- Validate query params with a Zod schema in the matching `models/<entity>/schema.ts`
+- Validate query params with a Zod schema in the matching `src/models/<entity>/schema.ts`
 - `?q=` text search, `?limit=` (bounded), `?cursor=` for cursor pagination, returning `nextCursor`
-- Respond with `createSuccessResponse()` / `createErrorResponse()` from `lib/error-handling.ts`.
+- Respond with `createSuccessResponse()` / `createErrorResponse()` from `src/lib/error-handling.ts`.
 - Public endpoints read the public lane only (`visibility: "PUBLIC"`), never the viewer-scoped lane
 
 ### Rate Limiting
 
-Current entries in `RATE_LIMITS` (`lib/rate-limiting.ts`), all on a 24 hour window: `CHAT_INSTANCE_KEY` 200 (only chat turns running on an operator instance key; overridden by `AI_INSTANCE_DAILY_LIMIT`, 0 disables it; turns on a user or lab key are never limited), `REPORTS_SUBMIT` 50, `PANELS_CREATE` 50, `UPLOADS` 200, `UPLOAD_BYTES` 2048 MB, plus the lab limits `LABS_CREATE`, `LAB_INVITATIONS_SEND` and `INVENTORY_MUTATE`. Keep this list and the code in step when you add one.
+Current entries in `RATE_LIMITS` (`src/lib/rate-limiting.ts`), all on a 24 hour window: `CHAT_INSTANCE_KEY` 200 (only chat turns running on an operator instance key; overridden by `AI_INSTANCE_DAILY_LIMIT`, 0 disables it; turns on a user or lab key are never limited), `REPORTS_SUBMIT` 50, `PANELS_CREATE` 50, `UPLOADS` 200, `UPLOAD_BYTES` 2048 MB, plus the lab limits `LABS_CREATE`, `LAB_INVITATIONS_SEND` and `INVENTORY_MUTATE`. Keep this list and the code in step when you add one.
 
 ---
 
@@ -154,7 +154,8 @@ Current entries in `RATE_LIMITS` (`lib/rate-limiting.ts`), all on a 24 hour wind
 ### TypeScript & Code Quality
 - **Strict TypeScript**: Target ES2024, strict mode enabled. Avoid `any` - use explicit types
 - **Module system**: Use `"module": "nodenext"` and `"moduleResolution": "nodenext"`
-- **Path aliases**: Use `@/` for imports (defined in tsconfig paths)
+- **Source layout**: all application code lives in `src/` (`app`, `components`, `models`, `lib`, `hooks`, `stores`, `types`, plus `auth.ts`, `proxy.ts`, `mdx-components.tsx`). Tooling and non-app code stay at the root: `prisma/`, `scripts/`, `tests/`, `public/`, `config/`, `docs/`, `docker/`
+- **Path aliases**: Use `@/` for imports. It maps to `src/` (defined in tsconfig paths)
 - **Server-only code**: Add `import "server-only"` to lib files with sensitive logic (env, auth, DB queries)
 - **Type safety**: Explicitly type all function parameters and return values
 - **Validation**: Use Zod schemas to validate all client data (API requests, form inputs, external data)
@@ -255,7 +256,7 @@ export default function ClientComponent() {
 
 #### shadcn/ui + Radix UI
 - **All UI components** use shadcn/ui from `@/components/ui/*`
-- **Available components** (`components/ui/`): accordion, alert, alert-dialog, avatar, badge, breadcrumb, button, card, checkbox, command, dialog, dropdown-menu, form, hover-card, input, input-group, label, pagination, popover, select, separator, sheet, sidebar, skeleton, sonner, switch, table, tabs, textarea, tooltip. Toasts are sonner only: there is no shadcn toast provider, so import `toast` from `sonner`.
+- **Available components** (`src/components/ui/`): accordion, alert, alert-dialog, avatar, badge, breadcrumb, button, card, checkbox, command, dialog, dropdown-menu, form, hover-card, input, input-group, label, pagination, popover, select, separator, sheet, sidebar, skeleton, sonner, switch, table, tabs, textarea, tooltip. Toasts are sonner only: there is no shadcn toast provider, so import `toast` from `sonner`.
 - **Styling**: Tailwind CSS with CSS variables for theming
 - **Icons**: Use `lucide-react` for all icons
 - **No margins inside buttons**: `Button` already spaces its children via a built-in `gap` (and icon-aware padding). NEVER add `ml-*`/`mr-*`/`mx-*` to icons or any other child inside a `Button` — just place the icon before or after the label and let the gap handle spacing. (Negative margin on the `Button` element itself for outer alignment, e.g. `-ml-3`, is fine.)
@@ -263,7 +264,7 @@ export default function ClientComponent() {
 #### Tailwind Patterns
 - Use utility classes, avoid custom CSS unless necessary
 - Use `cn()` helper from `@/lib/utils` to merge class names
-- Theme colors via CSS variables (defined in `app/globals.css`)
+- Theme colors via CSS variables (defined in `src/app/globals.css`)
 - Responsive: mobile-first approach
 
 #### Layout & Visual Design Principles
@@ -271,9 +272,9 @@ export default function ClientComponent() {
 These are the house style for app pages. Follow them by default; deviate only with a clear reason.
 
 **App shell**
-- The whole app lives inside a left **sidebar shell** (`components/app-sidebar.tsx` + `SidebarProvider`/`SidebarInset`). Primary nav lives in the sidebar ("Platform" group); secondary/footer links live in the sidebar ("Resources" group + legal/copyright in `SidebarFooter`). There is **no page footer component** — do not reintroduce one.
-- Global search, the Submit action, theme toggle, and the user button live in the **top bar** (`components/site-header.tsx`), not in the sidebar.
-- The content wrapper in `app/layout.tsx` is a plain block (`flex-1`), **not** a flex column. Never make the top-level content wrapper `flex flex-col` — auto-margin children (`mx-auto`) shrink-to-fit inside a flex parent, which silently narrows every centered page ("double compression"). Pages own their own container (`container mx-auto px-4`).
+- The whole app lives inside a left **sidebar shell** (`src/components/app-sidebar.tsx` + `SidebarProvider`/`SidebarInset`). Primary nav lives in the sidebar ("Platform" group); secondary/footer links live in the sidebar ("Resources" group + legal/copyright in `SidebarFooter`). There is **no page footer component** — do not reintroduce one.
+- Global search, the Submit action, theme toggle, and the user button live in the **top bar** (`src/components/site-header.tsx`), not in the sidebar.
+- The content wrapper in `src/app/layout.tsx` is a plain block (`flex-1`), **not** a flex column. Never make the top-level content wrapper `flex flex-col` — auto-margin children (`mx-auto`) shrink-to-fit inside a flex parent, which silently narrows every centered page ("double compression"). Pages own their own container (`container mx-auto px-4`).
 
 **De-carding (don't wrap content in cards)**
 - Do **not** wrap data tables or page content in `Card`. Tables render directly inside the centered container, optionally in a `rounded-md border` for definition. The marketing home page is the only place feature/navigation cards are appropriate (and even there, keep it toned down).
@@ -303,7 +304,7 @@ These are the house style for app pages. Follow them by default; deviate only wi
 
 #### Route Structure
 ```typescript
-// app/api/resource/route.ts
+// src/app/api/resource/route.ts
 import { authErrorResponse, requireAuth } from "@/lib/auth"
 import { createErrorResponse, createSuccessResponse } from "@/lib/error-handling"
 import { checkUserRateLimit, createRateLimitError, RATE_LIMITS } from "@/lib/rate-limiting"
@@ -357,7 +358,7 @@ datasource db {
 }
 ```
 
-- Connected through the `@prisma/adapter-pg` driver adapter (`PrismaPg`) in `lib/prisma.ts`
+- Connected through the `@prisma/adapter-pg` driver adapter (`PrismaPg`) in `src/lib/prisma.ts`
 - `DATABASE_URL` is required. `SHADOW_DATABASE_URL` is optional and only used by `migrate dev`
 - Native `@db.VarChar()`/`@db.Text` column annotations and `String[]` array fields are supported
 - Enums are database-native (`CREATE TYPE`)
@@ -423,11 +424,11 @@ await prisma.$transaction([
   - `UPLOADS_DIR` (local image storage, default `./data/uploads`)
   - `ENCRYPTION_KEY` (encrypts stored provider API keys; the key routes return 503 without it)
   - `SCICRUNCH_API_KEY` (optional, richer antibody search; the keyless resolver is used without it)
-  - `INSTANCE_NAME`, `INSTANCE_INSTITUTION`, `INSTANCE_OPERATOR`, `INSTANCE_ADDRESS`, `INSTANCE_CONTACT_EMAIL`, `INSTANCE_CONFIG_DIR` (instance identity and legal page overrides, read in `lib/instance.ts`; server-side only, never `NEXT_PUBLIC_`)
+  - `INSTANCE_NAME`, `INSTANCE_INSTITUTION`, `INSTANCE_OPERATOR`, `INSTANCE_ADDRESS`, `INSTANCE_CONTACT_EMAIL`, `INSTANCE_CONFIG_DIR` (instance identity and legal page overrides, read in `src/lib/instance.ts`; server-side only, never `NEXT_PUBLIC_`)
   - `INSTANCE_ALLOW_INDEXING` (default `false`: robots.txt disallows everything, the sitemap is empty and root metadata is `noindex, nofollow`; `true` restores normal indexing)
   - `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` (optional instance-wide AI keys, the last fallback after a user key and a lab key), `AI_DEFAULT_MODEL` (`provider:model`), `AI_INSTANCE_DAILY_LIMIT` (per-user daily chat turns on the instance keys, default 200, 0 = unlimited). See `docs/development/chat-persistence.md`.
   - Script-only: `ADMIN_EMAIL`, `ADMIN_NAME`, `ADMIN_PASSWORD`, `SETUP_SKIP_FPBASE`, `SEED_ALLOW_RESET`, `DEMO_USER_EMAIL`, `DEMO_USER_PASSWORD`. Compose-only: `POSTGRES_*`, `BUILD_MEMORY_MB`, `SITE_ADDRESS`, `ACME_EMAIL`, `HTTP_PORT`, `HTTPS_PORT`, `PROXY_BIND`, `BASIC_AUTH_USER`, `BASIC_AUTH_PASSWORD`, `APP_PORT`
-- `.env.local.example` is the authoritative list. Keep it, `lib/env.ts` and `docs/self-hosting/configuration.md` in step.
+- `.env.local.example` is the authoritative list. Keep it, `src/lib/env.ts` and `docs/self-hosting/configuration.md` in step.
 - **Never hardcode secrets** in code or commit to git
 
 ### Security Headers
@@ -507,7 +508,7 @@ npm run start        # Start production server
 - `README.md`: entry point for institutions evaluating or deploying PanelMaker, quick start, short development section
 - `docs/self-hosting/`: operator guide (deployment, configuration, legal and branding, AI assistant, data, upgrading, administration)
 - `docs/development/`: architecture overview and design notes (`chat-persistence.md`, `lab-structure/`, `ibex-import.md`, `metadata-standards.md`)
-- `app/docs/`: in-app user documentation (MDX), served at `/docs` on every instance. `/docs/getting-started/self-hosting` links to `docs/self-hosting/` on GitHub
+- `src/app/docs/`: in-app user documentation (MDX), served at `/docs` on every instance. `/docs/getting-started/self-hosting` links to `docs/self-hosting/` on GitHub
 - When you change configuration, commands or operator-visible behavior, update `docs/self-hosting/` in the same change
 
 ---
@@ -515,15 +516,15 @@ npm run start        # Start production server
 ## Architecture Guidelines
 
 ### Next.js App Router
-- **File-based routing**: `app/` directory
+- **File-based routing**: `src/app/` directory
 - **Route groups**: Use `(group)` for organization without affecting URL
-- **API routes**: `app/api/*/route.ts` with named exports (GET, POST, etc.)
-- **Middleware**: Auth middleware in `proxy.ts` (Next 16 renamed the file; it re-exports the Auth.js handler)
+- **API routes**: `src/app/api/*/route.ts` with named exports (GET, POST, etc.)
+- **Middleware**: Auth middleware in `src/proxy.ts` (Next 16 renamed the file; it re-exports the Auth.js handler)
 - **Metadata**: Export `metadata` and `viewport` from page components
 
 ### State Management
 - **Server state**: React Server Components (default)
-- **Client state**: `useState` for local, Zustand for global (see `stores/panels.ts`)
+- **Client state**: `useState` for local, Zustand for global (see `src/stores/panels.ts`)
 - **URL state**: `useSearchParams` and `useRouter` from `next/navigation`
 - **Form state**: `react-hook-form` with `@hookform/resolvers` and Zod
 
@@ -531,11 +532,11 @@ npm run start        # Start production server
 - **Vercel AI SDK**: `ai` v7 and `@ai-sdk/react` v4 (providers `@ai-sdk/google`, `@ai-sdk/openai`, `@ai-sdk/anthropic` v4) for streaming chat responses. Use v7 names: `instructions` (not `system`), `isStepCount`, `onEnd`/`onStepEnd`, `usage` (covers all steps), `toUIMessageStream` + `createUIMessageStreamResponse`, `createGoogle`. Reasoning goes through the top-level `reasoning` option chosen in the UI, not provider-specific `providerOptions`.
 - **No MCP**: Tools call internal model query functions directly (no `@ai-sdk/mcp` or `@modelcontextprotocol/sdk`)
 - **Providers**: Anthropic (Claude), Google (Gemini), OpenAI via `@ai-sdk/*`
-- **Tools**: defined in `lib/chat-tools.ts`, call `models/*/queries.ts` functions directly
+- **Tools**: defined in `src/lib/chat-tools.ts`, call `src/models/*/queries.ts` functions directly
 
 ### MDX & Documentation
 - **MDX support**: `@next/mdx` with remark/rehype plugins
-- **Plugins in use** (MDX pages in `next.config.ts`, runtime Markdown in `components/markdown.tsx`):
+- **Plugins in use** (MDX pages in `next.config.ts`, runtime Markdown in `src/components/markdown.tsx`):
   - `remark-gfm`: GitHub Flavored Markdown
   - `remark-breaks`: Line breaks
   - `remark-supersub`: Superscript/subscript

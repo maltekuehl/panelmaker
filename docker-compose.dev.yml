@@ -42,7 +42,7 @@ services:
     volumes:
       - .:/app
       - node_modules:/app/node_modules
-      - prisma_client:/app/lib/generated
+      - prisma_client:/app/src/lib/generated
       - next_cache:/app/.next
     depends_on:
       postgres:

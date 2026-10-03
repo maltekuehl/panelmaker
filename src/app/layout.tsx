@@ -24,12 +24,12 @@ const outfitHeading = Outfit({ subsets: ["latin"], variable: "--font-heading" })
 const inter = localFont({
   src: [
     {
-      path: "../public/assets/fonts/Inter-VariableFont_opsz,wght.ttf",
+      path: "../../public/assets/fonts/Inter-VariableFont_opsz,wght.ttf",
       weight: "100 900",
       style: "normal",
     },
     {
-      path: "../public/assets/fonts/Inter-Italic-VariableFont_opsz,wght.ttf",
+      path: "../../public/assets/fonts/Inter-Italic-VariableFont_opsz,wght.ttf",
       weight: "100 900",
       style: "italic",
     },

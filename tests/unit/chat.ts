@@ -12,7 +12,7 @@ import {
   describeProviderError,
   parseChatError,
   serializeChatError,
-} from "../../models/chat/errors"
+} from "../../src/models/chat/errors"
 import {
   annotateModels,
   canManageLabCredentials,
@@ -26,9 +26,9 @@ import {
   resolveLabContext,
   type KeyInventory,
   type ModelOption,
-} from "../../models/chat/keys"
-import { deriveRole, storedMessageId } from "../../models/chat/transforms"
-import type { ViewerContext } from "../../models/lab/access"
+} from "../../src/models/chat/keys"
+import { deriveRole, storedMessageId } from "../../src/models/chat/transforms"
+import type { ViewerContext } from "../../src/models/lab/access"
 
 const moduleLoader = Module as unknown as { _load: (request: string, ...rest: unknown[]) => unknown }
 const originalLoad = moduleLoader._load
@@ -41,8 +41,8 @@ process.env.ENCRYPTION_KEY = process.env.ENCRYPTION_KEY ?? "unit-test-encryption
 
 const localRequire = createRequire(__filename)
 const { decryptSecret, encryptSecret, isEncryptionConfigured, maskSecret } = localRequire(
-  "../../lib/crypto",
-) as typeof import("../../lib/crypto")
+  "../../src/lib/crypto",
+) as typeof import("../../src/lib/crypto")
 
 let failures = 0
 function check(name: string, fn: () => void) {

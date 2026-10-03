@@ -28,7 +28,7 @@ RUN npm ci
 # migrated → queries return nothing → the static shell still builds) and
 # discard it; it never reaches the runtime image.
 #
-# The non-DB env vars below are placeholders that satisfy lib/env.ts
+# The non-DB env vars below are placeholders that satisfy src/lib/env.ts
 # validation (which throws in production) and bake NEXT_PUBLIC_* into the
 # client bundle. Real runtime secrets are injected by docker-compose.
 #
@@ -73,19 +73,19 @@ ENV NODE_ENV=production \
   NPM_CONFIG_UPDATE_NOTIFIER=false
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-COPY --from=deps /app/lib/generated ./lib/generated
+COPY --from=deps /app/src/lib/generated ./src/lib/generated
 RUN mkdir -p /app/data/uploads && chown -R node:node /app/data
 USER node
 CMD ["sh", "-c", "npx prisma migrate deploy && npm run setup"]
 
 # ─── dev ─────────────────────────────────────────────────────────────
 # Hot-reloading dev server. Source is bind-mounted by docker-compose.dev.yml;
-# node_modules and lib/generated are seeded into named volumes from this image.
+# node_modules and src/lib/generated are seeded into named volumes from this image.
 FROM base AS dev
 ENV NODE_ENV=development
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-COPY --from=deps /app/lib/generated ./lib/generated
+COPY --from=deps /app/src/lib/generated ./src/lib/generated
 EXPOSE 3000
 CMD ["npm", "run", "dev"]
 

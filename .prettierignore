@@ -7,4 +7,4 @@ node_modules
 !**/*.mdx
 
 # Prisma generated client (do not format)
-lib/generated
+src/lib/generated

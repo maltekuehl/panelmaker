@@ -4,7 +4,7 @@ PanelMaker is developed in the open at [github.com/complextissue/panelmaker](htt
 
 ## Code of Conduct
 
-This project follows the Contributor Covenant. The text ships with the app at `/docs/community/conduct` (source: [`app/docs/(markdown)/community/conduct/page.mdx`](<app/docs/(markdown)/community/conduct/page.mdx>)). By taking part you agree to uphold it.
+This project follows the Contributor Covenant. The text ships with the app at `/docs/community/conduct` (source: [`src/app/docs/(markdown)/community/conduct/page.mdx`](<app/docs/(markdown)/community/conduct/page.mdx>)). By taking part you agree to uphold it.
 
 ## Where to go
 
@@ -19,7 +19,7 @@ Follow [Development in the README](README.md#development): Node.js from `.nvmrc`
 
 Before you start on something larger, read:
 
-- [AGENTS.md](AGENTS.md) for the project conventions: the `models/<entity>/` data layer, API route patterns, UI and copy rules
+- [AGENTS.md](AGENTS.md) for the project conventions: the `src/models/<entity>/` data layer, API route patterns, UI and copy rules
 - [docs/development](docs/development/README.md) for the architecture and design notes
 
 ## Making a change
@@ -36,7 +36,7 @@ Before you start on something larger, read:
    ```
 
 4. Add or update tests for new behavior. End-to-end tests live in `tests/*.spec.ts`, unit tests in `tests/unit/`.
-5. Update the docs when behavior, configuration or commands change: `README.md`, `docs/self-hosting/` for anything an operator notices, `app/docs/` for anything a user notices, and `.env.local.example` plus `lib/env.ts` for new settings.
+5. Update the docs when behavior, configuration or commands change: `README.md`, `docs/self-hosting/` for anything an operator notices, `src/app/docs/` for anything a user notices, and `.env.local.example` plus `src/lib/env.ts` for new settings.
 6. Open a pull request using the template and link related issues (`Fixes #123`).
 
 Commit messages follow the conventional commit style (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`). Husky runs Prettier and ESLint on staged files before each commit.
@@ -47,7 +47,7 @@ Create migrations with `npx prisma migrate dev --create-only --name <descriptive
 
 ### Copy and UI
 
-User-facing text is plain and direct. Do not use em dashes, en dashes (except in numeric ranges) or middle dots in copy. Use the shadcn/ui components in `components/ui/` and theme tokens rather than hard-coded colors. The details are in [AGENTS.md](AGENTS.md).
+User-facing text is plain and direct. Do not use em dashes, en dashes (except in numeric ranges) or middle dots in copy. Use the shadcn/ui components in `src/components/ui/` and theme tokens rather than hard-coded colors. The details are in [AGENTS.md](AGENTS.md).
 
 ## Review
 

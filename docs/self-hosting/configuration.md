@@ -1,6 +1,6 @@
 # Configuration
 
-PanelMaker reads its configuration from environment variables. In Docker they come from `.env` (copy [`.env.local.example`](../../.env.local.example)); `docker-compose.yml` overrides a few of them. The app validates its variables in [`lib/env.ts`](../../lib/env.ts). With `NODE_ENV=production` an invalid value stops the server; in development it only logs a warning.
+PanelMaker reads its configuration from environment variables. In Docker they come from `.env` (copy [`.env.local.example`](../../.env.local.example)); `docker-compose.yml` overrides a few of them. The app validates its variables in [`src/lib/env.ts`](../../lib/env.ts). With `NODE_ENV=production` an invalid value stops the server; in development it only logs a warning.
 
 Empty values: most variables treat `""` as unset. Two do not. `ENCRYPTION_KEY=""` and `INSTANCE_CONTACT_EMAIL=""` fail validation, and with `NODE_ENV=production` (always the case in Docker) the server then refuses to start. `.env.local.example` ships both as `""`, so either fill them in or delete the lines.
 

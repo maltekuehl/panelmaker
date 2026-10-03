@@ -2,7 +2,7 @@
 // SciCrunch Antibody Registry, then writes a reviewable cache to
 // prisma/data/pathoplex-antibodies.resolved.json. Run with: `npm run pathoplex:lookup`.
 //
-// The SciCrunch RIN client itself lives in lib/integrations/scicrunch.ts and is shared with the app's
+// The SciCrunch RIN client itself lives in src/lib/integrations/scicrunch.ts and is shared with the app's
 // runtime registry integration. This script owns only the paper-reagent reconciliation: it queries the
 // catalog number (and its suffix-stripped core) via the shared client, then verifies each hit's
 // structured (vendor name, catalog) pairs. CST size suffixes (5546T, 45596S) and "-SP"/"-NA"/"-2" pack
@@ -14,14 +14,14 @@
 import "dotenv/config"
 import { writeFileSync } from "node:fs"
 import path from "node:path"
+import { PATHOPLEX_ANTIBODIES, type PathoplexReagent } from "../prisma/data/pathoplex-antibodies"
 import {
   citationCountOf,
   type ScicrunchSource,
   type ScicrunchVendor,
   searchAntibodyHitsByCatalog,
   vendorCatalogs,
-} from "../lib/integrations/scicrunch"
-import { PATHOPLEX_ANTIBODIES, type PathoplexReagent } from "../prisma/data/pathoplex-antibodies"
+} from "../src/lib/integrations/scicrunch"
 
 type Confidence = "high" | "medium" | "low" | "unresolved"
 

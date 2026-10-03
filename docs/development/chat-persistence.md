@@ -6,7 +6,7 @@ Status: **shipped** (Phases 1-7). Built 2026-06-26. Key model reworked 2026-09-3
 
 ## What changed and why
 
-Previously the AI chat was **entirely client-side**: conversations lived in `stores/chat.ts`
+Previously the AI chat was **entirely client-side**: conversations lived in `src/stores/chat.ts`
 (Zustand + `localStorage`), so they were per-browser, lost on cache clear, never synced across
 devices, and invisible to the server. The `ChatMessage` Prisma model only logged token-usage
 telemetry, not content. The full-screen `/chat` page and the floating assistant were two
@@ -62,7 +62,7 @@ provider-specific `providerOptions`. The response goes through `toUIMessageStrea
 Reasoning effort is chosen in the composer next to the model (`ReasoningPicker`, Minimal / Low / Medium /
 High, default Low). It is a per-browser preference in `localStorage` shared with the floating widget,
 sent as `reasoning` in the request body and validated against `REASONING_EFFORTS` in
-`models/chat/schema.ts`. How the SDK maps it:
+`src/models/chat/schema.ts`. How the SDK maps it:
 
 | Effort                    | Google Gemini 3.x                                                                   | OpenAI (Responses)                                               | Anthropic                                                                          |
 | ------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -84,7 +84,7 @@ Only turns on an instance key are rate limited: `RATE_LIMITS.CHAT_INSTANCE_KEY`,
 default 200, overridden by `AI_INSTANCE_DAILY_LIMIT` (`0` = unlimited). User and lab keys are never
 limited by PanelMaker.
 
-### Error codes (`models/chat/errors.ts`)
+### Error codes (`src/models/chat/errors.ts`)
 
 Before streaming, `POST /api/chat` answers non-2xx with `{ "error": { code, message, provider?, source?,
 labName?, resetAt? } }`. Once streaming has started, the same JSON is the stream's error text. The
@@ -147,21 +147,21 @@ Migration: originally `20260625221534_chat_persistence`; all migrations have sin
 
 ## Data + infra layers
 
-- `models/chat/`: `queries.ts` (`server-only`: conversation CRUD, message persistence, title
+- `src/models/chat/`: `queries.ts` (`server-only`: conversation CRUD, message persistence, title
   hook, `deleteMessageAndAfter`, and the `ApiCredential` CRUD + `resolveProviderKey`),
   `transforms.ts` (pure: `deriveRole`, `storedMessageId`, summary types), `schema.ts` (Zod,
   `chatRequestSchema` is permissive because the AI SDK transport adds its own body fields),
   `index.ts` barrel.
-- `lib/crypto.ts`: AES-256-GCM `encryptSecret`/`decryptSecret`/`maskSecret`/`isEncryptionConfigured`,
-  keyed from `ENCRYPTION_KEY` (added to `lib/env.ts`, optional 32+ chars).
-- `lib/ai/models.ts`: catalog (`BUILTIN_MODELS` plus `AI_DEFAULT_MODEL` if unlisted),
+- `src/lib/crypto.ts`: AES-256-GCM `encryptSecret`/`decryptSecret`/`maskSecret`/`isEncryptionConfigured`,
+  keyed from `ENCRYPTION_KEY` (added to `src/lib/env.ts`, optional 32+ chars).
+- `src/lib/ai/models.ts`: catalog (`BUILTIN_MODELS` plus `AI_DEFAULT_MODEL` if unlisted),
   `resolveLanguageModel(modelId, viewer, labContextId)` (throws `ChatError`), `getChatSetup()` for the
-  picker. `lib/ai/config.ts` reads the instance env keys, `lib/ai/verify-key.ts` checks a key with a free
-  list-models call, `lib/ai/credential-api.ts` holds the shared save/test handlers.
-- `models/chat/keys.ts` (pure, client-safe): precedence (`rankKeySources`, `pickKeySource`), lab
+  picker. `src/lib/ai/config.ts` reads the instance env keys, `src/lib/ai/verify-key.ts` checks a key with a free
+  list-models call, `src/lib/ai/credential-api.ts` holds the shared save/test handlers.
+- `src/models/chat/keys.ts` (pure, client-safe): precedence (`rankKeySources`, `pickKeySource`), lab
   context (`resolveLabContext`), access (`canUseLabCredential`, `canManageLabCredentials` via the new
   `manage_api_keys` lab action), model annotation and default choice.
-- `models/chat/errors.ts` (pure, client-safe): `ChatError`, error codes, friendly copy,
+- `src/models/chat/errors.ts` (pure, client-safe): `ChatError`, error codes, friendly copy,
   `classifyProviderError` and the JSON wire format (`serializeChatError` / `parseChatError`).
 
 ## API routes
@@ -185,17 +185,17 @@ Migration: originally `20260625221534_chat_persistence`; all migrations have sin
 
 - `/chat` redirects to the most-recent (or a new) `/chat/[id]`; `/chat/[id]` is a dynamic server
   component that ownership-checks and renders `<Chat>` with server data (`notFound()` otherwise).
-- `components/chat/chat.tsx` and `chat-sidebar.tsx` are server-data driven (no Zustand). Switching
+- `src/components/chat/chat.tsx` and `chat-sidebar.tsx` are server-data driven (no Zustand). Switching
   conversations is `router.push('/chat/[id]')`; new/rename/delete hit the API then `router.refresh()`.
-  The composer has a model picker and a reasoning effort picker (`components/chat/model-picker.tsx`,
-  effort state in `components/chat/use-reasoning-effort.ts`) and key notices
-  (`components/chat/key-notice.tsx`); state lives in `components/chat/use-chat-setup.ts`.
-- `components/ai-assistant-floating.tsx` loads (or creates) the user's most-recent conversation on
+  The composer has a model picker and a reasoning effort picker (`src/components/chat/model-picker.tsx`,
+  effort state in `src/components/chat/use-reasoning-effort.ts`) and key notices
+  (`src/components/chat/key-notice.tsx`); state lives in `src/components/chat/use-chat-setup.ts`.
+- `src/components/ai-assistant-floating.tsx` loads (or creates) the user's most-recent conversation on
   open, persists through `/api/chat`, and has an "Open in full page" link. Drag/resize unchanged.
-- `components/settings/api-keys-section.tsx` is reused on `/settings#ai-keys` (user keys) and
+- `src/components/settings/api-keys-section.tsx` is reused on `/settings#ai-keys` (user keys) and
   `/labs/[slug]/settings#ai-keys` (shared lab keys): one row per provider with add, replace, test and
   remove, masked last 4 characters, verification status and the fallback that applies when unset.
-- Removed: `stores/chat.ts`, the old localStorage-based model picker, `components/chat/chat-settings.tsx`,
+- Removed: `src/stores/chat.ts`, the old localStorage-based model picker, `src/components/chat/chat-settings.tsx`,
   and the stale "powered by BioContextAI" line. Added an "Assistant" sidebar nav entry.
 
 ## Verification done

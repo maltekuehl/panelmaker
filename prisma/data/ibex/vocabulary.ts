@@ -3,7 +3,7 @@
 // against OLS4 / NCBI live in ontology.resolved.json; this file holds only the policy decisions.
 //
 // Source: https://github.com/IBEXImagingCommunity/ibex_imaging_knowledge_base (CC BY 4.0).
-import type { AntigenRetrieval, Preservation } from "../../../lib/generated/prisma/client"
+import type { AntigenRetrieval, Preservation } from "../../../src/lib/generated/prisma/client"
 
 export const IBEX_SOURCE = {
   id: "ibex-knowledge-base",

@@ -1,7 +1,7 @@
 import "server-only"
 
 import type { PrismaClient } from "@/lib/generated/prisma/client"
-import { createPrismaClient } from "../prisma/client"
+import { createPrismaClient } from "../../prisma/client"
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 

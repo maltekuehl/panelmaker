@@ -18,7 +18,6 @@ import "dotenv/config"
 import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import path from "node:path"
-import type { AntigenRetrieval, Clonality, Prisma } from "../lib/generated/prisma/client"
 import { runScript } from "../prisma/client"
 import { parseCsvRecords } from "../prisma/data/ibex/csv"
 import {
@@ -42,6 +41,7 @@ import {
   type IbexProteinResolution,
 } from "../prisma/data/ibex/vocabulary"
 import { storeEfoImagingMethod } from "../prisma/imaging-methods"
+import type { AntigenRetrieval, Clonality, Prisma } from "../src/lib/generated/prisma/client"
 
 const DATA_DIR = path.join(process.cwd(), "prisma", "data", "ibex")
 

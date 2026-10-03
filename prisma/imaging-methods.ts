@@ -1,5 +1,5 @@
 import { searchEfoImagingMethods } from "@/lib/ontology"
-import type { PrismaClient } from "../lib/generated/prisma/client"
+import type { PrismaClient } from "../src/lib/generated/prisma/client"
 
 // Stores an EFO imaging method term, looked up in OLS by its CURIE, unless it is already there.
 export async function storeEfoImagingMethod(prisma: PrismaClient, id: string): Promise<{ id: string; label: string }> {

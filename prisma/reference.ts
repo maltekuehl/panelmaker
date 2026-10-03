@@ -1,5 +1,5 @@
 import { resolveFluorophoreSpectra } from "@/lib/integrations/fpbase"
-import { Prisma, type PrismaClient } from "../lib/generated/prisma/client"
+import { Prisma, type PrismaClient } from "../src/lib/generated/prisma/client"
 import { STAINING_ISSUES, VALIDATION_METHODS } from "./data/assessment"
 import { FLUOROPHORE_SEED } from "./data/fluorophores"
 import {

@@ -51,6 +51,6 @@ Running an instance makes you responsible for its security and for the data your
 ## Guidelines for contributors
 
 - Validate all input with Zod and check authentication and authorization in every route that needs it.
-- Use the visibility helpers in `models/lab/visibility.ts` for any query that can return private or lab data.
+- Use the visibility helpers in `src/models/lab/visibility.ts` for any query that can return private or lab data.
 - Do not expose internal error details in responses.
 - Never commit secrets. Run `npm audit` when you add or update dependencies, and add dependencies only when needed.

@@ -11,8 +11,8 @@ import {
   ROLE_RANK,
   type ResourceVisibility,
   type ViewerContext,
-} from "../../models/lab/access"
-import { buildPanelVisibilityWhere, buildReportVisibilityWhere } from "../../models/lab/visibility"
+} from "../../src/models/lab/access"
+import { buildPanelVisibilityWhere, buildReportVisibilityWhere } from "../../src/models/lab/visibility"
 
 let failures = 0
 function check(name: string, fn: () => void) {
@@ -119,7 +119,7 @@ check("builders FAIL CLOSED on a malformed (truthy-but-empty) viewer", () => {
 
 check("purity guard: access.ts and visibility.ts import neither prisma client nor server-only", () => {
   for (const file of ["access.ts", "visibility.ts"]) {
-    const src = readFileSync(path.join(process.cwd(), "models", "lab", file), "utf8")
+    const src = readFileSync(path.join(process.cwd(), "src", "models", "lab", file), "utf8")
     assert.ok(!/import\s+["']server-only["']/.test(src), `${file} must not import server-only`)
     assert.ok(
       !/import\s+\{[^}]*\}\s+from\s+["']@\/lib\/prisma["']/.test(src),
@@ -129,7 +129,7 @@ check("purity guard: access.ts and visibility.ts import neither prisma client no
 })
 
 check('import guard: no "use client" file imports server-only lab/prisma modules', () => {
-  const roots = ["components", "app"]
+  const roots = ["src/components", "src/app"]
   const offenders: string[] = []
   function walk(dir: string) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {

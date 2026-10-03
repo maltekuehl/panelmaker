@@ -1,10 +1,10 @@
 import { normalizeEmail } from "@/models/user/transforms"
 import bcrypt from "bcryptjs"
 import { randomBytes } from "node:crypto"
-import type { PrismaClient } from "../../lib/generated/prisma/client"
+import type { PrismaClient } from "../../src/lib/generated/prisma/client"
 
-// Same cost factor as app/api/auth/register/route.ts, so accounts created here sign in through the
-// regular credentials provider in auth.ts.
+// Same cost factor as src/app/api/auth/register/route.ts, so accounts created here sign in through the
+// regular credentials provider in src/auth.ts.
 const PASSWORD_HASH_ROUNDS = 12
 export const MIN_PASSWORD_LENGTH = 12
 const MAX_PASSWORD_LENGTH = 128

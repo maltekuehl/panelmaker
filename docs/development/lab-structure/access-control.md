@@ -2,10 +2,10 @@
 
 ## Where it lives
 
-- `models/lab/access.ts` - pure predicates, NO prisma client, NO `server-only` (type-only Prisma import) so it is unit-testable: `ViewerContext`, `ROLE_RANK`, `isLabMember`, `hasLabRole`, `LabAction` + `canDoLabAction` (the lab-management capability map), `ResourceVisibility`, `canViewResource`/`canEditResource` (the core predicates), `experimentResource`/`panelResource` (row -> ResourceVisibility adapters), and the typed wrappers `canViewExperiment`/`canEditExperiment`/`canViewPanel`/`canEditPanel`.
-- `models/lab/visibility.ts` - the single source of truth for Prisma where-builders (type-only Prisma import): `buildExperimentVisibilityWhere`, `buildReportVisibilityWhere`, `buildPanelVisibilityWhere`, plus the fail-closed `assertViewer`.
-- `models/lab/queries.ts` - `import "server-only"` + prisma; all DB access.
-- `lib/auth.ts` - request guards: `resolveViewerContext` (React `cache()`), `requireLabMember`, `requireLabRole`, `authErrorResponse`; `createAuthHandler` maps lab errors to 403/404.
+- `src/models/lab/access.ts` - pure predicates, NO prisma client, NO `server-only` (type-only Prisma import) so it is unit-testable: `ViewerContext`, `ROLE_RANK`, `isLabMember`, `hasLabRole`, `LabAction` + `canDoLabAction` (the lab-management capability map), `ResourceVisibility`, `canViewResource`/`canEditResource` (the core predicates), `experimentResource`/`panelResource` (row -> ResourceVisibility adapters), and the typed wrappers `canViewExperiment`/`canEditExperiment`/`canViewPanel`/`canEditPanel`.
+- `src/models/lab/visibility.ts` - the single source of truth for Prisma where-builders (type-only Prisma import): `buildExperimentVisibilityWhere`, `buildReportVisibilityWhere`, `buildPanelVisibilityWhere`, plus the fail-closed `assertViewer`.
+- `src/models/lab/queries.ts` - `import "server-only"` + prisma; all DB access.
+- `src/lib/auth.ts` - request guards: `resolveViewerContext` (React `cache()`), `requireLabMember`, `requireLabRole`, `authErrorResponse`; `createAuthHandler` maps lab errors to 403/404.
 
 **Client-import rule (build-enforced):** `"use client"` files must import lab symbols ONLY from `@/models/lab/access` or `@/models/lab/visibility` (both pure). They must NEVER import the `@/models/lab` barrel, `@/models/lab/queries`, `@/lib/prisma`, or `server-only` - the barrel re-exports the server-only queries and breaks the client bundle. The import-guard unit test enforces this.
 
